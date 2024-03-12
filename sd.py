@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 
 import gi
+import yaml
 gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, Gdk
 
 import cairo
 import math
+import os
+
+savefile = os.path.expanduser("~/.screendrawer")
+print(savefile)
+# open file for appending if exists, or create if not
+
 
 def distance_point_to_segment(px, py, x1, y1, x2, y2):
     """Calculate the distance from a point (px, py) to a line segment (x1, y1) to (x2, y2)."""
@@ -46,6 +53,16 @@ def find_paths_close_to_click(click_x, click_y, paths, threshold):
             return {"type": "path", "path": path, "origin": (click_x, click_y)}
     return None
 
+def find_text_close_to_click(click_x, click_y, texts, threshold):
+    """Find all texts close to a click."""
+    for text in texts:
+        if "bb" not in text:
+            continue
+        x, y, width, height = text["bb"]
+        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
+            return {"type": "text", "text": text, "origin": (click_x, click_y)}
+    return None
+
 def move_path(path, dx, dy):
     """Move a path by a given offset."""
     for i in range(len(path)):
@@ -59,7 +76,8 @@ class TransparentWindow(Gtk.Window):
     
     def init_ui(self):
         self.set_title("Transparent Drawing Window")
-        self.connect("destroy", Gtk.main_quit)
+        self.set_decorated(False)
+        self.connect("destroy", self.exit)
         self.set_default_size(800, 600)
 
         screen = self.get_screen()
@@ -69,8 +87,8 @@ class TransparentWindow(Gtk.Window):
 
         self.set_app_paintable(True)
         self.connect("draw", self.on_draw)
-
         self.connect("key-press-event", self.on_key_press)
+
 
         # Drawing setup
         self.paths = []
@@ -81,9 +99,13 @@ class TransparentWindow(Gtk.Window):
         self.changing_line_width = False
         self.selection = None
 
+        # defaults for drawing
+        self.transparent = True
         self.font_size  = 24
         self.line_width = 4
         self.color      = (0.2, 0, 0)
+
+        self.load_state()
 
         self.connect("button-press-event", self.on_button_press)
         self.connect("button-release-event", self.on_button_release)
@@ -93,8 +115,18 @@ class TransparentWindow(Gtk.Window):
         self.set_keep_above(True)
         self.maximize()
 
+    def exit(self):
+        ## close the savefile_f
+        print("Exiting")
+        self.save_state()
+        Gtk.main_quit()
+        
+
     def on_draw(self, widget, cr):
-        cr.set_source_rgba(0, 0, 0, 0)  # Transparent background
+        if self.transparent:
+            cr.set_source_rgba(0, 0, 0, 0)  # Transparent background
+        else:
+            cr.set_source_rgb(1, 1, 1) # White background
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
@@ -116,8 +148,17 @@ class TransparentWindow(Gtk.Window):
             position, content, size, color = text["position"], text["content"], text["size"], text["color"]
             cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
             cr.set_font_size(size)
-            cr.set_source_rgb(*color)
+
+            x_bearing, y_bearing, width, height, x_advance, y_advance = cr.text_extents(content)
+            text["bb"] = (position[0] + x_bearing, position[1] + y_bearing, width, height)
+
+           #cr.set_line_width(1)
+           #cr.rectangle(position[0] + x_bearing - 5, position[1] + y_bearing - 5, width + 10, height + 10)
+           #cr.set_source_rgb(1, 0, 0)  # Black for the text outline
+           #cr.stroke()
+
             cr.move_to(position[0], position[1])
+            cr.set_source_rgb(*color)
             cr.show_text(content)
             cr.stroke()
 
@@ -126,7 +167,32 @@ class TransparentWindow(Gtk.Window):
             cr.set_line_width(self.line_width)
             cr.set_source_rgb(*self.color)
             self.draw_dot(cr, *self.cur_pos, self.line_width)
- 
+
+    def save_state(self): 
+        config = {
+                'transparent': self.transparent,
+                'font_size': self.font_size,
+                'line_width': self.line_width,
+                'color': self.color
+        }
+
+        state = { 'config': config, 'texts': self.texts, 'paths': self.paths }
+        with open(savefile, 'w') as f:
+            yaml.dump(state, f)
+        print("Saved drawing to", savefile)
+
+    def load_state(self):
+        if not os.path.exists(savefile):
+            print("No saved drawing found at", savefile)
+            return
+        with open(savefile, 'r') as f:
+            state = yaml.load(f, Loader=yaml.FullLoader)
+        self.texts, self.paths = state['texts'], state['paths']
+        self.transparent       = state['config']['transparent']
+        self.font_size         = state['config']['font_size']
+        self.line_width        = state['config']['line_width']
+        self.color             = state['config']['color']
+
     # Event handlers
     def on_button_press(self, widget, event):
         modifiers = Gtk.accelerator_get_default_mod_mask()
@@ -147,96 +213,150 @@ class TransparentWindow(Gtk.Window):
 
         # Left mouse button - just drawing
         elif event.button == 1:  # Left mouse button
-            hit_click = False
-            for path in self.paths:
-                if is_click_close_to_path(event.x, event.y, path["coords"], 10):
-                    print("Click close to path")
-                    self.selection = { "type": "path", "path": path, "origin": (event.x, event.y)}
-                    hit_click = True
+            obj = self.find_objects(event.x, event.y)
+            if event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS:
+                print("Double-click detected!")
+                double_click = True
 
-            if not hit_click: 
+            if obj:
+                print("Found object of type", obj["type"])
+                self.selection = obj
+
+            else:
                 self.current_path = { "coords": [ (event.x, event.y) ], "line_width": self.line_width, "color": self.color }
                 self.paths.append(self.current_path)
 
             self.queue_draw()
-
     # Event handlers
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         self.cur_pos      = None
         self.changing_line_width = False
         self.current_path = None
+
+        if self.selection:
+            # If the user was dragging a selected object and the drag ends
+            # in the lower left corner, delete the object
+            if event.x < 10 and event.y > self.get_size()[1] - 10:
+                if self.selection["type"] == "path":
+                    self.paths.remove(self.selection["path"])
+                elif self.selection["type"] == "text":
+                    self.texts.remove(self.selection["text"])
+                self.selection = None
+                self.queue_draw()
         self.selection    = None
+
+    def find_objects(self, x0, y0):
+        """Find all objects close to the given position."""
+        maybepath = find_paths_close_to_click(x0, y0, self.paths, 10)
+        maybetext = find_text_close_to_click(x0, y0, self.texts, 10)
+        if maybepath:
+            return maybepath
+        if maybetext:
+            return maybetext
+        return None
 
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
         if self.changing_line_width:
-            self.line_width = max(1, min(20, self.line_width + (event.x - self.cur_pos[0])/100))
-            print(self.line_width)
-            #self.cur_pos = (event.x, event.y)
+            self.line_width = max(3, min(40, self.line_width + (event.x - self.cur_pos[0])/250))
             self.queue_draw()
         elif self.current_path is not None:
             self.current_path["coords"].append((event.x, event.y))
             self.queue_draw()
         elif self.selection is not None:
-            print("Moving path")
             dx = event.x - self.selection["origin"][0]
             dy = event.y - self.selection["origin"][1]
-            move_path(self.selection["path"]["coords"], dx, dy)
-            self.selection["origin"] = (event.x, event.y)
-            self.queue_draw()
 
+            # Move the selected object
+            if self.selection["type"] == "path":
+                move_path(self.selection["path"]["coords"], dx, dy)
+                self.selection["origin"] = (event.x, event.y)
+                self.queue_draw()
+            elif self.selection["type"] == "text":
+                self.selection["text"]["position"] = (self.selection["text"]["position"][0] + dx, self.selection["text"]["position"][1] + dy)
+                self.selection["origin"] = (event.x, event.y)
+                self.queue_draw()
         else:
-            maybepath = find_paths_close_to_click(event.x, event.y, self.paths, 10)
+            object_underneath = self.find_objects(event.x, event.y)
 
-            if maybepath:
-                print("Close to path")
-                #self.selection = maybepath
-                #self.queue_draw()
+            if object_underneath:
                 self.change_cursor("hand")
             else:
                 self.change_cursor("pencil")
 
+    def finish_text_input(self):
+        """Clean up current text and finish text input."""
+        if self.texts and self.texts[-1]["content"] and self.texts[-1]["content"][-1] == "|":
+            self.texts[-1]["content"] = self.texts[-1]["content"][:-1]
+        self.text_input = False
+        self.change_cursor("pencil")
+        self.queue_draw()
 
+    def update_text_input(self, char, keyname):
+        """Update the current text input."""
+        text = self.texts[-1]["content"][:-1]
+
+        if keyname == "BackSpace":
+            text = text[:-1]
+        elif keyname == "Return":
+            pass
+        else:
+            text += char
+        self.texts[-1]["content"] = text + '|'
+        self.queue_draw()
+
+    def handle_shortcuts(self, keyname):
+        """Handle keyboard shortcuts."""
+        if keyname == "c" or keyname == "q":
+            self.exit()
+        elif keyname == "b":
+            self.transparent = not self.transparent
+            self.queue_draw()
+        elif keyname == "k":
+            self.select_color()
+        elif keyname == "l":
+            self.selection = None
+            self.text_input = False
+            self.paths = []
+            self.texts = []
+            self.queue_draw()
+        elif keyname == "plus":
+            if self.text_input:
+                self.texts[-1]["size"] += 1
+                print("increasing current font size to", self.texts[-1]["size"])
+                self.queue_draw()
+            else:
+                self.font_size += 1
+                print("increasing default font size to", self.font_size)
+        elif keyname == "minus":
+            if self.text_input:
+                self.texts[-1]["size"] = max(1, self.texts[-1]["size"] - 1)
+                print("decreasing current font size to", self.texts[-1]["size"])
+                self.queue_draw()
+            else:
+                self.font_size = max(1, self.font_size - 1)
+                print("decreasing default font size to", self.font_size)
+        elif keyname == "s":
+                self.save_drawing()
+ 
     def on_key_press(self, widget, event):
         """Handle keyboard events."""
         keyname = Gdk.keyval_name(event.keyval)
         char = chr(Gdk.keyval_to_unicode(event.keyval))
-        print(keyname)
+        #print(keyname)
 
-        if keyname == "Escape":
-            self.text_input = False
-            if self.texts and self.texts[-1]["content"]:
-                self.texts[-1]["content"] = self.texts[-1]["content"][:-1]
-            self.change_cursor("pencil")
-            self.queue_draw()
+        # End text input
+        if keyname == "Return" or keyname == "Escape":
+            self.finish_text_input()
+
+        # Handle keyboard shortcuts
         elif event.state & Gdk.ModifierType.CONTROL_MASK:
-            if keyname == "c" or keyname == "q":
-                Gtk.main_quit()
-            elif keyname == "k":
-                self.select_color()
-            elif keyname == "plus":
-
-                if self.text_input:
-                    self.texts[-1]["size"] += 1
-                    print("increasing current font size to", self.texts[-1]["size"])
-                    self.queue_draw()
-                else:
-                    self.font_size += 1
-                    print("increasing default font size to", self.font_size)
-            elif keyname == "s":
-                self.save_drawing()
+            self.handle_shortcuts(keyname)
+       
+        # Handle text input
         elif self.texts and self.text_input and (char and char.isprintable() or keyname in ["BackSpace", "Return"]):
-            text = self.texts[-1]["content"][:-1]
-
-            if keyname == "BackSpace":
-                text = text[:-1]
-            elif keyname == "Return":
-                pass
-            else:
-                text += char
-            self.texts[-1]["content"] = text + '|'
-            self.queue_draw()
+            self.update_text_input(char, keyname)
 
     def draw_dot(self, cr, x, y, diameter):
         """Draws a dot at the specified position with the given diameter.

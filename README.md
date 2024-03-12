@@ -1,6 +1,6 @@
 # screendrawer
 
-Draw on the screen with Gnome and Cairo
+Draw on the screen with Gnome and Cairo. Quick and dirty.
 
 # Installation
 
@@ -21,4 +21,17 @@ cp sd.py ~/bin/sd
 chmod a+x ~/bin/sd
 ```
 
+# Usage
+
+ * `sd` to start drawing
+ * `Ctrl+Q` or `Ctrl+C` to quit
+ * `Ctrl+S` to save the drawing as PNG
+ * `Ctrl+Plus` and `Ctrl+Minus` to change the font size
+ * 'Ctrl+L' to clear the screen
+ * Ctrl+click to change the brush size (move left / right to change the size)
+ * Shift+click to write a text
+ * grab an object to move it around
+ * drag the object to the left lower corner to delete it
+
+The state is saved in / loaded from `~/.screendrawer` so you can continue drawing later.
 
