@@ -5,15 +5,14 @@ import yaml
 gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, Gdk
-
 import cairo
-import math
 import os
+import time
+import math
 
 savefile = os.path.expanduser("~/.screendrawer")
 print(savefile)
 # open file for appending if exists, or create if not
-
 
 def distance_point_to_segment(px, py, x1, y1, x2, y2):
     """Calculate the distance from a point (px, py) to a line segment (x1, y1) to (x2, y2)."""
@@ -91,10 +90,12 @@ class TransparentWindow(Gtk.Window):
 
 
         # Drawing setup
+        self.objects = [ ]
         self.paths = []
         self.current_path = None
         self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
         self.texts = []
+        self.current_text = None
         self.text_input    = None
         self.changing_line_width = False
         self.selection = None
@@ -104,6 +105,9 @@ class TransparentWindow(Gtk.Window):
         self.font_size  = 24
         self.line_width = 4
         self.color      = (0.2, 0, 0)
+
+        # distance for selecting objects
+        self.max_dist   = 5
 
         self.load_state()
 
@@ -145,17 +149,15 @@ class TransparentWindow(Gtk.Window):
 
         # Draw the text
         for text in self.texts:
-            position, content, size, color = text["position"], text["content"], text["size"], text["color"]
+            position, content, size, color, cursor_pos = text["position"], text["content"], text["size"], text["color"], text["cursor_pos"]
+
+            if cursor_pos != None:
+                content = content[:cursor_pos] + "|" + content[cursor_pos:]
             cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
             cr.set_font_size(size)
 
             x_bearing, y_bearing, width, height, x_advance, y_advance = cr.text_extents(content)
             text["bb"] = (position[0] + x_bearing, position[1] + y_bearing, width, height)
-
-           #cr.set_line_width(1)
-           #cr.rectangle(position[0] + x_bearing - 5, position[1] + y_bearing - 5, width + 10, height + 10)
-           #cr.set_source_rgb(1, 0, 0)  # Black for the text outline
-           #cr.stroke()
 
             cr.move_to(position[0], position[1])
             cr.set_source_rgb(*color)
@@ -197,6 +199,10 @@ class TransparentWindow(Gtk.Window):
     def on_button_press(self, widget, event):
         modifiers = Gtk.accelerator_get_default_mod_mask()
 
+        # Ignore clicks when text input is active
+        if self.current_text:
+            return
+
         # Check if the Ctrl key is pressed
         if event.state & modifiers == Gdk.ModifierType.CONTROL_MASK and event.button == 1:  # Ctrl + Left mouse button
             self.cur_pos = (event.x, event.y)
@@ -206,33 +212,44 @@ class TransparentWindow(Gtk.Window):
         elif event.state & modifiers == Gdk.ModifierType.SHIFT_MASK and event.button == 1:  # Shift + Left mouse button
             self.change_cursor("text")
             print("Text input mode")
-            if not self.texts or not self.texts[-1] or self.texts[-1]["content"] != "|":
-                self.texts.append({"position": (event.x, event.y), "content": "|", "size": self.font_size, "color": self.color})
+
+            if not self.current_text:
+                self.current_text = { "position": (event.x, event.y), "content": "", "size": self.font_size, "color": self.color, "cursor_pos": 1 }
+                self.texts.append(self.current_text)
             self.text_input = True
             self.queue_draw()
 
         # Left mouse button - just drawing
-        elif event.button == 1:  # Left mouse button
+        elif event.button == 3:  # Left mouse button
             obj = self.find_objects(event.x, event.y)
             if event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS:
-                print("Double-click detected!")
-                double_click = True
+                if obj and obj["type"] == "text":
+                    obj["text"]["content"]    = obj["text"]["content"] #+ "|"
+                    obj["text"]["cursor_pos"] = len(obj["text"]["content"])
+                    self.current_text = obj["text"]
+                    self.queue_draw()
+                    self.change_cursor("text")
 
-            if obj:
+            elif obj:
                 print("Found object of type", obj["type"])
                 self.selection = obj
 
-            else:
-                self.current_path = { "coords": [ (event.x, event.y) ], "line_width": self.line_width, "color": self.color }
-                self.paths.append(self.current_path)
+        elif event.button == 1:  # Left mouse button
+            self.current_path = { "coords": [ (event.x, event.y) ], "line_width": self.line_width, "color": self.color }
+            self.paths.append(self.current_path)
 
-            self.queue_draw()
+        self.queue_draw()
+
     # Event handlers
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         self.cur_pos      = None
         self.changing_line_width = False
-        self.current_path = None
+        if self.current_path:
+            #self.current_path["coords"] = chaikin_smoothing(self.current_path["coords"], 3)
+            #self.current_path["coords"] = rdp(self.current_path["coords"], 15)
+            #self.current_path["coords"] = smooth_path(self.current_path["coords"])
+            self.current_path = None
 
         if self.selection:
             # If the user was dragging a selected object and the drag ends
@@ -248,8 +265,8 @@ class TransparentWindow(Gtk.Window):
 
     def find_objects(self, x0, y0):
         """Find all objects close to the given position."""
-        maybepath = find_paths_close_to_click(x0, y0, self.paths, 10)
-        maybetext = find_text_close_to_click(x0, y0, self.texts, 10)
+        maybepath = find_paths_close_to_click(x0, y0, self.paths, self.max_dist)
+        maybetext = find_text_close_to_click(x0, y0, self.texts, self.max_dist)
         if maybepath:
             return maybepath
         if maybetext:
@@ -287,23 +304,34 @@ class TransparentWindow(Gtk.Window):
 
     def finish_text_input(self):
         """Clean up current text and finish text input."""
-        if self.texts and self.texts[-1]["content"] and self.texts[-1]["content"][-1] == "|":
-            self.texts[-1]["content"] = self.texts[-1]["content"][:-1]
-        self.text_input = False
+        if self.current_text:
+            #self.current_text["content"] = self.current_text["content"][:-1]
+            self.current_text["cursor_pos"] = None
+            self.current_text = None
         self.change_cursor("pencil")
         self.queue_draw()
 
-    def update_text_input(self, char, keyname):
+    def update_text_input(self, keyname, char):
         """Update the current text input."""
-        text = self.texts[-1]["content"][:-1]
-
-        if keyname == "BackSpace":
-            text = text[:-1]
+        cur  = self.current_text
+        text = cur["content"] #[:-1]
+        # length of text
+    
+        if keyname == "BackSpace" and cur["cursor_pos"] > 0:
+            text = text[:cur["cursor_pos"] - 1] + text[cur["cursor_pos"]:]
+            cur["cursor_pos"] -= 1
+        elif keyname == "Right":
+            cur["cursor_pos"] = min(cur["cursor_pos"] + 1, len(text))
+            print("cursor pos", cur["cursor_pos"])
+        elif keyname == "Left":
+            cur["cursor_pos"] = max(cur["cursor_pos"] - 1, 0)
+            print("cursor pos", cur["cursor_pos"])
         elif keyname == "Return":
             pass
-        else:
-            text += char
-        self.texts[-1]["content"] = text + '|'
+        elif char and char.isprintable():
+            text = text[:cur["cursor_pos"]] + char + text[cur["cursor_pos"]:]
+            cur["cursor_pos"] += 1
+        cur["content"] = text #+ '|'
         self.queue_draw()
 
     def handle_shortcuts(self, keyname):
@@ -317,22 +345,21 @@ class TransparentWindow(Gtk.Window):
             self.select_color()
         elif keyname == "l":
             self.selection = None
-            self.text_input = False
+            self.current_path = None
+            self.current_text = None
             self.paths = []
             self.texts = []
             self.queue_draw()
         elif keyname == "plus":
-            if self.text_input:
-                self.texts[-1]["size"] += 1
-                print("increasing current font size to", self.texts[-1]["size"])
+            if self.current_text:
+                self.current_text["size"] += 1
                 self.queue_draw()
             else:
                 self.font_size += 1
                 print("increasing default font size to", self.font_size)
         elif keyname == "minus":
-            if self.text_input:
-                self.texts[-1]["size"] = max(1, self.texts[-1]["size"] - 1)
-                print("decreasing current font size to", self.texts[-1]["size"])
+            if self.current_text:
+                self.current_text["size"] = max(1, self.current_text["size"] - 1)
                 self.queue_draw()
             else:
                 self.font_size = max(1, self.font_size - 1)
@@ -343,7 +370,7 @@ class TransparentWindow(Gtk.Window):
     def on_key_press(self, widget, event):
         """Handle keyboard events."""
         keyname = Gdk.keyval_name(event.keyval)
-        char = chr(Gdk.keyval_to_unicode(event.keyval))
+        char    = chr(Gdk.keyval_to_unicode(event.keyval))
         #print(keyname)
 
         # End text input
@@ -355,8 +382,8 @@ class TransparentWindow(Gtk.Window):
             self.handle_shortcuts(keyname)
        
         # Handle text input
-        elif self.texts and self.text_input and (char and char.isprintable() or keyname in ["BackSpace", "Return"]):
-            self.update_text_input(char, keyname)
+        elif self.texts and self.current_text:
+            self.update_text_input(keyname, char)
 
     def draw_dot(self, cr, x, y, diameter):
         """Draws a dot at the specified position with the given diameter.
@@ -441,5 +468,7 @@ if __name__ == "__main__":
     win.show_all()
     win.present()
     win.change_cursor("default")
+    win.stick()
+
     Gtk.main()
 

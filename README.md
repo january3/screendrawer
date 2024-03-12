@@ -30,7 +30,7 @@ chmod a+x ~/bin/sd
  * 'Ctrl+L' to clear the screen
  * Ctrl+click to change the brush size (move left / right to change the size)
  * Shift+click to write a text
- * grab an object to move it around
+ * grab an object with right mouse button to move it around
  * drag the object to the left lower corner to delete it
 
 The state is saved in / loaded from `~/.screendrawer` so you can continue drawing later.
