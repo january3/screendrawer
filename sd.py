@@ -66,7 +66,7 @@ def find_obj_close_to_click(click_x, click_y, objects, threshold):
         elif obj["type"] == "text":
             if is_text_close_to_click(click_x, click_y, obj, threshold):
                 return obj
-        elif obj["type"] == "box":
+        elif obj["type"] in ["box", "circle"]:
             if is_box_close_to_click(click_x, click_y, obj["coords"], threshold):
                 return obj
     return None
@@ -107,9 +107,10 @@ class TransparentWindow(Gtk.Window):
         self.selection = None
         self.mode      = "default"
         self.current_cursor = None
+        self.hover = None
 
         # defaults for drawing
-        self.transparent = True
+        self.transparent = 0
         self.font_size  = 24
         self.line_width = 4
         self.color      = (0.2, 0, 0)
@@ -135,16 +136,13 @@ class TransparentWindow(Gtk.Window):
         
 
     def on_draw(self, widget, cr):
-        if self.transparent:
-            cr.set_source_rgba(0, 0, 0, 0)  # Transparent background
-        else:
-            cr.set_source_rgb(1, 1, 1) # White background
+        cr.set_source_rgba(1, 1, 1, self.transparent)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
         self.draw(cr)
 
-    def draw_text(self, cr, text):
+    def draw_text(self, cr, text, hover):
         position, content, size, color, cursor_pos = text["coords"][0], text["content"], text["size"], text["color"], text["cursor_pos"]
         cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
         cr.set_font_size(size)
@@ -163,7 +161,6 @@ class TransparentWindow(Gtk.Window):
                 fragment = fragment[:cursor_pos] + "|" + fragment[cursor_pos:]
 
             x_bearing, y_bearing, width, height, x_advance, y_advance = cr.text_extents(fragment)
-            print("text extents", x_bearing, y_bearing, width, height, x_advance, y_advance)
             text["bb"] = (position[0] + x_bearing, position[1] + y_bearing + dy, width, height)
 
             if bb_y == None:
@@ -192,19 +189,45 @@ class TransparentWindow(Gtk.Window):
 
             dy += y_advance + 1.5 * height
         text["bb"] = (bb_x, bb_y, bb_w, bb_h)
-        #cr.rectangle(bb_x, bb_y, bb_w, bb_h)
-        #cr.stroke()
+        if hover:
+            cr.set_line_width(1)
+            cr.rectangle(bb_x, bb_y, bb_w, bb_h)
+            cr.stroke()
 
-    def draw_path(self, cr, path):
-        cr.set_line_width(path["line_width"])
+    def draw_path(self, cr, path, hover):
+        if hover:
+            cr.set_line_width(path["line_width"] + 1)
+        else:
+            cr.set_line_width(path["line_width"])
         cr.set_source_rgb(*path["color"])
         cr.move_to(path["coords"][0][0], path["coords"][0][1])
         for point in path["coords"][1:]:
             cr.line_to(point[0], point[1])
         cr.stroke()
 
-    def draw_box(self, cr, box):
-        cr.set_line_width(box["line_width"])
+    def draw_circle(self, cr, box, hover):
+        if hover:
+            cr.set_line_width(box["line_width"] + 1)
+        else:
+            cr.set_line_width(box["line_width"])
+        cr.set_source_rgb(*box["color"])
+        x1, y1 = box["coords"][0]
+        x2, y2 = box["coords"][1]
+        w, h = (abs(x1 - x2), abs(y1 - y2))
+        x0, y0 = (min(x1, x2), min(y1, y2))
+        #cr.rectangle(x0, y0, w, h)
+        cr.save()
+        cr.translate(x0 + w / 2, y0 + h / 2)
+        cr.scale(w / 2, h / 2)
+        cr.arc(0, 0, 1, 0, 2 * 3.14159)
+        cr.restore()
+        cr.stroke()
+
+    def draw_box(self, cr, box, hover):
+        if hover:
+            cr.set_line_width(box["line_width"] + 1)
+        else:
+            cr.set_line_width(box["line_width"])
         cr.set_source_rgb(*box["color"])
         x1, y1 = box["coords"][0]
         x2, y2 = box["coords"][1]
@@ -213,18 +236,23 @@ class TransparentWindow(Gtk.Window):
         cr.rectangle(x0, y0, w, h)
         cr.stroke()
 
-    def draw_object(self, cr, obj):
+    def draw_object(self, cr, obj, hover):
         if obj["type"] == "path":
-            self.draw_path(cr, obj)
+            self.draw_path(cr, obj, hover)
         elif obj["type"] == "text":
-            self.draw_text(cr, obj)
+            self.draw_text(cr, obj, hover)
         elif obj["type"] == "box":
-            self.draw_box(cr, obj)
+            self.draw_box(cr, obj, hover)
+        elif obj["type"] == "circle":
+            self.draw_circle(cr, obj, hover)
 
     def draw(self, cr):
 
         for obj in self.objects:
-            self.draw_object(cr, obj)
+            hover = False
+            if obj == self.hover:
+                hover = True
+            self.draw_object(cr, obj, hover)
 
         # If changing line width, draw a preview of the new line width
         if self.changing_line_width:
@@ -284,9 +312,18 @@ class TransparentWindow(Gtk.Window):
             self.changing_line_width = True
             return
 
-        elif self.mode == "box" and event.button == 1:
+        elif self.mode == "box" and event.button == 1 and not self.current_object:
             print("drawing box / circle")
             self.current_object = { "type": "box",
+                                    "coords": [ (event.x, event.y), (event.x + 1, event.y + 1) ], 
+                                    "line_width": self.line_width, 
+                                    "color": self.color }
+            self.objects.append(self.current_object)
+            self.queue_draw()
+
+        elif self.mode == "circle" and event.button == 1 and not self.current_object:
+            print("drawing circle")
+            self.current_object = { "type": "circle",
                                     "coords": [ (event.x, event.y), (event.x + 1, event.y + 1) ], 
                                     "line_width": self.line_width, 
                                     "color": self.color }
@@ -362,7 +399,7 @@ class TransparentWindow(Gtk.Window):
         if self.changing_line_width:
             self.line_width = max(3, min(40, self.line_width + (event.x - self.cur_pos[0])/250))
             self.queue_draw()
-        elif obj and obj["type"] == "box":
+        elif obj and (obj["type"] == "box" or obj["type"] == "circle"):
             obj["coords"][1] = (event.x, event.y)
             self.queue_draw()
         elif self.current_path is not None:
@@ -379,10 +416,15 @@ class TransparentWindow(Gtk.Window):
         else:
             object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
 
+            prev_hover = self.hover
             if object_underneath:
                 self.change_cursor("hand")
+                self.hover = object_underneath
             else:
                 self.revert_cursor()
+                self.hover = None
+            if prev_hover != self.hover:
+                self.queue_draw()
 
     def finish_text_input(self):
         """Clean up current text and finish text input."""
@@ -403,16 +445,13 @@ class TransparentWindow(Gtk.Window):
             cur["cursor_pos"] -= 1
         elif keyname == "Right":
             cur["cursor_pos"] = min(cur["cursor_pos"] + 1, len(text))
-            print("cursor pos", cur["cursor_pos"])
         elif keyname == "Left":
             cur["cursor_pos"] = max(cur["cursor_pos"] - 1, 0)
-            print("cursor pos", cur["cursor_pos"])
         elif keyname == "Return":
             cur["line"] += 1
             cur["content"].insert(cur["line"], "")
             text = ""
             cur["cursor_pos"] = 0
-            print("cur now:", cur)
         elif char and char.isprintable():
             text = text[:cur["cursor_pos"]] + char + text[cur["cursor_pos"]:]
             cur["cursor_pos"] += 1
@@ -438,6 +477,10 @@ class TransparentWindow(Gtk.Window):
                 print("Move mode")
                 self.mode = "move"
                 self.default_cursor("move")
+            elif keyname == 'c':
+                print("Circle drawing mode")
+                self.default_cursor("crosshair")
+                self.mode = "circle"
             elif keyname == 'b':
                 print("Box / circle drawing mode")
                 self.default_cursor("crosshair")
@@ -446,7 +489,12 @@ class TransparentWindow(Gtk.Window):
             if keyname == "c" or keyname == "q":
                 self.exit()
             elif keyname == "b":
-                self.transparent = not self.transparent
+                if self.transparent == 1:
+                    self.transparent = 0
+                elif self.transparent == 0:
+                    self.transparent = .5
+                else:
+                    self.transparent = 1
                 self.queue_draw()
             elif keyname == "k":
                 self.select_color()
@@ -557,27 +605,32 @@ class TransparentWindow(Gtk.Window):
         if response == Gtk.ResponseType.OK:
             filename = dialog.get_filename()
             # Ensure the filename has the correct extension
-            if not filename.endswith('.png'):
-                filename += '.png'
-            self.export_to_png(filename)
+            if not filename.endswith('.svg'):
+                filename += '.svg'
+            #self.export_to_png(filename)
+            self.export(filename, "svg")
         dialog.destroy()
 
-    def export_to_png(self, filename):
+    def export(self, filename, file_format):
         # Create a Cairo surface of the same size as the window content
         width, height = self.get_size()
-        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
-        cr = cairo.Context(surface)
+        if file_format == "png":
+            surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+        elif file_format == "svg":
+            surface = cairo.SVGSurface(filename, width, height)
+        else:
+            raise ValueError("Invalid file format")
 
-        # Redraw your window content here on the cr
-        # This should mirror the drawing code in your on_draw method, e.g.,
+        cr = cairo.Context(surface)
         cr.set_source_rgba(1, 1, 1)
         cr.paint()
-        #cr.set_source_rgb(0, 0, 0)  # Example drawing setup
-        # Insert your drawing code here, similar to the on_draw method
         self.draw(cr)
 
         # Save the surface to the file
-        surface.write_to_png(filename)
+        if file_format == "png":
+            surface.write_to_png(filename)
+        elif file_format == "svg":
+            surface.finish()
 
 if __name__ == "__main__":
     win = TransparentWindow()
