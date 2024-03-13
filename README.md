@@ -32,6 +32,14 @@ chmod a+x ~/bin/sd
  * Shift+click to write a text
  * grab an object with right mouse button to move it around
  * drag the object to the left lower corner to delete it
+ * Changing drawing modes:
+   - 'd' to change to draw (default) mode
+   - 'm' to change to move mode
+   - 't' to change to text mode
+   - 'e' to change to erase mode (click to remove object)
 
 The state is saved in / loaded from `~/.screendrawer` so you can continue drawing later.
 
+# Problems
+
+Try to remove ~/.screendrawer if you have problems.
