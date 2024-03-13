@@ -14,6 +14,62 @@ savefile = os.path.expanduser("~/.screendrawer")
 print(savefile)
 # open file for appending if exists, or create if not
 
+import numpy as np
+
+def perpendicular_vector(v):
+    """Calculate a vector perpendicular to the given vector."""
+    return np.array([-v[1], v[0]])
+
+def unit_vector(v):
+    """Normalize the given vector."""
+    return v / np.linalg.norm(v)
+
+import numpy as np
+
+def calculate_outline(points, lwd):
+    polygon_outline = []
+
+    cleaned_up = []
+
+    for i in range(len(points) - 1):
+        p0, p1 = points[i], points[i + 1]
+        x0, y0 = p0
+        x1, y1 = p1
+        w      = lwd[i]
+
+        # Calculate the direction vector of the segment
+        dx, dy = x1 - x0, y1 - y0
+        length = np.sqrt(dx**2 + dy**2)
+        if(length > 0):
+            dx, dy = dx / length, dy / length
+            cleaned_up.append((x0, y0, x1, y1, -dy, dx, w))
+
+    print("points length: ", len(points), " cleaned up length: ", len(cleaned_up))
+
+    for i in range(len(cleaned_up) - 1):
+        x0, y0, x1, y1, nx, ny, w = cleaned_up[i]
+
+        # Calculate the offset due to the line width
+        offset = w / 2.0 * np.array([nx, ny])
+
+        # Calculate the four corners of the outline for this segment
+        corner1 = np.array([x0, y0]) + offset
+        corner2 = np.array([x0, y0]) - offset
+        corner3 = np.array([x1, y1]) - offset
+        corner4 = np.array([x1, y1]) + offset
+
+        print(p0, p1, length, nx, ny, corner1, corner2, corner3, corner4, w)
+
+        # Append corners to the outline
+        # Ensure we're not introducing NaNs and the format is correct
+        if not np.any(np.isnan(corner1)) and not np.any(np.isnan(corner2)):
+            polygon_outline.extend([tuple(corner1), tuple(corner2), tuple(corner3), tuple(corner4)])
+        else:
+            print("NaNs in corner coordinates")
+
+    return polygon_outline
+
+
 def distance_point_to_segment(px, py, x1, y1, x2, y2):
     """Calculate the distance from a point (px, py) to a line segment (x1, y1) to (x2, y2)."""
     # Calculate the line segment's length squared
@@ -71,6 +127,41 @@ def find_obj_close_to_click(click_x, click_y, objects, threshold):
                 return obj
     return None
 
+def normal_vec(x0, y0, x1, y1):
+    dx, dy = x1 - x0, y1 - y0
+    length = math.sqrt(dx**2 + dy**2)
+    dx, dy = dx / length, dy / length
+    return -dy, dx
+
+def path_append(path, x, y, width):
+    coords = path["coords"]
+
+    if len(coords) == 0:
+        coords.append((x, y))
+    lp = coords[-1]
+    if abs(x - lp[0]) < 2 and abs(y - lp[1]) < 2:
+        return
+
+    coords.append((x, y))
+    width = width / 2
+
+    if len(coords) == 2:
+        p1, p2 = coords[0], coords[1]
+        nx, ny = normal_vec(p1[0], p1[1], p2[0], p2[1])
+        path["outline_l"].append((p1[0] + nx * width, p1[1] + ny * width))
+        path["outline_l"].append((p2[0] + nx * width, p2[1] + ny * width))
+        path["outline_r"].append((p1[0] - nx * width, p1[1] - ny * width))
+        path["outline_r"].append((p2[0] - nx * width, p2[1] - ny * width))
+    if len(coords) > 2:
+        p1, p2 = coords[-2], coords[-1]
+        nx, ny = normal_vec(p1[0], p1[1], p2[0], p2[1])
+        path["outline_l"].append((p1[0] + nx * width, p1[1] + ny * width))
+        path["outline_r"].append((p1[0] - nx * width, p1[1] - ny * width))
+    if len(coords) >= 2:
+        path["outline"] = path["outline_l"] + path["outline_r"][::-1]
+
+
+
 def move_coords(coords, dx, dy):
     """Move a path by a given offset."""
     for i in range(len(coords)):
@@ -101,7 +192,6 @@ class TransparentWindow(Gtk.Window):
         # Drawing setup
         self.objects = [ ]
         self.current_object = None
-        self.current_path = None
         self.current_text = None
         self.changing_line_width = False
         self.selection = None
@@ -169,18 +259,6 @@ class TransparentWindow(Gtk.Window):
             bb_w = max(bb_w, width)
             bb_h += 1.5 * height
 
-            #cr.set_font_size(8)
-            #cr.move_to(position[0], position[1] + y_bearing + dy)
-            #cr.set_source_rgb(*color)
-            #cr.show_text("[0, 0 + dy]")
-            #cr.stroke()
-
-            #cr.set_font_size(8)
-            #cr.move_to(position[0] + width, position[1] + dy + y_bearing + height)
-            #cr.set_source_rgb(*color)
-            #cr.show_text("[0 + width, 0 + dy - height]")
-            #cr.stroke()
-
             cr.set_font_size(size)
             cr.move_to(position[0], position[1] + dy)
             cr.set_source_rgb(*color)
@@ -195,15 +273,61 @@ class TransparentWindow(Gtk.Window):
             cr.stroke()
 
     def draw_path(self, cr, path, hover):
+        if len(path["outline"]) < 4:
+            return
+        if len(path["coords"]) < 3:
+            return
         if hover:
-            cr.set_line_width(path["line_width"] + 1)
+            dd = 1
         else:
-            cr.set_line_width(path["line_width"])
+            dd = 0
         cr.set_source_rgb(*path["color"])
-        cr.move_to(path["coords"][0][0], path["coords"][0][1])
+        cr.move_to(path["outline"][0][0] + dd, path["outline"][0][1] + dd)
+        for point in path["outline"][1:]:
+            cr.line_to(point[0] + dd, point[1] + dd)
+        cr.close_path()
+        cr.fill()
+
+    def draw_path_outline(self, cr, path, hover):
+        lwd = path["lwd"]
+
+        if len(path["coords"]) == 1:
+            return
+
+        cr.set_line_width(1)
+        cr.set_source_rgb(*path["color"])
+
+        poly = calculate_outline(path["coords"], lwd)
+
+        x0, y0 = path["coords"][0]
+        cr.move_to(x0, y0)
+        i = 0
         for point in path["coords"][1:]:
             cr.line_to(point[0], point[1])
+            x0, y0 = point
+            i += 1
         cr.stroke()
+        print (poly)
+
+    def draw_path_bad(self, cr, path, hover):
+        lwd = path["lwd"]
+        if hover:
+            base_width = path["line_width"] + 1
+            cr.set_line_width(path["line_width"] + 1)
+        else:
+            base_width = path["line_width"]
+            cr.set_line_width(path["line_width"])
+
+        cr.set_source_rgb(*path["color"])
+        x0, y0 = path["coords"][0]
+        i = 0
+        for point in path["coords"][1:]:
+            cr.move_to(x0, y0)
+            cr.set_line_width(lwd[i] * base_width)
+            cr.line_to(point[0], point[1])
+            x0, y0 = point
+            cr.stroke()
+            i += 1
 
     def draw_circle(self, cr, box, hover):
         if hover:
@@ -262,7 +386,6 @@ class TransparentWindow(Gtk.Window):
 
     def clear(self):
         self.selection      = None
-        self.current_path   = None
         self.current_text   = None
         self.current_object = None
         self.objects = []
@@ -365,22 +488,31 @@ class TransparentWindow(Gtk.Window):
                     self.current_text = obj
                     self.queue_draw()
                     self.change_cursor("none")
-            else:
-                self.current_path = { "type": "path",
+            elif not self.current_object:
+                self.current_object = { "type": "path",
                                       "coords": [ (event.x, event.y) ], 
+                                      "outline_l": [],
+                                      "outline_r": [],
+                                      "outline": [],
                                       "line_width": self.line_width, 
+                                      "lwd": [ ],
                                       "color": self.color }
-                self.objects.append(self.current_path)
+                self.objects.append(self.current_object)
 
         self.queue_draw()
 
     # Event handlers
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
+        obj = self.current_object
+        if obj and obj["type"] == "path":
+            print("finishing path")
+            path_append(obj, event.x, event.y, 0)
+            self.queue_draw()
+
         self.cur_pos      = None
         self.changing_line_width = False
         self.current_object = None
-        self.current_path = None
 
         if self.selection:
             # If the user was dragging a selected object and the drag ends
@@ -392,18 +524,21 @@ class TransparentWindow(Gtk.Window):
                 self.queue_draw()
         self.selection    = None
 
+
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
         obj = self.current_object
-
         if self.changing_line_width:
             self.line_width = max(3, min(40, self.line_width + (event.x - self.cur_pos[0])/250))
             self.queue_draw()
         elif obj and (obj["type"] == "box" or obj["type"] == "circle"):
             obj["coords"][1] = (event.x, event.y)
             self.queue_draw()
-        elif self.current_path is not None:
-            self.current_path["coords"].append((event.x, event.y))
+        elif obj and obj["type"] == "path":
+            pressure = event.get_axis(Gdk.AxisUse.PRESSURE)
+            if pressure is None:
+                pressure = 1.0
+            path_append(obj, event.x, event.y, obj["line_width"] * pressure)
             self.queue_draw()
         elif self.selection is not None:
             dx = event.x - self.selection["origin"][0]
@@ -411,6 +546,8 @@ class TransparentWindow(Gtk.Window):
 
             # Move the selected object
             move_coords(self.selection["coords"], dx, dy)
+            if self.selection["type"] == "path":
+                move_coords(self.selection["outline"], dx, dy)
             self.selection["origin"] = (event.x, event.y)
             self.queue_draw()
         else:
@@ -418,10 +555,12 @@ class TransparentWindow(Gtk.Window):
 
             prev_hover = self.hover
             if object_underneath:
-                self.change_cursor("hand")
+                if self.mode == "move":
+                    self.change_cursor("hand")
                 self.hover = object_underneath
             else:
-                self.revert_cursor()
+                if self.mode == "move":
+                    self.revert_cursor()
                 self.hover = None
             if prev_hover != self.hover:
                 self.queue_draw()
