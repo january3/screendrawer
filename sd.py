@@ -14,61 +14,6 @@ savefile = os.path.expanduser("~/.screendrawer")
 print(savefile)
 # open file for appending if exists, or create if not
 
-import numpy as np
-
-def perpendicular_vector(v):
-    """Calculate a vector perpendicular to the given vector."""
-    return np.array([-v[1], v[0]])
-
-def unit_vector(v):
-    """Normalize the given vector."""
-    return v / np.linalg.norm(v)
-
-import numpy as np
-
-def calculate_outline(points, lwd):
-    polygon_outline = []
-
-    cleaned_up = []
-
-    for i in range(len(points) - 1):
-        p0, p1 = points[i], points[i + 1]
-        x0, y0 = p0
-        x1, y1 = p1
-        w      = lwd[i]
-
-        # Calculate the direction vector of the segment
-        dx, dy = x1 - x0, y1 - y0
-        length = np.sqrt(dx**2 + dy**2)
-        if(length > 0):
-            dx, dy = dx / length, dy / length
-            cleaned_up.append((x0, y0, x1, y1, -dy, dx, w))
-
-    print("points length: ", len(points), " cleaned up length: ", len(cleaned_up))
-
-    for i in range(len(cleaned_up) - 1):
-        x0, y0, x1, y1, nx, ny, w = cleaned_up[i]
-
-        # Calculate the offset due to the line width
-        offset = w / 2.0 * np.array([nx, ny])
-
-        # Calculate the four corners of the outline for this segment
-        corner1 = np.array([x0, y0]) + offset
-        corner2 = np.array([x0, y0]) - offset
-        corner3 = np.array([x1, y1]) - offset
-        corner4 = np.array([x1, y1]) + offset
-
-        print(p0, p1, length, nx, ny, corner1, corner2, corner3, corner4, w)
-
-        # Append corners to the outline
-        # Ensure we're not introducing NaNs and the format is correct
-        if not np.any(np.isnan(corner1)) and not np.any(np.isnan(corner2)):
-            polygon_outline.extend([tuple(corner1), tuple(corner2), tuple(corner3), tuple(corner4)])
-        else:
-            print("NaNs in corner coordinates")
-
-    return polygon_outline
-
 
 def distance_point_to_segment(px, py, x1, y1, x2, y2):
     """Calculate the distance from a point (px, py) to a line segment (x1, y1) to (x2, y2)."""
@@ -90,41 +35,12 @@ def distance_point_to_segment(px, py, x1, y1, x2, y2):
     
     return math.sqrt((px - projection_x) ** 2 + (py - projection_y) ** 2)
 
-def is_click_close_to_path(click_x, click_y, path, threshold):
-    """Check if a click is close to any segment in the path."""
-    for i in range(len(path) - 1):
-        segment_start = path[i]
-        segment_end = path[i + 1]
-        distance = distance_point_to_segment(click_x, click_y, segment_start[0], segment_start[1], segment_end[0], segment_end[1])
-        if distance <= threshold:
-            return True
-    return False
-
-def is_text_close_to_click(click_x, click_y, text, threshold):
-    if "bb" not in text:
-        return False
-    x, y, width, height = text["bb"]
-    if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
-        return True
-
-def is_box_close_to_click(click_x, click_y, coords, threshold):
-    x1, y1 = coords[0]
-    x2, y2 = coords[1]
-
-    path = [ (x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1) ]
-    return is_click_close_to_path(click_x, click_y, path, threshold)
-
 def find_obj_close_to_click(click_x, click_y, objects, threshold):
     for obj in objects:
-        if obj["type"] == "path":
-            if is_click_close_to_path(click_x, click_y, obj["coords"], threshold):
-                return obj
-        elif obj["type"] == "text":
-            if is_text_close_to_click(click_x, click_y, obj, threshold):
-                return obj
-        elif obj["type"] in ["box", "circle"]:
-            if is_box_close_to_click(click_x, click_y, obj["coords"], threshold):
-                return obj
+        print(obj)
+        if not obj is None and obj.is_close_to_click(click_x, click_y, threshold):
+            return obj
+
     return None
 
 def normal_vec(x0, y0, x1, y1):
@@ -133,39 +49,248 @@ def normal_vec(x0, y0, x1, y1):
     dx, dy = dx / length, dy / length
     return -dy, dx
 
-def path_append(path, x, y, width):
-    coords = path["coords"]
-
-    if len(coords) == 0:
-        coords.append((x, y))
-    lp = coords[-1]
-    if abs(x - lp[0]) < 2 and abs(y - lp[1]) < 2:
-        return
-
-    coords.append((x, y))
-    width = width / 2
-
-    if len(coords) == 2:
-        p1, p2 = coords[0], coords[1]
-        nx, ny = normal_vec(p1[0], p1[1], p2[0], p2[1])
-        path["outline_l"].append((p1[0] + nx * width, p1[1] + ny * width))
-        path["outline_l"].append((p2[0] + nx * width, p2[1] + ny * width))
-        path["outline_r"].append((p1[0] - nx * width, p1[1] - ny * width))
-        path["outline_r"].append((p2[0] - nx * width, p2[1] - ny * width))
-    if len(coords) > 2:
-        p1, p2 = coords[-2], coords[-1]
-        nx, ny = normal_vec(p1[0], p1[1], p2[0], p2[1])
-        path["outline_l"].append((p1[0] + nx * width, p1[1] + ny * width))
-        path["outline_r"].append((p1[0] - nx * width, p1[1] - ny * width))
-    if len(coords) >= 2:
-        path["outline"] = path["outline_l"] + path["outline_r"][::-1]
-
-
 
 def move_coords(coords, dx, dy):
     """Move a path by a given offset."""
+    if not coords:
+        ValueError("No coordinates to move")
     for i in range(len(coords)):
         coords[i] = (coords[i][0] + dx, coords[i][1] + dy)
+
+class Drawable:
+    def __init__(self, type, coords, color, line_width):
+        self.type       = type
+        self.coords     = coords
+        self.color      = color
+        self.line_width = line_width
+
+    def origin_set(self, origin):
+        self.origin = origin
+
+    def origin_remove(self):
+        self.origin = None
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        x1, y1 = self.coords[0]
+        x2, y2 = self.coords[1]
+     
+        path = [ (x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1) ]
+        return is_click_close_to_path(click_x, click_y, path, threshold)
+
+
+    def move(self, dx, dy):
+        move_coords(self.coords, dx, dy)
+
+class Text(Drawable):
+    def __init__(self, coords, color, line_width, content, size):
+        super().__init__("text", coords, color, line_width)
+        self.content = content
+        self.size    = size
+        self.line    = 0
+        self.cursor_pos = 0
+        self.bb         = None
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        if self.bb is None:
+            return False
+        x, y, width, height = self.bb
+        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
+            return True
+
+
+    def backspace(self):
+        if self.cursor_pos > 0:
+            self.content[self.line] = self.content[self.line][:self.cursor_pos - 1] + self.content[self.line][self.cursor_pos:]
+            self.cursor_pos -= 1
+        elif self.line > 0:
+            self.cursor_pos = len(self.content[self.line - 1])
+            self.content[self.line - 1] += self.content[self.line]
+            self.content.pop(self.line)
+            self.line -= 1
+
+    def newline(self):
+        self.content.insert(self.line + 1, self.content[self.line][self.cursor_pos:])
+        self.content[self.line] = self.content[self.line][:self.cursor_pos]
+        self.line += 1
+        self.cursor_pos = 0
+
+    def add_char(self, char):
+        self.content[self.line] = self.content[self.line][:self.cursor_pos] + char + self.content[self.line][self.cursor_pos:]
+        self.cursor_pos += 1
+
+    def move_cursor(self, direction):
+        if direction == "end":
+            self.line = len(self.content) - 1
+            self.cursor_pos = len(self.content[self.line])
+        elif direction == "right":
+            if self.cursor_pos < len(self.content[self.line]):
+                self.cursor_pos += 1
+            elif self.line < len(self.content) - 1:
+                self.line += 1
+                self.cursor_pos = 0
+        elif direction == "left":
+            if self.cursor_pos > 0:
+                self.cursor_pos -= 1
+            elif self.line > 0:
+                self.line -= 1
+                self.cursor_pos = len(self.content[self.line])
+
+    def draw(self, cr, hover):
+        text = self
+        position, content, size, color, cursor_pos = text.coords[0], text.content, text.size, text.color, text.cursor_pos
+        cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        cr.set_font_size(size)
+
+        dy   = 0
+        maxw = 0
+        bb_x = position[0]
+        bb_y = None
+        bb_w = 0
+        bb_h = 0
+        
+        for i in range(len(content)):
+            fragment = content[i]
+
+            if cursor_pos != None and i == text.line:
+                fragment = fragment[:cursor_pos] + "|" + fragment[cursor_pos:]
+
+            x_bearing, y_bearing, width, height, x_advance, y_advance = cr.text_extents(fragment)
+            text.bb = (position[0] + x_bearing, position[1] + y_bearing + dy, width, height)
+
+            if bb_y == None:
+                bb_y = position[1] + y_bearing
+
+            bb_w = max(bb_w, width)
+            bb_h += 1.5 * height
+
+            cr.set_font_size(size)
+            cr.move_to(position[0], position[1] + dy)
+            cr.set_source_rgb(*color)
+            cr.show_text(fragment)
+            cr.stroke()
+
+            dy += y_advance + 1.5 * height
+        text.bb = (bb_x, bb_y, bb_w, bb_h)
+        if hover:
+            cr.set_line_width(1)
+            cr.rectangle(bb_x, bb_y, bb_w, bb_h)
+            cr.stroke()
+
+class Path(Drawable):
+    def __init__(self, coords, color, line_width):
+        super().__init__("path", coords, color, line_width)
+        self.outline = []
+        self.outline_l = []
+        self.outline_r = []
+
+    def move(self, dx, dy):
+        move_coords(self.coords, dx, dy)
+        move_coords(self.outline, dx, dy)
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to any segment in the path."""
+        path = self.coords
+        for i in range(len(path) - 1):
+            segment_start = path[i]
+            segment_end = path[i + 1]
+            distance = distance_point_to_segment(click_x, click_y, segment_start[0], segment_start[1], segment_end[0], segment_end[1])
+            if distance <= threshold:
+                return True
+        return False
+
+
+    def path_append(self, x, y, pressure = 1):
+        coords = self.coords
+        width  = self.line_width * pressure
+
+        if len(coords) == 0:
+            coords.append((x, y))
+        lp = coords[-1]
+        if abs(x - lp[0]) < 2 and abs(y - lp[1]) < 2:
+            return
+
+        coords.append((x, y))
+        width = width / 2
+
+        if len(coords) == 2:
+            p1, p2 = coords[0], coords[1]
+            nx, ny = normal_vec(p1[0], p1[1], p2[0], p2[1])
+            self.outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
+            self.outline_l.append((p2[0] + nx * width, p2[1] + ny * width))
+            self.outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
+            self.outline_r.append((p2[0] - nx * width, p2[1] - ny * width))
+        if len(coords) > 2:
+            p1, p2 = coords[-2], coords[-1]
+            nx, ny = normal_vec(p1[0], p1[1], p2[0], p2[1])
+            self.outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
+            self.outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
+        if len(coords) >= 2:
+            self.outline = self.outline_l + self.outline_r[::-1]
+
+
+
+    def draw(self, cr, hover):
+        if len(self.outline) < 4:
+            return
+        if len(self.coords) < 3:
+            return
+        if hover:
+            dd = 1
+        else:
+            dd = 0
+        cr.set_source_rgb(*self.color)
+        cr.move_to(self.outline[0][0] + dd, self.outline[0][1] + dd)
+        for point in self.outline[1:]:
+            cr.line_to(point[0] + dd, point[1] + dd)
+        cr.close_path()
+        cr.fill()
+
+class Circle(Drawable):
+    def __init__(self, coords, color, line_width):
+        self.type = "box"
+        self.coords = coords
+        self.color = color
+        self.line_width = line_width
+
+    def draw(self, cr, hover):
+        if hover:
+            cr.set_line_width(box.line_width + 1)
+        else:
+            cr.set_line_width(box.line_width)
+        cr.set_source_rgb(*box.color)
+        x1, y1 = box.coords[0]
+        x2, y2 = box.coords[1]
+        w, h = (abs(x1 - x2), abs(y1 - y2))
+        x0, y0 = (min(x1, x2), min(y1, y2))
+        #cr.rectangle(x0, y0, w, h)
+        cr.save()
+        cr.translate(x0 + w / 2, y0 + h / 2)
+        cr.scale(w / 2, h / 2)
+        cr.arc(0, 0, 1, 0, 2 * 3.14159)
+        cr.restore()
+        cr.stroke()
+
+class Box(Drawable):
+    def __init__(self, coords, color, line_width):
+        self.type = "box"
+        self.coords = coords
+        self.color = color
+        self.line_width = line_width
+
+    def draw(self, cr, hover):
+        if hover:
+            cr.set_line_width(self.line_width + 1)
+        else:
+            cr.set_line_width(self.line_width)
+
+        cr.set_source_rgb(*self.color)
+        x1, y1 = self.coords[0]
+        x2, y2 = self.coords[1]
+        w, h = (abs(x1 - x2), abs(y1 - y2))
+        x0, y0 = (min(x1, x2), min(y1, y2))
+        cr.rectangle(x0, y0, w, h)
+        cr.stroke()
+
 
 class TransparentWindow(Gtk.Window):
     def __init__(self):
@@ -192,7 +317,6 @@ class TransparentWindow(Gtk.Window):
         # Drawing setup
         self.objects = [ ]
         self.current_object = None
-        self.current_text = None
         self.changing_line_width = False
         self.selection = None
         self.mode      = "default"
@@ -221,7 +345,7 @@ class TransparentWindow(Gtk.Window):
     def exit(self):
         ## close the savefile_f
         print("Exiting")
-        self.save_state()
+        #self.save_state()
         Gtk.main_quit()
         
 
@@ -232,151 +356,13 @@ class TransparentWindow(Gtk.Window):
         cr.set_operator(cairo.OPERATOR_OVER)
         self.draw(cr)
 
-    def draw_text(self, cr, text, hover):
-        position, content, size, color, cursor_pos = text["coords"][0], text["content"], text["size"], text["color"], text["cursor_pos"]
-        cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-        cr.set_font_size(size)
-
-        dy   = 0
-        maxw = 0
-        bb_x = position[0]
-        bb_y = None
-        bb_w = 0
-        bb_h = 0
-        
-        for i in range(len(content)):
-            fragment = content[i]
-
-            if cursor_pos != None and self.current_text == text and i == text["line"]:
-                fragment = fragment[:cursor_pos] + "|" + fragment[cursor_pos:]
-
-            x_bearing, y_bearing, width, height, x_advance, y_advance = cr.text_extents(fragment)
-            text["bb"] = (position[0] + x_bearing, position[1] + y_bearing + dy, width, height)
-
-            if bb_y == None:
-                bb_y = position[1] + y_bearing
-
-            bb_w = max(bb_w, width)
-            bb_h += 1.5 * height
-
-            cr.set_font_size(size)
-            cr.move_to(position[0], position[1] + dy)
-            cr.set_source_rgb(*color)
-            cr.show_text(fragment)
-            cr.stroke()
-
-            dy += y_advance + 1.5 * height
-        text["bb"] = (bb_x, bb_y, bb_w, bb_h)
-        if hover:
-            cr.set_line_width(1)
-            cr.rectangle(bb_x, bb_y, bb_w, bb_h)
-            cr.stroke()
-
-    def draw_path(self, cr, path, hover):
-        if len(path["outline"]) < 4:
-            return
-        if len(path["coords"]) < 3:
-            return
-        if hover:
-            dd = 1
-        else:
-            dd = 0
-        cr.set_source_rgb(*path["color"])
-        cr.move_to(path["outline"][0][0] + dd, path["outline"][0][1] + dd)
-        for point in path["outline"][1:]:
-            cr.line_to(point[0] + dd, point[1] + dd)
-        cr.close_path()
-        cr.fill()
-
-    def draw_path_outline(self, cr, path, hover):
-        lwd = path["lwd"]
-
-        if len(path["coords"]) == 1:
-            return
-
-        cr.set_line_width(1)
-        cr.set_source_rgb(*path["color"])
-
-        poly = calculate_outline(path["coords"], lwd)
-
-        x0, y0 = path["coords"][0]
-        cr.move_to(x0, y0)
-        i = 0
-        for point in path["coords"][1:]:
-            cr.line_to(point[0], point[1])
-            x0, y0 = point
-            i += 1
-        cr.stroke()
-        print (poly)
-
-    def draw_path_bad(self, cr, path, hover):
-        lwd = path["lwd"]
-        if hover:
-            base_width = path["line_width"] + 1
-            cr.set_line_width(path["line_width"] + 1)
-        else:
-            base_width = path["line_width"]
-            cr.set_line_width(path["line_width"])
-
-        cr.set_source_rgb(*path["color"])
-        x0, y0 = path["coords"][0]
-        i = 0
-        for point in path["coords"][1:]:
-            cr.move_to(x0, y0)
-            cr.set_line_width(lwd[i] * base_width)
-            cr.line_to(point[0], point[1])
-            x0, y0 = point
-            cr.stroke()
-            i += 1
-
-    def draw_circle(self, cr, box, hover):
-        if hover:
-            cr.set_line_width(box["line_width"] + 1)
-        else:
-            cr.set_line_width(box["line_width"])
-        cr.set_source_rgb(*box["color"])
-        x1, y1 = box["coords"][0]
-        x2, y2 = box["coords"][1]
-        w, h = (abs(x1 - x2), abs(y1 - y2))
-        x0, y0 = (min(x1, x2), min(y1, y2))
-        #cr.rectangle(x0, y0, w, h)
-        cr.save()
-        cr.translate(x0 + w / 2, y0 + h / 2)
-        cr.scale(w / 2, h / 2)
-        cr.arc(0, 0, 1, 0, 2 * 3.14159)
-        cr.restore()
-        cr.stroke()
-
-    def draw_box(self, cr, box, hover):
-        if hover:
-            cr.set_line_width(box["line_width"] + 1)
-        else:
-            cr.set_line_width(box["line_width"])
-        cr.set_source_rgb(*box["color"])
-        x1, y1 = box["coords"][0]
-        x2, y2 = box["coords"][1]
-        w, h = (abs(x1 - x2), abs(y1 - y2))
-        x0, y0 = (min(x1, x2), min(y1, y2))
-        cr.rectangle(x0, y0, w, h)
-        cr.stroke()
-
-    def draw_object(self, cr, obj, hover):
-        if obj["type"] == "path":
-            self.draw_path(cr, obj, hover)
-        elif obj["type"] == "text":
-            self.draw_text(cr, obj, hover)
-        elif obj["type"] == "box":
-            self.draw_box(cr, obj, hover)
-        elif obj["type"] == "circle":
-            self.draw_circle(cr, obj, hover)
-
     def draw(self, cr):
 
         for obj in self.objects:
             hover = False
             if obj == self.hover:
                 hover = True
-            self.draw_object(cr, obj, hover)
+            obj.draw(cr, hover)
 
         # If changing line width, draw a preview of the new line width
         if self.changing_line_width:
@@ -386,7 +372,6 @@ class TransparentWindow(Gtk.Window):
 
     def clear(self):
         self.selection      = None
-        self.current_text   = None
         self.current_object = None
         self.objects = []
         self.queue_draw()
@@ -425,7 +410,7 @@ class TransparentWindow(Gtk.Window):
         print("mode:", self.mode)
 
         # Ignore clicks when text input is active
-        if self.current_text:
+        if self.current_object and self.current_object.type == "text":
             print("click, but text input active")
             return
 
@@ -437,41 +422,28 @@ class TransparentWindow(Gtk.Window):
 
         elif self.mode == "box" and event.button == 1 and not self.current_object:
             print("drawing box / circle")
-            self.current_object = { "type": "box",
-                                    "coords": [ (event.x, event.y), (event.x + 1, event.y + 1) ], 
-                                    "line_width": self.line_width, 
-                                    "color": self.color }
+            self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
             self.objects.append(self.current_object)
             self.queue_draw()
 
         elif self.mode == "circle" and event.button == 1 and not self.current_object:
             print("drawing circle")
-            self.current_object = { "type": "circle",
-                                    "coords": [ (event.x, event.y), (event.x + 1, event.y + 1) ], 
-                                    "line_width": self.line_width, 
-                                    "color": self.color }
+            self.current_object = Circle([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
             self.objects.append(self.current_object)
             self.queue_draw()
 
         # Check if the Shift key is pressed
-        elif (shift or self.mode == "text") and event.button == 1:  # Shift + Left mouse button
+        elif (shift or self.mode == "text") and event.button == 1 and not self.current_object:  # Shift + Left mouse button
             self.change_cursor("none")
 
-            if not self.current_text:
-                self.current_text = { "coords": [ (event.x, event.y) ], 
-                                      "type": "text",
-                                      "content": [ "" ], 
-                                      "line": 0,
-                                      "size": self.font_size, 
-                                      "color": self.color, 
-                                      "cursor_pos": 1 }
-                self.objects.append(self.current_text)
+            self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content=[ "" ], size = self.font_size)
+            self.objects.append(self.current_object)
             self.queue_draw()
 
         # Left mouse button - just drawing
         elif ((event.button == 1 and self.mode == "move") or event.button == 3) and obj:  # Left mouse button
             self.selection = obj
-            self.selection["origin"] = (event.x, event.y)
+            self.selection.origin_set((event.x, event.y))
 
         elif obj and event.button == 1 and self.mode == "eraser":
             self.objects.remove(obj)
@@ -481,22 +453,14 @@ class TransparentWindow(Gtk.Window):
 
         elif (self.mode == "draw" or self.mode == "default") and event.button == 1:  # Left mouse button
             if event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS:
-                if obj and obj["type"] == "text":
+                if obj and obj.type == "text":
                     # put the cursor in the last line, end of the text
-                    obj["line"] = len(obj["content"]) - 1
-                    obj["cursor_pos"] = len(obj["content"][ obj["line"] ])
-                    self.current_text = obj
+                    obj.move_cursor("end")
+                    self.current_object = obj
                     self.queue_draw()
                     self.change_cursor("none")
-            elif not self.current_object:
-                self.current_object = { "type": "path",
-                                      "coords": [ (event.x, event.y) ], 
-                                      "outline_l": [],
-                                      "outline_r": [],
-                                      "outline": [],
-                                      "line_width": self.line_width, 
-                                      "lwd": [ ],
-                                      "color": self.color }
+            elif not obj:
+                self.current_object = Path([ (event.x, event.y) ], self.color, self.line_width)
                 self.objects.append(self.current_object)
 
         self.queue_draw()
@@ -505,19 +469,21 @@ class TransparentWindow(Gtk.Window):
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         obj = self.current_object
-        if obj and obj["type"] == "path":
+        if obj and obj.type == "path":
             print("finishing path")
-            path_append(obj, event.x, event.y, 0)
+            obj.path_append(event.x, event.y, 0)
             self.queue_draw()
 
         self.cur_pos      = None
         self.changing_line_width = False
-        self.current_object = None
+
+        if self.current_object and self.current_object.type != "text":
+            self.current_object = None
 
         if self.selection:
             # If the user was dragging a selected object and the drag ends
             # in the lower left corner, delete the object
-            self.selection["origin"] = None
+            self.selection.origin_remove()
             if event.x < 10 and event.y > self.get_size()[1] - 10:
                 self.objects.remove(self.selection)
                 self.selection = None
@@ -528,30 +494,31 @@ class TransparentWindow(Gtk.Window):
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
         obj = self.current_object
+
         if self.changing_line_width:
             self.line_width = max(3, min(40, self.line_width + (event.x - self.cur_pos[0])/250))
             self.queue_draw()
-        elif obj and (obj["type"] == "box" or obj["type"] == "circle"):
-            obj["coords"][1] = (event.x, event.y)
+        elif obj and (obj.type == "box" or obj.type == "circle"):
+            obj.coords[1] = (event.x, event.y)
             self.queue_draw()
-        elif obj and obj["type"] == "path":
+        elif obj and obj.type == "path":
             pressure = event.get_axis(Gdk.AxisUse.PRESSURE)
             if pressure is None:
                 pressure = 1.0
-            path_append(obj, event.x, event.y, obj["line_width"] * pressure)
+            obj.path_append(event.x, event.y, pressure)
             self.queue_draw()
         elif self.selection is not None:
-            dx = event.x - self.selection["origin"][0]
-            dy = event.y - self.selection["origin"][1]
+            dx = event.x - self.selection.origin[0]
+            dy = event.y - self.selection.origin[1]
 
             # Move the selected object
-            move_coords(self.selection["coords"], dx, dy)
-            if self.selection["type"] == "path":
-                move_coords(self.selection["outline"], dx, dy)
-            self.selection["origin"] = (event.x, event.y)
+            self.selection.move(dx, dy)
+
+            self.selection.origin_set((event.x, event.y))
             self.queue_draw()
         else:
-            object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
+            #object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
+            object_underneath = None
 
             prev_hover = self.hover
             if object_underneath:
@@ -567,34 +534,30 @@ class TransparentWindow(Gtk.Window):
 
     def finish_text_input(self):
         """Clean up current text and finish text input."""
-        if self.current_text:
-            self.current_text["cursor_pos"] = None
-            self.current_text = None
+        print("finishing text input")
+        if self.current_object and self.current_object.type == "text":
+            self.current_object.cursor_pos = None
+            self.current_object = None
         self.revert_cursor()
         self.queue_draw()
 
     def update_text_input(self, keyname, char):
         """Update the current text input."""
-        cur  = self.current_text
-        text = cur["content"][ cur["line"] ]
+        cur  = self.current_object
+        #text = cur["content"][ cur["line"] ]
         # length of text
     
-        if keyname == "BackSpace" and cur["cursor_pos"] > 0:
-            text = text[:cur["cursor_pos"] - 1] + text[cur["cursor_pos"]:]
-            cur["cursor_pos"] -= 1
+        if keyname == "BackSpace": # and cur["cursor_pos"] > 0:
+            cur.backspace()
         elif keyname == "Right":
-            cur["cursor_pos"] = min(cur["cursor_pos"] + 1, len(text))
+            cur.move_cursor("right")
+            #cur["cursor_pos"] = min(cur["cursor_pos"] + 1, len(text))
         elif keyname == "Left":
-            cur["cursor_pos"] = max(cur["cursor_pos"] - 1, 0)
+            cur.move_cursor("left")
         elif keyname == "Return":
-            cur["line"] += 1
-            cur["content"].insert(cur["line"], "")
-            text = ""
-            cur["cursor_pos"] = 0
+            cur.newline()
         elif char and char.isprintable():
-            text = text[:cur["cursor_pos"]] + char + text[cur["cursor_pos"]:]
-            cur["cursor_pos"] += 1
-        cur["content"][ cur["line"] ] = text
+            cur.add_char(char)
         self.queue_draw()
 
     def handle_shortcuts(self, keyname, ctrl):
@@ -639,15 +602,15 @@ class TransparentWindow(Gtk.Window):
                 self.select_color()
             elif keyname == "l":
                 self.clear()
-            elif self.current_text:
-                if keyname == "plus":
-                    self.current_text["size"] += 1
-                    self.font_size = self.current_text["size"]
-                    self.queue_draw()
-                elif keyname == "minus":
-                    self.current_text["size"] = max(1, self.current_text["size"] - 1)
-                    self.font_size = self.current_text["size"]
-                    self.queue_draw()
+#           elif self.current_text:
+#               if keyname == "plus":
+#                   self.current_text["size"] += 1
+#                   self.font_size = self.current_text["size"]
+#                   self.queue_draw()
+#               elif keyname == "minus":
+#                   self.current_text["size"] = max(1, self.current_text["size"] - 1)
+#                   self.font_size = self.current_text["size"]
+#                   self.queue_draw()
             elif keyname == "s":
                     self.save_drawing()
      
@@ -655,6 +618,8 @@ class TransparentWindow(Gtk.Window):
         """Handle keyboard events."""
         keyname = Gdk.keyval_name(event.keyval)
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
+        print("keyname:", keyname)
+        print("current object:", self.current_object)
         #print(keyname)
 
         # End text input
@@ -666,9 +631,8 @@ class TransparentWindow(Gtk.Window):
             self.handle_shortcuts(keyname, True)
        
         # Handle text input
-        elif self.current_text:
+        elif self.current_object and self.current_object.type == "text":
             self.update_text_input(keyname, char)
-
         else:
             self.handle_shortcuts(keyname, False)
 
