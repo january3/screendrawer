@@ -462,7 +462,7 @@ class TransparentWindow(Gtk.Window):
     # Event handlers
     def on_button_press(self, widget, event):
         modifiers = Gtk.accelerator_get_default_mod_mask()
-        obj = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
+        hover_obj = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
         shift = event.state & modifiers == Gdk.ModifierType.SHIFT_MASK
         ctrl  = event.state & modifiers == Gdk.ModifierType.CONTROL_MASK
         #print("mode:", self.mode)
@@ -478,45 +478,51 @@ class TransparentWindow(Gtk.Window):
             self.changing_line_width = True
             return
 
-        elif self.mode == "box" and event.button == 1 and not self.current_object:
-            print("drawing box / circle")
-            self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
-            self.objects.append(self.current_object)
-            self.queue_draw()
+        # simple click
+        if event.button == 1 and not self.current_object:
 
-        elif self.mode == "circle" and event.button == 1 and not self.current_object:
-            print("drawing circle")
-            self.current_object = Circle([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
-            self.objects.append(self.current_object)
-            self.queue_draw()
+            if self.mode == "box":
+                print("drawing box / circle")
+                self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
+                self.objects.append(self.current_object)
+                self.queue_draw()
 
-        # Check if the Shift key is pressed
-        elif (shift or self.mode == "text") and event.button == 1 and not self.current_object:  # Shift + Left mouse button
-            print("entering text")
-            self.change_cursor("none")
+            elif self.mode == "circle":
+                print("drawing circle")
+                self.current_object = Circle([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
+                self.objects.append(self.current_object)
+                self.queue_draw()
 
-            self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content=[ "" ], size = self.font_size)
-            self.current_object.move_cursor("Home")
-            self.objects.append(self.current_object)
-            self.queue_draw()
+            # Check if the Shift key is pressed
+            elif shift or self.mode == "text":  # Shift + Left mouse button
+                print("entering text")
+                self.change_cursor("none")
 
-        # Left mouse button - just drawing
-        elif ((event.button == 1 and self.mode == "move") or event.button == 3) and obj:  # Left mouse button
-            self.selection = obj
-            self.selection.origin_set((event.x, event.y))
+                self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content=[ "" ], size = self.font_size)
+                self.current_object.move_cursor("Home")
+                self.objects.append(self.current_object)
+                self.queue_draw()
+            return
 
-        elif obj and event.button == 1 and self.mode == "eraser":
-            self.objects.remove(obj)
-            self.selection = None
-            self.revert_cursor()
-            self.queue_draw()
+        # moving an object, or erasing it, if an object is underneath the cursor
+        if hover_obj:
+            if (event.button == 1 and self.mode == "move") or event.button == 3:
+                self.selection = hover_obj
+                self.selection.origin_set((event.x, event.y))
 
-        elif (self.mode == "draw" or self.mode == "default") and event.button == 1:  # Left mouse button
+            elif event.button == 1 and self.mode == "eraser":
+                self.objects.remove(hover_obj)
+                self.selection = None
+                self.revert_cursor()
+                self.queue_draw()
+            return
+
+        if (self.mode == "draw" or self.mode == "default") and event.button == 1:  # Left mouse button
             if event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS:
-                if obj and obj.type == "text":
+                if hover_obj and hover_obj.type == "text":
                     # put the cursor in the last line, end of the text
-                    obj.move_cursor("End")
-                    self.current_object = obj
+                    hover_obj.move_cursor("End")
+                    self.current_object = hover_obj
                     self.queue_draw()
                     self.change_cursor("none")
             elif not self.current_object:
