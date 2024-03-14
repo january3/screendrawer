@@ -88,6 +88,26 @@ class Drawable:
         path = [ (x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1) ]
         return is_click_close_to_path(click_x, click_y, path, threshold)
 
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "color": self.color,
+            "line_width": self.line_width
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        type_map = {
+            "path": Path,
+            "circle": Circle,
+            "box": Box,
+            "text": Text
+        }
+
+        type = d.pop("type")
+
+        return type_map.get(type)(**d)
 
     def move(self, dx, dy):
         move_coords(self.coords, dx, dy)
@@ -98,7 +118,7 @@ class Text(Drawable):
         self.content = content
         self.size    = size
         self.line    = 0
-        self.cursor_pos = 0
+        self.cursor_pos = None
         self.bb         = None
 
     def is_close_to_click(self, click_x, click_y, threshold):
@@ -108,15 +128,25 @@ class Text(Drawable):
         if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
             return True
 
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "color": self.color,
+            "line_width": self.line_width,
+            "content": self.content,
+            "size": self.size
+        }
 
     def backspace(self):
+        cnt = self.content
         if self.cursor_pos > 0:
-            self.content[self.line] = self.content[self.line][:self.cursor_pos - 1] + self.content[self.line][self.cursor_pos:]
+            cnt[self.line] = cnt[self.line][:self.cursor_pos - 1] + cnt[self.line][self.cursor_pos:]
             self.cursor_pos -= 1
         elif self.line > 0:
-            self.cursor_pos = len(self.content[self.line - 1])
-            self.content[self.line - 1] += self.content[self.line]
-            self.content.pop(self.line)
+            self.cursor_pos = len(cnt[self.line - 1])
+            cnt[self.line - 1] += cnt[self.line]
+            cnt.pop(self.line)
             self.line -= 1
 
     def newline(self):
@@ -130,49 +160,63 @@ class Text(Drawable):
         self.cursor_pos += 1
 
     def move_cursor(self, direction):
-        if direction == "end":
+        if direction == "End":
             self.line = len(self.content) - 1
             self.cursor_pos = len(self.content[self.line])
-        elif direction == "right":
+        elif direction == "Home":
+            self.line = 0
+            self.cursor_pos = 0
+        elif direction == "Right":
             if self.cursor_pos < len(self.content[self.line]):
                 self.cursor_pos += 1
             elif self.line < len(self.content) - 1:
                 self.line += 1
                 self.cursor_pos = 0
-        elif direction == "left":
+        elif direction == "Left":
             if self.cursor_pos > 0:
                 self.cursor_pos -= 1
             elif self.line > 0:
                 self.line -= 1
                 self.cursor_pos = len(self.content[self.line])
+        elif direction == "Down":
+            if self.line < len(self.content) - 1:
+                self.line += 1
+                if self.cursor_pos > len(self.content[self.line]):
+                    self.cursor_pos = len(self.content[self.line])
+        elif direction == "Up":
+            if self.line > 0:
+                self.line -= 1
+                if self.cursor_pos > len(self.content[self.line]):
+                    self.cursor_pos = len(self.content[self.line])
 
     def draw(self, cr, hover):
-        text = self
-        position, content, size, color, cursor_pos = text.coords[0], text.content, text.size, text.color, text.cursor_pos
+        position, content, size, color, cursor_pos = self.coords[0], self.content, self.size, self.color, self.cursor_pos
         cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
         cr.set_font_size(size)
+
+        font_extents = cr.font_extents()
+        ascent  = font_extents[0]
+        descent = font_extents[1]
+        height  = font_extents[2]
+        print("ascent:", ascent, "descent:", descent, "height:", height)
 
         dy   = 0
         maxw = 0
         bb_x = position[0]
-        bb_y = None
+        bb_y = position[1] - ascent
         bb_w = 0
         bb_h = 0
         
         for i in range(len(content)):
             fragment = content[i]
 
-            if cursor_pos != None and i == text.line:
+            if cursor_pos != None and i == self.line:
                 fragment = fragment[:cursor_pos] + "|" + fragment[cursor_pos:]
 
-            x_bearing, y_bearing, width, height, x_advance, y_advance = cr.text_extents(fragment)
-            text.bb = (position[0] + x_bearing, position[1] + y_bearing + dy, width, height)
+            x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents(fragment)
 
-            if bb_y == None:
-                bb_y = position[1] + y_bearing
-
-            bb_w = max(bb_w, width)
-            bb_h += 1.5 * height
+            bb_w = max(bb_w, t_width)
+            bb_h += height
 
             cr.set_font_size(size)
             cr.move_to(position[0], position[1] + dy)
@@ -180,17 +224,18 @@ class Text(Drawable):
             cr.show_text(fragment)
             cr.stroke()
 
-            dy += y_advance + 1.5 * height
-        text.bb = (bb_x, bb_y, bb_w, bb_h)
+            dy += height
+
+        self.bb = (bb_x, bb_y, bb_w, bb_h)
         if hover:
             cr.set_line_width(1)
             cr.rectangle(bb_x, bb_y, bb_w, bb_h)
             cr.stroke()
 
 class Path(Drawable):
-    def __init__(self, coords, color, line_width):
+    def __init__(self, coords, color, line_width, outline = None):
         super().__init__("path", coords, color, line_width)
-        self.outline = []
+        self.outline = outline or []
         self.outline_l = []
         self.outline_r = []
 
@@ -200,6 +245,15 @@ class Path(Drawable):
 
     def is_close_to_click(self, click_x, click_y, threshold):
         return is_click_close_to_path(click_x, click_y, self.coords, threshold)
+
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "outline": self.outline,
+            "color": self.color,
+            "line_width": self.line_width
+        }
 
     def path_append(self, x, y, pressure = 1):
         coords = self.coords
@@ -249,7 +303,7 @@ class Path(Drawable):
 
 class Circle(Drawable):
     def __init__(self, coords, color, line_width):
-        self.type = "box"
+        self.type = "circle"
         self.coords = coords
         self.color = color
         self.line_width = line_width
@@ -347,7 +401,7 @@ class TransparentWindow(Gtk.Window):
     def exit(self):
         ## close the savefile_f
         print("Exiting")
-        #self.save_state()
+        self.save_state()
         Gtk.main_quit()
         
 
@@ -386,7 +440,9 @@ class TransparentWindow(Gtk.Window):
                 'color': self.color
         }
 
-        state = { 'config': config, 'objects': self.objects }
+        objects = [ obj.to_dict() for obj in self.objects ]
+
+        state = { 'config': config, 'objects': objects }
         with open(savefile, 'w') as f:
             yaml.dump(state, f)
         print("Saved drawing to", savefile)
@@ -397,7 +453,7 @@ class TransparentWindow(Gtk.Window):
             return
         with open(savefile, 'r') as f:
             state = yaml.load(f, Loader=yaml.FullLoader)
-        self.objects           = state['objects']
+        self.objects           = [ Drawable.from_dict(d) for d in state['objects'] ]
         self.transparent       = state['config']['transparent']
         self.font_size         = state['config']['font_size']
         self.line_width        = state['config']['line_width']
@@ -409,7 +465,7 @@ class TransparentWindow(Gtk.Window):
         obj = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
         shift = event.state & modifiers == Gdk.ModifierType.SHIFT_MASK
         ctrl  = event.state & modifiers == Gdk.ModifierType.CONTROL_MASK
-        print("mode:", self.mode)
+        #print("mode:", self.mode)
 
         # Ignore clicks when text input is active
         if self.current_object and self.current_object.type == "text":
@@ -436,9 +492,11 @@ class TransparentWindow(Gtk.Window):
 
         # Check if the Shift key is pressed
         elif (shift or self.mode == "text") and event.button == 1 and not self.current_object:  # Shift + Left mouse button
+            print("entering text")
             self.change_cursor("none")
 
             self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content=[ "" ], size = self.font_size)
+            self.current_object.move_cursor("Home")
             self.objects.append(self.current_object)
             self.queue_draw()
 
@@ -461,7 +519,8 @@ class TransparentWindow(Gtk.Window):
                     self.current_object = obj
                     self.queue_draw()
                     self.change_cursor("none")
-            elif not obj:
+            elif not self.current_object:
+                print("starting path")
                 self.current_object = Path([ (event.x, event.y) ], self.color, self.line_width)
                 self.objects.append(self.current_object)
 
@@ -519,13 +578,12 @@ class TransparentWindow(Gtk.Window):
             self.selection.origin_set((event.x, event.y))
             self.queue_draw()
         else:
-            #object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
-            object_underneath = None
+            object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
 
             prev_hover = self.hover
             if object_underneath:
                 if self.mode == "move":
-                    self.change_cursor("hand")
+                    self.change_cursor("move")
                 self.hover = object_underneath
             else:
                 if self.mode == "move":
@@ -548,14 +606,12 @@ class TransparentWindow(Gtk.Window):
         cur  = self.current_object
         #text = cur["content"][ cur["line"] ]
         # length of text
+        print(keyname)
     
         if keyname == "BackSpace": # and cur["cursor_pos"] > 0:
             cur.backspace()
-        elif keyname == "Right":
-            cur.move_cursor("right")
-            #cur["cursor_pos"] = min(cur["cursor_pos"] + 1, len(text))
-        elif keyname == "Left":
-            cur.move_cursor("left")
+        elif keyname in ["Home", "End", "Down", "Up", "Right", "Left"]:
+            cur.move_cursor(keyname)
         elif keyname == "Return":
             cur.newline()
         elif char and char.isprintable():
@@ -580,7 +636,7 @@ class TransparentWindow(Gtk.Window):
             elif keyname == 'm':
                 print("Move mode")
                 self.mode = "move"
-                self.default_cursor("move")
+                self.default_cursor("finger")
             elif keyname == 'c':
                 print("Circle drawing mode")
                 self.default_cursor("crosshair")
@@ -604,15 +660,15 @@ class TransparentWindow(Gtk.Window):
                 self.select_color()
             elif keyname == "l":
                 self.clear()
-#           elif self.current_text:
-#               if keyname == "plus":
-#                   self.current_text["size"] += 1
-#                   self.font_size = self.current_text["size"]
-#                   self.queue_draw()
-#               elif keyname == "minus":
-#                   self.current_text["size"] = max(1, self.current_text["size"] - 1)
-#                   self.font_size = self.current_text["size"]
-#                   self.queue_draw()
+            elif self.current_object and self.current_object.type == "text":
+                if keyname == "plus":
+                    self.current_object.size += 1
+                    self.font_size = self.current_object.size
+                    self.queue_draw()
+                elif keyname == "minus":
+                    self.current_object.size = max(1, self.current_object.size - 1)
+                    self.font_size = self.current_object.size
+                    self.queue_draw()
             elif keyname == "s":
                     self.save_drawing()
      
@@ -637,14 +693,7 @@ class TransparentWindow(Gtk.Window):
             self.handle_shortcuts(keyname, False)
 
     def draw_dot(self, cr, x, y, diameter):
-        """Draws a dot at the specified position with the given diameter.
-        
-        Args:
-            cr: The Cairo context to draw on.
-            x (float): The x-coordinate of the center of the dot.
-            y (float): The y-coordinate of the center of the dot.
-            diameter (float): The diameter of the dot.
-        """
+        """Draws a dot at the specified position with the given diameter."""
         cr.arc(x, y, diameter / 2, 0, 2 * 3.14159)  # Draw a circle
         cr.fill()  # Fill the circle to make a dot
 
