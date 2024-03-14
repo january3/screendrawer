@@ -227,8 +227,9 @@ class Text(Drawable):
             dy += height
 
         self.bb = (bb_x, bb_y, bb_w, bb_h)
+
         if hover:
-            cr.set_line_width(1)
+            cr.set_line_width(.1)
             cr.rectangle(bb_x, bb_y, bb_w, bb_h)
             cr.stroke()
 
