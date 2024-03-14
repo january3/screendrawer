@@ -191,7 +191,7 @@ class Text(Drawable):
         else:
             raise ValueError("Invalid direction:", direction)
 
-    def draw(self, cr, hover):
+    def draw(self, cr, hover=False, selected=False):
         position, content, size, color, cursor_pos = self.coords[0], self.content, self.size, self.color, self.cursor_pos
         cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
         cr.set_font_size(size)
@@ -285,7 +285,7 @@ class Path(Drawable):
 
 
 
-    def draw(self, cr, hover):
+    def draw(self, cr, hover=False, selected=False):
         if len(self.outline) < 4:
             return
         if len(self.coords) < 3:
@@ -308,7 +308,7 @@ class Circle(Drawable):
         self.color = color
         self.line_width = line_width
 
-    def draw(self, cr, hover):
+    def draw(self, cr, hover=False, selected=False):
         if hover:
             cr.set_line_width(self.line_width + 1)
         else:
@@ -333,19 +333,25 @@ class Box(Drawable):
         self.color = color
         self.line_width = line_width
 
-    def draw(self, cr, hover):
+    def draw(self, cr, hover=False, selected=False):
+        cr.set_source_rgb(*self.color)
+
         if hover:
             cr.set_line_width(self.line_width + 1)
         else:
             cr.set_line_width(self.line_width)
 
-        cr.set_source_rgb(*self.color)
         x1, y1 = self.coords[0]
         x2, y2 = self.coords[1]
         w, h = (abs(x1 - x2), abs(y1 - y2))
         x0, y0 = (min(x1, x2), min(y1, y2))
         cr.rectangle(x0, y0, w, h)
         cr.stroke()
+
+        if selected:
+            cr.arc(x0, y0, 10, 0, 2 * 3.14159)  # Draw a circle
+            cr.fill()  # Fill the circle to make a dot
+            cr.stroke()
 
 
 class TransparentWindow(Gtk.Window):
@@ -375,7 +381,8 @@ class TransparentWindow(Gtk.Window):
         self.current_object = None
         self.changing_line_width = False
         self.selection = None
-        self.mode      = "default"
+        self.dragobj   = None
+        self.mode      = "draw"
         self.current_cursor = None
         self.hover = None
 
@@ -415,10 +422,9 @@ class TransparentWindow(Gtk.Window):
     def draw(self, cr):
 
         for obj in self.objects:
-            hover = False
-            if obj == self.hover:
-                hover = True
-            obj.draw(cr, hover)
+            hover    = obj == self.hover
+            selected = obj == self.selection
+            obj.draw(cr, hover=hover, selected=selected)
 
         # If changing line width, draw a preview of the new line width
         if self.changing_line_width:
@@ -428,6 +434,7 @@ class TransparentWindow(Gtk.Window):
 
     def clear(self):
         self.selection      = None
+        self.dragobj        = None
         self.current_object = None
         self.objects = []
         self.queue_draw()
@@ -463,8 +470,9 @@ class TransparentWindow(Gtk.Window):
     def on_button_press(self, widget, event):
         modifiers = Gtk.accelerator_get_default_mod_mask()
         hover_obj = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
-        shift = event.state & modifiers == Gdk.ModifierType.SHIFT_MASK
-        ctrl  = event.state & modifiers == Gdk.ModifierType.CONTROL_MASK
+        shift     = event.state & modifiers == Gdk.ModifierType.SHIFT_MASK
+        ctrl      = event.state & modifiers == Gdk.ModifierType.CONTROL_MASK
+        double    = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
         #print("mode:", self.mode)
 
         # Ignore clicks when text input is active
@@ -473,25 +481,35 @@ class TransparentWindow(Gtk.Window):
             return
 
         # Start changing line width
-        if ctrl and event.button == 1:  # Ctrl + Left mouse button
+        if ctrl and event.button == 1 and mode == "draw":  # Ctrl + Left mouse button
             self.cur_pos = (event.x, event.y)
             self.changing_line_width = True
             return
 
-        # simple click
-        if event.button == 1 and not self.current_object:
+        # double click on a text object: start editing
+        if event.button == 1 and double and hover_obj and hover_obj.type == "text" and mode in ["draw", "text"]:
+            # put the cursor in the last line, end of the text
+            hover_obj.move_cursor("End")
+            self.current_object = hover_obj
+            self.queue_draw()
+            self.change_cursor("none")
 
-            if self.mode == "box":
+        # simple click: start drawing
+        if event.button == 1 and not self.current_object:
+            if self.mode == "draw":
+                print("starting path")
+                self.current_object = Path([ (event.x, event.y) ], self.color, self.line_width)
+                self.objects.append(self.current_object)
+
+            elif self.mode == "box":
                 print("drawing box / circle")
                 self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
                 self.objects.append(self.current_object)
-                self.queue_draw()
 
             elif self.mode == "circle":
                 print("drawing circle")
                 self.current_object = Circle([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
                 self.objects.append(self.current_object)
-                self.queue_draw()
 
             # Check if the Shift key is pressed
             elif shift or self.mode == "text":  # Shift + Left mouse button
@@ -501,34 +519,20 @@ class TransparentWindow(Gtk.Window):
                 self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content=[ "" ], size = self.font_size)
                 self.current_object.move_cursor("Home")
                 self.objects.append(self.current_object)
-                self.queue_draw()
-            return
 
         # moving an object, or erasing it, if an object is underneath the cursor
         if hover_obj:
             if (event.button == 1 and self.mode == "move") or event.button == 3:
+                hover_obj.origin_set((event.x, event.y))
+                # selection stays after click is released; dragging does not
                 self.selection = hover_obj
-                self.selection.origin_set((event.x, event.y))
+                self.dragobj   = hover_obj
 
             elif event.button == 1 and self.mode == "eraser":
                 self.objects.remove(hover_obj)
                 self.selection = None
+                self.dragobj   = None
                 self.revert_cursor()
-                self.queue_draw()
-            return
-
-        if (self.mode == "draw" or self.mode == "default") and event.button == 1:  # Left mouse button
-            if event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS:
-                if hover_obj and hover_obj.type == "text":
-                    # put the cursor in the last line, end of the text
-                    hover_obj.move_cursor("End")
-                    self.current_object = hover_obj
-                    self.queue_draw()
-                    self.change_cursor("none")
-            elif not self.current_object:
-                print("starting path")
-                self.current_object = Path([ (event.x, event.y) ], self.color, self.line_width)
-                self.objects.append(self.current_object)
 
         self.queue_draw()
 
@@ -541,21 +545,24 @@ class TransparentWindow(Gtk.Window):
             obj.path_append(event.x, event.y, 0)
             self.queue_draw()
 
-        self.cur_pos      = None
+        # this two are for changing line width
+        self.cur_pos             = None
         self.changing_line_width = False
 
+        # if the user clicked to create a text, we are not really done yet
         if self.current_object and self.current_object.type != "text":
             self.current_object = None
 
-        if self.selection:
+        if self.dragobj:
             # If the user was dragging a selected object and the drag ends
             # in the lower left corner, delete the object
-            self.selection.origin_remove()
+            self.dragobj.origin_remove()
             if event.x < 10 and event.y > self.get_size()[1] - 10:
-                self.objects.remove(self.selection)
+                self.objects.remove(self.dragobj)
                 self.selection = None
+                self.dragobj   = None
                 self.queue_draw()
-        self.selection    = None
+        self.dragobj    = None
 
 
     def on_motion_notify(self, widget, event):
@@ -574,14 +581,14 @@ class TransparentWindow(Gtk.Window):
                 pressure = 1.0
             obj.path_append(event.x, event.y, pressure)
             self.queue_draw()
-        elif self.selection is not None:
-            dx = event.x - self.selection.origin[0]
-            dy = event.y - self.selection.origin[1]
+        elif self.dragobj is not None:
+            dx = event.x - self.dragobj.origin[0]
+            dy = event.y - self.dragobj.origin[1]
 
             # Move the selected object
-            self.selection.move(dx, dy)
+            self.dragobj.move(dx, dy)
 
-            self.selection.origin_set((event.x, event.y))
+            self.dragobj.origin_set((event.x, event.y))
             self.queue_draw()
         else:
             object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
@@ -626,10 +633,11 @@ class TransparentWindow(Gtk.Window):
 
     def handle_shortcuts(self, keyname, ctrl):
         """Handle keyboard shortcuts."""
+        print(keyname)
         if not ctrl:
             if keyname == 'd':
-                print("Default mode")
-                self.mode = "default"
+                print("Drawing mode")
+                self.mode = "draw"
                 self.default_cursor("pencil")
             elif keyname == 't':
                 print("Text input mode")
@@ -651,6 +659,12 @@ class TransparentWindow(Gtk.Window):
                 print("Box / circle drawing mode")
                 self.default_cursor("crosshair")
                 self.mode = "box"
+            elif keyname == 'Delete':
+                if self.selection:
+                    self.objects.remove(self.selection)
+                    self.selection = None
+                    self.dragobj   = None
+                    self.queue_draw()
         else:
             if keyname == "c" or keyname == "q":
                 self.exit()
