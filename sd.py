@@ -37,7 +37,6 @@ def distance_point_to_segment(px, py, x1, y1, x2, y2):
 
 def find_obj_close_to_click(click_x, click_y, objects, threshold):
     for obj in objects:
-        print(obj)
         if not obj is None and obj.is_close_to_click(click_x, click_y, threshold):
             return obj
 
@@ -56,6 +55,18 @@ def move_coords(coords, dx, dy):
         ValueError("No coordinates to move")
     for i in range(len(coords)):
         coords[i] = (coords[i][0] + dx, coords[i][1] + dy)
+
+def is_click_close_to_path(click_x, click_y, path, threshold):
+    """Check if a click is close to any segment in the path."""
+
+    for i in range(len(path) - 1):
+        segment_start = path[i]
+        segment_end = path[i + 1]
+        distance = distance_point_to_segment(click_x, click_y, segment_start[0], segment_start[1], segment_end[0], segment_end[1])
+        if distance <= threshold:
+            return True
+    return False
+
 
 class Drawable:
     def __init__(self, type, coords, color, line_width):
@@ -188,16 +199,7 @@ class Path(Drawable):
         move_coords(self.outline, dx, dy)
 
     def is_close_to_click(self, click_x, click_y, threshold):
-        """Check if a click is close to any segment in the path."""
-        path = self.coords
-        for i in range(len(path) - 1):
-            segment_start = path[i]
-            segment_end = path[i + 1]
-            distance = distance_point_to_segment(click_x, click_y, segment_start[0], segment_start[1], segment_end[0], segment_end[1])
-            if distance <= threshold:
-                return True
-        return False
-
+        return is_click_close_to_path(click_x, click_y, self.coords, threshold)
 
     def path_append(self, x, y, pressure = 1):
         coords = self.coords
@@ -254,12 +256,12 @@ class Circle(Drawable):
 
     def draw(self, cr, hover):
         if hover:
-            cr.set_line_width(box.line_width + 1)
+            cr.set_line_width(self.line_width + 1)
         else:
-            cr.set_line_width(box.line_width)
-        cr.set_source_rgb(*box.color)
-        x1, y1 = box.coords[0]
-        x2, y2 = box.coords[1]
+            cr.set_line_width(self.line_width)
+        cr.set_source_rgb(*self.color)
+        x1, y1 = self.coords[0]
+        x2, y2 = self.coords[1]
         w, h = (abs(x1 - x2), abs(y1 - y2))
         x0, y0 = (min(x1, x2), min(y1, y2))
         #cr.rectangle(x0, y0, w, h)
@@ -618,8 +620,6 @@ class TransparentWindow(Gtk.Window):
         """Handle keyboard events."""
         keyname = Gdk.keyval_name(event.keyval)
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
-        print("keyname:", keyname)
-        print("current object:", self.current_object)
         #print(keyname)
 
         # End text input
