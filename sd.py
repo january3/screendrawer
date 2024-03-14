@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import gi
+import copy
 import yaml
+import pickle
 gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, Gdk, GdkPixbuf
@@ -39,11 +41,20 @@ def distance_point_to_segment(px, py, x1, y1, x2, y2):
     return math.sqrt((px - projection_x) ** 2 + (py - projection_y) ** 2)
 
 def find_obj_close_to_click(click_x, click_y, objects, threshold):
-    for obj in objects:
+    for obj in objects[::-1]:
         if not obj is None and obj.is_close_to_click(click_x, click_y, threshold):
             return obj
 
     return None
+
+def find_obj_in_bbox(bbox, objects):
+    x, y, w, h = bbox
+    ret = []
+    for obj in objects:
+        x_o, y_o, w_o, h_o = obj.bbox()
+        if x_o >= x and y_o >= y and x_o + w_o <= x + w and y_o + h_o <= y + h:
+            ret.append(obj)
+    return ret
 
 def normal_vec(x0, y0, x1, y1):
     dx, dy = x1 - x0, y1 - y0
@@ -85,11 +96,13 @@ def is_click_close_to_path(click_x, click_y, path, threshold):
 
 
 class Drawable:
+    """Base class for drawable objects."""
     def __init__(self, type, coords, color, line_width):
         self.type       = type
         self.coords     = coords
         self.color      = color
         self.line_width = line_width
+        self.origin     = None
 
     def origin_set(self, origin):
         self.origin = origin
@@ -119,6 +132,7 @@ class Drawable:
             "circle": Circle,
             "box": Box,
             "image": Image,
+            "group": DrawableGroup,
             "text": Text
         }
 
@@ -146,6 +160,72 @@ class Drawable:
     def draw(self, cr, hover=False, selected=False):
         raise NotImplementedError("draw method not implemented")
 
+class DrawableGroup(Drawable):
+    def __init__(self, objects = [ ], objects_dict = None):
+
+        if objects_dict:
+            objects = [ Drawable.from_dict(d) for d in objects_dict ]
+
+        print("Creating DrawableGroup with objects", objects)
+        super().__init__("drawable_group", [ (None, None) ], None, None)
+        self.objects = objects
+        self.type = "group"
+
+    def contains(self, obj):
+        return obj in self.objects
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        for obj in self.objects:
+            if obj.is_close_to_click(click_x, click_y, threshold):
+                return True
+        return False
+
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "objects_dict": [ obj.to_dict() for obj in self.objects ],
+        }
+
+
+    def length(self):
+        return len(self.objects)
+
+    def bbox(self):
+        if not self.objects:
+            return None
+        left, top, width, height = self.objects[0].bbox()
+        bottom, right = top + height, left + width
+
+        for obj in self.objects[1:]:
+            x, y, w, h = obj.bbox()
+            left, top = min(left, x), min(top, y)
+            bottom, right = max(bottom, y + h), max(right, x + w)
+
+        width, height = right - left, bottom - top
+        return (left, top, width, height)
+
+    def add(self, obj):
+        if obj not in self.objects:
+            self.objects.append(obj)
+
+    def remove(self, obj):
+        self.objects.remove(obj)
+
+    def move(self, dx, dy):
+        for obj in self.objects:
+            obj.move(dx, dy)
+
+    def draw(self, cr, hover=False, selected=False):
+        for obj in self.objects:
+            obj.draw(cr, hover=hover, selected=selected)
+        cr.set_source_rgb(0, 0, 0)
+        if selected:
+            self.bbox_draw(cr, 1.5)
+        if hover:
+            self.bbox_draw(cr, .5)
+
+
+
 class Image(Drawable):
     def __init__(self, coords, color, line_width, image, image_base64 = None):
 
@@ -156,10 +236,10 @@ class Image(Drawable):
             self.image_base64 = None
 
         width, height = image.get_width(), image.get_height()
-        print("image size", width, height)
         coords = [ (coords[0][0], coords[0][1]), (coords[0][0] + width, coords[0][1] + height) ]
         super().__init__("image", coords, color, line_width)
         self.image = image
+        self.image_size = (width, height)
 
     def draw(self, cr, hover=False, selected=False):
         Gdk.cairo_set_source_pixbuf(cr, self.image, self.coords[0][0], self.coords[0][1])
@@ -480,6 +560,69 @@ class Box(Drawable):
             cr.stroke()
 
 
+## ---------------------------------------------------------------------
+class HelpDialog(Gtk.Dialog):
+    def __init__(self, parent):
+        super().__init__(title="Help", transient_for=parent, flags=0)
+        self.add_buttons(Gtk.STOCK_OK, Gtk.ResponseType.OK)
+        self.set_default_size(900, 300)
+        self.set_border_width(10)
+
+        # Example help text with Pango Markup (not Markdown but similar concept)
+        help_text = """
+
+<span font="24"><b>screendrawer</b></span>
+
+Draw on the screen with Gnome and Cairo. Quick and dirty.
+
+<b>(Help not complete yet.)</b>
+
+<b>Mouse:</b>
+
+<b>All modes:</b>                          <b>Move mode:</b>
+shift-click: Enter text mode               click: Select object
+right-button: Move object                  move: Move object
+ctrl-click: Change line width
+
+Moving object to left lower screen corner deletes it.
+
+<b>Shortcut keys:</b>
+
+<span font_family="monospace">
+<b>Drawing modes:</b> (simple key)
+
+<b>d:</b> Draw mode (pencil)                 <b>m:</b> Move mode (move objects around, copy and paste)
+<b>t:</b> Text mode (text entry)             <b>b:</b> Box mode  (draw a rectangle)
+<b>c:</b> Circle mode (draw an ellipse)      <b>e:</b> Eraser mode (delete objects with a click)
+
+<b>With Ctrl:</b>                    <b>Simple key (not when entering text)</b>
+Ctrl-q: Quit                         x: Exit
+Ctrl-s: Save drawing                 h, F1, ?: Show this help dialog
+Ctrl-l: Clear drawing                l: Clear drawing                 
+
+Ctrl-c: Copy content                 &lt;Del&gt;: Delete selected object (in "move" mode)
+Ctrl-v: Paste content                &lt;Esc&gt;: Finish text input
+
+Ctrl-k: Select color
+Ctrl-plus, Ctrl-minus: Change text size
+Ctrl-b: Cycle background transparency
+
+</span>
+
+The state is saved in / loaded from `~/.screendrawer` so you can continue drawing later.
+You might want to remove that file if something goes wrong.
+        """
+
+        label = Gtk.Label()
+        label.set_markup(help_text)
+        label.set_justify(Gtk.Justification.LEFT)
+        label.set_line_wrap(True)
+        
+        box = self.get_content_area()
+        box.add(label)
+        self.show_all()
+
+
 class TransparentWindow(Gtk.Window):
     def __init__(self):
         super(TransparentWindow, self).__init__()
@@ -512,6 +655,9 @@ class TransparentWindow(Gtk.Window):
         self.current_cursor = None
         self.hover = None
         self.cursor_pos = None
+        self.clipboard  = None
+        self.selection_tool = None
+        self.gtk_clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 
         # defaults for drawing
         self.transparent = 0
@@ -524,6 +670,7 @@ class TransparentWindow(Gtk.Window):
 
         self.load_state()
 
+        self.gtk_clipboard.connect('owner-change', self.on_clipboard_owner_change)
         self.connect("button-press-event", self.on_button_press)
         self.connect("button-release-event", self.on_button_release)
         self.connect("motion-notify-event", self.on_motion_notify)
@@ -531,6 +678,10 @@ class TransparentWindow(Gtk.Window):
         self.make_cursors()
         self.set_keep_above(True)
         self.maximize()
+
+    def on_clipboard_owner_change(self, clipboard, event):
+
+        self.clipboard = None
 
     def exit(self):
         ## close the savefile_f
@@ -550,7 +701,7 @@ class TransparentWindow(Gtk.Window):
 
         for obj in self.objects:
             hover    = obj == self.hover
-            selected = obj == self.selection and self.mode == "move"
+            selected = self.selection and self.selection.contains(obj) and self.mode == "move"
             obj.draw(cr, hover=hover, selected=selected)
 
         # If changing line width, draw a preview of the new line width
@@ -577,16 +728,18 @@ class TransparentWindow(Gtk.Window):
         objects = [ obj.to_dict() for obj in self.objects ]
 
         state = { 'config': config, 'objects': objects }
-        with open(savefile, 'w') as f:
-            yaml.dump(state, f)
+        with open(savefile, 'wb') as f:
+            #yaml.dump(state, f)
+            pickle.dump(state, f)
         print("Saved drawing to", savefile)
 
     def load_state(self):
         if not os.path.exists(savefile):
             print("No saved drawing found at", savefile)
             return
-        with open(savefile, 'r') as f:
-            state = yaml.load(f, Loader=yaml.FullLoader)
+        with open(savefile, 'rb') as f:
+            state = pickle.load(f)
+            #state = yaml.load(f, Loader=yaml.FullLoader)
         self.objects           = [ Drawable.from_dict(d) for d in state['objects'] ]
         self.transparent       = state['config']['transparent']
         self.font_size         = state['config']['font_size']
@@ -608,7 +761,7 @@ class TransparentWindow(Gtk.Window):
             return
 
         # Start changing line width
-        if ctrl and event.button == 1 and mode == "draw":  # Ctrl + Left mouse button
+        if ctrl and event.button == 1 and self.mode == "draw":  # Ctrl + Left mouse button
             self.cur_pos = (event.x, event.y)
             self.changing_line_width = True
             return
@@ -623,7 +776,7 @@ class TransparentWindow(Gtk.Window):
 
         # simple click: start drawing
         if event.button == 1 and not self.current_object:
-            if shift or self.mode == "text":  # Shift + Left mouse button
+            if self.mode == "text":  # Shift + Left mouse button
                 print("entering text")
                 self.change_cursor("none")
                 self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content="", size = self.font_size)
@@ -647,21 +800,32 @@ class TransparentWindow(Gtk.Window):
 
             elif self.mode == "move":
                 if hover_obj:
-                    hover_obj.origin_set((event.x, event.y))
-                    self.selection = hover_obj
-                    self.dragobj   = hover_obj
+                    if shift and self.selection:
+                        # create Draw Group with the two objects
+                        print("adding to group")
+                        self.selection.add(hover_obj)
+                    elif not self.selection or not self.selection.contains(hover_obj):
+                        self.selection = DrawableGroup([ hover_obj ])
+
+                    self.selection.origin_set((event.x, event.y))
+                    self.dragobj   = self.selection
                 else:
                     self.selection = None
                     self.dragobj   = None
+                    print("starting selection")
+                    self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], (1, 0, 0), 0.3)
+                    self.objects.append(self.current_object)
+                    self.selection_tool = self.current_object
+                    self.queue_draw()
 
         # moving an object, or erasing it, if an object is underneath the cursor
         if hover_obj:
-            if (event.button == 1 and self.mode == "move") or event.button == 3:
-                hover_obj.origin_set((event.x, event.y))
-                self.selection = hover_obj
-                self.dragobj   = hover_obj
+            #if (event.button == 1 and self.mode == "move") or event.button == 3:
+            #    hover_obj.origin_set((event.x, event.y))
+            #    self.selection = hover_obj
+            #    self.dragobj   = hover_obj
 
-            elif event.button == 1 and self.mode == "eraser":
+            if event.button == 1 and self.mode == "eraser":
                 self.objects.remove(hover_obj)
                 self.selection = None
                 self.dragobj   = None
@@ -685,6 +849,17 @@ class TransparentWindow(Gtk.Window):
         # if the user clicked to create a text, we are not really done yet
         if self.current_object and self.current_object.type != "text":
             self.current_object = None
+
+        # if selection tool is active, finish it
+        if self.selection_tool:
+            self.objects.remove(self.selection_tool)
+            bb = self.selection_tool.bbox()
+            obj = find_obj_in_bbox(bb, self.objects)
+            print("found objects in bbox", len(obj))
+            print(bb)
+            self.selection_tool = None
+            self.selection = DrawableGroup(obj)
+            self.queue_draw()
 
         if self.dragobj:
             # If the user was dragging a selected object and the drag ends
@@ -724,13 +899,13 @@ class TransparentWindow(Gtk.Window):
 
             self.dragobj.origin_set((event.x, event.y))
             self.queue_draw()
-        else:
+        elif self.mode == "move":
             object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
 
             prev_hover = self.hover
             if object_underneath:
                 if self.mode == "move":
-                    self.change_cursor("move")
+                    self.change_cursor("moving")
                 self.hover = object_underneath
             else:
                 if self.mode == "move":
@@ -751,8 +926,6 @@ class TransparentWindow(Gtk.Window):
     def update_text_input(self, keyname, char):
         """Update the current text input."""
         cur  = self.current_object
-        #text = cur["content"][ cur["line"] ]
-        # length of text
         print(keyname)
     
         if keyname == "BackSpace": # and cur["cursor_pos"] > 0:
@@ -763,6 +936,15 @@ class TransparentWindow(Gtk.Window):
             cur.newline()
         elif char and char.isprintable():
             cur.add_char(char)
+        self.queue_draw()
+
+    def cycle_background(self):
+        if self.transparent == 1:
+            self.transparent = 0
+        elif self.transparent == 0:
+            self.transparent = .5
+        else:
+            self.transparent = 1
         self.queue_draw()
 
     def paste_text(self, clip_text):
@@ -779,16 +961,33 @@ class TransparentWindow(Gtk.Window):
             self.objects.append(self.current_object)
             self.queue_draw()
 
-    def cycle_background(self):
-        if self.transparent == 1:
-            self.transparent = 0
-        elif self.transparent == 0:
-            self.transparent = .5
-        else:
-            self.transparent = 1
+    def paste_image(self, clip_img):
+        pos = self.cursor_pos or (100, 100)
+        self.current_object = Image([ pos ], self.color, self.line_width, clip_img)
+        self.objects.append(self.current_object)
+        self.queue_draw()
+
+
+    def object_create_copy(self):
+        """Copy the current object into a new object."""
+        new_obj = copy.deepcopy(self.clipboard.to_dict())
+        new_obj = Drawable.from_dict(new_obj)
+
+        # move the new object to the current location
+        pos = self.cursor_pos or (100, 100)
+        bb  = new_obj.bbox()
+        dx, dy = pos[0] - bb[0], pos[1] - bb[1]
+        new_obj.move(dx, dy)
+
+        self.objects.append(new_obj)
         self.queue_draw()
 
     def paste_content(self):
+
+        if self.clipboard:
+            self.object_create_copy()
+            return
+
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         clip_text = clipboard.wait_for_text()
         if clip_text:
@@ -797,92 +996,131 @@ class TransparentWindow(Gtk.Window):
         clip_img = clipboard.wait_for_image()
         if clip_img:
             print("Image in clipboard")
-            pos = self.cursor_pos or (100, 100)
-            self.current_object = Image([ pos ], self.color, self.line_width, clip_img)
-            self.objects.append(self.current_object)
-            self.queue_draw()
+            self.paste_image(clip_img)
+
+    def img_object_copy(self, obj):
+        """Create a pixbuf copy of the given drawable object."""
+
+        bb      = obj.bbox()
+        surface = cairo.ImageSurface(cairo.Format.ARGB32, math.ceil(bb[2]), math.ceil(bb[3]))
+        cr      = cairo.Context(surface)
+
+        # move to top left corner
+        obj.move(-bb[0], -bb[1])
+        obj.draw(cr)
+        # move back
+        obj.move(bb[0], bb[1])
+
+        data   = surface.get_data()
+        pixbuf = GdkPixbuf.Pixbuf.new_from_data(data, GdkPixbuf.Colorspace.RGB, True, 8,
+                                            surface.get_width(), surface.get_height(),
+                                            surface.get_stride())
+        return pixbuf
 
     def copy_content(self):
         print("Copying content")
-        if self.selection and self.selection.type == "text":
+        if not self.selection:
+            return
+
+        print("Copying content", self.selection)
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        self.clipboard = self.selection
+
+        if self.selection.type == "text":
             text = "\n".join(self.selection.content)
             print("Copying text", text)
-            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            # just copy the text
             clipboard.set_text(text, -1)
             clipboard.store()
-        elif self.selection and self.selection.type == "image":
+        elif self.selection.type == "image":
             print("Copying image")
-            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            # simply copy the image into clipboard
             clipboard.set_image(self.selection.image)
             clipboard.store()
+        else:
+            print("Copying another object")
+            # draw a little image and copy it to clipboard
+            img_copy = self.img_object_copy(self.selection)
+            clipboard.set_image(img_copy)
+            clipboard.store()
+
+    def text_size_decrease(self):
+        self.text_size_change(-1)
+
+    def text_size_increase(self):
+        self.text_size_change(1)
+
+    def text_size_change(self, direction):
+        obj = None
+        if self.current_object and self.current_object.type == "text":
+            obj = self.current_object
+        elif self.selection and self.selection.type == "text":
+            obj = self.selection
+
+        if obj:
+            obj.size += direction
+            self.font_size = obj.size
+            self.queue_draw()
+
+    def selection_group(self):
+        if not self.selection or self.selection.length() < 2:
+            return
+        print("Grouping", self.selection.length(), "objects")
+        new_grp_obj = DrawableGroup(self.selection.objects)
+        for obj in self.selection.objects:
+            self.objects.remove(obj)
+        self.objects.append(new_grp_obj)
+        self.selection = DrawableGroup([ new_grp_obj ])
+        self.queue_draw()
+
+    def selection_ungroup(self):
+        if not self.selection:
+            return
+        for obj in self.selection.objects:
+            if obj.type == "group":
+                print("Ungrouping", obj)
+                self.objects.extend(obj.objects)
+                self.objects.remove(obj)
+                self.queue_draw()
+        return
+
+    def selection_delete(self):
+        if self.selection:
+            for obj in self.selection.objects:
+                self.objects.remove(obj)
+            self.selection = None
+            self.dragobj   = None
+            self.queue_draw()
 
     def handle_shortcuts(self, keyname, ctrl):
         """Handle keyboard shortcuts."""
         print(keyname)
+
+        modes = { 'd': "draw", 't': "text", 'e': "eraser", 'm': "move", 'c': "circle", 'b': "box" }
+        actions = { 'h': self.show_help_dialog, 'x': self.exit, 
+                   'l': self.clear, 'g': self.selection_group, 'u': self.selection_ungroup,
+                   'F1': self.show_help_dialog, 'question': self.show_help_dialog,
+                    'Delete': self.selection_delete}
+        ctrl_actions = { 'v': self.paste_content, 'c': self.copy_content, 
+                         'k': self.select_color, 'l': self.clear, 'b': self.cycle_background,
+                         'plus': self.text_size_increase, 'minus': self.text_size_decrease,
+                         's': self.save_drawing, 'q': self.exit }
+
         if not ctrl:
-            if keyname == 'x':
-                print("Exiting")
-                self.exit()
-            if keyname == 'd':
-                print("Drawing mode")
-                self.mode = "draw"
-                self.default_cursor("pencil")
-            elif keyname == 't':
-                print("Text input mode")
-                self.mode = "text"
-                self.default_cursor("text")
-            elif keyname == 'e':
-                print("Eraser mode")
-                self.mode = "eraser"
-                self.default_cursor("eraser")
-            elif keyname == 'm':
-                print("Move mode")
-                self.mode = "move"
-                self.default_cursor("finger")
-            elif keyname == 'c':
-                print("Circle drawing mode")
-                self.default_cursor("crosshair")
-                self.mode = "circle"
-            elif keyname == 'b':
-                print("Box / circle drawing mode")
-                self.default_cursor("crosshair")
-                self.mode = "box"
-            elif keyname == 'Delete':
-                if self.selection:
-                    self.objects.remove(self.selection)
-                    self.selection = None
-                    self.dragobj   = None
-            self.queue_draw()
+            if keyname in modes:
+                self.mode = modes[keyname]
+                self.default_cursor(modes[keyname])
+                self.queue_draw()
+            elif keyname in actions:
+                actions[keyname]()
         else:
-            if keyname == "q":
-                self.exit()
-            elif keyname == 'v': # paste text
-                self.paste_content()
-            elif keyname == 'c':
-                self.copy_content()
-            elif keyname == "b":
-                self.cycle_background()
-            elif keyname == "k":
-                self.select_color()
-            elif keyname == "l":
-                self.clear()
-            elif self.current_object and self.current_object.type == "text":
-                if keyname == "plus":
-                    self.current_object.size += 1
-                    self.font_size = self.current_object.size
-                    self.queue_draw()
-                elif keyname == "minus":
-                    self.current_object.size = max(1, self.current_object.size - 1)
-                    self.font_size = self.current_object.size
-                    self.queue_draw()
-            elif keyname == "s":
-                    self.save_drawing()
+            if keyname in ctrl_actions:
+                ctrl_actions[keyname]()
      
     def on_key_press(self, widget, event):
         """Handle keyboard events."""
         keyname = Gdk.keyval_name(event.keyval)
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
-        #print(keyname)
 
         # End text input
         if keyname == "Escape":
@@ -906,13 +1144,16 @@ class TransparentWindow(Gtk.Window):
     def make_cursors(self):
         self.cursors = {
             "hand":      Gdk.Cursor.new_from_name(self.get_display(), "hand1"),
-            "finger":    Gdk.Cursor.new_from_name(self.get_display(), "hand2"),
-            "move":    Gdk.Cursor.new_from_name(self.get_display(), "move"),
+            "move":      Gdk.Cursor.new_from_name(self.get_display(), "hand2"),
+            "moving":    Gdk.Cursor.new_from_name(self.get_display(), "move"),
             "text":      Gdk.Cursor.new_from_name(self.get_display(), "text"),
-            "eraser":      Gdk.Cursor.new_from_name(self.get_display(), "not-allowed"),
+            "eraser":    Gdk.Cursor.new_from_name(self.get_display(), "not-allowed"),
             "pencil":    Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
+            "draw":      Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
             "crosshair": Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
-            "none": Gdk.Cursor.new_from_name(self.get_display(), "none"),
+            "circle":    Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
+            "box":       Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
+            "none":      Gdk.Cursor.new_from_name(self.get_display(), "none"),
             "default":   Gdk.Cursor.new_from_name(self.get_display(), "pencil")
         }
 
@@ -953,6 +1194,12 @@ class TransparentWindow(Gtk.Window):
 
         # Don't forget to destroy the dialog
         color_chooser.destroy()
+
+    def show_help_dialog(self):
+        dialog = HelpDialog(self)
+        response = dialog.run()
+        dialog.destroy()
+
 
     def save_drawing(self):
         # Choose where to save the file
