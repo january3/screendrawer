@@ -4,11 +4,14 @@ import gi
 import yaml
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GdkPixbuf
 import cairo
 import os
 import time
 import math
+import base64
+import tempfile
+from io import BytesIO
 
 savefile = os.path.expanduser("~/.screendrawer")
 print(savefile)
@@ -115,10 +118,13 @@ class Drawable:
             "path": Path,
             "circle": Circle,
             "box": Box,
+            "image": Image,
             "text": Text
         }
 
         type = d.pop("type")
+        if type not in type_map:
+            raise ValueError("Invalid type:", type)
 
         return type_map.get(type)(**d)
 
@@ -139,6 +145,63 @@ class Drawable:
 
     def draw(self, cr, hover=False, selected=False):
         raise NotImplementedError("draw method not implemented")
+
+class Image(Drawable):
+    def __init__(self, coords, color, line_width, image, image_base64 = None):
+
+        if image_base64:
+            image = self.decode_base64(image_base64)
+        width, height = image.get_width(), image.get_height()
+        print("image size", width, height)
+        coords = [ (coords[0][0], coords[0][1]), (coords[0][0] + width, coords[0][1] + height) ]
+        super().__init__("image", coords, color, line_width)
+        self.image = image
+
+    def draw(self, cr, hover=False, selected=False):
+        Gdk.cairo_set_source_pixbuf(cr, self.image, self.coords[0][0], self.coords[0][1])
+        cr.paint()
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        bb = self.bbox()
+        if bb is None:
+            return False
+        x, y, width, height = bb
+        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
+            return True
+
+    def decode_base64(self, image_base64):
+        image_binary = base64.b64decode(image_base64)
+
+        # Step 2: Wrap the binary data in a BytesIO object
+        image_io = BytesIO(image_binary)
+
+        # Step 3: Load the image data into a GdkPixbuf
+        loader = GdkPixbuf.PixbufLoader.new_with_type('png')  # Specify the image format if known
+        loader.write(image_io.getvalue())
+        loader.close()  # Finalize the loader
+        image = loader.get_pixbuf()  # Get the loaded GdkPixbuf
+        return image
+
+    def encode_base64(self):
+        buffer = BytesIO()
+        with tempfile.NamedTemporaryFile(delete = True) as temp:
+            self.image.savev(temp.name, "png", [], [])
+            with open(temp.name, "rb") as f:
+                image_base64 = base64.b64encode(f.read()).decode("utf-8")
+        return image_base64
+
+
+    def to_dict(self):
+
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "color": self.color,
+            "image": None,
+            "image_base64": self.encode_base64(),
+            "line_width": self.line_width
+        }
+
 
 class Text(Drawable):
     def __init__(self, coords, color, line_width, content, size):
@@ -754,6 +817,14 @@ class TransparentWindow(Gtk.Window):
                 clip_text = clipboard.wait_for_text()
                 if clip_text:
                     self.paste_text(clip_text)
+
+                clip_img = clipboard.wait_for_image()
+                if clip_img:
+                    print("Image in clipboard")
+                    pos = self.cursor_pos or (100, 100)
+                    self.current_object = Image([ pos ], self.color, self.line_width, clip_img)
+                    self.objects.append(self.current_object)
+                    self.queue_draw()
             elif keyname == "b":
                 self.cycle_background()
             elif keyname == "k":
