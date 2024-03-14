@@ -56,6 +56,19 @@ def move_coords(coords, dx, dy):
     for i in range(len(coords)):
         coords[i] = (coords[i][0] + dx, coords[i][1] + dy)
 
+def path_bbox(coords):
+    """Calculate the bounding box of a path."""
+    if not coords:
+        return (0, 0, 0, 0)
+    x0, y0 = coords[0]
+    x1, y1 = coords[0]
+    for x, y in coords[1:]:
+        x0 = min(x0, x)
+        y0 = min(y0, y)
+        x1 = max(x1, x)
+        y1 = max(y1, y)
+    return (x0, y0, x1 - x0, y1 - y0)
+
 def is_click_close_to_path(click_x, click_y, path, threshold):
     """Check if a click is close to any segment in the path."""
 
@@ -286,15 +299,19 @@ class Path(Drawable):
 
 
     def draw(self, cr, hover=False, selected=False):
-        if len(self.outline) < 4:
+        if len(self.outline) < 4 or len(self.coords) < 3:
             return
-        if len(self.coords) < 3:
-            return
-        if hover:
-            dd = 1
-        else:
-            dd = 0
+
+        dd = 1 if hover else 0
+
         cr.set_source_rgb(*self.color)
+
+        if selected:
+            cr.set_line_width(0.2)
+            bb = path_bbox(self.coords)
+            cr.rectangle(bb[0], bb[1], bb[2], bb[3])
+            cr.stroke()
+
         cr.move_to(self.outline[0][0] + dd, self.outline[0][1] + dd)
         for point in self.outline[1:]:
             cr.line_to(point[0] + dd, point[1] + dd)
@@ -423,7 +440,7 @@ class TransparentWindow(Gtk.Window):
 
         for obj in self.objects:
             hover    = obj == self.hover
-            selected = obj == self.selection
+            selected = obj == self.selection and self.mode == "move"
             obj.draw(cr, hover=hover, selected=selected)
 
         # If changing line width, draw a preview of the new line width
@@ -664,7 +681,7 @@ class TransparentWindow(Gtk.Window):
                     self.objects.remove(self.selection)
                     self.selection = None
                     self.dragobj   = None
-                    self.queue_draw()
+            self.queue_draw()
         else:
             if keyname == "c" or keyname == "q":
                 self.exit()
