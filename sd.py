@@ -125,9 +125,27 @@ class Drawable:
     def move(self, dx, dy):
         move_coords(self.coords, dx, dy)
 
+    def bbox(self):
+        left, top = min(p[0] for p in self.coords), min(p[1] for p in self.coords)
+        width =    max(p[0] for p in self.coords) - left
+        height =   max(p[1] for p in self.coords) - top
+        return (left, top, width, height)
+
+    def bbox_draw(self, cr, lw=0.2):
+        x, y, w, h = self.bbox()
+        cr.set_line_width(lw)
+        cr.rectangle(x, y, w, h)
+        cr.stroke()
+
+    def draw(self, cr, hover=False, selected=False):
+        raise NotImplementedError("draw method not implemented")
+
 class Text(Drawable):
     def __init__(self, coords, color, line_width, content, size):
         super().__init__("text", coords, color, line_width)
+
+        # split content by newline
+        content = content.split("\n")
         self.content = content
         self.size    = size
         self.line    = 0
@@ -147,9 +165,23 @@ class Text(Drawable):
             "coords": self.coords,
             "color": self.color,
             "line_width": self.line_width,
-            "content": self.content,
+            "content": "\n".join(self.content),
             "size": self.size
         }
+
+    def bbox(self):
+        return self.bb
+
+    def add_text(self, text):
+        # split text by newline
+        lines = text.split("\n")
+        for i, line in enumerate(lines):
+            if i == 0:
+                self.content[self.line] += line
+                self.cursor_pos += len(text)
+            else:
+                self.content.insert(self.line + i, line)
+                self.cursor_pos = len(line)
 
     def backspace(self):
         cnt = self.content
@@ -241,9 +273,7 @@ class Text(Drawable):
         self.bb = (bb_x, bb_y, bb_w, bb_h)
 
         if hover:
-            cr.set_line_width(.1)
-            cr.rectangle(bb_x, bb_y, bb_w, bb_h)
-            cr.stroke()
+            self.bbox_draw(cr, .5)
 
 class Path(Drawable):
     def __init__(self, coords, color, line_width, outline = None):
@@ -296,7 +326,10 @@ class Path(Drawable):
         if len(coords) >= 2:
             self.outline = self.outline_l + self.outline_r[::-1]
 
-
+    # XXX not efficient, this should be done in path_append and modified
+    # upon move.
+    def bbox(self):
+        return path_bbox(self.coords)
 
     def draw(self, cr, hover=False, selected=False):
         if len(self.outline) < 4 or len(self.coords) < 3:
@@ -307,10 +340,7 @@ class Path(Drawable):
         cr.set_source_rgb(*self.color)
 
         if selected:
-            cr.set_line_width(0.2)
-            bb = path_bbox(self.coords)
-            cr.rectangle(bb[0], bb[1], bb[2], bb[3])
-            cr.stroke()
+            self.bbox_draw(cr, .5)
 
         cr.move_to(self.outline[0][0] + dd, self.outline[0][1] + dd)
         for point in self.outline[1:]:
@@ -402,6 +432,7 @@ class TransparentWindow(Gtk.Window):
         self.mode      = "draw"
         self.current_cursor = None
         self.hover = None
+        self.cursor_pos = None
 
         # defaults for drawing
         self.transparent = 0
@@ -504,7 +535,7 @@ class TransparentWindow(Gtk.Window):
             return
 
         # double click on a text object: start editing
-        if event.button == 1 and double and hover_obj and hover_obj.type == "text" and mode in ["draw", "text"]:
+        if event.button == 1 and double and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text"]:
             # put the cursor in the last line, end of the text
             hover_obj.move_cursor("End")
             self.current_object = hover_obj
@@ -533,15 +564,23 @@ class TransparentWindow(Gtk.Window):
                 print("entering text")
                 self.change_cursor("none")
 
-                self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content=[ "" ], size = self.font_size)
+                self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content="", size = self.font_size)
                 self.current_object.move_cursor("Home")
                 self.objects.append(self.current_object)
+
+            elif self.mode == "move":
+                if hover_obj:
+                    hover_obj.origin_set((event.x, event.y))
+                    self.selection = hover_obj
+                    self.dragobj   = hover_obj
+                else:
+                    self.selection = None
+                    self.dragobj   = None
 
         # moving an object, or erasing it, if an object is underneath the cursor
         if hover_obj:
             if (event.button == 1 and self.mode == "move") or event.button == 3:
                 hover_obj.origin_set((event.x, event.y))
-                # selection stays after click is released; dragging does not
                 self.selection = hover_obj
                 self.dragobj   = hover_obj
 
@@ -585,6 +624,7 @@ class TransparentWindow(Gtk.Window):
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
         obj = self.current_object
+        self.cursor_pos = (event.x, event.y)
 
         if self.changing_line_width:
             self.line_width = max(3, min(40, self.line_width + (event.x - self.cur_pos[0])/250))
@@ -648,6 +688,30 @@ class TransparentWindow(Gtk.Window):
             cur.add_char(char)
         self.queue_draw()
 
+    def paste_text(self, clip_text):
+        clip_text = clip_text.strip()
+        # split by new lines
+
+        if self.current_object and self.current_object.type == "text":
+            self.current_object.add_text(clip_text)
+            self.queue_draw()
+        else:
+            pos = self.cursor_pos or (100, 100)
+            self.current_object = Text([ pos ], self.color, self.line_width, content=clip_text, size = self.font_size)
+            self.current_object.move_cursor("End")
+            self.objects.append(self.current_object)
+            self.queue_draw()
+
+    def cycle_background(self):
+        if self.transparent == 1:
+            self.transparent = 0
+        elif self.transparent == 0:
+            self.transparent = .5
+        else:
+            self.transparent = 1
+        self.queue_draw()
+
+
     def handle_shortcuts(self, keyname, ctrl):
         """Handle keyboard shortcuts."""
         print(keyname)
@@ -685,14 +749,13 @@ class TransparentWindow(Gtk.Window):
         else:
             if keyname == "c" or keyname == "q":
                 self.exit()
+            elif keyname == 'v': # paste text
+                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                clip_text = clipboard.wait_for_text()
+                if clip_text:
+                    self.paste_text(clip_text)
             elif keyname == "b":
-                if self.transparent == 1:
-                    self.transparent = 0
-                elif self.transparent == 0:
-                    self.transparent = .5
-                else:
-                    self.transparent = 1
-                self.queue_draw()
+                self.cycle_background()
             elif keyname == "k":
                 self.select_color()
             elif keyname == "l":
