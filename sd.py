@@ -188,6 +188,8 @@ class Text(Drawable):
                 self.line -= 1
                 if self.cursor_pos > len(self.content[self.line]):
                     self.cursor_pos = len(self.content[self.line])
+        else:
+            raise ValueError("Invalid direction:", direction)
 
     def draw(self, cr, hover):
         position, content, size, color, cursor_pos = self.coords[0], self.content, self.size, self.color, self.cursor_pos
@@ -196,12 +198,9 @@ class Text(Drawable):
 
         font_extents = cr.font_extents()
         ascent  = font_extents[0]
-        descent = font_extents[1]
         height  = font_extents[2]
-        print("ascent:", ascent, "descent:", descent, "height:", height)
 
         dy   = 0
-        maxw = 0
         bb_x = position[0]
         bb_y = position[1] - ascent
         bb_w = 0
@@ -215,7 +214,7 @@ class Text(Drawable):
 
             x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents(fragment)
 
-            bb_w = max(bb_w, t_width)
+            bb_w = max(bb_w, t_width + x_bearing)
             bb_h += height
 
             cr.set_font_size(size)
@@ -516,7 +515,7 @@ class TransparentWindow(Gtk.Window):
             if event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS:
                 if obj and obj.type == "text":
                     # put the cursor in the last line, end of the text
-                    obj.move_cursor("end")
+                    obj.move_cursor("End")
                     self.current_object = obj
                     self.queue_draw()
                     self.change_cursor("none")
