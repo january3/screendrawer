@@ -150,7 +150,11 @@ class Image(Drawable):
     def __init__(self, coords, color, line_width, image, image_base64 = None):
 
         if image_base64:
+            self.image_base64 = image_base64
             image = self.decode_base64(image_base64)
+        else:
+            self.image_base64 = None
+
         width, height = image.get_width(), image.get_height()
         print("image size", width, height)
         coords = [ (coords[0][0], coords[0][1]), (coords[0][0] + width, coords[0][1] + height) ]
@@ -160,6 +164,13 @@ class Image(Drawable):
     def draw(self, cr, hover=False, selected=False):
         Gdk.cairo_set_source_pixbuf(cr, self.image, self.coords[0][0], self.coords[0][1])
         cr.paint()
+
+        cr.set_source_rgb(*self.color)
+        if selected:
+            self.bbox_draw(cr, 1.5)
+        if hover:
+            self.bbox_draw(cr, .5)
+
 
     def is_close_to_click(self, click_x, click_y, threshold):
         bb = self.bbox()
@@ -190,6 +201,10 @@ class Image(Drawable):
                 image_base64 = base64.b64encode(f.read()).decode("utf-8")
         return image_base64
 
+    def base64(self):
+        if self.image_base64 is None:
+            self.image_base64 = self.encode_base64()
+        return self.image_base64
 
     def to_dict(self):
 
@@ -198,7 +213,7 @@ class Image(Drawable):
             "coords": self.coords,
             "color": self.color,
             "image": None,
-            "image_base64": self.encode_base64(),
+            "image_base64": self.base64(),
             "line_width": self.line_width
         }
 
@@ -305,8 +320,7 @@ class Text(Drawable):
         cr.set_font_size(size)
 
         font_extents = cr.font_extents()
-        ascent  = font_extents[0]
-        height  = font_extents[2]
+        ascent, height  = font_extents[0], font_extents[2]
 
         dy   = 0
         bb_x = position[0]
@@ -335,6 +349,8 @@ class Text(Drawable):
 
         self.bb = (bb_x, bb_y, bb_w, bb_h)
 
+        if selected: 
+            self.bbox_draw(cr, 1.5)
         if hover:
             self.bbox_draw(cr, .5)
 
@@ -472,7 +488,7 @@ class TransparentWindow(Gtk.Window):
     
     def init_ui(self):
         self.set_title("Transparent Drawing Window")
-        self.set_decorated(False)
+        self.set_decorated(True)
         self.connect("destroy", self.exit)
         self.set_default_size(800, 600)
 
@@ -607,7 +623,14 @@ class TransparentWindow(Gtk.Window):
 
         # simple click: start drawing
         if event.button == 1 and not self.current_object:
-            if self.mode == "draw":
+            if shift or self.mode == "text":  # Shift + Left mouse button
+                print("entering text")
+                self.change_cursor("none")
+                self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content="", size = self.font_size)
+                self.current_object.move_cursor("Home")
+                self.objects.append(self.current_object)
+
+            elif self.mode == "draw":
                 print("starting path")
                 self.current_object = Path([ (event.x, event.y) ], self.color, self.line_width)
                 self.objects.append(self.current_object)
@@ -620,15 +643,6 @@ class TransparentWindow(Gtk.Window):
             elif self.mode == "circle":
                 print("drawing circle")
                 self.current_object = Circle([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
-                self.objects.append(self.current_object)
-
-            # Check if the Shift key is pressed
-            elif shift or self.mode == "text":  # Shift + Left mouse button
-                print("entering text")
-                self.change_cursor("none")
-
-                self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content="", size = self.font_size)
-                self.current_object.move_cursor("Home")
                 self.objects.append(self.current_object)
 
             elif self.mode == "move":
@@ -774,11 +788,41 @@ class TransparentWindow(Gtk.Window):
             self.transparent = 1
         self.queue_draw()
 
+    def paste_content(self):
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        clip_text = clipboard.wait_for_text()
+        if clip_text:
+            self.paste_text(clip_text)
+
+        clip_img = clipboard.wait_for_image()
+        if clip_img:
+            print("Image in clipboard")
+            pos = self.cursor_pos or (100, 100)
+            self.current_object = Image([ pos ], self.color, self.line_width, clip_img)
+            self.objects.append(self.current_object)
+            self.queue_draw()
+
+    def copy_content(self):
+        print("Copying content")
+        if self.selection and self.selection.type == "text":
+            text = "\n".join(self.selection.content)
+            print("Copying text", text)
+            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            clipboard.set_text(text, -1)
+            clipboard.store()
+        elif self.selection and self.selection.type == "image":
+            print("Copying image")
+            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            clipboard.set_image(self.selection.image)
+            clipboard.store()
 
     def handle_shortcuts(self, keyname, ctrl):
         """Handle keyboard shortcuts."""
         print(keyname)
         if not ctrl:
+            if keyname == 'x':
+                print("Exiting")
+                self.exit()
             if keyname == 'd':
                 print("Drawing mode")
                 self.mode = "draw"
@@ -810,21 +854,12 @@ class TransparentWindow(Gtk.Window):
                     self.dragobj   = None
             self.queue_draw()
         else:
-            if keyname == "c" or keyname == "q":
+            if keyname == "q":
                 self.exit()
             elif keyname == 'v': # paste text
-                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-                clip_text = clipboard.wait_for_text()
-                if clip_text:
-                    self.paste_text(clip_text)
-
-                clip_img = clipboard.wait_for_image()
-                if clip_img:
-                    print("Image in clipboard")
-                    pos = self.cursor_pos or (100, 100)
-                    self.current_object = Image([ pos ], self.color, self.line_width, clip_img)
-                    self.objects.append(self.current_object)
-                    self.queue_draw()
+                self.paste_content()
+            elif keyname == 'c':
+                self.copy_content()
             elif keyname == "b":
                 self.cycle_background()
             elif keyname == "k":
