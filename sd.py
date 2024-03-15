@@ -147,18 +147,64 @@ def img_object_copy(obj):
 
 ## ---------------------------------------------------------------------
 
+class MoveResizeEvent:
+    """Simple class for handling move and resize events."""
+    def __init__(self, type, obj, origin, corner=None):
+        self.obj    = obj
+        self.corner = corner
+        self.origin = origin
+        self.bbox   = obj.bbox()
+
+    def origin_set(self, origin):
+        self.origin = origin
+
+    def origin_get(self):
+        return self.origin
+
+class MoveEvent(MoveResizeEvent):
+    def __init__(self, obj, origin):
+        super().__init__("move", obj, origin)
+
+class ResizeEvent(MoveResizeEvent):
+    def __init__(self, obj, origin, corner):
+        super().__init__("resize", obj, origin, corner)
+        obj.resize_start(corner, origin)
+
+    def resize_event_update(self, x, y):
+        dx = x - self.origin[0]
+        dy = y - self.origin[1]
+        bb = self.obj.bbox()
+
+        corner = self.corner
+
+        print("realizing resize by", dx, dy, "in corner", corner)
+        if corner == "lower_left":
+            newbb = (bb[0] + dx, bb[1], bb[2] - dx, bb[3] + dy)
+        elif corner == "lower_right":
+            newbb = (bb[0], bb[1], bb[2] + dx, bb[3] + dy)
+        elif corner == "upper_left":
+            newbb = (bb[0] + dx, bb[1] + dy, bb[2] - dx, bb[3] - dy)
+        elif corner == "upper_right":
+            newbb = (bb[0], bb[1] + dy, bb[2] + dx, bb[3] - dy)
+        else:
+            raise ValueError("Invalid corner:", corner)
+
+        self.obj.resize_update(newbb)
+        self.origin_set((x, y))
+
+## ---------------------------------------------------------------------
+
 class Drawable:
     """Base class for drawable objects."""
-    def __init__(self, type, coords, color, line_width):
+    def __init__(self, type, coords, color, line_width, fill_color = None):
         self.type       = type
         self.coords     = coords
         self.color      = color
         self.line_width = line_width
         self.origin     = None
         self.resizing   = None
+        self.fill_color = fill_color
 
-    def origin_set(self, origin):
-        self.origin = origin
 
     def resize_start(self, corner, origin):
         self.resizing = {
@@ -166,6 +212,12 @@ class Drawable:
             "origin": origin,
             "bbox":   self.bbox()
             }
+
+    def unfill(self):
+        self.fill_color = None
+
+    def fill(self, color = None):
+        self.fill_color = color
 
     def resize_update(self, bbox):
         self.resizing["bbox"] = bbox
@@ -193,6 +245,7 @@ class Drawable:
             "type": self.type,
             "coords": self.coords,
             "color": self.color,
+            "fill_color": self.fill_color,
             "line_width": self.line_width
         }
 
@@ -266,6 +319,41 @@ class DrawableGroup(Drawable):
         for obj in self.objects:
             obj.color_set(color)
 
+    def resize_start(self, corner, origin):
+        self.resizing = {
+            "corner": corner,
+            "origin": origin,
+            "bbox":   self.bbox()
+            }
+        for obj in self.objects:
+            obj.resize_start(corner, origin)
+ 
+ 
+    def resize_update(self, bbox):
+        prev_bbox = self.resizing["bbox"]
+
+        dx, dy           = bbox[0] - prev_bbox[0], bbox[1] - prev_bbox[1]
+        scale_x, scale_y = bbox[2] / prev_bbox[2], bbox[3] / prev_bbox[3]
+
+        for obj in self.objects:
+            obj_bb = obj.bbox()
+
+            x, y, w, h = obj_bb
+            w2, h2 = w * scale_x, h * scale_y
+
+            x2 = bbox[0] + (x - prev_bbox[0]) * scale_x
+            y2 = bbox[1] + (y - prev_bbox[1]) * scale_y
+
+            ## recalculate the new bbox of the object within our new bb
+            obj.resize_update((x2, y2, w2, h2))
+
+        self.resizing["bbox"] = bbox
+
+    def resize_end(self):
+        self.resizing = None
+        for obj in self.objects:
+            obj.resize_end()
+ 
     def length(self):
         return len(self.objects)
 
@@ -586,14 +674,18 @@ class Text(Drawable):
 
     def draw(self, cr, hover=False, selected=False):
         position, content, size, color, cursor_pos = self.coords[0], self.content, self.size, self.color, self.cursor_pos
+        
+        # get font info
         cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
         cr.set_font_size(size)
 
-        font_extents = cr.font_extents()
+        font_extents      = cr.font_extents()
         self.font_extents = font_extents
-        ascent, height  = font_extents[0], font_extents[2]
+        ascent, height    = font_extents[0], font_extents[2]
 
         dy   = 0
+
+        # new bounding box
         bb_x = position[0]
         bb_y = position[1] - ascent
         bb_w = 0
@@ -704,11 +796,13 @@ class Path(Drawable):
         self.pressure  = []
         self.coords    = []
 
+        print(len(pressure), len(coords))   
         for x, y in coords:
             self.path_append(x, y, pressure.pop(0))
 
     def resize_end(self):
         """recalculate the outline after resizing"""
+        print("length of coords and pressure:", len(self.coords), len(self.pressure))
         old_bbox = path_bbox(self.coords)
         new_coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
         pressure   = self.pressure
@@ -745,7 +839,8 @@ class Path(Drawable):
             self.draw_simple(cr, hover=hover, selected=selected, bbox=self.resizing["bbox"])
             return
         
-        cr.set_source_rgb(*self.color)
+        #cr.set_source_rgb(*self.color)
+        cr.set_source_rgba(*self.color, .75)
 
         if selected:
             self.bbox_draw(cr, lw=.5)
@@ -757,8 +852,8 @@ class Path(Drawable):
         cr.fill()
 
 class Circle(Drawable):
-    def __init__(self, coords, color, line_width):
-        super().__init__("circle", coords, color, line_width)
+    def __init__(self, coords, color, line_width, fill_color = None):
+        super().__init__("circle", coords, color, line_width, fill_color)
 
     def resize_end(self):
         bbox = self.bbox()
@@ -784,12 +879,15 @@ class Circle(Drawable):
         cr.translate(x0 + w / 2, y0 + h / 2)
         cr.scale(w / 2, h / 2)
         cr.arc(0, 0, 1, 0, 2 * 3.14159)
+        if self.fill_color:
+            cr.set_source_rgb(*self.fill_color)
+            cr.fill_preserve()
         cr.restore()
         cr.stroke()
 
 class Box(Drawable):
-    def __init__(self, coords, color, line_width):
-        super().__init__("box", coords, color, line_width)
+    def __init__(self, coords, color, line_width, fill_color = None):
+        super().__init__("box", coords, color, line_width, fill_color)
 
     def resize_end(self):
         bbox = self.bbox()
@@ -812,6 +910,15 @@ class Box(Drawable):
         x2, y2 = self.coords[1]
         w, h = (abs(x1 - x2), abs(y1 - y2))
         x0, y0 = (min(x1, x2), min(y1, y2))
+
+        if self.fill_color:
+            print("filling with color", self.fill_color)
+            cr.set_source_rgb(*self.fill_color)
+            cr.rectangle(x0, y0, w, h)
+            cr.fill()
+            cr.stroke()
+
+        cr.set_source_rgb(*self.color)
         cr.rectangle(x0, y0, w, h)
         cr.stroke()
 
@@ -919,7 +1026,6 @@ class TransparentWindow(Gtk.Window):
         self.selection = None
         self.dragobj   = None
         self.resizeobj = None
-        self.resize_corner = None
         self.mode      = "draw"
         self.current_cursor = None
         self.hover = None
@@ -1007,6 +1113,8 @@ class TransparentWindow(Gtk.Window):
         ctrl      = event.state & modifiers == Gdk.ModifierType.CONTROL_MASK
         double    = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
+        pressure = event.get_axis(Gdk.AxisUse.PRESSURE) or 0
+
         if corner_obj[0]:
             print("corner click:", corner_obj[0].type, corner_obj[1])
         #print("mode:", self.mode)
@@ -1043,7 +1151,7 @@ class TransparentWindow(Gtk.Window):
 
             elif self.mode == "draw":
                 print("starting path")
-                self.current_object = Path([ (event.x, event.y) ], self.color, self.line_width)
+                self.current_object = Path([ (event.x, event.y) ], self.color, self.line_width, pressure = [ pressure ])
                 self.objects.append(self.current_object)
 
             elif self.mode == "box":
@@ -1058,12 +1166,10 @@ class TransparentWindow(Gtk.Window):
 
             elif self.mode == "move":
                 if corner_obj[0] and corner_obj[0].bbox():
-                    corner = corner_obj[1]
                     print("starting resize")
-                    self.resizeobj = corner_obj[0]
-                    self.resize_corner = corner
-                    self.resizeobj.resize_start(corner, (event.x, event.y))
-                    self.resizeobj.origin_set((event.x, event.y))
+                    obj    = corner_obj[0]
+                    corner = corner_obj[1]
+                    self.resizeobj = ResizeEvent(obj, origin = (event.x, event.y), corner = corner)
                 elif hover_obj:
                     if shift and self.selection:
                         # create Draw Group with the two objects
@@ -1072,8 +1178,7 @@ class TransparentWindow(Gtk.Window):
                     elif not self.selection or not self.selection.contains(hover_obj):
                             self.selection = DrawableGroup([ hover_obj ])
 
-                    self.selection.origin_set((event.x, event.y))
-                    self.dragobj   = self.selection
+                    self.dragobj = MoveEvent(self.selection, (event.x, event.y))
                 else:
                     self.selection = None
                     self.dragobj   = None
@@ -1106,6 +1211,8 @@ class TransparentWindow(Gtk.Window):
         if obj and obj.type == "path":
             print("finishing path")
             obj.path_append(event.x, event.y, 0)
+            if len(obj.coords) != len(obj.pressure):
+                print("Pressure and coords don't match")
             if len(obj.coords) < 3:
                 self.objects.remove(obj)
             self.queue_draw()
@@ -1132,19 +1239,18 @@ class TransparentWindow(Gtk.Window):
 
         if self.resizeobj:
             print("finishing resize")
-            self.resizeobj.origin_remove()
-            self.resizeobj.resize_end()
+            self.resizeobj.obj.resize_end()
             self.resizeobj = None
             self.queue_draw()
 
         if self.dragobj:
             # If the user was dragging a selected object and the drag ends
             # in the lower left corner, delete the object
-            self.dragobj.origin_remove()
+            # self.dragobj.origin_remove()
+            obj = self.dragobj.obj
             if event.x < 10 and event.y > self.get_size()[1] - 10:
-                self.objects.remove(self.dragobj)
+                self.objects.remove(obj)
                 self.selection = None
-                self.dragobj   = None
                 self.queue_draw()
             self.dragobj    = None
         return True
@@ -1164,37 +1270,19 @@ class TransparentWindow(Gtk.Window):
             obj.coords[1] = (event.x, event.y)
             self.queue_draw()
         elif obj and obj.type == "path":
-            pressure = event.get_axis(Gdk.AxisUse.PRESSURE)
-            if pressure is None:
-                pressure = 1.0
+            pressure = event.get_axis(Gdk.AxisUse.PRESSURE) or 1
             obj.path_append(event.x, event.y, pressure)
             self.queue_draw()
         elif self.resizeobj:
-            dx = event.x - self.resizeobj.origin[0]
-            dy = event.y - self.resizeobj.origin[1]
-            bb = self.resizeobj.bbox()
-            print("realizing resize by", dx, dy, "in corner", self.resize_corner)
-            corner = self.resize_corner
-            if corner == "lower_left":
-                newbb = (bb[0] + dx, bb[1], bb[2] - dx, bb[3] + dy)
-            elif corner == "lower_right":
-                newbb = (bb[0], bb[1], bb[2] + dx, bb[3] + dy)
-            elif corner == "upper_left":
-                newbb = (bb[0] + dx, bb[1] + dy, bb[2] - dx, bb[3] - dy)
-            elif corner == "upper_right":
-                newbb = (bb[0], bb[1] + dy, bb[2] + dx, bb[3] - dy)
-            else:
-                raise ValueError("Invalid corner:", corner)
-            self.resizeobj.resize_update(newbb)
-            self.resizeobj.origin_set((event.x, event.y))
+            self.resizeobj.resize_event_update(event.x, event.y)
             self.queue_draw()
 
         elif self.dragobj is not None:
-            dx = event.x - self.dragobj.origin[0]
-            dy = event.y - self.dragobj.origin[1]
+            dx = event.x - self.dragobj.origin_get()[0]
+            dy = event.y - self.dragobj.origin_get()[1]
 
             # Move the selected object
-            self.dragobj.move(dx, dy)
+            self.dragobj.obj.move(dx, dy)
 
             self.dragobj.origin_set((event.x, event.y))
             self.queue_draw()
@@ -1409,6 +1497,9 @@ class TransparentWindow(Gtk.Window):
         if len(self.objects) == 0:
             return
 
+        self.mode = 'move'
+        self.default_cursor('move')
+
         self.selection = DrawableGroup([ self.objects[0] ])
         for obj in self.objects[1:]:
             self.selection.add(obj)
@@ -1435,6 +1526,13 @@ class TransparentWindow(Gtk.Window):
             idx = 0
         self.selection = DrawableGroup([ self.objects[idx] ])
         self.queue_draw()
+
+    def selection_fill(self):
+        """Fill the selected object."""
+        if self.selection:
+            for obj in self.selection.objects:
+                obj.fill(self.color)
+            self.queue_draw()
 
     def select_previous_object(self):
         """Select the previous object."""
@@ -1472,6 +1570,7 @@ class TransparentWindow(Gtk.Window):
             'x':                    {'action': self.exit},
             'Ctrl-q':               {'action': self.exit},
             'l':                    {'action': self.clear},
+            'f':                    {'action': self.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
 
             # dialogs
             'Ctrl-s':               {'action': self.save_drawing},
@@ -1485,7 +1584,7 @@ class TransparentWindow(Gtk.Window):
             'Delete':               {'action': self.selection_delete,   'modes': ["move"]},
             'Ctrl-c':               {'action': self.copy_content,  'modes': ["move"]},
             'Ctrl-x':               {'action': self.cut_content,   'modes': ["move"]},
-            'Ctrl-a':               {'action': self.select_all,    'modes': ["move"]},
+            'Ctrl-a':               {'action': self.select_all},
             'Ctrl-v':               {'action': self.paste_content},
 
             'Ctrl-plus':            {'action': self.text_size_increase, 'modes': ["text", "draw", "move"]},
