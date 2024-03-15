@@ -5,6 +5,8 @@
 
 Bugs:
   * double click enters text editing only in draw mode, not in text mode
+    - the problem is that before a double click event is raised, single
+      click events happen which confuse the app.
 
 Done:
  * when clicking, more than one path is created, with short "stubs" with

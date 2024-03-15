@@ -342,7 +342,7 @@ class Text(Drawable):
             "coords": self.coords,
             "color": self.color,
             "line_width": self.line_width,
-            "content": "\n".join(self.content),
+            "content": self.as_string(),
             "size": self.size
         }
 
@@ -350,6 +350,12 @@ class Text(Drawable):
         if not self.bb:
             return (self.coords[0][0], self.coords[0][1], 0, 0)
         return self.bb
+
+    def as_string(self):
+        return "\n".join(self.content)
+
+    def strlen(self):
+        return len(self.as_string())
 
     def add_text(self, text):
         # split text by newline
@@ -415,6 +421,17 @@ class Text(Drawable):
         else:
             raise ValueError("Invalid direction:", direction)
 
+    def draw_cursor(self, cr, xx0, yy0, height):
+        cr.move_to(xx0, yy0)
+        cr.line_to(xx0, yy0 + height)
+        cr.stroke()
+        cr.move_to(xx0 - 3, yy0)
+        cr.line_to(xx0 + 3, yy0)
+        cr.stroke()
+        cr.move_to(xx0 - 3, yy0 + height)
+        cr.line_to(xx0 + 3, yy0 + height)
+        cr.stroke()
+
     def draw(self, cr, hover=False, selected=False):
         position, content, size, color, cursor_pos = self.coords[0], self.content, self.size, self.color, self.cursor_pos
         cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
@@ -432,9 +449,6 @@ class Text(Drawable):
         for i in range(len(content)):
             fragment = content[i]
 
-            if cursor_pos != None and i == self.line:
-                fragment = fragment[:cursor_pos] + "|" + fragment[cursor_pos:]
-
             x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents(fragment)
 
             bb_w = max(bb_w, t_width + x_bearing)
@@ -445,6 +459,14 @@ class Text(Drawable):
             cr.set_source_rgb(*color)
             cr.show_text(fragment)
             cr.stroke()
+
+            # draw the cursor
+            if cursor_pos != None and i == self.line:
+                x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents("|" + fragment[:cursor_pos] + "|")
+                x_bearing2, y_bearing2, t_width2, t_height2, x_advance2, y_advance2 = cr.text_extents("|")
+                cr.set_source_rgb(1, 0, 0)
+                xx0, yy0 = position[0] - x_bearing + t_width - 2 * t_width2, position[1] + dy - ascent
+                self.draw_cursor(cr, xx0, yy0, height)
 
             dy += height
 
@@ -604,7 +626,9 @@ Draw on the screen with Gnome and Cairo. Quick and dirty.
 <b>All modes:</b>                          <b>Move mode:</b>
 shift-click: Enter text mode               click: Select object
 right-button: Move object                  move: Move object
-ctrl-click: Change line width
+ctrl-click: Change line width              ctrl-a: Select all
+                                           Tab: Next object
+                                           Shift-Tab: Previous object
 
 Moving object to left lower screen corner deletes it.
 
@@ -755,7 +779,7 @@ class TransparentWindow(Gtk.Window):
 
     # Event handlers
     def on_button_press(self, widget, event):
-        print("Button press, type:", event.type, "button:", event.button, "state:", event.state)
+        print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
         modifiers = Gtk.accelerator_get_default_mod_mask()
         hover_obj = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
         shift     = event.state & modifiers == Gdk.ModifierType.SHIFT_MASK
@@ -769,24 +793,25 @@ class TransparentWindow(Gtk.Window):
             self.finish_text_input()
             return True
 
-        # Start changing line width
-        if ctrl and event.button == 1 and self.mode == "draw":  # Ctrl + Left mouse button
+        # Start changing line width: single click with ctrl pressed
+        if ctrl and event.button == 1 and self.mode == "draw": 
             self.cur_pos = (event.x, event.y)
             self.changing_line_width = True
             return True
 
         # double click on a text object: start editing
-        if event.button == 1 and double and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text"]:
+        if event.button == 1 and double and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text", "move"]:
             # put the cursor in the last line, end of the text
             hover_obj.move_cursor("End")
             self.current_object = hover_obj
             self.queue_draw()
             self.change_cursor("none")
+            return True
 
         # simple click: start drawing
         if event.button == 1 and not self.current_object:
-            if self.mode == "text":  # Shift + Left mouse button
-                print("entering text")
+            if self.mode == "text" or (self.mode == "draw" and shift):
+                print("new text")
                 self.change_cursor("none")
                 self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content="", size = self.font_size)
                 self.current_object.move_cursor("Home")
@@ -936,6 +961,8 @@ class TransparentWindow(Gtk.Window):
         print("finishing text input")
         if self.current_object and self.current_object.type == "text":
             self.current_object.cursor_pos = None
+            if self.current_object.strlen() == 0:
+                self.objects.remove(self.current_object)
             self.current_object = None
         self.revert_cursor()
         self.queue_draw()
@@ -943,7 +970,6 @@ class TransparentWindow(Gtk.Window):
     def update_text_input(self, keyname, char):
         """Update the current text input."""
         cur  = self.current_object
-        print(keyname)
     
         if keyname == "BackSpace": # and cur["cursor_pos"] > 0:
             cur.backspace()
@@ -1036,21 +1062,26 @@ class TransparentWindow(Gtk.Window):
         print("Copying content", self.selection)
         clipboard = self.gtk_clipboard
 
-        if self.selection.type == "text":
-            text = "\n".join(self.selection.content)
+        if self.selection.length() == 1:
+            sel = self.selection.objects[0]
+        else:
+            sel = self.selection
+
+        if sel.type == "text":
+            text = "\n".join(sel.content)
             print("Copying text", text)
             # just copy the text
             clipboard.set_text(text, -1)
             clipboard.store()
-        elif self.selection.type == "image":
+        elif sel.type == "image":
             print("Copying image")
             # simply copy the image into clipboard
-            clipboard.set_image(self.selection.image)
+            clipboard.set_image(sel.image)
             clipboard.store()
         else:
             print("Copying another object")
             # draw a little image and copy it to clipboard
-            img_copy = img_object_copy(self.selection)
+            img_copy = img_object_copy(sel)
             clipboard.set_image(img_copy)
             clipboard.store()
 
@@ -1132,42 +1163,89 @@ class TransparentWindow(Gtk.Window):
             self.dragobj   = None
             self.queue_draw()
 
-    def handle_shortcuts(self, keyname, ctrl):
+    def select_next_object(self):
+        """Select the next object."""
+        if len(self.objects) == 0:
+            return
+        if not self.selection:
+            self.selection = DrawableGroup([ self.objects[0] ])
+        idx = self.objects.index(self.selection.objects[-1])
+        idx += 1
+        if idx >= len(self.objects):
+            idx = 0
+        self.selection = DrawableGroup([ self.objects[idx] ])
+        self.queue_draw()
+
+    def select_previous_object(self):
+        """Select the previous object."""
+        if len(self.objects) == 0:
+            return
+        if not self.selection:
+            self.selection = DrawableGroup([ self.objects[-1] ])
+        idx = self.objects.index(self.selection.objects[0])
+        idx -= 1
+        if idx < 0:
+            idx = len(self.objects) - 1
+        self.selection = DrawableGroup([ self.objects[idx] ])
+        self.queue_draw()
+
+    def handle_shortcuts(self, keyname, ctrl, shift):
         """Handle keyboard shortcuts."""
         print(keyname)
 
+        if shift:
+            keyname = "Shift-" + keyname
+
+        if ctrl:
+            keyname = "Ctrl-" + keyname
+
         # these are single keystroke mode modifiers
-        modes = { 'd': "draw", 't': "text", 'e': "eraser", 'm': "move", 'c': "circle", 'b': "box" }
+        modes = { 'd': "draw", 't': "text", 'e': "eraser", 'm': "move", 'c': "circle", 'b': "box", 's': "move" }
 
         # these are single keystroke actions
-        actions = { 'h': self.show_help_dialog, 'x': self.exit, 
-                   'l': self.clear, 'g': self.selection_group, 'u': self.selection_ungroup,
-                   'F1': self.show_help_dialog, 'question': self.show_help_dialog,
-                    'Delete': self.selection_delete}
+        actions = {
+            'h':                    {'action': self.show_help_dialog},
+            'F1':                   {'action': self.show_help_dialog},
+            'question':             {'action': self.show_help_dialog},
+            'Ctrl-l':               {'action': self.clear},
+            'Ctrl-b':               {'action': self.cycle_background},
+            'x':                    {'action': self.exit},
+            'Ctrl-q':               {'action': self.exit},
+            'l':                    {'action': self.clear},
 
-        # these are ctrl-keystroke actions
-        ctrl_actions = { 'v': self.paste_content, 'c': self.copy_content, 'x': self.cut_content,
-                         'a': self.select_all,
-                         'k': self.select_color, 'l': self.clear, 'b': self.cycle_background,
-                         'plus': self.text_size_increase, 'minus': self.text_size_decrease,
-                         's': self.save_drawing, 'q': self.exit }
+            # dialogs
+            'Ctrl-s':               {'action': self.save_drawing},
+            'Ctrl-k':               {'action': self.select_color},
 
-        if not ctrl:
-            if keyname in modes:
-                self.mode = modes[keyname]
-                self.default_cursor(modes[keyname])
-                self.queue_draw()
-            elif keyname in actions:
-                actions[keyname]()
-        else:
-            if keyname in ctrl_actions:
-                ctrl_actions[keyname]()
+            # selections and moving objects
+            'Tab':                  {'action': self.select_next_object, 'modes': ["move"]},
+            'Shift-ISO_Left_Tab':   {'action': self.select_next_object, 'modes': ["move"]},
+            'g':                    {'action': self.selection_group,    'modes': ["move"]},
+            'u':                    {'action': self.selection_ungroup,  'modes': ["move"]},
+            'Delete':               {'action': self.selection_delete,   'modes': ["move"]},
+            'Ctrl-v':               {'action': self.paste_content, 'modes': ["move"]},
+            'Ctrl-c':               {'action': self.copy_content,  'modes': ["move"]},
+            'Ctrl-x':               {'action': self.cut_content,   'modes': ["move"]},
+            'Ctrl-a':               {'action': self.select_all,    'modes': ["move"]},
+
+            'Ctrl-plus':            {'action': self.text_size_increase, 'modes': ["text", "draw", "move"]},
+            'Ctrl-minus':           {'action': self.text_size_decrease, 'modes': ["text", "draw", "move"]},
+        }
+
+        if keyname in modes:
+            self.mode = modes[keyname]
+            self.default_cursor(modes[keyname])
+            self.queue_draw()
+        elif keyname in actions:
+            if not "modes" in actions[keyname] or self.mode in actions[keyname]["modes"]:
+                actions[keyname]["action"]()
      
     def on_key_press(self, widget, event):
         """Handle keyboard events."""
         keyname = Gdk.keyval_name(event.keyval)
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
         ctrl    = event.state & Gdk.ModifierType.CONTROL_MASK
+        shift   = event.state & Gdk.ModifierType.SHIFT_MASK
 
         # End text input
         if keyname == "Escape":
@@ -1175,14 +1253,14 @@ class TransparentWindow(Gtk.Window):
 
         # Handle ctrl-keyboard shortcuts 
         elif event.state & ctrl:
-            self.handle_shortcuts(keyname, True)
+            self.handle_shortcuts(keyname, True, shift)
        
         # Handle text input
         elif self.current_object and self.current_object.type == "text":
             self.update_text_input(keyname, char)
         else:
         # handle single keystroke shortcuts
-            self.handle_shortcuts(keyname, False)
+            self.handle_shortcuts(keyname, False, shift)
 
         return True
 
