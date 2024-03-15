@@ -308,7 +308,7 @@ class DrawableGroup(Drawable):
 
 
 class Image(Drawable):
-    def __init__(self, coords, color, line_width, image, image_base64 = None):
+    def __init__(self, coords, color, line_width, image, image_base64 = None, transform = None):
 
         if image_base64:
             self.image_base64 = image_base64
@@ -320,8 +320,8 @@ class Image(Drawable):
         coords = [ (coords[0][0], coords[0][1]), (coords[0][0] + width, coords[0][1] + height) ]
         super().__init__("image", coords, color, line_width)
         self.image = image
+        self.transform = transform or None
         self.image_size = (width, height)
-        self.transform = None
 
     def draw(self, cr, hover=False, selected=False):
         cr.save()
@@ -356,7 +356,6 @@ class Image(Drawable):
 
         self.coords[0] = (x1, y1)
         self.coords[1] = (x1 + w1, y1 + h1)
-
         self.transform = (w_scale, h_scale)
 
     def is_close_to_click(self, click_x, click_y, threshold):
@@ -400,6 +399,7 @@ class Image(Drawable):
             "coords": self.coords,
             "color": self.color,
             "image": None,
+            "transform": self.transform,
             "image_base64": self.base64(),
             "line_width": self.line_width
         }
