@@ -656,6 +656,7 @@ class TransparentWindow(Gtk.Window):
         self.hover = None
         self.cursor_pos = None
         self.clipboard  = None
+        self.clipboard_owner = False # we need to keep track of the clipboard
         self.selection_tool = None
         self.gtk_clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 
@@ -681,7 +682,12 @@ class TransparentWindow(Gtk.Window):
 
     def on_clipboard_owner_change(self, clipboard, event):
 
-        self.clipboard = None
+        print("Owner change, removing internal clipboard")
+        print("reason:", event.reason)
+        if self.clipboard_owner:
+            self.clipboard_owner = False
+        else:
+            self.clipboard = None
 
     def exit(self):
         ## close the savefile_f
@@ -840,6 +846,8 @@ class TransparentWindow(Gtk.Window):
         if obj and obj.type == "path":
             print("finishing path")
             obj.path_append(event.x, event.y, 0)
+            if len(obj.coords) < 3:
+                self.objects.remove(obj)
             self.queue_draw()
 
         # this two are for changing line width
@@ -855,10 +863,11 @@ class TransparentWindow(Gtk.Window):
             self.objects.remove(self.selection_tool)
             bb = self.selection_tool.bbox()
             obj = find_obj_in_bbox(bb, self.objects)
-            print("found objects in bbox", len(obj))
-            print(bb)
             self.selection_tool = None
-            self.selection = DrawableGroup(obj)
+            if len(obj) > 0:
+                self.selection = DrawableGroup(obj)
+            else:
+                self.selection = None
             self.queue_draw()
 
         if self.dragobj:
@@ -984,11 +993,14 @@ class TransparentWindow(Gtk.Window):
 
     def paste_content(self):
 
+        print("paste_content:", self.clipboard)
+
         if self.clipboard:
+            print("Pasting content internally")
             self.object_create_copy()
             return
 
-        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        clipboard = self.gtk_clipboard
         clip_text = clipboard.wait_for_text()
         if clip_text:
             self.paste_text(clip_text)
@@ -1001,9 +1013,10 @@ class TransparentWindow(Gtk.Window):
     def img_object_copy(self, obj):
         """Create a pixbuf copy of the given drawable object."""
 
-        bb      = obj.bbox()
-        surface = cairo.ImageSurface(cairo.Format.ARGB32, math.ceil(bb[2]), math.ceil(bb[3]))
-        cr      = cairo.Context(surface)
+        bb            = obj.bbox()
+        width, height = math.ceil(bb[2]), math.ceil(bb[3])
+        surface       = cairo.ImageSurface(cairo.Format.ARGB32, width, height)
+        cr            = cairo.Context(surface)
 
         # move to top left corner
         obj.move(-bb[0], -bb[1])
@@ -1011,20 +1024,15 @@ class TransparentWindow(Gtk.Window):
         # move back
         obj.move(bb[0], bb[1])
 
-        data   = surface.get_data()
-        pixbuf = GdkPixbuf.Pixbuf.new_from_data(data, GdkPixbuf.Colorspace.RGB, True, 8,
-                                            surface.get_width(), surface.get_height(),
-                                            surface.get_stride())
+        pixbuf = Gdk.pixbuf_get_from_surface(surface, 0, 0, width, height)
         return pixbuf
 
     def copy_content(self):
-        print("Copying content")
         if not self.selection:
             return
 
         print("Copying content", self.selection)
-        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-        self.clipboard = self.selection
+        clipboard = self.gtk_clipboard
 
         if self.selection.type == "text":
             text = "\n".join(self.selection.content)
@@ -1043,6 +1051,11 @@ class TransparentWindow(Gtk.Window):
             img_copy = self.img_object_copy(self.selection)
             clipboard.set_image(img_copy)
             clipboard.store()
+
+        print("Setting internal clipboard")
+        self.clipboard = self.selection
+        self.clipboard_owner = True
+
 
     def text_size_decrease(self):
         self.text_size_change(-1)
