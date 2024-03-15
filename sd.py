@@ -19,6 +19,7 @@ savefile = os.path.expanduser("~/.screendrawer")
 print(savefile)
 # open file for appending if exists, or create if not
 
+## ---------------------------------------------------------------------
 
 def distance_point_to_segment(px, py, x1, y1, x2, y2):
     """Calculate the distance from a point (px, py) to a line segment (x1, y1) to (x2, y2)."""
@@ -94,6 +95,24 @@ def is_click_close_to_path(click_x, click_y, path, threshold):
             return True
     return False
 
+def img_object_copy(obj):
+    """Create a pixbuf copy of the given drawable object."""
+
+    bb            = obj.bbox()
+    width, height = math.ceil(bb[2]), math.ceil(bb[3])
+    surface       = cairo.ImageSurface(cairo.Format.ARGB32, width, height)
+    cr            = cairo.Context(surface)
+
+    # move to top left corner
+    obj.move(-bb[0], -bb[1])
+    obj.draw(cr)
+    # move back
+    obj.move(bb[0], bb[1])
+
+    pixbuf = Gdk.pixbuf_get_from_surface(surface, 0, 0, width, height)
+    return pixbuf
+
+## ---------------------------------------------------------------------
 
 class Drawable:
     """Base class for drawable objects."""
@@ -328,6 +347,8 @@ class Text(Drawable):
         }
 
     def bbox(self):
+        if not self.bb:
+            return (self.coords[0][0], self.coords[0][1], 0, 0)
         return self.bb
 
     def add_text(self, text):
@@ -464,7 +485,7 @@ class Path(Drawable):
         if len(coords) == 0:
             coords.append((x, y))
         lp = coords[-1]
-        if abs(x - lp[0]) < 2 and abs(y - lp[1]) < 2:
+        if abs(x - lp[0]) < 1 and abs(y - lp[1]) < 1:
             return
 
         coords.append((x, y))
@@ -561,6 +582,7 @@ class Box(Drawable):
 
 
 ## ---------------------------------------------------------------------
+
 class HelpDialog(Gtk.Dialog):
     def __init__(self, parent):
         super().__init__(title="Help", transient_for=parent, flags=0)
@@ -602,6 +624,7 @@ Ctrl-l: Clear drawing                l: Clear drawing
 
 Ctrl-c: Copy content                 &lt;Del&gt;: Delete selected object (in "move" mode)
 Ctrl-v: Paste content                &lt;Esc&gt;: Finish text input
+Ctrl-x: Cut content                  &lt;Enter&gt;: New line (in text mode)
 
 Ctrl-k: Select color
 Ctrl-plus, Ctrl-minus: Change text size
@@ -622,6 +645,7 @@ You might want to remove that file if something goes wrong.
         box.add(label)
         self.show_all()
 
+## ---------------------------------------------------------------------
 
 class TransparentWindow(Gtk.Window):
     def __init__(self):
@@ -631,7 +655,7 @@ class TransparentWindow(Gtk.Window):
     
     def init_ui(self):
         self.set_title("Transparent Drawing Window")
-        self.set_decorated(True)
+        self.set_decorated(False)
         self.connect("destroy", self.exit)
         self.set_default_size(800, 600)
 
@@ -681,6 +705,7 @@ class TransparentWindow(Gtk.Window):
         self.maximize()
 
     def on_clipboard_owner_change(self, clipboard, event):
+        """Handle clipboard owner change events."""
 
         print("Owner change, removing internal clipboard")
         print("reason:", event.reason)
@@ -688,6 +713,7 @@ class TransparentWindow(Gtk.Window):
             self.clipboard_owner = False
         else:
             self.clipboard = None
+        return True
 
     def exit(self):
         ## close the savefile_f
@@ -697,13 +723,16 @@ class TransparentWindow(Gtk.Window):
         
 
     def on_draw(self, widget, cr):
+        """Handle draw events."""
         cr.set_source_rgba(1, 1, 1, self.transparent)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
         self.draw(cr)
+        return True
 
     def draw(self, cr):
+        """Draw the objects."""
 
         for obj in self.objects:
             hover    = obj == self.hover
@@ -717,43 +746,16 @@ class TransparentWindow(Gtk.Window):
             self.draw_dot(cr, *self.cur_pos, self.line_width)
 
     def clear(self):
+        """Clear the drawing."""
         self.selection      = None
         self.dragobj        = None
         self.current_object = None
         self.objects = []
         self.queue_draw()
 
-    def save_state(self): 
-        config = {
-                'transparent': self.transparent,
-                'font_size': self.font_size,
-                'line_width': self.line_width,
-                'color': self.color
-        }
-
-        objects = [ obj.to_dict() for obj in self.objects ]
-
-        state = { 'config': config, 'objects': objects }
-        with open(savefile, 'wb') as f:
-            #yaml.dump(state, f)
-            pickle.dump(state, f)
-        print("Saved drawing to", savefile)
-
-    def load_state(self):
-        if not os.path.exists(savefile):
-            print("No saved drawing found at", savefile)
-            return
-        with open(savefile, 'rb') as f:
-            state = pickle.load(f)
-            #state = yaml.load(f, Loader=yaml.FullLoader)
-        self.objects           = [ Drawable.from_dict(d) for d in state['objects'] ]
-        self.transparent       = state['config']['transparent']
-        self.font_size         = state['config']['font_size']
-        self.line_width        = state['config']['line_width']
-        self.color             = state['config']['color']
-
     # Event handlers
     def on_button_press(self, widget, event):
+        print("Button press, type:", event.type, "button:", event.button, "state:", event.state)
         modifiers = Gtk.accelerator_get_default_mod_mask()
         hover_obj = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
         shift     = event.state & modifiers == Gdk.ModifierType.SHIFT_MASK
@@ -763,14 +765,15 @@ class TransparentWindow(Gtk.Window):
 
         # Ignore clicks when text input is active
         if self.current_object and self.current_object.type == "text":
-            print("click, but text input active")
-            return
+            print("click, but text input active - finishing it first")
+            self.finish_text_input()
+            return True
 
         # Start changing line width
         if ctrl and event.button == 1 and self.mode == "draw":  # Ctrl + Left mouse button
             self.cur_pos = (event.x, event.y)
             self.changing_line_width = True
-            return
+            return True
 
         # double click on a text object: start editing
         if event.button == 1 and double and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text"]:
@@ -838,6 +841,7 @@ class TransparentWindow(Gtk.Window):
                 self.revert_cursor()
 
         self.queue_draw()
+        return True
 
     # Event handlers
     def on_button_release(self, widget, event):
@@ -880,6 +884,7 @@ class TransparentWindow(Gtk.Window):
                 self.dragobj   = None
                 self.queue_draw()
         self.dragobj    = None
+        return True
 
 
     def on_motion_notify(self, widget, event):
@@ -923,6 +928,9 @@ class TransparentWindow(Gtk.Window):
             if prev_hover != self.hover:
                 self.queue_draw()
 
+        # stop event propagation
+        return True
+
     def finish_text_input(self):
         """Clean up current text and finish text input."""
         print("finishing text input")
@@ -948,6 +956,7 @@ class TransparentWindow(Gtk.Window):
         self.queue_draw()
 
     def cycle_background(self):
+        """Cycle through background transparency."""
         if self.transparent == 1:
             self.transparent = 0
         elif self.transparent == 0:
@@ -957,6 +966,7 @@ class TransparentWindow(Gtk.Window):
         self.queue_draw()
 
     def paste_text(self, clip_text):
+        """Create a text object from clipboard text."""
         clip_text = clip_text.strip()
         # split by new lines
 
@@ -965,26 +975,27 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
         else:
             pos = self.cursor_pos or (100, 100)
-            self.current_object = Text([ pos ], self.color, self.line_width, content=clip_text, size = self.font_size)
-            self.current_object.move_cursor("End")
-            self.objects.append(self.current_object)
+            new_text = Text([ pos ], self.color, self.line_width, content=clip_text, size = self.font_size)
+            new_text.move_cursor("End")
+            self.objects.append(new_text)
             self.queue_draw()
 
     def paste_image(self, clip_img):
+        """Create an image object from clipboard image."""
         pos = self.cursor_pos or (100, 100)
         self.current_object = Image([ pos ], self.color, self.line_width, clip_img)
         self.objects.append(self.current_object)
         self.queue_draw()
 
-
-    def object_create_copy(self):
+    def object_create_copy(self, obj, bb = None):
         """Copy the current object into a new object."""
-        new_obj = copy.deepcopy(self.clipboard.to_dict())
+        new_obj = copy.deepcopy(obj.to_dict())
         new_obj = Drawable.from_dict(new_obj)
 
         # move the new object to the current location
         pos = self.cursor_pos or (100, 100)
-        bb  = new_obj.bbox()
+        if bb is None:
+            bb  = new_obj.bbox()
         dx, dy = pos[0] - bb[0], pos[1] - bb[1]
         new_obj.move(dx, dy)
 
@@ -992,14 +1003,22 @@ class TransparentWindow(Gtk.Window):
         self.queue_draw()
 
     def paste_content(self):
+        """Paste content from clipboard."""
 
         print("paste_content:", self.clipboard)
 
+        # internal paste
         if self.clipboard:
             print("Pasting content internally")
-            self.object_create_copy()
+            if self.clipboard.type != "group":
+                Raise("Internal clipboard is not a group")
+            bb = self.clipboard.bbox()
+            print("clipboard bbox:", bb)
+            for obj in self.clipboard.objects:
+                self.object_create_copy(obj, bb)
             return
 
+        # external paste
         clipboard = self.gtk_clipboard
         clip_text = clipboard.wait_for_text()
         if clip_text:
@@ -1007,27 +1026,10 @@ class TransparentWindow(Gtk.Window):
 
         clip_img = clipboard.wait_for_image()
         if clip_img:
-            print("Image in clipboard")
             self.paste_image(clip_img)
 
-    def img_object_copy(self, obj):
-        """Create a pixbuf copy of the given drawable object."""
-
-        bb            = obj.bbox()
-        width, height = math.ceil(bb[2]), math.ceil(bb[3])
-        surface       = cairo.ImageSurface(cairo.Format.ARGB32, width, height)
-        cr            = cairo.Context(surface)
-
-        # move to top left corner
-        obj.move(-bb[0], -bb[1])
-        obj.draw(cr)
-        # move back
-        obj.move(bb[0], bb[1])
-
-        pixbuf = Gdk.pixbuf_get_from_surface(surface, 0, 0, width, height)
-        return pixbuf
-
-    def copy_content(self):
+    def copy_content(self, destroy = False):
+        """Copy content to clipboard."""
         if not self.selection:
             return
 
@@ -1048,7 +1050,7 @@ class TransparentWindow(Gtk.Window):
         else:
             print("Copying another object")
             # draw a little image and copy it to clipboard
-            img_copy = self.img_object_copy(self.selection)
+            img_copy = img_object_copy(self.selection)
             clipboard.set_image(img_copy)
             clipboard.store()
 
@@ -1056,14 +1058,26 @@ class TransparentWindow(Gtk.Window):
         self.clipboard = self.selection
         self.clipboard_owner = True
 
+        if destroy:
+            for obj in self.selection.objects:
+                self.objects.remove(obj)
+            self.selection = None
+            self.queue_draw()
+
+    def cut_content(self):
+        """Cut content to clipboard."""
+        self.copy_content(True)
 
     def text_size_decrease(self):
+        """Decrease text size."""
         self.text_size_change(-1)
 
     def text_size_increase(self):
+        """Increase text size."""
         self.text_size_change(1)
 
     def text_size_change(self, direction):
+        """Change text size up or down."""
         obj = None
         if self.current_object and self.current_object.type == "text":
             obj = self.current_object
@@ -1076,6 +1090,7 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
 
     def selection_group(self):
+        """Group selected objects."""
         if not self.selection or self.selection.length() < 2:
             return
         print("Grouping", self.selection.length(), "objects")
@@ -1087,6 +1102,7 @@ class TransparentWindow(Gtk.Window):
         self.queue_draw()
 
     def selection_ungroup(self):
+        """Ungroup selected objects."""
         if not self.selection:
             return
         for obj in self.selection.objects:
@@ -1097,7 +1113,18 @@ class TransparentWindow(Gtk.Window):
                 self.queue_draw()
         return
 
+    def select_all(self):
+        """Select all objects."""
+        if len(self.objects) == 0:
+            return
+
+        self.selection = DrawableGroup([ self.objects[0] ])
+        for obj in self.objects[1:]:
+            self.selection.add(obj)
+        self.queue_draw()
+
     def selection_delete(self):
+        """Delete selected objects."""
         if self.selection:
             for obj in self.selection.objects:
                 self.objects.remove(obj)
@@ -1109,12 +1136,18 @@ class TransparentWindow(Gtk.Window):
         """Handle keyboard shortcuts."""
         print(keyname)
 
+        # these are single keystroke mode modifiers
         modes = { 'd': "draw", 't': "text", 'e': "eraser", 'm': "move", 'c': "circle", 'b': "box" }
+
+        # these are single keystroke actions
         actions = { 'h': self.show_help_dialog, 'x': self.exit, 
                    'l': self.clear, 'g': self.selection_group, 'u': self.selection_ungroup,
                    'F1': self.show_help_dialog, 'question': self.show_help_dialog,
                     'Delete': self.selection_delete}
-        ctrl_actions = { 'v': self.paste_content, 'c': self.copy_content, 
+
+        # these are ctrl-keystroke actions
+        ctrl_actions = { 'v': self.paste_content, 'c': self.copy_content, 'x': self.cut_content,
+                         'a': self.select_all,
                          'k': self.select_color, 'l': self.clear, 'b': self.cycle_background,
                          'plus': self.text_size_increase, 'minus': self.text_size_decrease,
                          's': self.save_drawing, 'q': self.exit }
@@ -1134,20 +1167,24 @@ class TransparentWindow(Gtk.Window):
         """Handle keyboard events."""
         keyname = Gdk.keyval_name(event.keyval)
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
+        ctrl    = event.state & Gdk.ModifierType.CONTROL_MASK
 
         # End text input
         if keyname == "Escape":
             self.finish_text_input()
 
-        # Handle keyboard shortcuts
-        elif event.state & Gdk.ModifierType.CONTROL_MASK:
+        # Handle ctrl-keyboard shortcuts 
+        elif event.state & ctrl:
             self.handle_shortcuts(keyname, True)
        
         # Handle text input
         elif self.current_object and self.current_object.type == "text":
             self.update_text_input(keyname, char)
         else:
+        # handle single keystroke shortcuts
             self.handle_shortcuts(keyname, False)
+
+        return True
 
     def draw_dot(self, cr, x, y, diameter):
         """Draws a dot at the specified position with the given diameter."""
@@ -1155,6 +1192,7 @@ class TransparentWindow(Gtk.Window):
         cr.fill()  # Fill the circle to make a dot
 
     def make_cursors(self):
+        """Create cursors for different modes."""
         self.cursors = {
             "hand":      Gdk.Cursor.new_from_name(self.get_display(), "hand1"),
             "move":      Gdk.Cursor.new_from_name(self.get_display(), "hand2"),
@@ -1171,6 +1209,7 @@ class TransparentWindow(Gtk.Window):
         }
 
     def revert_cursor(self):
+        """Revert to the default cursor."""
         if self.current_cursor == "default":
             return
         print("reverting cursor")
@@ -1178,6 +1217,7 @@ class TransparentWindow(Gtk.Window):
         self.current_cursor = "default"
 
     def change_cursor(self, cursor_name):
+        """Change the cursor to the specified cursor."""
         if self.current_cursor == cursor_name:
             return
         print("changing cursor to", cursor_name)
@@ -1186,6 +1226,7 @@ class TransparentWindow(Gtk.Window):
         self.current_cursor = cursor_name
 
     def default_cursor(self, cursor_name):
+        """Set the default cursor to the specified cursor."""
         if self.current_cursor == cursor_name:
             return
         print("setting default cursor to", cursor_name)
@@ -1194,6 +1235,7 @@ class TransparentWindow(Gtk.Window):
         self.current_cursor = cursor_name
 
     def select_color(self):
+        """Select a color for drawing."""
         # Create a new color chooser dialog
         color_chooser = Gtk.ColorChooserDialog("Select Current Foreground Color", None)
 
@@ -1209,12 +1251,13 @@ class TransparentWindow(Gtk.Window):
         color_chooser.destroy()
 
     def show_help_dialog(self):
+        """Show the help dialog."""
         dialog = HelpDialog(self)
         response = dialog.run()
         dialog.destroy()
 
-
     def save_drawing(self):
+        """Save the drawing to a file."""
         # Choose where to save the file
         dialog = Gtk.FileChooserDialog("Save as", self, Gtk.FileChooserAction.SAVE,
             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_SAVE, Gtk.ResponseType.OK))
@@ -1230,6 +1273,7 @@ class TransparentWindow(Gtk.Window):
         dialog.destroy()
 
     def export(self, filename, file_format):
+        """Export the drawing to a file."""
         # Create a Cairo surface of the same size as the window content
         width, height = self.get_size()
         if file_format == "png":
@@ -1249,6 +1293,40 @@ class TransparentWindow(Gtk.Window):
             surface.write_to_png(filename)
         elif file_format == "svg":
             surface.finish()
+
+    def save_state(self): 
+        """Save the current drawing state to a file."""
+        config = {
+                'transparent': self.transparent,
+                'font_size': self.font_size,
+                'line_width': self.line_width,
+                'color': self.color
+        }
+
+        objects = [ obj.to_dict() for obj in self.objects ]
+
+        state = { 'config': config, 'objects': objects }
+        with open(savefile, 'wb') as f:
+            #yaml.dump(state, f)
+            pickle.dump(state, f)
+        print("Saved drawing to", savefile)
+
+    def load_state(self):
+        """Load the drawing state from a file."""
+        if not os.path.exists(savefile):
+            print("No saved drawing found at", savefile)
+            return
+        with open(savefile, 'rb') as f:
+            state = pickle.load(f)
+            #state = yaml.load(f, Loader=yaml.FullLoader)
+        self.objects           = [ Drawable.from_dict(d) for d in state['objects'] ]
+        self.transparent       = state['config']['transparent']
+        self.font_size         = state['config']['font_size']
+        self.line_width        = state['config']['line_width']
+        self.color             = state['config']['color']
+
+
+## ---------------------------------------------------------------------
 
 if __name__ == "__main__":
     win = TransparentWindow()
