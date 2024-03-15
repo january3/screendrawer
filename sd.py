@@ -342,6 +342,12 @@ class Image(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.5)
 
+    def coords_from_scale(self):
+        x0, y0 = self.coords[0]
+        w0, h0 = self.image_size
+        w1, h1 = w0 * self.transform[0], h0 * self.transform[1]
+        self.coords = [(x0, y0), (x0 + w1, y0 + h1)]
+
     def resize_update(self, bbox):
         self.resizing["bbox"] = bbox
         old_bbox = self.bbox()
@@ -357,6 +363,9 @@ class Image(Drawable):
         self.coords[0] = (x1, y1)
         self.coords[1] = (x1 + w1, y1 + h1)
         self.transform = (w_scale, h_scale)
+
+    def resize_end(self):
+        self.resizing = None
 
     def is_close_to_click(self, click_x, click_y, threshold):
         bb = self.bbox()
@@ -416,6 +425,7 @@ class Text(Drawable):
         self.line    = 0
         self.cursor_pos = None
         self.bb         = None
+        self.font_extents = None
 
     def is_close_to_click(self, click_x, click_y, threshold):
         if self.bb is None:
@@ -423,6 +433,49 @@ class Text(Drawable):
         x, y, width, height = self.bb
         if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
             return True
+
+    def resize_end(self):
+        new_bbox = self.resizing["bbox"]
+        old_bbox = self.bb
+        old_coords = self.coords
+        # create a surface with the new size
+        surface = cairo.ImageSurface(cairo.Format.ARGB32, 
+                                     2 * math.ceil(new_bbox[2]), 
+                                     2 * math.ceil(new_bbox[3]))
+        cr = cairo.Context(surface)
+        min_fs, max_fs = 8, 154
+        print("new bbox is", new_bbox)
+        print("old bbox is", old_bbox)
+        if new_bbox[2] < old_bbox[2] or new_bbox[3] < old_bbox[3]:
+            dir = -1
+        else:
+            dir = 1
+
+        self.coords = [ (0, 0), (old_bbox[2], old_bbox[3]) ]
+        # loop while font size not larger than max_fs and not smaller than
+        # min_fs
+        print("resizing text, dir=", dir, "font size is", self.size)
+        while True:
+            self.size += dir
+            print("trying font size", self.size)
+            self.draw(cr, False, False)
+            if (self.size < min_fs and dir < 0) or (self.size > max_fs and dir > 0):
+                print("font size out of range")
+                break
+            current_bbox = self.bb
+            print("drawn, bbox is", self.bb)
+            if dir > 0 and (current_bbox[2] >= new_bbox[2] or current_bbox[3] >= new_bbox[3]):
+                print("increased beyond the new bbox")
+                break
+            if dir < 0 and (current_bbox[2] <= new_bbox[2] and current_bbox[3] <= new_bbox[3]):
+                break
+        
+        self.coords[0] = (new_bbox[0], new_bbox[1] + self.font_extents[0])
+        print("final coords are", self.coords)
+        print("font extents are", self.font_extents)
+
+        # first 
+        self.resizing = None
 
     def to_dict(self):
         return {
@@ -528,6 +581,7 @@ class Text(Drawable):
         cr.set_font_size(size)
 
         font_extents = cr.font_extents()
+        self.font_extents = font_extents
         ascent, height  = font_extents[0], font_extents[2]
 
         dy   = 0
