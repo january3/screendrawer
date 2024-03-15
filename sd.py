@@ -196,23 +196,6 @@ class Drawable:
             "line_width": self.line_width
         }
 
-    @classmethod
-    def from_dict(cls, d):
-        type_map = {
-            "path": Path,
-            "circle": Circle,
-            "box": Box,
-            "image": Image,
-            "group": DrawableGroup,
-            "text": Text
-        }
-
-        type = d.pop("type")
-        if type not in type_map:
-            raise ValueError("Invalid type:", type)
-
-        return type_map.get(type)(**d)
-
     def move(self, dx, dy):
         move_coords(self.coords, dx, dy)
 
@@ -235,7 +218,25 @@ class Drawable:
     def draw(self, cr, hover=False, selected=False):
         raise NotImplementedError("draw method not implemented")
 
+    @classmethod
+    def from_dict(cls, d):
+        type_map = {
+            "path": Path,
+            "circle": Circle,
+            "box": Box,
+            "image": Image,
+            "group": DrawableGroup,
+            "text": Text
+        }
+        type = d.pop("type")
+        if type not in type_map:
+            raise ValueError("Invalid type:", type)
+
+        return type_map.get(type)(**d)
+
+
 class DrawableGroup(Drawable):
+    """Class for creating groups of drawable objects or other groups."""
     def __init__(self, objects = [ ], objects_dict = None):
 
         if objects_dict:
@@ -320,10 +321,20 @@ class Image(Drawable):
         super().__init__("image", coords, color, line_width)
         self.image = image
         self.image_size = (width, height)
+        self.transform = None
 
     def draw(self, cr, hover=False, selected=False):
-        Gdk.cairo_set_source_pixbuf(cr, self.image, self.coords[0][0], self.coords[0][1])
+        cr.save()
+        cr.translate(self.coords[0][0], self.coords[0][1])
+
+        if self.transform:
+            w_scale, h_scale = self.transform
+            cr.scale(w_scale, h_scale)
+
+        Gdk.cairo_set_source_pixbuf(cr, self.image, 0, 0)
         cr.paint()
+
+        cr.restore()
 
         cr.set_source_rgb(*self.color)
         if selected:
@@ -331,6 +342,22 @@ class Image(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.5)
 
+    def resize_update(self, bbox):
+        self.resizing["bbox"] = bbox
+        old_bbox = self.bbox()
+        coords = self.coords
+
+        x0, y0 = coords[0][0], coords[0][1]
+        w0, h0 = self.image_size[0], self.image_size[1]
+        x1, y1, w1, h1 = bbox
+
+        w_scale = w1 / w0
+        h_scale = h1 / h0
+
+        self.coords[0] = (x1, y1)
+        self.coords[1] = (x1 + w1, y1 + h1)
+
+        self.transform = (w_scale, h_scale)
 
     def is_close_to_click(self, click_x, click_y, threshold):
         bb = self.bbox()
@@ -566,6 +593,8 @@ class Path(Drawable):
         }
 
     def path_append(self, x, y, pressure = 1):
+        """Append a point to the path, calculating the outline of the
+           polygon around the path."""
         coords = self.coords
         width  = self.line_width * pressure
 
@@ -604,20 +633,23 @@ class Path(Drawable):
             return self.resizing["bbox"]
         return path_bbox(self.coords)
 
+    def outline_recalculate(self, coords, pressure):
+        """Takes new coords and pressure and recalculates the outline."""
+        self.outline_l = []
+        self.outline_r = []
+        self.outline   = []
+        self.pressure  = []
+        self.coords    = []
+
+        for x, y in coords:
+            self.path_append(x, y, pressure.pop(0))
+
     def resize_end(self):
+        """recalculate the outline after resizing"""
         old_bbox = path_bbox(self.coords)
         new_coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
         pressure   = self.pressure
-
-        self.pressure  = [ ]
-        self.coords    = [ ]
-        self.outline_l = [ ]
-        self.outline_r = [ ]
-        self.outline   = [ ]
-
-        for x, y in new_coords:
-            self.path_append(x, y, pressure.pop(0))
-
+        self.outline_recalculate(new_coords, pressure)
         self.resizing  = None
 
     def draw_simple(self, cr, hover=False, selected=False, bbox=None):
@@ -721,8 +753,9 @@ class Box(Drawable):
         cr.stroke()
 
         if selected:
+            cr.set_line_width(0.5)
             cr.arc(x0, y0, 10, 0, 2 * 3.14159)  # Draw a circle
-            cr.fill()  # Fill the circle to make a dot
+            #cr.fill()  # Fill the circle to make a dot
             cr.stroke()
 
 
@@ -1387,10 +1420,10 @@ class TransparentWindow(Gtk.Window):
             'g':                    {'action': self.selection_group,    'modes': ["move"]},
             'u':                    {'action': self.selection_ungroup,  'modes': ["move"]},
             'Delete':               {'action': self.selection_delete,   'modes': ["move"]},
-            'Ctrl-v':               {'action': self.paste_content, 'modes': ["move"]},
             'Ctrl-c':               {'action': self.copy_content,  'modes': ["move"]},
             'Ctrl-x':               {'action': self.cut_content,   'modes': ["move"]},
             'Ctrl-a':               {'action': self.select_all,    'modes': ["move"]},
+            'Ctrl-v':               {'action': self.paste_content},
 
             'Ctrl-plus':            {'action': self.text_size_increase, 'modes': ["text", "draw", "move"]},
             'Ctrl-minus':           {'action': self.text_size_decrease, 'modes': ["text", "draw", "move"]},
@@ -1578,7 +1611,7 @@ if __name__ == "__main__":
     win.show_all()
     win.present()
     win.change_cursor("default")
-    win.stick()
+    #win.stick()
 
     Gtk.main()
 
