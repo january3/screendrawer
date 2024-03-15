@@ -63,6 +63,15 @@ def normal_vec(x0, y0, x1, y1):
     dx, dy = dx / length, dy / length
     return -dy, dx
 
+def transform_coords(coords, bb1, bb2):
+    """Transform coordinates from one bounding box to another."""
+    x0, y0, w0, h0 = bb1
+    x1, y1, w1, h1 = bb2
+    ret = [ 
+        (x1 + (x - x0) / w0 * w1, y1 + (y - y0) / h0 * h1) 
+        for x, y in coords 
+    ]
+    return ret
 
 def move_coords(coords, dx, dy):
     """Move a path by a given offset."""
@@ -532,9 +541,10 @@ class Text(Drawable):
             self.bbox_draw(cr, lw=.5)
 
 class Path(Drawable):
-    def __init__(self, coords, color, line_width, outline = None):
+    def __init__(self, coords, color, line_width, outline = None, pressure = None):
         super().__init__("path", coords, color, line_width)
-        self.outline = outline or []
+        self.outline   = outline  or []
+        self.pressure  = pressure or []
         self.outline_l = []
         self.outline_r = []
 
@@ -550,6 +560,7 @@ class Path(Drawable):
             "type": self.type,
             "coords": self.coords,
             "outline": self.outline,
+            "pressure": self.pressure,
             "color": self.color,
             "line_width": self.line_width
         }
@@ -559,11 +570,15 @@ class Path(Drawable):
         width  = self.line_width * pressure
 
         if len(coords) == 0:
+            self.pressure.append(pressure)
             coords.append((x, y))
+            return
+
         lp = coords[-1]
         if abs(x - lp[0]) < 1 and abs(y - lp[1]) < 1:
             return
 
+        self.pressure.append(pressure)
         coords.append((x, y))
         width = width / 2
 
@@ -589,12 +604,52 @@ class Path(Drawable):
             return self.resizing["bbox"]
         return path_bbox(self.coords)
 
+    def resize_end(self):
+        old_bbox = path_bbox(self.coords)
+        new_coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
+        pressure   = self.pressure
+
+        self.pressure  = [ ]
+        self.coords    = [ ]
+        self.outline_l = [ ]
+        self.outline_r = [ ]
+        self.outline   = [ ]
+
+        for x, y in new_coords:
+            self.path_append(x, y, pressure.pop(0))
+
+        self.resizing  = None
+
+    def draw_simple(self, cr, hover=False, selected=False, bbox=None):
+
+        if len(self.coords) < 2:
+            return
+
+        if bbox:
+            old_bbox = path_bbox(self.coords)
+            coords = transform_coords(self.coords, old_bbox, bbox)
+        else:
+            coords = self.coords
+
+        cr.set_source_rgb(*self.color)
+        cr.move_to(coords[0][0], coords[0][1])
+        for point in coords[1:]:
+            cr.line_to(point[0], point[1])
+        cr.stroke()
+
+        if selected:
+            self.bbox_draw(cr, lw=1.5)
+
     def draw(self, cr, hover=False, selected=False):
         if len(self.outline) < 4 or len(self.coords) < 3:
             return
 
         dd = 1 if hover else 0
 
+        if self.resizing:
+            self.draw_simple(cr, hover=hover, selected=selected, bbox=self.resizing["bbox"])
+            return
+        
         cr.set_source_rgb(*self.color)
 
         if selected:
