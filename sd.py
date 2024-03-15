@@ -434,6 +434,15 @@ class Text(Drawable):
         if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
             return True
 
+    def resize_update(self, bbox):
+        print("resizing text", bbox)
+        if(bbox[2] < 0):
+            bbox = (bbox[0], bbox[1], 10, bbox[3])
+        if(bbox[3] < 0):
+            print("flipping y")
+            bbox = (bbox[0], bbox[1], bbox[2], 10)
+        self.resizing["bbox"] = bbox
+
     def resize_end(self):
         new_bbox = self.resizing["bbox"]
         old_bbox = self.bb
