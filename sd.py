@@ -161,6 +161,9 @@ class Drawable:
     def resize_update(self, bbox):
         self.resizing["bbox"] = bbox
 
+    def color_set(self, color):
+        self.color = color
+
     def resize_end(self):
         self.resizing = None
         # not implemented
@@ -249,6 +252,9 @@ class DrawableGroup(Drawable):
             "objects_dict": [ obj.to_dict() for obj in self.objects ],
         }
 
+    def color_set(self, color):
+        for obj in self.objects:
+            obj.color_set(color)
 
     def length(self):
         return len(self.objects)
@@ -1427,6 +1433,9 @@ class TransparentWindow(Gtk.Window):
         if response == Gtk.ResponseType.OK:
             color = color_chooser.get_rgba()
             self.color = (color.red, color.green, color.blue)
+            if self.selection:
+                for obj in self.selection.objects:
+                    obj.color_set(self.color)
 
         # Don't forget to destroy the dialog
         color_chooser.destroy()
