@@ -177,7 +177,7 @@ class ResizeEvent(MoveResizeEvent):
 
         corner = self.corner
 
-        print("realizing resize by", dx, dy, "in corner", corner)
+        #print("realizing resize by", dx, dy, "in corner", corner)
         if corner == "lower_left":
             newbb = (bb[0] + dx, bb[1], bb[2] - dx, bb[3] + dy)
         elif corner == "lower_right":
@@ -340,6 +340,7 @@ class DrawableGroup(Drawable):
 
             x, y, w, h = obj_bb
             w2, h2 = w * scale_x, h * scale_y
+            print("resizing object", obj, "from", obj_bb, "to", (x, y, w2, h2))
 
             x2 = bbox[0] + (x - prev_bbox[0]) * scale_x
             y2 = bbox[1] + (y - prev_bbox[1]) * scale_y
@@ -804,6 +805,7 @@ class Path(Drawable):
         """recalculate the outline after resizing"""
         print("length of coords and pressure:", len(self.coords), len(self.pressure))
         old_bbox = path_bbox(self.coords)
+        print("old bbox is", old_bbox, "new bbox is", self.resizing["bbox"])
         new_coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
         pressure   = self.pressure
         self.outline_recalculate(new_coords, pressure)
@@ -1114,6 +1116,7 @@ class TransparentWindow(Gtk.Window):
         double    = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
         pressure = event.get_axis(Gdk.AxisUse.PRESSURE) or 0
+        print("pressure:", pressure)
 
         if corner_obj[0]:
             print("corner click:", corner_obj[0].type, corner_obj[1])
@@ -1270,7 +1273,10 @@ class TransparentWindow(Gtk.Window):
             obj.coords[1] = (event.x, event.y)
             self.queue_draw()
         elif obj and obj.type == "path":
-            pressure = event.get_axis(Gdk.AxisUse.PRESSURE) or 1
+            pressure = event.get_axis(Gdk.AxisUse.PRESSURE) 
+            if pressure is None:
+                pressure = 1
+            print("->pressure read:", pressure)
             obj.path_append(event.x, event.y, pressure)
             self.queue_draw()
         elif self.resizeobj:
