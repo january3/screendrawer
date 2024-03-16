@@ -15,6 +15,20 @@ import base64
 import tempfile
 from io import BytesIO
 
+COLORS = {
+        "black": (0, 0, 0),
+        "white": (1, 1, 1),
+        "red": (.7, 0, 0),
+        "green": (0, .7, 0),
+        "blue": (0, 0, .5),
+        "yellow": (1, 1, 0),
+        "cyan": (0, 1, 1),
+        "magenta": (1, 0, 1),
+        "purple": (0.5, 0, 0.5),
+        "grey": (0.5, 0.5, 0.5)
+}
+
+
 savefile = os.path.expanduser("~/.screendrawer")
 print(savefile)
 # open file for appending if exists, or create if not
@@ -377,7 +391,7 @@ class Drawable:
         cr.rectangle(x, y, w, h)
         cr.stroke()
 
-    def draw(self, cr, hover=False, selected=False):
+    def draw(self, cr, hover=False, selected=False, outline=False):
         raise NotImplementedError("draw method not implemented")
 
     @classmethod
@@ -494,7 +508,7 @@ class DrawableGroup(Drawable):
         for obj in self.objects:
             obj.move(dx, dy)
 
-    def draw(self, cr, hover=False, selected=False):
+    def draw(self, cr, hover=False, selected=False, outline=False):
         for obj in self.objects:
             obj.draw(cr, hover=hover, selected=selected)
         cr.set_source_rgb(0, 0, 0)
@@ -521,7 +535,7 @@ class Image(Drawable):
         self.transform = transform or None
         self.image_size = (width, height)
 
-    def draw(self, cr, hover=False, selected=False):
+    def draw(self, cr, hover=False, selected=False, outline=False):
         cr.save()
         cr.translate(self.coords[0][0], self.coords[0][1])
 
@@ -782,7 +796,7 @@ class Text(Drawable):
         cr.line_to(xx0 + 3, yy0 + height)
         cr.stroke()
 
-    def draw(self, cr, hover=False, selected=False):
+    def draw(self, cr, hover=False, selected=False, outline=False):
         position, content, size, color, cursor_pos = self.coords[0], self.content, self.size, self.color, self.cursor_pos
         
         # get font info
@@ -1025,7 +1039,7 @@ class Path(Drawable):
         if selected:
             self.bbox_draw(cr, lw=1.5)
 
-    def draw(self, cr, hover=False, selected=False):
+    def draw(self, cr, hover=False, selected=False, outline = False):
         if len(self.outline) < 4 or len(self.coords) < 3:
             return
 
@@ -1034,10 +1048,11 @@ class Path(Drawable):
             self.draw_simple(cr, hover=hover, selected=selected, bbox=self.resizing["bbox"])
             return
        ##return
-
         
         cr.set_source_rgb(*self.color)
-        cr.set_line_width(0.5)
+        cr.set_fill_rule(cairo.FillRule.WINDING)
+        if outline:
+            cr.set_line_width(0.5)
         #cr.set_source_rgba(*self.color, .75)
 
         if selected:
@@ -1047,9 +1062,14 @@ class Path(Drawable):
         for point in self.outline[1:]:
             cr.line_to(point[0] + dd, point[1] + dd)
         cr.close_path()
-        #cr.stroke()
-        cr.fill()
-        #self.draw_simple_2(cr, hover=hover, selected=selected, bbox=None)
+
+        if outline:
+            cr.stroke()
+        else:
+            cr.fill()   
+
+        if outline:
+            self.draw_simple_2(cr, hover=hover, selected=selected, bbox=None)
 
 class Circle(Drawable):
     def __init__(self, coords, color, line_width, fill_color = None):
@@ -1098,7 +1118,7 @@ class Box(Drawable):
         self.resizing["bbox"] = bbox
         self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
 
-    def draw(self, cr, hover=False, selected=False):
+    def draw(self, cr, hover=False, selected=False, outline=False):
         cr.set_source_rgb(*self.color)
 
         if hover:
@@ -1147,6 +1167,7 @@ Draw on the screen with Gnome and Cairo. Quick and dirty.
 
 <b>(Help not complete yet.)</b>
 
+<span font_family="monospace">
 <b>Mouse:</b>
 
 <b>All modes:</b>                          <b>Move mode:</b>
@@ -1155,12 +1176,12 @@ right-button: Move object                  move: Move object
 ctrl-click: Change line width              ctrl-a: Select all
                                            Tab: Next object
                                            Shift-Tab: Previous object
+                                           Shift-letter: quick color selection e.g. Shift-r for red
 
 Moving object to left lower screen corner deletes it.
 
 <b>Shortcut keys:</b>
 
-<span font_family="monospace">
 <b>Drawing modes:</b> (simple key)
 
 <b>d:</b> Draw mode (pencil)                 <b>m:</b> Move mode (move objects around, copy and paste)
@@ -1168,7 +1189,7 @@ Moving object to left lower screen corner deletes it.
 <b>c:</b> Circle mode (draw an ellipse)      <b>e:</b> Eraser mode (delete objects with a click)
 
 <b>With Ctrl:</b>                    <b>Simple key (not when entering text)</b>
-Ctrl-q: Quit                         x: Exit
+Ctrl-q: Quit                         x, q: Exit
 Ctrl-s: Save drawing                 h, F1, ?: Show this help dialog
 Ctrl-l: Clear drawing                l: Clear drawing                 
 
@@ -1237,6 +1258,7 @@ class TransparentWindow(Gtk.Window):
 
         # defaults for drawing
         self.transparent = 0
+        self.outline    = False
         self.font_size  = 24
         self.line_width = 4
         self.color      = (0.2, 0, 0)
@@ -1288,7 +1310,7 @@ class TransparentWindow(Gtk.Window):
         for obj in self.objects:
             hover    = obj == self.hover
             selected = self.selection and self.selection.contains(obj) and self.mode == "move"
-            obj.draw(cr, hover=hover, selected=selected)
+            obj.draw(cr, hover=hover, selected=selected, outline = self.outline)
 
         # If changing line width, draw a preview of the new line width
         if self.changing_line_width:
@@ -1329,7 +1351,7 @@ class TransparentWindow(Gtk.Window):
         # Start changing line width: single click with ctrl pressed
         if ctrl and event.button == 1 and self.mode == "draw": 
             self.cur_pos = (event.x, event.y)
-            self.changing_line_width = True
+            self.changing_line_width = self.line_width
             return True
 
         # double click on a text object: start editing
@@ -1464,7 +1486,9 @@ class TransparentWindow(Gtk.Window):
         self.cursor_pos = (event.x, event.y)
 
         if self.changing_line_width:
-            self.line_width = max(3, min(40, self.line_width + (event.x - self.cur_pos[0])/250))
+            dx = event.x - self.cur_pos[0]
+            print("changing line width", dx)
+            self.line_width = max(1, min(60, self.changing_line_width + (event.x - self.cur_pos[0])/20))
             self.queue_draw()
             return True
 
@@ -1751,6 +1775,18 @@ class TransparentWindow(Gtk.Window):
         self.selection = DrawableGroup([ self.objects[idx] ])
         self.queue_draw()
 
+    def outline_toggle(self):
+        """Toggle outline mode."""
+        self.outline = not self.outline
+        self.queue_draw()
+
+    def set_color(self, color):
+        self.color = color
+        if self.selection:
+            for obj in self.selection.objects:
+                obj.color_set(self.color)
+        self.queue_draw()
+
     def handle_shortcuts(self, keyname, ctrl, shift):
         """Handle keyboard shortcuts."""
         print(keyname)
@@ -1772,9 +1808,20 @@ class TransparentWindow(Gtk.Window):
             'Ctrl-l':               {'action': self.clear},
             'Ctrl-b':               {'action': self.cycle_background},
             'x':                    {'action': self.exit},
+            'q':                    {'action': self.exit},
             'Ctrl-q':               {'action': self.exit},
             'l':                    {'action': self.clear},
             'f':                    {'action': self.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
+            'o':                    {'action': self.outline_toggle, 'modes': ["box", "circle", "draw", "move"]},
+
+            'Shift-W':              {'action': self.set_color, 'args': [COLORS["white"]]},
+            'Shift-B':              {'action': self.set_color, 'args': [COLORS["black"]]},
+            'Shift-R':              {'action': self.set_color, 'args': [COLORS["red"]]},
+            'Shift-G':              {'action': self.set_color, 'args': [COLORS["green"]]},
+            'Shift-L':              {'action': self.set_color, 'args': [COLORS["blue"]]},
+            'Shift-E':              {'action': self.set_color, 'args': [COLORS["grey"]]},
+            'Shift-Y':              {'action': self.set_color, 'args': [COLORS["yellow"]]},
+            'Shift-P':              {'action': self.set_color, 'args': [COLORS["purple"]]},
 
             # dialogs
             'Ctrl-s':               {'action': self.save_drawing},
@@ -1801,6 +1848,8 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
         elif keyname in actions:
             if not "modes" in actions[keyname] or self.mode in actions[keyname]["modes"]:
+                if "args" in actions[keyname]:
+                    actions[keyname]["action"](*actions[keyname]["args"])
                 actions[keyname]["action"]()
      
     def on_key_press(self, widget, event):
@@ -1886,10 +1935,7 @@ class TransparentWindow(Gtk.Window):
         # Check if the user clicked the OK button
         if response == Gtk.ResponseType.OK:
             color = color_chooser.get_rgba()
-            self.color = (color.red, color.green, color.blue)
-            if self.selection:
-                for obj in self.selection.objects:
-                    obj.color_set(self.color)
+            self.set_color((color.red, color.green, color.blue))
 
         # Don't forget to destroy the dialog
         color_chooser.destroy()
