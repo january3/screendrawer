@@ -704,6 +704,10 @@ class Text(Drawable):
         new_bbox = self.resizing["bbox"]
         old_bbox = self.bb
         old_coords = self.coords
+
+        if not self.font_extents:
+            return None
+
         # create a surface with the new size
         surface = cairo.ImageSurface(cairo.Format.ARGB32, 
                                      2 * math.ceil(new_bbox[2]), 
