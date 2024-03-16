@@ -338,6 +338,13 @@ class Drawable:
             "bbox":   self.bbox()
             }
 
+    def stroke_change(self, direction):
+        if self.line_width > 2:
+            self.line_width += direction
+        else:
+            self.line_width += direction / 10
+        self.line_width = max(0.1, self.line_width)
+
     def unfill(self):
         self.fill_color = None
 
@@ -433,6 +440,10 @@ class DrawableGroup(Drawable):
             if obj.is_close_to_click(click_x, click_y, threshold):
                 return True
         return False
+
+    def stroke_change(self, direction):
+        for obj in self.objects:
+            obj.stroke_change(direction)
 
     def to_dict(self):
         return {
@@ -648,6 +659,11 @@ class Text(Drawable):
         if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
             return True
 
+    def stroke_change(self, direction):
+        """Change text size up or down."""
+        self.size += direction
+        self.size = max(8, min(128, self.size))
+ 
     def resize_update(self, bbox):
         print("resizing text", bbox)
         if(bbox[2] < 0):
@@ -874,6 +890,15 @@ class Path(Drawable):
 
     def outline_point(p, nx, ny, width):
         return (p[0] + nx * width, p[1] + ny * width)
+
+    def stroke_change(self, direction):
+        if self.line_width > 2:
+            self.line_width += direction
+        else:
+            self.line_width += direction / 10
+        self.line_width = max(0.1, self.line_width)
+        self.outline_recalculate_new()
+
 
     def outline_recalculate_new(self):
         if len(self.coords) < 3:
@@ -1682,26 +1707,31 @@ class TransparentWindow(Gtk.Window):
         """Cut content to clipboard."""
         self.copy_content(True)
 
-    def text_size_decrease(self):
-        """Decrease text size."""
-        self.text_size_change(-1)
+   
+    def stroke_increase(self):
+        """Increase whatever is selected."""
+        self.stroke_change(1)
 
-    def text_size_increase(self):
-        """Increase text size."""
-        self.text_size_change(1)
+    def stroke_decrease(self):
+        """Decrease whatever is selected."""
+        self.stroke_change(-1)
 
-    def text_size_change(self, direction):
-        """Change text size up or down."""
-        obj = None
+    def stroke_change(self, direction):
+        """Modify the line width or text size."""
+        print("Changing stroke", direction)
         if self.current_object and self.current_object.type == "text":
-            obj = self.current_object
-        elif self.selection and self.selection.type == "text":
-            obj = self.selection
-
-        if obj:
-            obj.size += direction
-            self.font_size = obj.size
+            print("Changing text size")
+            self.current_object.stroke_change(direction)
             self.queue_draw()
+        elif self.selection:
+            for obj in self.selection.objects:
+                obj.stroke_change(direction)
+            self.queue_draw()
+
+        if self.mode == "draw":
+            self.line_width = max(1, self.line_width + direction)
+        elif self.mode == "text":
+            self.font_size = max(1, self.font_size + direction)
 
     def selection_group(self):
         """Group selected objects."""
@@ -1846,8 +1876,8 @@ class TransparentWindow(Gtk.Window):
             'Ctrl-a':               {'action': self.select_all},
             'Ctrl-v':               {'action': self.paste_content},
 
-            'Ctrl-plus':            {'action': self.text_size_increase, 'modes': ["text", "draw", "move"]},
-            'Ctrl-minus':           {'action': self.text_size_decrease, 'modes': ["text", "draw", "move"]},
+            'Ctrl-plus':            {'action': self.stroke_increase},
+            'Ctrl-minus':           {'action': self.stroke_decrease},
         }
 
         if keyname in modes:
