@@ -21,6 +21,115 @@ print(savefile)
 
 ## ---------------------------------------------------------------------
 
+def distance(p1, p2):
+    """Calculate the Euclidean distance between two points."""
+    return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+
+def bezier_point(t, start, control, end):
+    """Calculate a point on a quadratic Bézier curve."""
+    # B(t) = (1-t)^2 * P0 + 2(1-t)t * P1 + t^2 * P2, 0 <= t <= 1
+    x = (1 - t)**2 * start[0] + 2 * (1 - t) * t * control[0] + t**2 * end[0]
+    y = (1 - t)**2 * start[1] + 2 * (1 - t) * t * control[1] + t**2 * end[1]
+    return (x, y)
+
+def segment_intersection(p1, p2, p3, p4):
+    x1, y1 = p1
+    x2, y2 = p2
+    x3, y3 = p3
+    x4, y4 = p4
+
+    denom = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4)
+    if denom == 0:
+        return (False, None)  # Lines are parallel
+
+    t = ((x1-x3)*(y3-y4) - (y1-y3)*(x3-x4)) / denom
+    u = ((x1-x3)*(y1-y2) - (y1-y3)*(x1-x2)) / denom
+
+    if 0 <= t <= 1 and 0 <= u <= 1:
+        # The segments intersect
+        intersect_x = x1 + t * (x2 - x1)
+        intersect_y = y1 + t * (y2 - y1)
+        return (True, (intersect_x, intersect_y))
+    else:
+        return (False, None)  # No intersection
+
+
+def calculate_angle(p0, p1, p2):
+    """Calculate the angle between the line p0->p1 and p1->p2 in degrees."""
+    a = math.sqrt((p1[0] - p0[0])**2 + (p1[1] - p0[1])**2)
+    b = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+    c = math.sqrt((p2[0] - p0[0])**2 + (p2[1] - p0[1])**2)
+    if a * b == 0:
+        return 0
+    cos_angle = (a**2 + b**2 - c**2) / (2 * a * b)
+    # Clamp cos_angle to the valid range [-1, 1] to avoid math domain error
+    cos_angle = max(-1, min(1, cos_angle))
+    angle = math.acos(cos_angle)
+    return math.degrees(angle)
+
+
+def midpoint(p1, p2):
+    """Calculate the midpoint between two points."""
+    return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
+
+def smooth_path(coords, pressure=None, threshold=20):
+
+    if len(coords) < 3:
+        return coords, pressure  # Not enough points to smooth
+
+    if pressure and len(pressure) != len(coords):
+        raise ValueError("Pressure and coords must have the same length")
+    
+    print("smoothing path with", len(coords), "points")
+    smoothed_coords = [coords[0]]  # Start with the first point
+    if pressure:
+        new_pressure    = [pressure[0]]
+    else:
+        new_pressure = None
+
+    t_values = [t / 10.0 for t in range(1, 5)]
+
+    for i in range(1, len(coords) - 1):
+        p0 = coords[i - 1]
+        p1 = coords[i]
+        p2 = coords[i + 1]
+
+        if pressure:
+            prev_pressure = pressure[i - 1]
+            current_pressure = pressure[i]
+            next_pressure = pressure[i + 1]
+        
+        # Calculate distances to determine if smoothing is needed
+        dist_to_prev = math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
+        dist_to_next = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+
+        #angle = calculate_angle(p0, p1, p2)
+        #print("angle is", angle)
+        
+        if dist_to_prev > threshold or dist_to_next > threshold:
+            # Calculate control points for smoother transitions
+            control1 = midpoint(p0, p1)
+            control2 = midpoint(p1, p2)
+            
+            # Generate intermediate points for the cubic Bézier curve
+            for t in t_values:
+                x = (1-t)**3 * control1[0] + 3*(1-t)**2 * t * p1[0] + 3*(1-t) * t**2 * control2[0] + t**3 * p2[0]
+                y = (1-t)**3 * control1[1] + 3*(1-t)**2 * t * p1[1] + 3*(1-t) * t**2 * control2[1] + t**3 * p2[1]
+                if pressure:
+                    new_pressure.append((1-t) * prev_pressure + t * next_pressure)
+                smoothed_coords.append((x, y))
+        else:
+            # For shorter segments, just add the current point
+            smoothed_coords.append(p1)
+            if pressure:
+                new_pressure.append(current_pressure)
+    
+    smoothed_coords.append(coords[-1])  # Ensure the last point is added
+    if pressure:
+        new_pressure.append(pressure[-1])
+    return smoothed_coords, new_pressure
+
+
 def distance_point_to_segment(px, py, x1, y1, x2, y2):
     """Calculate the distance from a point (px, py) to a line segment (x1, y1) to (x2, y2)."""
     # Calculate the line segment's length squared
@@ -748,6 +857,66 @@ class Path(Drawable):
             "line_width": self.line_width
         }
 
+    def outline_point(p, nx, ny, width):
+        return (p[0] + nx * width, p[1] + ny * width)
+
+    def outline_recalculate_new(self):
+        if len(self.coords) < 3:
+            return
+        print("recalculating outline")
+
+        print("1.length of coords and pressure:", len(self.coords), len(self.pressure))
+        self.coords, self.pressure = smooth_path(self.coords, self.pressure, 20)
+        print("2.length of coords and pressure:", len(self.coords), len(self.pressure))
+
+        self.outline_l = []
+        self.outline_r = []
+        self.outline   = []
+
+        n = len(self.coords)
+
+        for i in range(n - 2):
+            p0, p1, p2 = self.coords[i], self.coords[i + 1], self.coords[i + 2]
+            nx, ny = normal_vec(p0[0], p0[1], p1[0], p1[1])
+            mx, my = normal_vec(p1[0], p1[1], p2[0], p2[1])
+
+            width  = self.line_width * self.pressure[i] / 2
+            #width  = self.line_width / 2
+
+            left_segment1_start = (p0[0] + nx * width, p0[1] + ny * width)
+            left_segment1_end   = (p1[0] + nx * width, p1[1] + ny * width)
+            left_segment2_start = (p1[0] + mx * width, p1[1] + my * width)
+            left_segment2_end   = (p2[0] + mx * width, p2[1] + my * width)
+
+            right_segment1_start = (p0[0] - nx * width, p0[1] - ny * width)
+            right_segment1_end   = (p1[0] - nx * width, p1[1] - ny * width)
+            right_segment2_start = (p1[0] - mx * width, p1[1] - my * width)
+            right_segment2_end   = (p2[0] - mx * width, p2[1] - my * width)
+
+
+            if i == 0:
+            ## append the points for the first coord
+                self.outline_l.append(left_segment1_start)
+                self.outline_r.append(right_segment1_start)
+
+            self.outline_l.append(left_segment1_end)
+            self.outline_l.append(left_segment2_start)
+            self.outline_r.append(right_segment1_end)
+            self.outline_r.append(right_segment2_start)
+
+            if i == n - 2:
+                print("last segment")
+                self.outline_l.append(left_segment2_end)
+                self.outline_r.append(right_segment2_end)
+
+            #self.outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
+            #self.outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
+
+        self.outline_l, whatever = smooth_path(self.outline_l, None, 20)
+        self.outline_r, whatever = smooth_path(self.outline_r, None, 20)
+        self.outline = self.outline_l + self.outline_r[::-1]
+
+
     def path_append(self, x, y, pressure = 1):
         """Append a point to the path, calculating the outline of the
            polygon around the path."""
@@ -767,20 +936,20 @@ class Path(Drawable):
         coords.append((x, y))
         width = width / 2
 
+        if len(coords) < 2:
+            return
+
+        p1, p2 = coords[-2], coords[-1]
+        nx, ny = normal_vec(p1[0], p1[1], p2[0], p2[1])
+
         if len(coords) == 2:
-            p1, p2 = coords[0], coords[1]
-            nx, ny = normal_vec(p1[0], p1[1], p2[0], p2[1])
-            self.outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
-            self.outline_l.append((p2[0] + nx * width, p2[1] + ny * width))
-            self.outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
-            self.outline_r.append((p2[0] - nx * width, p2[1] - ny * width))
-        if len(coords) > 2:
-            p1, p2 = coords[-2], coords[-1]
-            nx, ny = normal_vec(p1[0], p1[1], p2[0], p2[1])
+            ## append the points for the first coord
             self.outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
             self.outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
-        if len(coords) >= 2:
-            self.outline = self.outline_l + self.outline_r[::-1]
+
+        self.outline_l.append((p2[0] + nx * width, p2[1] + ny * width))
+        self.outline_r.append((p2[0] - nx * width, p2[1] - ny * width))
+        self.outline = self.outline_l + self.outline_r[::-1]
 
     # XXX not efficient, this should be done in path_append and modified
     # upon move.
@@ -811,6 +980,31 @@ class Path(Drawable):
         self.outline_recalculate(new_coords, pressure)
         self.resizing  = None
 
+    def draw_simple_2(self, cr, hover=False, selected=False, bbox=None):
+        """draws each segment separately and makes a dot at each coord."""
+        if len(self.coords) < 2:
+            return
+
+        if bbox:
+            old_bbox = path_bbox(self.coords)
+            coords = transform_coords(self.coords, old_bbox, bbox)
+        else:
+            coords = self.coords
+
+        cr.set_source_rgb(*self.color)
+        #cr.set_line_width(0.5)
+        for i in range(len(coords) - 1):
+            cr.move_to(coords[i][0], coords[i][1])
+            cr.line_to(coords[i + 1][0], coords[i + 1][1])
+            cr.stroke()
+            # make a dot at each coord
+            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle
+
+
+        if selected:
+            self.bbox_draw(cr, lw=1.5)
+
+
     def draw_simple(self, cr, hover=False, selected=False, bbox=None):
 
         if len(self.coords) < 2:
@@ -836,13 +1030,15 @@ class Path(Drawable):
             return
 
         dd = 1 if hover else 0
-
         if self.resizing:
             self.draw_simple(cr, hover=hover, selected=selected, bbox=self.resizing["bbox"])
             return
+       ##return
+
         
-        #cr.set_source_rgb(*self.color)
-        cr.set_source_rgba(*self.color, .75)
+        cr.set_source_rgb(*self.color)
+        cr.set_line_width(0.5)
+        #cr.set_source_rgba(*self.color, .75)
 
         if selected:
             self.bbox_draw(cr, lw=.5)
@@ -851,7 +1047,9 @@ class Path(Drawable):
         for point in self.outline[1:]:
             cr.line_to(point[0] + dd, point[1] + dd)
         cr.close_path()
+        #cr.stroke()
         cr.fill()
+        #self.draw_simple_2(cr, hover=hover, selected=selected, bbox=None)
 
 class Circle(Drawable):
     def __init__(self, coords, color, line_width, fill_color = None):
@@ -1077,7 +1275,7 @@ class TransparentWindow(Gtk.Window):
 
     def on_draw(self, widget, cr):
         """Handle draw events."""
-        cr.set_source_rgba(1, 1, 1, self.transparent)
+        cr.set_source_rgba(.8, .75, .65, self.transparent)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
@@ -1214,6 +1412,7 @@ class TransparentWindow(Gtk.Window):
         if obj and obj.type == "path":
             print("finishing path")
             obj.path_append(event.x, event.y, 0)
+            obj.outline_recalculate_new()
             if len(obj.coords) != len(obj.pressure):
                 print("Pressure and coords don't match")
             if len(obj.coords) < 3:
@@ -1276,7 +1475,6 @@ class TransparentWindow(Gtk.Window):
             pressure = event.get_axis(Gdk.AxisUse.PRESSURE) 
             if pressure is None:
                 pressure = 1
-            print("->pressure read:", pressure)
             obj.path_append(event.x, event.y, pressure)
             self.queue_draw()
         elif self.resizeobj:
