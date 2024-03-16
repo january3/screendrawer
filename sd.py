@@ -528,12 +528,12 @@ class Image(Drawable):
         else:
             self.image_base64 = None
 
-        width, height = image.get_width(), image.get_height()
+        self.image_size = (image.get_width(), image.get_height())
+        self.transform = transform or (1, 1)
+        width, height = self.image_size[0] * self.transform[0], self.image_size[1] * self.transform[1]
         coords = [ (coords[0][0], coords[0][1]), (coords[0][0] + width, coords[0][1] + height) ]
         super().__init__("image", coords, color, line_width)
         self.image = image
-        self.transform = transform or None
-        self.image_size = (width, height)
 
     def draw(self, cr, hover=False, selected=False, outline=False):
         cr.save()
@@ -1393,6 +1393,7 @@ class TransparentWindow(Gtk.Window):
                     obj    = corner_obj[0]
                     corner = corner_obj[1]
                     self.resizeobj = ResizeEvent(obj, origin = (event.x, event.y), corner = corner)
+                    self.change_cursor(corner)
                 elif hover_obj:
                     if shift and self.selection:
                         # create Draw Group with the two objects
@@ -1402,6 +1403,7 @@ class TransparentWindow(Gtk.Window):
                             self.selection = DrawableGroup([ hover_obj ])
 
                     self.dragobj = MoveEvent(self.selection, (event.x, event.y))
+                    self.change_cursor("grabbing")
                 else:
                     self.selection = None
                     self.dragobj   = None
@@ -1475,8 +1477,9 @@ class TransparentWindow(Gtk.Window):
             if event.x < 10 and event.y > self.get_size()[1] - 10:
                 self.objects.remove(obj)
                 self.selection = None
-                self.queue_draw()
             self.dragobj    = None
+            self.revert_cursor()
+            self.queue_draw()
         return True
 
 
@@ -1484,6 +1487,7 @@ class TransparentWindow(Gtk.Window):
         """Handle mouse motion events."""
         obj = self.current_object
         self.cursor_pos = (event.x, event.y)
+        corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
 
         if self.changing_line_width:
             dx = event.x - self.cur_pos[0]
@@ -1520,7 +1524,10 @@ class TransparentWindow(Gtk.Window):
             prev_hover = self.hover
             if object_underneath:
                 if self.mode == "move":
-                    self.change_cursor("moving")
+                    if corner_obj[0] and corner_obj[0].bbox():
+                        self.change_cursor(corner_obj[1])
+                    else:
+                        self.change_cursor("moving")
                 self.hover = object_underneath
             else:
                 if self.mode == "move":
@@ -1850,7 +1857,8 @@ class TransparentWindow(Gtk.Window):
             if not "modes" in actions[keyname] or self.mode in actions[keyname]["modes"]:
                 if "args" in actions[keyname]:
                     actions[keyname]["action"](*actions[keyname]["args"])
-                actions[keyname]["action"]()
+                else:
+                    actions[keyname]["action"]()
      
     def on_key_press(self, widget, event):
         """Handle keyboard events."""
@@ -1884,18 +1892,23 @@ class TransparentWindow(Gtk.Window):
     def make_cursors(self):
         """Create cursors for different modes."""
         self.cursors = {
-            "hand":      Gdk.Cursor.new_from_name(self.get_display(), "hand1"),
-            "move":      Gdk.Cursor.new_from_name(self.get_display(), "hand2"),
-            "moving":    Gdk.Cursor.new_from_name(self.get_display(), "move"),
-            "text":      Gdk.Cursor.new_from_name(self.get_display(), "text"),
-            "eraser":    Gdk.Cursor.new_from_name(self.get_display(), "not-allowed"),
-            "pencil":    Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
-            "draw":      Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
-            "crosshair": Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
-            "circle":    Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
-            "box":       Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
-            "none":      Gdk.Cursor.new_from_name(self.get_display(), "none"),
-            "default":   Gdk.Cursor.new_from_name(self.get_display(), "pencil")
+            "hand":        Gdk.Cursor.new_from_name(self.get_display(), "hand1"),
+            "move":        Gdk.Cursor.new_from_name(self.get_display(), "hand2"),
+            "grabbing":    Gdk.Cursor.new_from_name(self.get_display(), "grabbing"),
+            "moving":      Gdk.Cursor.new_from_name(self.get_display(), "grab"),
+            "text":        Gdk.Cursor.new_from_name(self.get_display(), "text"),
+            "eraser":      Gdk.Cursor.new_from_name(self.get_display(), "not-allowed"),
+            "pencil":      Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
+            "draw":        Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
+            "crosshair":   Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
+            "circle":      Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
+            "box":         Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
+            "none":        Gdk.Cursor.new_from_name(self.get_display(), "none"),
+            "upper_left":  Gdk.Cursor.new_from_name(self.get_display(), "nw-resize"),
+            "upper_right": Gdk.Cursor.new_from_name(self.get_display(), "ne-resize"),
+            "lower_left":  Gdk.Cursor.new_from_name(self.get_display(), "sw-resize"),
+            "lower_right": Gdk.Cursor.new_from_name(self.get_display(), "se-resize"),
+            "default":     Gdk.Cursor.new_from_name(self.get_display(), "pencil")
         }
 
     def revert_cursor(self):
