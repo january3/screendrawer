@@ -15,6 +15,32 @@ import base64
 import tempfile
 from io import BytesIO
 
+import appdirs
+
+app_name   = "ScreenDrawer"
+app_author = "JanuaryWeiner"  # Optional; used on Windows
+
+# Get user-specific data directory
+user_data_dir = appdirs.user_data_dir(app_name, app_author)
+print(f"User data directory: {user_data_dir}")
+# Create the directory if it does not exist
+os.makedirs(user_data_dir, exist_ok=True)
+# The filename for the save file: dir + "savefile"
+savefile = os.path.join(user_data_dir, "savefile")
+print("Save file is:", savefile)
+
+# Get user-specific config directory
+user_config_dir = appdirs.user_config_dir(app_name, app_author)
+print(f"User config directory: {user_config_dir}")
+
+# Get user-specific cache directory
+#user_cache_dir = appdirs.user_cache_dir(app_name, app_author)
+#print(f"User cache directory: {user_cache_dir}")
+
+# Get user-specific log directory
+#user_log_dir = appdirs.user_log_dir(app_name, app_author)
+#print(f"User log directory: {user_log_dir}")
+
 COLORS = {
         "black": (0, 0, 0),
         "white": (1, 1, 1),
@@ -29,8 +55,6 @@ COLORS = {
 }
 
 
-savefile = os.path.expanduser("~/.screendrawer")
-print(savefile)
 # open file for appending if exists, or create if not
 
 ## ---------------------------------------------------------------------
@@ -344,6 +368,9 @@ class Drawable:
         else:
             self.line_width += direction / 10
         self.line_width = max(0.1, self.line_width)
+
+    def smoothen(self, threshold=20):
+        print("smoothening not implemented")
 
     def unfill(self):
         self.fill_color = None
@@ -899,6 +926,12 @@ class Path(Drawable):
         self.line_width = max(0.1, self.line_width)
         self.outline_recalculate_new()
 
+    def smoothen(self, threshold=20):
+        if len(self.coords) < 3:
+            return
+        print("smoothening path")
+        self.coords, self.pressure = smooth_path(self.coords, self.pressure, 1)
+        self.outline_recalculate_new()
 
     def outline_recalculate_new(self):
         if len(self.coords) < 3:
@@ -1019,7 +1052,7 @@ class Path(Drawable):
         self.outline_recalculate(new_coords, pressure)
         self.resizing  = None
 
-    def draw_simple_2(self, cr, hover=False, selected=False, bbox=None):
+    def draw_outline(self, cr, hover=False, selected=False, bbox=None):
         """draws each segment separately and makes a dot at each coord."""
         if len(self.coords) < 2:
             return
@@ -1045,6 +1078,7 @@ class Path(Drawable):
 
 
     def draw_simple(self, cr, hover=False, selected=False, bbox=None):
+        """draws the path as a single line. Useful for resizing."""
 
         if len(self.coords) < 2:
             return
@@ -1094,9 +1128,10 @@ class Path(Drawable):
             cr.fill()   
 
         if outline:
-            self.draw_simple_2(cr, hover=hover, selected=selected, bbox=None)
+            self.draw_outline(cr, hover=hover, selected=selected, bbox=None)
 
 class Circle(Drawable):
+    """Class for creating circles."""
     def __init__(self, coords, color, line_width, fill_color = None):
         super().__init__("circle", coords, color, line_width, fill_color)
 
@@ -1131,6 +1166,7 @@ class Circle(Drawable):
         cr.stroke()
 
 class Box(Drawable):
+    """Class for creating a box."""
     def __init__(self, coords, color, line_width, fill_color = None):
         super().__init__("box", coords, color, line_width, fill_color)
 
@@ -1474,7 +1510,9 @@ class TransparentWindow(Gtk.Window):
 
         # if the user clicked to create a text, we are not really done yet
         if self.current_object and self.current_object.type != "text":
+            self.selection = DrawableGroup([ self.current_object ])
             self.current_object = None
+            self.queue_draw()
 
         # if selection tool is active, finish it
         if self.selection_tool:
@@ -1824,6 +1862,13 @@ class TransparentWindow(Gtk.Window):
                 obj.color_set(self.color)
         self.queue_draw()
 
+    def smoothen(self):
+        """Smoothen the selected object."""
+        if self.selection:
+            for obj in self.selection.objects:
+                obj.smoothen()
+            self.queue_draw()
+
     def handle_shortcuts(self, keyname, ctrl, shift):
         """Handle keyboard shortcuts."""
         print(keyname)
@@ -1844,6 +1889,7 @@ class TransparentWindow(Gtk.Window):
             'question':             {'action': self.show_help_dialog},
             'Ctrl-l':               {'action': self.clear},
             'Ctrl-b':               {'action': self.cycle_background},
+            'Ctrl-m':               {'action': self.smoothen},
             'x':                    {'action': self.exit},
             'q':                    {'action': self.exit},
             'Ctrl-q':               {'action': self.exit},
