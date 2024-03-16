@@ -233,14 +233,11 @@ def path_bbox(coords):
     """Calculate the bounding box of a path."""
     if not coords:
         return (0, 0, 0, 0)
-    x0, y0 = coords[0]
-    x1, y1 = coords[0]
-    for x, y in coords[1:]:
-        x0 = min(x0, x)
-        y0 = min(y0, y)
-        x1 = max(x1, x)
-        y1 = max(y1, y)
-    return (x0, y0, x1 - x0, y1 - y0)
+
+    left, top = min(p[0] for p in coords), min(p[1] for p in coords)
+    width  =    max(p[0] for p in coords) - left
+    height =    max(p[1] for p in coords) - top
+    return (left, top, width, height)
 
 def is_click_close_to_path(click_x, click_y, path, threshold):
     """Check if a click is close to any segment in the path."""
@@ -901,10 +898,12 @@ class Path(Drawable):
         self.pressure  = pressure or []
         self.outline_l = []
         self.outline_r = []
+        self.bb        = []
 
     def move(self, dx, dy):
         move_coords(self.coords, dx, dy)
         move_coords(self.outline, dx, dy)
+        self.bb = None
 
     def is_close_to_click(self, click_x, click_y, threshold):
         return is_click_close_to_path(click_x, click_y, self.coords, threshold)
@@ -1033,7 +1032,10 @@ class Path(Drawable):
     def bbox(self):
         if self.resizing:
             return self.resizing["bbox"]
-        return path_bbox(self.coords)
+        if not self.bb:
+            self.bb = path_bbox(self.coords)
+        return self.bb
+
 
     def outline_recalculate(self, coords, pressure):
         """Takes new coords and pressure and recalculates the outline."""
@@ -1050,11 +1052,12 @@ class Path(Drawable):
     def resize_end(self):
         """recalculate the outline after resizing"""
         print("length of coords and pressure:", len(self.coords), len(self.pressure))
-        old_bbox = path_bbox(self.coords)
+        old_bbox = self.bb or path_bbox(self.coords)
         new_coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
         pressure   = self.pressure
         self.outline_recalculate(new_coords, pressure)
         self.resizing  = None
+        self.bb = path_bbox(self.coords)
 
     def draw_outline(self, cr, hover=False, selected=False, bbox=None):
         """draws each segment separately and makes a dot at each coord."""
