@@ -180,8 +180,10 @@ def find_obj_in_bbox(bbox, objects):
             ret.append(obj)
     return ret
 
-def normal_vec(x0, y0, x1, y1):
-    dx, dy = x1 - x0, y1 - y0
+def normal_vec(p0, p1):
+    """Calculate the normal vector of a line segment."""
+    #dx, dy = x1 - x0, y1 - y0
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
     length = math.sqrt(dx**2 + dy**2)
     dx, dy = dx / length, dy / length
     return -dy, dx
@@ -665,8 +667,7 @@ class Text(Drawable):
                                      2 * math.ceil(new_bbox[3]))
         cr = cairo.Context(surface)
         min_fs, max_fs = 8, 154
-        print("new bbox is", new_bbox)
-        print("old bbox is", old_bbox)
+
         if new_bbox[2] < old_bbox[2] or new_bbox[3] < old_bbox[3]:
             dir = -1
         else:
@@ -891,8 +892,8 @@ class Path(Drawable):
 
         for i in range(n - 2):
             p0, p1, p2 = self.coords[i], self.coords[i + 1], self.coords[i + 2]
-            nx, ny = normal_vec(p0[0], p0[1], p1[0], p1[1])
-            mx, my = normal_vec(p1[0], p1[1], p2[0], p2[1])
+            nx, ny = normal_vec(p0, p1)
+            mx, my = normal_vec(p1, p2)
 
             width  = self.line_width * self.pressure[i] / 2
             #width  = self.line_width / 2
@@ -954,7 +955,7 @@ class Path(Drawable):
             return
 
         p1, p2 = coords[-2], coords[-1]
-        nx, ny = normal_vec(p1[0], p1[1], p2[0], p2[1])
+        nx, ny = normal_vec(p1, p2)
 
         if len(coords) == 2:
             ## append the points for the first coord
@@ -988,7 +989,6 @@ class Path(Drawable):
         """recalculate the outline after resizing"""
         print("length of coords and pressure:", len(self.coords), len(self.pressure))
         old_bbox = path_bbox(self.coords)
-        print("old bbox is", old_bbox, "new bbox is", self.resizing["bbox"])
         new_coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
         pressure   = self.pressure
         self.outline_recalculate(new_coords, pressure)
@@ -1520,19 +1520,19 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
         elif self.mode == "move":
             object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
-
             prev_hover = self.hover
+
             if object_underneath:
-                if self.mode == "move":
-                    if corner_obj[0] and corner_obj[0].bbox():
-                        self.change_cursor(corner_obj[1])
-                    else:
-                        self.change_cursor("moving")
+                self.change_cursor("moving")
                 self.hover = object_underneath
             else:
-                if self.mode == "move":
-                    self.revert_cursor()
+                self.revert_cursor()
                 self.hover = None
+
+            if corner_obj[0] and corner_obj[0].bbox():
+                self.change_cursor(corner_obj[1])
+                self.queue_draw()
+
             if prev_hover != self.hover:
                 self.queue_draw()
 
@@ -1833,6 +1833,7 @@ class TransparentWindow(Gtk.Window):
             # dialogs
             'Ctrl-s':               {'action': self.save_drawing},
             'Ctrl-k':               {'action': self.select_color},
+            'Ctrl-i':               {'action': self.select_image_and_create_pixbuf},
 
             # selections and moving objects
             'Tab':                  {'action': self.select_next_object, 'modes': ["move"]},
@@ -1996,6 +1997,49 @@ class TransparentWindow(Gtk.Window):
             surface.write_to_png(filename)
         elif file_format == "svg":
             surface.finish()
+
+
+    def select_image_and_create_pixbuf(self):
+        # Create a file chooser dialog
+        dialog = Gtk.FileChooserDialog(
+            title="Select an Image",
+            action=Gtk.FileChooserAction.OPEN,
+            buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+        )
+
+        # Filter to only show image files
+        file_filter = Gtk.FileFilter()
+        file_filter.set_name("Image files")
+        file_filter.add_mime_type("image/jpeg")
+        file_filter.add_mime_type("image/png")
+        file_filter.add_mime_type("image/tiff")
+        dialog.add_filter(file_filter)
+
+        # Show the dialog and wait for the user response
+        response = dialog.run()
+
+        pixbuf = None
+        if response == Gtk.ResponseType.OK:
+            image_path = dialog.get_filename()
+            try:
+                # Generate a GdkPixbuf from the selected image file
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file(image_path)
+                print(f"Loaded image: {image_path}")
+            except Exception as e:
+                print(f"Failed to load image: {e}")
+        elif response == Gtk.ResponseType.CANCEL:
+            print("No image selected")
+
+        # Clean up and destroy the dialog
+        dialog.destroy()
+
+        if pixbuf is not None:
+            pos = self.cursor_pos or (100, 100)
+            self.current_object = Image([ pos ], self.color, self.line_width, pixbuf)
+            self.objects.append(self.current_object)
+            self.queue_draw()
+        
+        return pixbuf
 
     def save_state(self): 
         """Save the current drawing state to a file."""
