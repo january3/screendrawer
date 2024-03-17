@@ -248,6 +248,15 @@ def calc_rotation_angle(origin, p1, p2):
     angle = math.atan2(y2 - y0, x2 - x0) - math.atan2(y1 - y0, x1 - x0)
     return angle
 
+def coords_rotate(coords, angle, origin):
+    """Rotate a set of coordinates around a given origin."""
+    ret = []
+    for x, y in coords:
+        x0, y0 = x - origin[0], y - origin[1]
+        x1 = x0 * math.cos(angle) - y0 * math.sin(angle)
+        y1 = x0 * math.sin(angle) + y0 * math.cos(angle)
+        ret.append((x1 + origin[0], y1 + origin[1]))
+    return ret
 
 def normal_vec(p0, p1):
     """Calculate the normal vector of a line segment."""
@@ -422,10 +431,10 @@ class MoveResizeCommand(Command):
         return self.origin
 
     def event_update(self, x, y):
-        raise NotImplementedError("event_update method not implemented")
+        raise NotImplementedError("event_update method not implemented for type", self._type)
 
     def event_finish(self):
-        raise NotImplementedError("event_finish method not implemented")
+        raise NotImplementedError("event_finish method not implemented for type", self._type)
 
 class RotateCommand(MoveResizeCommand):
     """Simple class for handling rotate events."""
@@ -440,7 +449,7 @@ class RotateCommand(MoveResizeCommand):
         self._angle = angle
 
     def event_finish(self):
-        pass
+        self.obj.rotate_finalize(self._rotation_centre, self._angle)
 
     def undo(self):
         self.obj.rotate(-self._angle)
@@ -527,6 +536,39 @@ class ResizeCommand(MoveResizeCommand):
         self.origin_set((x, y))
 
 ## ---------------------------------------------------------------------
+class Pen:
+    """Store current line width, color and text size."""
+    def __init__(self, color, line_width, text_size, fill_color = None):
+        self.color     = color
+        self.line_width = line_width
+        self.text_size = text_size
+        self.fill_color = fill_color
+
+    def color_set(self, color):
+        self.color = color
+    
+    def fill_set(self, color):
+        self.fill_color = color
+
+    def stroke_change(self, direction):
+        if self.line_width > 2:
+            self.line_width += direction
+        else:
+            self.line_width += direction / 10
+        self.line_width = max(0.1, self.line_width)
+
+    def to_dict(self):
+        return {
+            "color": self.color,
+            "line_width": self.line_width,
+            "text_size": self.text_size
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(d["color"], d["line_width"], d["text_size"])
+
+## ---------------------------------------------------------------------
 ## These are the objects that can be displayed. It includes groups, but
 ## also primitives like boxes, paths and text.
 
@@ -543,10 +585,7 @@ class Drawable:
         self.fill_color = fill_color
 
     def rotate(self, angle, set = False):
-        if set:
-            self.rotation = angle
-        else:
-            self.rotation += angle
+        raise NotImplementedError("rotate method not implemented")
 
     def resize_start(self, corner, origin):
         self.resizing = {
@@ -1107,6 +1146,21 @@ class Path(Drawable):
         move_coords(self.outline, dx, dy)
         self.bb = None
 
+    def rotate(self, angle, set = False):
+        # the self.rotation variable is for drawing while rotating
+        if set:
+            self.rotation = angle
+        else:
+            self.rotation += angle
+
+    def rotate_finalize(self, origin, angle):
+        # rotate all coords and outline
+        self.coords  = coords_rotate(self.coords, angle, origin)
+        self.outline = coords_rotate(self.outline, angle, origin)
+        self.rotation = 0
+        # recalculate bbox
+        self.bb = path_bbox(self.coords)
+
     def is_close_to_click(self, click_x, click_y, threshold):
         return is_click_close_to_path(click_x, click_y, self.coords, threshold)
 
@@ -1119,9 +1173,6 @@ class Path(Drawable):
             "color": self.color,
             "line_width": self.line_width
         }
-
-    def outline_point(p, nx, ny, width):
-        return (p[0] + nx * width, p[1] + ny * width)
 
     def stroke_change(self, direction):
         if self.line_width > 2:
@@ -1752,7 +1803,7 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
 
         if self.resizeobj:
-            print("finishing resize")
+            print("finishing resize / rotate")
             self.resizeobj.event_finish()
             self.resizeobj = None
             self.queue_draw()
@@ -1797,7 +1848,6 @@ class TransparentWindow(Gtk.Window):
         elif self.resizeobj:
             self.resizeobj.event_update(event.x, event.y)
             self.queue_draw()
-
         elif self.dragobj is not None:
             self.dragobj.event_update(event.x, event.y)
             self.queue_draw()

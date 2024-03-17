@@ -1,3 +1,5 @@
+ * set transparency with a tool similar to setting line width
+ * eraser should allow a selection like with selection tool
  * create a pen class which allows to switch between different pens
  * show corners of the bounding box
  * grid
