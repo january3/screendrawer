@@ -1,5 +1,28 @@
 #!/usr/bin/env python3
 
+##  MIT License
+##
+##  Copyright (c) 2024 January Weiner
+##
+##  Permission is hereby granted, free of charge, to any person obtaining a copy
+##  of this software and associated documentation files (the "Software"), to deal
+##  in the Software without restriction, including without limitation the rights
+##  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+##  copies of the Software, and to permit persons to whom the Software is
+##  furnished to do so, subject to the following conditions:
+##
+##  The above copyright notice and this permission notice shall be included in all
+##  copies or substantial portions of the Software.
+##
+##  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+##  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+##  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+##  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+##  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+##  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+##  SOFTWARE.
+
+# ---------------------------------------------------------------------
 import gi
 import copy
 import yaml
@@ -16,6 +39,7 @@ import tempfile
 from io import BytesIO
 
 import appdirs
+# ---------------------------------------------------------------------
 
 app_name   = "ScreenDrawer"
 app_author = "JanuaryWeiner"  # Optional; used on Windows
@@ -40,6 +64,8 @@ print(f"User config directory: {user_config_dir}")
 # Get user-specific log directory
 #user_log_dir = appdirs.user_log_dir(app_name, app_author)
 #print(f"User log directory: {user_log_dir}")
+
+# ---------------------------------------------------------------------
 
 COLORS = {
         "black": (0, 0, 0),
@@ -292,14 +318,65 @@ def img_object_copy(obj):
     return pixbuf
 
 ## ---------------------------------------------------------------------
+## These are the commands that can be executed on the objects. They should
+## be undoable and redoable. It is their responsibility to update the
+## state of the objects they are acting on.
 
-class MoveResizeEvent:
+class Command:
+    """Base class for commands."""
+    def __init__(self, type, objects):
+        self.obj   = objects
+        self._type = type
+
+    def type(self):
+        return self._type
+
+    def undo(self):
+        raise NotImplementedError("undo method not implemented")
+
+    def redo(self):
+        raise NotImplementedError("redo method not implemented")
+
+class RemoveCommand(Command):
+    """Simple class for handling remove object commands."""
+    def __init__(self, objects, stack):
+        super().__init__("remove", objects)
+        self._stack = stack
+
+        for obj in self.obj:
+            self._stack.remove(obj)
+
+
+    def undo(self):
+        for obj in self.obj:
+            self._stack.append(obj)
+
+    def redo(self):
+        for obj in self.obj:
+            self._stack.remove(obj)
+
+class AddCommand(Command):
+    """Simple class for handling add object commands."""
+    def __init__(self, objects, stack):
+        super().__init__("add", objects)
+        self._stack = stack
+        self._stack.append(self.obj)
+
+    def undo(self):
+        self._stack.remove(self.obj)
+
+    def redo(self):
+        self._stack.append(self.obj)
+
+
+class MoveResizeCommand(Command):
     """Simple class for handling move and resize events."""
     def __init__(self, type, obj, origin, corner=None):
-        self.obj    = obj
-        self.corner = corner
-        self.origin = origin
-        self.bbox   = obj.bbox()
+        super().__init__("move", obj)
+        self.corner      = corner
+        self.start_point = origin
+        self.origin      = origin
+        self.bbox        = obj.bbox()
 
     def origin_set(self, origin):
         self.origin = origin
@@ -307,14 +384,54 @@ class MoveResizeEvent:
     def origin_get(self):
         return self.origin
 
-class MoveEvent(MoveResizeEvent):
+class MoveCommand(MoveResizeCommand):
     def __init__(self, obj, origin):
         super().__init__("move", obj, origin)
+        self._last_pt = origin
 
-class ResizeEvent(MoveResizeEvent):
+    def move_event_update(self, x, y):
+        dx = x - self._last_pt[0]
+        dy = y - self._last_pt[1]
+
+        self.obj.move(dx, dy)
+        self._last_pt = (x, y)
+        self.origin_set((x, y))
+
+    def move_event_finish(self):
+        pass
+
+    def undo(self):
+        dx = self.start_point[0] - self._last_pt[0]
+        dy = self.start_point[1] - self._last_pt[1]
+        self.obj.move(dx, dy)
+
+    def redo(self):
+        dx = self.start_point[0] - self._last_pt[0]
+        dy = self.start_point[1] - self._last_pt[1]
+        self.obj.move(-dx, -dy)
+
+
+class ResizeCommand(MoveResizeCommand):
     def __init__(self, obj, origin, corner):
         super().__init__("resize", obj, origin, corner)
         obj.resize_start(corner, origin)
+        self._orig_bb = obj.bbox()
+
+    def undo(self):
+        obj = self.obj
+        pt  = (self._orig_bb[0], self._orig_bb[1])
+        obj.resize_start(self.corner, pt)
+        self.obj.resize_update(self._orig_bb)
+        obj.resize_end()
+
+    def redo(self):
+        obj = self.obj
+        obj.resize_start(self.corner, self.start_point)
+        obj.resize_update(self._newbb)
+        obj.resize_end()
+
+    def resize_event_finish(self):
+        self.obj.resize_end()
 
     def resize_event_update(self, x, y):
         dx = x - self.origin[0]
@@ -335,10 +452,13 @@ class ResizeEvent(MoveResizeEvent):
         else:
             raise ValueError("Invalid corner:", corner)
 
+        self._newbb = newbb
         self.obj.resize_update(newbb)
         self.origin_set((x, y))
 
 ## ---------------------------------------------------------------------
+## These are the objects that can be displayed. It includes groups, but
+## also primitives like boxes, paths and text.
 
 class Drawable:
     """Base class for drawable objects."""
@@ -1309,20 +1429,22 @@ class TransparentWindow(Gtk.Window):
         self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
 
         # Drawing setup
-        self.objects = [ ]
-        self.current_object = None
+        self.objects             = [ ]
+        self.history             = [ ]
+        self.redo_stack          = [ ]
+        self.current_object      = None
         self.changing_line_width = False
-        self.selection = None
-        self.dragobj   = None
-        self.resizeobj = None
-        self.mode      = "draw"
-        self.current_cursor = None
-        self.hover = None
-        self.cursor_pos = None
-        self.clipboard  = None
-        self.clipboard_owner = False # we need to keep track of the clipboard
-        self.selection_tool = None
-        self.gtk_clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        self.selection           = None
+        self.dragobj             = None
+        self.resizeobj           = None
+        self.mode                = "draw"
+        self.current_cursor      = None
+        self.hover               = None
+        self.cursor_pos          = None
+        self.clipboard           = None
+        self.clipboard_owner     = False # we need to keep track of the clipboard
+        self.selection_tool      = None
+        self.gtk_clipboard       = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 
         # defaults for drawing
         self.transparent = 0
@@ -1394,21 +1516,23 @@ class TransparentWindow(Gtk.Window):
         self.objects = []
         self.queue_draw()
 
-    # Event handlers
+    # ---------------------------------------------------------------------
+    #                              Event handlers
+
     def on_button_press(self, widget, event):
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
-        modifiers = Gtk.accelerator_get_default_mod_mask()
-        hover_obj = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
-        shift     = event.state & modifiers == Gdk.ModifierType.SHIFT_MASK
-        ctrl      = event.state & modifiers == Gdk.ModifierType.CONTROL_MASK
-        double    = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
+
+        modifiers  = Gtk.accelerator_get_default_mod_mask()
+        hover_obj  = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
-        pressure = event.get_axis(Gdk.AxisUse.PRESSURE) or 0
-        print("pressure:", pressure)
+
+        shift      = event.state & modifiers == Gdk.ModifierType.SHIFT_MASK
+        ctrl       = event.state & modifiers == Gdk.ModifierType.CONTROL_MASK
+        double     = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
+        pressure   = event.get_axis(Gdk.AxisUse.PRESSURE) or 0
 
         if corner_obj[0]:
             print("corner click:", corner_obj[0].type, corner_obj[1])
-        #print("mode:", self.mode)
 
         # Ignore clicks when text input is active
         if self.current_object and self.current_object.type == "text":
@@ -1438,29 +1562,31 @@ class TransparentWindow(Gtk.Window):
                 self.change_cursor("none")
                 self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content="", size = self.font_size)
                 self.current_object.move_cursor("Home")
-                self.objects.append(self.current_object)
+                self.history.append(AddCommand(self.current_object, self.objects))
+                #self.objects.append(self.current_object)
 
             elif self.mode == "draw":
                 print("starting path")
                 self.current_object = Path([ (event.x, event.y) ], self.color, self.line_width, pressure = [ pressure ])
-                self.objects.append(self.current_object)
+                self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "box":
                 print("drawing box / circle")
                 self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
-                self.objects.append(self.current_object)
+                self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "circle":
                 print("drawing circle")
                 self.current_object = Circle([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
-                self.objects.append(self.current_object)
+                self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "move":
                 if corner_obj[0] and corner_obj[0].bbox():
                     print("starting resize")
                     obj    = corner_obj[0]
                     corner = corner_obj[1]
-                    self.resizeobj = ResizeEvent(obj, origin = (event.x, event.y), corner = corner)
+                    self.resizeobj = ResizeCommand(obj, origin = (event.x, event.y), corner = corner)
+                    self.history.append(self.resizeobj)
                     self.change_cursor(corner)
                 elif hover_obj:
                     if shift and self.selection:
@@ -1470,7 +1596,8 @@ class TransparentWindow(Gtk.Window):
                     elif not self.selection or not self.selection.contains(hover_obj):
                             self.selection = DrawableGroup([ hover_obj ])
 
-                    self.dragobj = MoveEvent(self.selection, (event.x, event.y))
+                    self.dragobj = MoveCommand(self.selection, (event.x, event.y))
+                    self.history.append(self.dragobj)
                     self.change_cursor("grabbing")
                 else:
                     self.selection = None
@@ -1535,7 +1662,7 @@ class TransparentWindow(Gtk.Window):
 
         if self.resizeobj:
             print("finishing resize")
-            self.resizeobj.obj.resize_end()
+            self.resizeobj.resize_event_finish()
             self.resizeobj = None
             self.queue_draw()
 
@@ -1545,7 +1672,8 @@ class TransparentWindow(Gtk.Window):
             # self.dragobj.origin_remove()
             obj = self.dragobj.obj
             if event.x < 10 and event.y > self.get_size()[1] - 10:
-                self.objects.remove(obj)
+                print("removal by drag")
+                self.history.append(RemoveCommand(obj.objects, self.objects))
                 self.selection = None
             self.dragobj    = None
             self.revert_cursor()
@@ -1580,13 +1708,7 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
 
         elif self.dragobj is not None:
-            dx = event.x - self.dragobj.origin_get()[0]
-            dy = event.y - self.dragobj.origin_get()[1]
-
-            # Move the selected object
-            self.dragobj.obj.move(dx, dy)
-
-            self.dragobj.origin_set((event.x, event.y))
+            self.dragobj.move_event_update(event.x, event.y)
             self.queue_draw()
         elif self.mode == "move":
             object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
@@ -1663,7 +1785,7 @@ class TransparentWindow(Gtk.Window):
         """Create an image object from clipboard image."""
         pos = self.cursor_pos or (100, 100)
         self.current_object = Image([ pos ], self.color, self.line_width, clip_img)
-        self.objects.append(self.current_object)
+        self.history.append(AddCommand(self.current_object, self.objects))
         self.queue_draw()
 
     def object_create_copy(self, obj, bb = None):
@@ -1818,8 +1940,7 @@ class TransparentWindow(Gtk.Window):
     def selection_delete(self):
         """Delete selected objects."""
         if self.selection:
-            for obj in self.selection.objects:
-                self.objects.remove(obj)
+            self.history.append(RemoveCommand(self.selection.objects, self.objects))
             self.selection = None
             self.dragobj   = None
             self.queue_draw()
@@ -1876,6 +1997,24 @@ class TransparentWindow(Gtk.Window):
                 obj.smoothen()
             self.queue_draw()
 
+    def redo(self):
+        """Redo the last action."""
+        print("Redo stack, size is", len(self.redo_stack))
+        if len(self.redo_stack) > 0:
+            command = self.redo_stack.pop()
+            command.redo()
+            self.history.append(command)
+            self.queue_draw()
+
+    def undo(self):
+        """Undo the last action."""
+        print("Undo, history size is", len(self.history))
+        if len(self.history) > 0:
+            command = self.history.pop()
+            command.undo()
+            self.redo_stack.append(command)
+            self.queue_draw()
+
     def handle_shortcuts(self, keyname, ctrl, shift):
         """Handle keyboard shortcuts."""
         print(keyname)
@@ -1929,6 +2068,8 @@ class TransparentWindow(Gtk.Window):
             'Ctrl-a':               {'action': self.select_all},
             'Ctrl-v':               {'action': self.paste_content},
 
+            'Ctrl-y':               {'action': self.redo},
+            'Ctrl-z':               {'action': self.undo},
             'Ctrl-plus':            {'action': self.stroke_increase},
             'Ctrl-minus':           {'action': self.stroke_decrease},
         }
@@ -2119,7 +2260,7 @@ class TransparentWindow(Gtk.Window):
         if pixbuf is not None:
             pos = self.cursor_pos or (100, 100)
             self.current_object = Image([ pos ], self.color, self.line_width, pixbuf)
-            self.objects.append(self.current_object)
+            self.history.append(AddCommand(self.current_object, self.objects))
             self.queue_draw()
         
         return pixbuf

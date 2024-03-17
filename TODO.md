@@ -1,3 +1,4 @@
+ * horizontal and vertical guides
  * undo
  * z position
  * export to SVG, loading from SVG

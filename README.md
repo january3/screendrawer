@@ -44,6 +44,9 @@ cp sd.py ~/bin/sd
 chmod a+x ~/bin/sd
 ```
 
+Alternatively, get the [latest release](https://github.com/january3/screendrawer/releases/latest) as a
+Debian package or a zip file.
+
 # Usage
 
 Run the `sd` command to start drawing on the screen
