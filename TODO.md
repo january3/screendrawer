@@ -1,11 +1,20 @@
+ * create a pen class which allows to switch between different pens
  * show corners of the bounding box
+ * grid
  * inverse selection
  * horizontal and vertical guides
  * z position
  * export to SVG, loading from SVG
  * turn it into a Gnome plugin
 
+Design issues:
+ * maybe I am doing it all wrong. Maybe I should define a transformation
+   class and then record transformations for each object. This way, I
+   would be able to undo transformations easily. This is a big design
+   issue.
+
 Bugs:
+ * after rotating, bounding box is not updated
  * when the bb is smaller than the corner clicking area, bad things happen
  * When grouped, the bounding box of the group is incorrect until next
    recalculation

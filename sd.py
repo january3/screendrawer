@@ -2013,6 +2013,17 @@ class TransparentWindow(Gtk.Window):
                 self.queue_draw()
         return
 
+    def select_reverse(self):
+        """Reverse the selection."""
+        if not self.selection:
+            return
+        new_sel = [ ]
+        for obj in self.objects:
+            if not self.selection.contains(obj):
+                new_sel.append(obj)
+        self.selection = DrawableGroup(new_sel)
+        self.queue_draw()
+
     def select_all(self):
         """Select all objects."""
         if len(self.objects) == 0:
@@ -2155,6 +2166,7 @@ class TransparentWindow(Gtk.Window):
             'Ctrl-c':               {'action': self.copy_content,  'modes': ["move"]},
             'Ctrl-x':               {'action': self.cut_content,   'modes': ["move"]},
             'Ctrl-a':               {'action': self.select_all},
+            'Ctrl-r':         {'action': self.select_reverse},
             'Ctrl-v':               {'action': self.paste_content},
 
             'Ctrl-y':               {'action': self.redo},
