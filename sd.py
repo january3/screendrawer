@@ -439,10 +439,11 @@ class MoveCommand(MoveResizeCommand):
 
 class ResizeCommand(MoveResizeCommand):
     """Simple class for handling resize events."""
-    def __init__(self, obj, origin, corner):
+    def __init__(self, obj, origin, corner, proportional = False):
         super().__init__("resize", obj, origin, corner)
         obj.resize_start(corner, origin)
         self._orig_bb = obj.bbox()
+        self._prop    = proportional
 
     def undo(self):
         obj = self.obj
@@ -463,6 +464,9 @@ class ResizeCommand(MoveResizeCommand):
     def resize_event_update(self, x, y):
         dx = x - self.origin[0]
         dy = y - self.origin[1]
+        if self._prop:
+            dx = dy = min(dx, dy)
+
         bb = self.obj.bbox()
 
         corner = self.corner
@@ -709,6 +713,7 @@ class DrawableGroup(Drawable):
 
 
 class Image(Drawable):
+    """Class for Images"""
     def __init__(self, coords, color, line_width, image, image_base64 = None, transform = None):
 
         if image_base64:
@@ -1617,7 +1622,7 @@ class TransparentWindow(Gtk.Window):
                     print("starting resize")
                     obj    = corner_obj[0]
                     corner = corner_obj[1]
-                    self.resizeobj = ResizeCommand(obj, origin = (event.x, event.y), corner = corner)
+                    self.resizeobj = ResizeCommand(obj, origin = (event.x, event.y), corner = corner, proportional = ctrl)
                     self.history.append(self.resizeobj)
                     self.change_cursor(corner)
                 elif hover_obj:

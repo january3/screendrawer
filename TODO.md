@@ -1,3 +1,4 @@
+ * show corners of the bounding box
  * inverse selection
  * horizontal and vertical guides
  * z position
@@ -5,6 +6,7 @@
  * turn it into a Gnome plugin
 
 Bugs:
+ * when the bb is smaller than the corner clicking area, bad things happen
  * When grouped, the bounding box of the group is incorrect until next
    recalculation
  * paste cannot be undone
