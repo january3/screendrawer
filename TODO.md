@@ -4,6 +4,8 @@
  * turn it into a Gnome plugin
 
 Bugs:
+ * when you make a path small, it loses points. Resizing should not modify
+   the original coordinates vector, but rather only the outline.
  * paste cannot be undone
  * when exiting while selection is being made with a box, the selection
    box becomes an object upon new start

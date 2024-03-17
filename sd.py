@@ -38,6 +38,7 @@ import base64
 import tempfile
 from io import BytesIO
 
+import warnings
 import appdirs
 # ---------------------------------------------------------------------
 
@@ -248,6 +249,10 @@ def transform_coords(coords, bb1, bb2):
     """Transform coordinates from one bounding box to another."""
     x0, y0, w0, h0 = bb1
     x1, y1, w1, h1 = bb2
+    if w0 == 0 or h0 == 0:
+        # issue warning
+        warnings.warn("Bounding box has zero width or height")
+        return coords
     ret = [ 
         (x1 + (x - x0) / w0 * w1, y1 + (y - y0) / h0 * h1) 
         for x, y in coords 
@@ -644,7 +649,6 @@ class DrawableGroup(Drawable):
 
             x, y, w, h = obj_bb
             w2, h2 = w * scale_x, h * scale_y
-            print("resizing object", obj, "from", obj_bb, "to", (x, y, w2, h2))
 
             x2 = bbox[0] + (x - prev_bbox[0]) * scale_x
             y2 = bbox[1] + (y - prev_bbox[1]) * scale_y
