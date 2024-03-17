@@ -639,6 +639,8 @@ class DrawableGroup(Drawable):
  
  
     def resize_update(self, bbox):
+        """Resize the group of objects. we need to calculate the new
+           bounding box for each object within the group"""
         prev_bbox = self.resizing["bbox"]
 
         dx, dy           = bbox[0] - prev_bbox[0], bbox[1] - prev_bbox[1]
@@ -695,10 +697,12 @@ class DrawableGroup(Drawable):
 
     def draw(self, cr, hover=False, selected=False, outline=False):
         for obj in self.objects:
-            obj.draw(cr, hover=hover, selected=selected)
+            obj.draw(cr, hover=False, selected=selected)
         cr.set_source_rgb(0, 0, 0)
+
         if selected:
-            self.bbox_draw(cr, lw=1.5)
+            cr.set_source_rgb(1, 0, 0)
+            self.bbox_draw(cr, lw=.5)
         if hover:
             self.bbox_draw(cr, lw=.5)
 
@@ -1084,27 +1088,32 @@ class Path(Drawable):
         self.coords, self.pressure = smooth_path(self.coords, self.pressure, 1)
         self.outline_recalculate_new()
 
-    def outline_recalculate_new(self):
-        if len(self.coords) < 3:
+    def outline_recalculate_new(self, coords = None, pressure = None):
+        if not coords:
+            coords = self.coords
+        if not pressure:
+            pressure = self.pressure
+
+        if len(coords) < 3:
             return
         print("recalculating outline")
 
-        print("1.length of coords and pressure:", len(self.coords), len(self.pressure))
-        self.coords, self.pressure = smooth_path(self.coords, self.pressure, 20)
-        print("2.length of coords and pressure:", len(self.coords), len(self.pressure))
+        print("1.length of coords and pressure:", len(coords), len(pressure))
+        coords, pressure = smooth_path(coords, pressure, 20)
+        print("2.length of coords and pressure:", len(coords), len(pressure))
 
-        self.outline_l = []
-        self.outline_r = []
-        self.outline   = []
+        outline_l = []
+        outline_r = []
+        outline   = []
 
-        n = len(self.coords)
+        n = len(coords)
 
         for i in range(n - 2):
-            p0, p1, p2 = self.coords[i], self.coords[i + 1], self.coords[i + 2]
+            p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
             nx, ny = normal_vec(p0, p1)
             mx, my = normal_vec(p1, p2)
 
-            width  = self.line_width * self.pressure[i] / 2
+            width  = self.line_width * pressure[i] / 2
             #width  = self.line_width / 2
 
             left_segment1_start = (p0[0] + nx * width, p0[1] + ny * width)
@@ -1117,33 +1126,35 @@ class Path(Drawable):
             right_segment2_start = (p1[0] - mx * width, p1[1] - my * width)
             right_segment2_end   = (p2[0] - mx * width, p2[1] - my * width)
 
-
             if i == 0:
             ## append the points for the first coord
-                self.outline_l.append(left_segment1_start)
-                self.outline_r.append(right_segment1_start)
+                outline_l.append(left_segment1_start)
+                outline_r.append(right_segment1_start)
 
-            self.outline_l.append(left_segment1_end)
-            self.outline_l.append(left_segment2_start)
-            self.outline_r.append(right_segment1_end)
-            self.outline_r.append(right_segment2_start)
+            outline_l.append(left_segment1_end)
+            outline_l.append(left_segment2_start)
+            outline_r.append(right_segment1_end)
+            outline_r.append(right_segment2_start)
 
             if i == n - 2:
                 print("last segment")
-                self.outline_l.append(left_segment2_end)
-                self.outline_r.append(right_segment2_end)
+                outline_l.append(left_segment2_end)
+                outline_r.append(right_segment2_end)
 
             #self.outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
             #self.outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
 
-        self.outline_l, whatever = smooth_path(self.outline_l, None, 20)
-        self.outline_r, whatever = smooth_path(self.outline_r, None, 20)
-        self.outline = self.outline_l + self.outline_r[::-1]
+        self.outline_l, whatever = smooth_path(outline_l, None, 20)
+        self.outline_r, whatever = smooth_path(outline_r, None, 20)
+        self.outline  = outline_l + outline_r[::-1]
+        self.coords   = coords
+        self.pressure = pressure
 
 
     def path_append(self, x, y, pressure = 1):
         """Append a point to the path, calculating the outline of the
-           polygon around the path."""
+           polygon around the path. Only used when path is created to 
+           allow for a good preview. Later, the path is smoothed and recalculated."""
         coords = self.coords
         width  = self.line_width * pressure
 
@@ -1184,26 +1195,13 @@ class Path(Drawable):
             self.bb = path_bbox(self.coords)
         return self.bb
 
-
-    def outline_recalculate(self, coords, pressure):
-        """Takes new coords and pressure and recalculates the outline."""
-        self.outline_l = []
-        self.outline_r = []
-        self.outline   = []
-        self.pressure  = []
-        self.coords    = []
-
-        print(len(pressure), len(coords))   
-        for x, y in coords:
-            self.path_append(x, y, pressure.pop(0))
-
     def resize_end(self):
         """recalculate the outline after resizing"""
         print("length of coords and pressure:", len(self.coords), len(self.pressure))
         old_bbox = self.bb or path_bbox(self.coords)
         new_coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
         pressure   = self.pressure
-        self.outline_recalculate(new_coords, pressure)
+        self.outline_recalculate_new(coords=new_coords, pressure=pressure)
         self.resizing  = None
         self.bb = path_bbox(self.coords)
 
@@ -1226,7 +1224,6 @@ class Path(Drawable):
             cr.stroke()
             # make a dot at each coord
             cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle
-
 
         if selected:
             self.bbox_draw(cr, lw=1.5)
@@ -1269,9 +1266,6 @@ class Path(Drawable):
             cr.set_line_width(0.5)
         #cr.set_source_rgba(*self.color, .75)
 
-        if selected:
-            self.bbox_draw(cr, lw=.5)
-
         cr.move_to(self.outline[0][0] + dd, self.outline[0][1] + dd)
         for point in self.outline[1:]:
             cr.line_to(point[0] + dd, point[1] + dd)
@@ -1279,11 +1273,17 @@ class Path(Drawable):
 
         if outline:
             cr.stroke()
+            self.draw_outline(cr, hover=hover, selected=selected, bbox=None)
         else:
             cr.fill()   
 
-        if outline:
-            self.draw_outline(cr, hover=hover, selected=selected, bbox=None)
+        if selected:
+            cr.set_source_rgba(1, 0, 0)
+            self.bbox_draw(cr, lw=.2)
+
+        if hover:
+            self.bbox_draw(cr, lw=.2)
+
 
 class Circle(Drawable):
     """Class for creating circles."""

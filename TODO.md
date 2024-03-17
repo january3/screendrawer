@@ -1,11 +1,12 @@
+ * inverse selection
  * horizontal and vertical guides
  * z position
  * export to SVG, loading from SVG
  * turn it into a Gnome plugin
 
 Bugs:
- * when you make a path small, it loses points. Resizing should not modify
-   the original coordinates vector, but rather only the outline.
+ * When grouped, the bounding box of the group is incorrect until next
+   recalculation
  * paste cannot be undone
  * when exiting while selection is being made with a box, the selection
    box becomes an object upon new start
@@ -15,6 +16,8 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * when you make a path small, it loses points. Resizing should not modify
+   the original coordinates vector, but rather only the outline.
  * undo
  * something is rotten with saving the bounding box of the images when
     images are scaled.
