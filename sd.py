@@ -237,6 +237,18 @@ def find_obj_in_bbox(bbox, objects):
             ret.append(obj)
     return ret
 
+def calc_rotation_angle(origin, p1, p2):
+    # x, y are the new positions of the cursor
+    # we need to calculate the angle between two lines:
+    # 1. the line between the rotation centre and the origin
+    # 2. the line between the rotation centre and the new position
+    x0, y0 = origin[0], origin[1]
+    x1, y1 = p1[0], p1[1]
+    x2, y2 = p2[0], p2[1]
+    angle = math.atan2(y2 - y0, x2 - x0) - math.atan2(y1 - y0, x1 - x0)
+    return angle
+
+
 def normal_vec(p0, p1):
     """Calculate the normal vector of a line segment."""
     #dx, dy = x1 - x0, y1 - y0
@@ -409,13 +421,40 @@ class MoveResizeCommand(Command):
     def origin_get(self):
         return self.origin
 
+    def event_update(self, x, y):
+        raise NotImplementedError("event_update method not implemented")
+
+    def event_finish(self):
+        raise NotImplementedError("event_finish method not implemented")
+
+class RotateCommand(MoveResizeCommand):
+    """Simple class for handling rotate events."""
+    def __init__(self, obj, origin, corner=None):
+        super().__init__("rotate", obj, origin, corner=corner)
+        bb = obj.bbox()
+        self._rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
+
+    def event_update(self, x, y):
+        angle = calc_rotation_angle(self._rotation_centre, self.start_point, (x, y))
+        self.obj.rotate(angle, set = True)
+        self._angle = angle
+
+    def event_finish(self):
+        pass
+
+    def undo(self):
+        self.obj.rotate(-self._angle)
+
+    def redo(self):
+        self.obj.rotate(self._angle)
+
 class MoveCommand(MoveResizeCommand):
     """Simple class for handling move events."""
     def __init__(self, obj, origin):
         super().__init__("move", obj, origin)
         self._last_pt = origin
 
-    def move_event_update(self, x, y):
+    def event_update(self, x, y):
         dx = x - self._last_pt[0]
         dy = y - self._last_pt[1]
 
@@ -458,10 +497,10 @@ class ResizeCommand(MoveResizeCommand):
         obj.resize_update(self._newbb)
         obj.resize_end()
 
-    def resize_event_finish(self):
+    def event_finish(self):
         self.obj.resize_end()
 
-    def resize_event_update(self, x, y):
+    def event_update(self, x, y):
         dx = x - self.origin[0]
         dy = y - self.origin[1]
         if self._prop:
@@ -495,6 +534,7 @@ class Drawable:
     """Base class for drawable objects."""
     def __init__(self, type, coords, color, line_width, fill_color = None):
         self.type       = type
+        self.rotation   = 0
         self.coords     = coords
         self.color      = color
         self.line_width = line_width
@@ -502,6 +542,11 @@ class Drawable:
         self.resizing   = None
         self.fill_color = fill_color
 
+    def rotate(self, angle, set = False):
+        if set:
+            self.rotation = angle
+        else:
+            self.rotation += angle
 
     def resize_start(self, corner, origin):
         self.resizing = {
@@ -1259,6 +1304,13 @@ class Path(Drawable):
         if len(self.outline) < 4 or len(self.coords) < 3:
             return
 
+        if self.rotation != 0:
+            cr.save()
+            bb = self.bbox()
+            cr.translate(bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
+            cr.rotate(self.rotation)
+            cr.translate(-bb[0] - bb[2] / 2, -bb[1] - bb[3] / 2)
+
         dd = 1 if hover else 0
         if self.resizing:
             self.draw_simple(cr, hover=hover, selected=selected, bbox=self.resizing["bbox"])
@@ -1288,6 +1340,9 @@ class Path(Drawable):
 
         if hover:
             self.bbox_draw(cr, lw=.2)
+
+        if self.rotation != 0:
+            cr.restore()
 
 
 class Circle(Drawable):
@@ -1563,10 +1618,12 @@ class TransparentWindow(Gtk.Window):
         hover_obj  = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
 
-        shift      = event.state & modifiers == Gdk.ModifierType.SHIFT_MASK
-        ctrl       = event.state & modifiers == Gdk.ModifierType.CONTROL_MASK
+        shift = (event.state & Gdk.ModifierType.SHIFT_MASK) != 0
+        ctrl  = (event.state & Gdk.ModifierType.CONTROL_MASK) != 0
         double     = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
         pressure   = event.get_axis(Gdk.AxisUse.PRESSURE) or 0
+        print("shift:", shift, "ctrl:", ctrl, "double:", double, "pressure:", pressure)
+        print(modifiers)
 
         if corner_obj[0]:
             print("corner click:", corner_obj[0].type, corner_obj[1])
@@ -1594,7 +1651,7 @@ class TransparentWindow(Gtk.Window):
 
         # simple click: start drawing
         if event.button == 1 and not self.current_object:
-            if self.mode == "text" or (self.mode == "draw" and shift):
+            if self.mode == "text" or (self.mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
                 print("new text")
                 self.change_cursor("none")
                 self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content="", size = self.font_size)
@@ -1622,7 +1679,11 @@ class TransparentWindow(Gtk.Window):
                     print("starting resize")
                     obj    = corner_obj[0]
                     corner = corner_obj[1]
-                    self.resizeobj = ResizeCommand(obj, origin = (event.x, event.y), corner = corner, proportional = ctrl)
+                    print("ctrl:", ctrl, "shift:", shift)
+                    if not (ctrl and shift):
+                        self.resizeobj = ResizeCommand(obj, origin = (event.x, event.y), corner = corner, proportional = ctrl)
+                    else:
+                        self.resizeobj = RotateCommand(obj, origin = (event.x, event.y), corner = corner)
                     self.history.append(self.resizeobj)
                     self.change_cursor(corner)
                 elif hover_obj:
@@ -1692,7 +1753,7 @@ class TransparentWindow(Gtk.Window):
 
         if self.resizeobj:
             print("finishing resize")
-            self.resizeobj.resize_event_finish()
+            self.resizeobj.event_finish()
             self.resizeobj = None
             self.queue_draw()
 
@@ -1734,11 +1795,11 @@ class TransparentWindow(Gtk.Window):
             obj.path_append(event.x, event.y, pressure)
             self.queue_draw()
         elif self.resizeobj:
-            self.resizeobj.resize_event_update(event.x, event.y)
+            self.resizeobj.event_update(event.x, event.y)
             self.queue_draw()
 
         elif self.dragobj is not None:
-            self.dragobj.move_event_update(event.x, event.y)
+            self.dragobj.event_update(event.x, event.y)
             self.queue_draw()
         elif self.mode == "move":
             object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
