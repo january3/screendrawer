@@ -1623,7 +1623,6 @@ class TransparentWindow(Gtk.Window):
                         self.selection.add(hover_obj)
                     elif not self.selection or not self.selection.contains(hover_obj):
                             self.selection = DrawableGroup([ hover_obj ])
-
                     self.dragobj = MoveCommand(self.selection, (event.x, event.y))
                     self.history.append(self.dragobj)
                     self.change_cursor("grabbing")
@@ -1887,15 +1886,13 @@ class TransparentWindow(Gtk.Window):
         self.clipboard_owner = True
 
         if destroy:
-            for obj in self.selection.objects:
-                self.objects.remove(obj)
+            self.history.append(RemoveCommand(self.selection.objects, self.objects))
             self.selection = None
             self.queue_draw()
 
     def cut_content(self):
         """Cut content to clipboard."""
         self.copy_content(True)
-
    
     def stroke_increase(self):
         """Increase whatever is selected."""

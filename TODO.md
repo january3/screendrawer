@@ -1,17 +1,20 @@
  * horizontal and vertical guides
- * undo
  * z position
  * export to SVG, loading from SVG
  * turn it into a Gnome plugin
 
 Bugs:
-  * pasting text into a new object ends with cursor set
-  * double click enters text editing only in draw mode, not in text mode
-    - the problem is that before a double click event is raised, single
-      click events happen which confuse the app.
+ * paste cannot be undone
+ * when exiting while selection is being made with a box, the selection
+   box becomes an object upon new start
+ * pasting text into a new object ends with cursor set
+ * double click enters text editing only in draw mode, not in text mode
+   - the problem is that before a double click event is raised, single
+     click events happen which confuse the app.
 
 Done:
-  * something is rotten with saving the bounding box of the images when
+ * undo
+ * something is rotten with saving the bounding box of the images when
     images are scaled.
  * when clicking, more than one path is created, with short "stubs" with
    just a single point.
