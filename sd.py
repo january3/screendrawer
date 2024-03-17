@@ -66,6 +66,9 @@ print(f"User config directory: {user_config_dir}")
 #print(f"User log directory: {user_log_dir}")
 
 # ---------------------------------------------------------------------
+# defaults
+
+DEFAULT_CLOSE_THRESHOLD = 10
 
 COLORS = {
         "black": (0, 0, 0),
@@ -137,6 +140,7 @@ def midpoint(p1, p2):
     return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
 
 def smooth_path(coords, pressure=None, threshold=20):
+    """Smooth a path using cubic Bézier curves."""
 
     if len(coords) < 3:
         return coords, pressure  # Not enough points to smooth
@@ -215,13 +219,15 @@ def distance_point_to_segment(px, py, x1, y1, x2, y2):
     return math.sqrt((px - projection_x) ** 2 + (py - projection_y) ** 2)
 
 def find_obj_close_to_click(click_x, click_y, objects, threshold):
-    for obj in objects[::-1]:
+    """Find first object that is close to a click."""
+    for obj in objects[::-1]: # loop in reverse order to find the topmost object
         if not obj is None and obj.is_close_to_click(click_x, click_y, threshold):
             return obj
 
     return None
 
 def find_obj_in_bbox(bbox, objects):
+    """Find objects that are inside a given bounding box."""
     x, y, w, h = bbox
     ret = []
     for obj in objects:
@@ -337,15 +343,29 @@ class Command:
     def redo(self):
         raise NotImplementedError("redo method not implemented")
 
+class CommandGroup(Command):
+    """Simple class for handling groups of commands."""
+    def __init__(self, commands):
+        self._commands = commands
+
+    def undo(self):
+        for cmd in self._commands:
+            cmd.undo()
+
+    def redo(self):
+        for cmd in self._commands:
+            cmd.redo()
+
+
 class RemoveCommand(Command):
     """Simple class for handling remove object commands."""
     def __init__(self, objects, stack):
         super().__init__("remove", objects)
         self._stack = stack
 
+        # remove the objects from the stack
         for obj in self.obj:
             self._stack.remove(obj)
-
 
     def undo(self):
         for obj in self.obj:
@@ -385,6 +405,7 @@ class MoveResizeCommand(Command):
         return self.origin
 
 class MoveCommand(MoveResizeCommand):
+    """Simple class for handling move events."""
     def __init__(self, obj, origin):
         super().__init__("move", obj, origin)
         self._last_pt = origin
@@ -412,6 +433,7 @@ class MoveCommand(MoveResizeCommand):
 
 
 class ResizeCommand(MoveResizeCommand):
+    """Simple class for handling resize events."""
     def __init__(self, obj, origin, corner):
         super().__init__("resize", obj, origin, corner)
         obj.resize_start(corner, origin)
@@ -510,9 +532,11 @@ class Drawable:
         self.origin = None
 
     def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the object."""
         x1, y1 = self.coords[0]
         x2, y2 = self.coords[1]
      
+        # by default, we just check whether the click is close to the bounding box
         path = [ (x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1) ]
         return is_click_close_to_path(click_x, click_y, path, threshold)
 
@@ -1407,6 +1431,9 @@ You might want to remove that file if something goes wrong.
 ## ---------------------------------------------------------------------
 
 class TransparentWindow(Gtk.Window):
+    """Main app window. Holds all information and everything that exists.
+       One window to rule them all."""
+
     def __init__(self):
         super(TransparentWindow, self).__init__()
 
@@ -1495,7 +1522,7 @@ class TransparentWindow(Gtk.Window):
         return True
 
     def draw(self, cr):
-        """Draw the objects."""
+        """Draw the objects in the given context. Used also by export functions."""
 
         for obj in self.objects:
             hover    = obj == self.hover
@@ -1513,7 +1540,8 @@ class TransparentWindow(Gtk.Window):
         self.selection      = None
         self.dragobj        = None
         self.current_object = None
-        self.objects = []
+        self.history.append(RemoveCommand(self.objects[:], self.objects))
+        #self.objects = []
         self.queue_draw()
 
     # ---------------------------------------------------------------------
@@ -1667,7 +1695,7 @@ class TransparentWindow(Gtk.Window):
             obj = self.dragobj.obj
             if event.x < 10 and event.y > self.get_size()[1] - 10:
                 print("removal by drag")
-                self.history.append(RemoveCommand(obj.objects, self.objects))
+                self.history.append(CommandGroup([ RemoveCommand(obj.objects, self.objects), self.dragobj ]))
                 self.selection = None
             self.dragobj    = None
             self.revert_cursor()
