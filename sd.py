@@ -1271,7 +1271,7 @@ class Circle(Drawable):
         self.resizing["bbox"] = bbox
         self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
 
-    def draw(self, cr, hover=False, selected=False):
+    def draw(self, cr, hover=False, selected=False, outline=False):
         if hover:
             cr.set_line_width(self.line_width + 1)
         else:
@@ -1609,19 +1609,13 @@ class TransparentWindow(Gtk.Window):
                     self.queue_draw()
 
         # moving an object, or erasing it, if an object is underneath the cursor
-        if hover_obj:
-            #if (event.button == 1 and self.mode == "move") or event.button == 3:
-            #    hover_obj.origin_set((event.x, event.y))
-            #    self.selection = hover_obj
-            #    self.dragobj   = hover_obj
-
-            if event.button == 1 and self.mode == "eraser":
-                self.objects.remove(hover_obj)
+        if hover_obj and event.button == 1 and self.mode == "eraser":
+                self.history.append(RemoveCommand([ hover_obj ], self.objects))
                 self.selection = None
                 self.dragobj   = None
                 self.revert_cursor()
-
         self.queue_draw()
+
         return True
 
     # Event handlers
