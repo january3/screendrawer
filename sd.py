@@ -29,7 +29,7 @@ import yaml
 import pickle
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, Gdk, GdkPixbuf
+from gi.repository import Gtk, Gdk, GdkPixbuf, Pango
 import cairo
 import os
 import time
@@ -623,12 +623,17 @@ class WigletLineWidth(Wiglet):
 ## ---------------------------------------------------------------------
 class Pen:
     """Store current line width, color and text size."""
-    def __init__(self, color, line_width, font_size = 12, transparency = 1, fill_color = None):
+    def __init__(self, color = (0, 0, 0), line_width = 12, transparency = 1, fill_color = None, 
+                 font_size = 12, font_family = "Sans", font_weight = "normal", font_style = "normal"):
         self.color        = color
         self.line_width   = line_width
         self.font_size    = font_size
         self.fill_color   = fill_color
         self.transparency = transparency
+        #self.font_family       = font_family or "Segoe Script"
+        self.font_family       = font_family or "Sans"
+        self.font_weight       = font_weight or "normal"
+        self.font_style        = font_style  or "normal"
 
     def color_set(self, color):
         self.color = color
@@ -652,15 +657,20 @@ class Pen:
             "line_width": self.line_width,
             "transparency": self.transparency,
             "fill_color": self.fill_color,
-            "font_size": self.font_size
+            "font_size": self.font_size,
+            "font_family": self.font_family,
+            "font_weight": self.font_weight,
+            "font_style": self.font_style
         }
 
     def copy(self):
-        return Pen(self.color, self.line_width, self.font_size, self.transparency, self.fill_color)
+        return Pen(self.color, self.line_width, self.transparency, self.fill_color, self.font_size, self.font_family, self.font_weight, self.font_style)
 
     @classmethod
     def from_dict(cls, d):
-        return cls(d["color"], d["line_width"], d["font_size"], d["transparency"], d["fill_color"])
+        #def __init__(self, color = (0, 0, 0), line_width = 12, font_size = 12, transparency = 1, fill_color = None, family = "Sans", weight = "normal", style = "normal"):
+        return cls(d.get("color"), d.get("line_width"), d.get("transparency"), d.get("fill_color"),
+                   d.get("font_size"), d.get("font_family"), d.get("font_weight"), d.get("font_style"))
 
 ## ---------------------------------------------------------------------
 ## These are the objects that can be displayed. It includes groups, but
@@ -720,6 +730,12 @@ class Drawable:
 
     def color_set(self, color):
         self.pen.color_set(color)
+
+    def font_set(self, size, family, weight, style):
+        self.pen.font_size    = size
+        self.pen.font_family  = family
+        self.pen.font_weight  = weight
+        self.pen.font_style   = style
 
     def resize_end(self):
         self.resizing = None
@@ -824,6 +840,10 @@ class DrawableGroup(Drawable):
     def color_set(self, color):
         for obj in self.objects:
             obj.color_set(color)
+
+    def font_set(self, size, family, weight, style):
+        for obj in self.objects:
+            obj.font_set(size, family, weight, style)
 
     def resize_start(self, corner, origin):
         self.resizing = {
@@ -1292,7 +1312,10 @@ class Text(Drawable):
         content, pen, cursor_pos = self.content, self.pen, self.cursor_pos
         
         # get font info
-        cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        print("family=",pen.font_family, pen.font_style, pen.font_weight)
+        cr.select_font_face(pen.font_family, 
+                            pen.font_style == "italic" and cairo.FONT_SLANT_ITALIC or cairo.FONT_SLANT_NORMAL,
+                            pen.font_weight == "bold"  and cairo.FONT_WEIGHT_BOLD  or cairo.FONT_WEIGHT_NORMAL)
         cr.set_font_size(pen.font_size)
 
         font_extents      = cr.font_extents()
@@ -1779,7 +1802,7 @@ class TransparentWindow(Gtk.Window):
 
         # defaults for drawing
         self.pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
-        self.pen2 = Pen(line_width = 40, color = (1, 1, 0), font_size = 24, transparency = .2)
+        self.pen2 = Pen(line_width = 40, color = (1, 1, 0),   font_size = 24, transparency = .2)
         self.transparent = 0
         self.outline     = False
 
@@ -1812,7 +1835,8 @@ class TransparentWindow(Gtk.Window):
     def on_menu_item_activated(self, widget, data):
         print("Menu item activated:", data)
 
-        if data in ["m", "d", "t", "b", "c", "e", "h", "x"]:
+        if data in ["m", "d", "t", "b", "c", "e", "h", "x",
+                    "Ctrl-k", "Ctrl-f"]:
             self.handle_shortcuts(data)
 
     def create_context_menu(self):
@@ -1827,6 +1851,8 @@ class TransparentWindow(Gtk.Window):
                 { "label": "Circle", "callback": self.on_menu_item_activated, "data": "c" },
                 { "label": "Eraser", "callback": self.on_menu_item_activated, "data": "e" },
                 { "separator": True },
+                { "label": "Color",  "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
+                { "label": "Font",  "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
                 { "label": "Help",   "callback": self.on_menu_item_activated, "data": "h" },
                 { "label": "Quit",   "callback": self.on_menu_item_activated, "data": "x" },
         ]
@@ -1931,6 +1957,7 @@ class TransparentWindow(Gtk.Window):
                 print("new text")
                 self.change_cursor("none")
                 self.current_object = Text([ (event.x, event.y) ], pen = self.pen, content = "")
+                self.selection = DrawableGroup([ self.current_object ])
                 self.current_object.move_cursor("Home")
                 self.history.append(AddCommand(self.current_object, self.objects))
                 #self.objects.append(self.current_object)
@@ -2257,12 +2284,14 @@ class TransparentWindow(Gtk.Window):
         if self.current_object and self.current_object.type == "text":
             print("Changing text size")
             self.current_object.stroke_change(direction)
+            self.pen.font_size = self.current_object.pen.font_size
             self.queue_draw()
         elif self.selection:
             for obj in self.selection.objects:
                 obj.stroke_change(direction)
             self.queue_draw()
 
+        # without a selected object, change the default pen, but only if in the correct mode
         if self.mode == "draw":
             self.pen.line_width = max(1, self.pen.line_width + direction)
         elif self.mode == "text":
@@ -2367,6 +2396,23 @@ class TransparentWindow(Gtk.Window):
         if self.selection:
             for obj in self.selection.objects:
                 obj.color_set(self.pen.color)
+        self.queue_draw()
+
+    def set_font(self, font_description):
+        """Set the font."""
+        # XXX not really nice
+        self.pen.font_family = font_description.get_family()
+        self.pen.font_size   = font_description.get_size() / Pango.SCALE
+        self.pen.font_weight = "bold"   if font_description.get_weight() == Pango.Weight.BOLD  else "normal"
+        self.pen.font_style  = "italic" if font_description.get_style()  == Pango.Style.ITALIC else "normal"
+
+        print("setting font to", self.pen.font_family, self.pen.font_size, self.pen.font_weight, self.pen.font_style)
+
+        if self.selection:
+            for obj in self.selection.objects:
+                print("setting font for", obj)
+                obj.font_set(self.pen.font_size, self.pen.font_family, self.pen.font_weight, self.pen.font_style)
+
         self.queue_draw()
 
     def smoothen(self):
@@ -2481,6 +2527,7 @@ class TransparentWindow(Gtk.Window):
             # dialogs
             'Ctrl-e':               {'action': self.export_drawing},
             'Ctrl-k':               {'action': self.select_color},
+            'Ctrl-f':               {'action': self.select_font},
             'Ctrl-i':               {'action': self.select_image_and_create_pixbuf},
             'Ctrl-p':               {'action': self.switch_pens},
 
@@ -2608,6 +2655,25 @@ class TransparentWindow(Gtk.Window):
 
         # Don't forget to destroy the dialog
         color_chooser.destroy()
+
+    def select_font(self):
+        font_dialog = Gtk.FontChooserDialog(title="Select a Font", parent=self)
+        font_dialog.set_preview_text("Zażółć gęślą jaźń")
+        
+        # You can set the initial font for the dialog
+        font_dialog.set_font(self.pen.font_family + " " + 
+                             self.pen.font_style + " " +
+                             str(self.pen.font_weight) + " " +
+                             str(self.pen.font_size))
+        
+        response = font_dialog.run()
+
+        if response == Gtk.ResponseType.OK:
+            font_description = font_dialog.get_font_desc()
+            self.set_font(font_description)
+
+        font_dialog.destroy()
+
 
     def show_help_dialog(self):
         """Show the help dialog."""
