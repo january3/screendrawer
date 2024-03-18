@@ -1,12 +1,11 @@
- * implement rotating for: Image, Box, Circle
- * eraser should allow a selection like with selection tool
+ * implement rotating for: Box, Circle
  * show corners of the bounding box
  * grid
- * inverse selection
  * horizontal and vertical guides
  * z position
- * export to SVG, loading from SVG
+ * loading from SVG
  * turn it into a Gnome plugin
+ * eraser should allow a selection like with selection tool (really?)
 
 Design issues:
  * maybe I am doing it all wrong. Maybe I should define a transformation
@@ -27,6 +26,14 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * paths do not report correct bounding box initially.
+ * rotating / scaling text or images grouped with other stuff is buggy. The reason is
+   that there is no real good function to calculate the scaling when the
+   object is rotated. This is not a problem with Paths, because with Paths
+   we simply rotate the coordinates.
+ * export to SVG
+ * inverse selection
+ * implement rotating for: Image
  * create a pen class which allows to switch between different pens
  * set transparency with a tool similar to setting line width
  * incorrect bb when text is rotated

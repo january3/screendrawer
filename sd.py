@@ -459,17 +459,17 @@ class RotateCommand(MoveResizeCommand):
         self.obj.rotate(d_a, set = False)
 
     def event_finish(self):
-        self.obj.rotate_finalize()
+        self.obj.rotate_end()
 
     def undo(self):
         self.obj.rotate_start(self._rotation_centre)
         self.obj.rotate(-self._angle)
-        self.obj.rotate_finalize()
+        self.obj.rotate_end()
 
     def redo(self):
         self.obj.rotate_start(self._rotation_centre)
         self.obj.rotate(self._angle)
-        self.obj.rotate_finalize()
+        self.obj.rotate_end()
 
 class MoveCommand(MoveResizeCommand):
     """Simple class for handling move events."""
@@ -583,10 +583,10 @@ class WigletTransparency(Wiglet):
 
     def event_update(self, x, y):
         dx = x - self.coords[0]
-        print("changing transparency", dx)
+        #print("changing transparency", dx)
         ## we want to change the transparency by 0.1 for every 20 pixels
         self.pen.transparency = max(0, min(1, self._initial_transparency + dx/500))
-        print("new transparency:", self.pen.transparency)
+        #print("new transparency:", self.pen.transparency)
 
     def event_finish(self):
         pass
@@ -689,8 +689,8 @@ class Drawable:
         else:
             self.rotation += angle
 
-    def rotate_finalize(self):
-        raise NotImplementedError("rotate_finalize method not implemented")
+    def rotate_end(self):
+        raise NotImplementedError("rotate_end method not implemented")
 
     def resize_start(self, corner, origin):
         self.resizing = {
@@ -787,7 +787,8 @@ class Drawable:
 
 
 class DrawableGroup(Drawable):
-    """Class for creating groups of drawable objects or other groups."""
+    """Class for creating groups of drawable objects or other groups.
+       Most of the time it just passes events around. """
     def __init__(self, objects = [ ], objects_dict = None):
 
         if objects_dict:
@@ -825,7 +826,9 @@ class DrawableGroup(Drawable):
         self.resizing = {
             "corner": corner,
             "origin": origin,
-            "bbox":   self.bbox()
+            "bbox":   self.bbox(),
+            "orig_bbox": self.bbox(),
+            "objects": { obj: obj.bbox() for obj in self.objects }
             }
         for obj in self.objects:
             obj.resize_start(corner, origin)
@@ -844,28 +847,29 @@ class DrawableGroup(Drawable):
         for obj in self.objects:
             obj.rotate(angle, set)
 
-    def rotate_finalize(self):
+    def rotate_end(self):
         for obj in self.objects:
-            obj.rotate_finalize()
+            obj.rotate_end()
         self.rot_origin = None
         self.rotation = 0
  
     def resize_update(self, bbox):
         """Resize the group of objects. we need to calculate the new
            bounding box for each object within the group"""
-        prev_bbox = self.resizing["bbox"]
+        orig_bbox = self.resizing["orig_bbox"]
 
-        dx, dy           = bbox[0] - prev_bbox[0], bbox[1] - prev_bbox[1]
-        scale_x, scale_y = bbox[2] / prev_bbox[2], bbox[3] / prev_bbox[3]
+        dx, dy           = bbox[0] - orig_bbox[0], bbox[1] - orig_bbox[1]
+        scale_x, scale_y = bbox[2] / orig_bbox[2], bbox[3] / orig_bbox[3]
+
 
         for obj in self.objects:
-            obj_bb = obj.bbox()
+            obj_bb = self.resizing["objects"][obj]
 
             x, y, w, h = obj_bb
             w2, h2 = w * scale_x, h * scale_y
 
-            x2 = bbox[0] + (x - prev_bbox[0]) * scale_x
-            y2 = bbox[1] + (y - prev_bbox[1]) * scale_y
+            x2 = bbox[0] + (x - orig_bbox[0]) * scale_x
+            y2 = bbox[1] + (y - orig_bbox[1]) * scale_y
 
             ## recalculate the new bbox of the object within our new bb
             obj.resize_update((x2, y2, w2, h2))
@@ -885,13 +889,14 @@ class DrawableGroup(Drawable):
             return self.resizing["bbox"]
         if not self.objects:
             return None
+        print("calculating bbox for group with", len(self.objects), "objects")
         left, top, width, height = self.objects[0].bbox()
         bottom, right = top + height, left + width
 
         for obj in self.objects[1:]:
             x, y, w, h = obj.bbox()
-            left, top = min(left, x), min(top, y)
-            bottom, right = max(bottom, y + h), max(right, x + w)
+            left, top = min(left, x, x + w), min(top, y, y + h)
+            bottom, right = max(bottom, y, y + h), max(right, x, x + w)
 
         width, height = right - left, bottom - top
         return (left, top, width, height)
@@ -955,14 +960,6 @@ class Image(Drawable):
         x, y = self.coords[0]
         w, h = self.coords[1]
         return (x, y, w - x, h - y)
-
-    def rotate_finalize(self):
-        bb = self._bbox_internal()
-        center_x, center_y = bb[0] + bb[2] / 2, bb[1] + bb[3] / 2
-        new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
-        self.move(new_center[0] - center_x, new_center[1] - center_y)
-        self.rot_origin = new_center
-        pass
 
     def draw(self, cr, hover=False, selected=False, outline=False):
         cr.save()
@@ -1035,6 +1032,13 @@ class Image(Drawable):
         self.coords[1] = (self.coords[0][0] + self.image_size[0] * self.transform[0], self.coords[0][1] + self.image_size[1] * self.transform[1])
         self.resizing = None
 
+    def rotate_end(self):
+        bb = self._bbox_internal()
+        center_x, center_y = bb[0] + bb[2] / 2, bb[1] + bb[3] / 2
+        new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
+        self.move(new_center[0] - center_x, new_center[1] - center_y)
+        self.rot_origin = new_center
+
     def is_close_to_click(self, click_x, click_y, threshold):
         bb = self.bbox()
         if bb is None:
@@ -1106,7 +1110,7 @@ class Text(Drawable):
         if self.rotation:
             self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
 
-    def rotate_finalize(self):
+    def rotate_end(self):
         if self.bb:
             center_x, center_y = self.bb[0] + self.bb[2] / 2, self.bb[1] + self.bb[3] / 2
             new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
@@ -1354,7 +1358,7 @@ class Path(Drawable):
         move_coords(self.outline, dx, dy)
         self.bb = None
 
-    def rotate_finalize(self):
+    def rotate_end(self):
         # rotate all coords and outline
         self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
         self.outline = coords_rotate(self.outline, self.rotation, self.rot_origin)
@@ -1481,6 +1485,7 @@ class Path(Drawable):
         self.outline_l.append((p2[0] + nx * width, p2[1] + ny * width))
         self.outline_r.append((p2[0] - nx * width, p2[1] - ny * width))
         self.outline = self.outline_l + self.outline_r[::-1]
+        self.bb = None
 
     # XXX not efficient, this should be done in path_append and modified
     # upon move.
