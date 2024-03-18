@@ -1405,6 +1405,11 @@ class Path(Drawable):
             "pen": self.pen.to_dict()
         }
 
+    def stroke_change(self, direction):
+        self.pen.stroke_change(direction)
+        self.outline_recalculate_new()
+
+
     def smoothen(self, threshold=20):
         if len(self.coords) < 3:
             return
@@ -1817,6 +1822,7 @@ class TransparentWindow(Gtk.Window):
         self.connect("motion-notify-event", self.on_motion_notify)
 
         self.create_context_menu()
+        self.create_object_menu()
         self.make_cursors()
         self.set_keep_above(True)
         self.maximize()
@@ -1835,27 +1841,11 @@ class TransparentWindow(Gtk.Window):
     def on_menu_item_activated(self, widget, data):
         print("Menu item activated:", data)
 
-        if data in ["m", "d", "t", "b", "c", "e", "h", "x",
-                    "Ctrl-k", "Ctrl-f"]:
-            self.handle_shortcuts(data)
+        self.handle_shortcuts(data)
 
-    def create_context_menu(self):
-        self.context_menu = Gtk.Menu()
-        self.context_menu.set_name("myMenu")
-
-        menu_items = [
-                { "label": "Move",   "callback": self.on_menu_item_activated, "data": "m" },
-                { "label": "Pencil", "callback": self.on_menu_item_activated, "data": "d" },
-                { "label": "Text",   "callback": self.on_menu_item_activated, "data": "t" },
-                { "label": "Box",    "callback": self.on_menu_item_activated, "data": "b" },
-                { "label": "Circle", "callback": self.on_menu_item_activated, "data": "c" },
-                { "label": "Eraser", "callback": self.on_menu_item_activated, "data": "e" },
-                { "separator": True },
-                { "label": "Color",  "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
-                { "label": "Font",  "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
-                { "label": "Help",   "callback": self.on_menu_item_activated, "data": "h" },
-                { "label": "Quit",   "callback": self.on_menu_item_activated, "data": "x" },
-        ]
+    def build_menu(self, menu_items):
+        menu = Gtk.Menu()
+        menu.set_name("myMenu")
 
         for m in menu_items:
             if "separator" in m:
@@ -1863,9 +1853,50 @@ class TransparentWindow(Gtk.Window):
             else:
                 menu_item = Gtk.MenuItem(label=m["label"])
                 menu_item.connect("activate", m["callback"], m["data"])
-            self.context_menu.append(menu_item)
+            menu.append(menu_item)
+        menu.show_all()
+        return menu
 
-        self.context_menu.show_all()
+
+    def create_context_menu(self):
+        menu_items = [
+                { "label": "Move   [m]",        "callback": self.on_menu_item_activated, "data": "m" },
+                { "label": "Pencil [p]",        "callback": self.on_menu_item_activated, "data": "d" },
+                { "label": "Text   [t]",        "callback": self.on_menu_item_activated, "data": "t" },
+                { "label": "Box    [b]",        "callback": self.on_menu_item_activated, "data": "b" },
+                { "label": "Circle [c]",        "callback": self.on_menu_item_activated, "data": "c" },
+                { "label": "Eraser [e]",        "callback": self.on_menu_item_activated, "data": "e" },
+                { "separator": True },
+                { "label": "Select all (Ctrl-a)",     "callback": self.on_menu_item_activated, "data": "Ctrl-a" },
+                { "label": "Paste (Ctrl-v)",          "callback": self.on_menu_item_activated, "data": "Ctrl-v" },
+                { "label": "Clear drawing (Ctrl-l)",  "callback": self.on_menu_item_activated, "data": "Ctrl-l" },
+                { "separator": True },
+                { "label": "Color (Ctrl-k)",            "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
+                { "label": "Image from file (Ctrl-i)",  "callback": self.on_menu_item_activated, "data": "Ctrl-i" },
+                { "label": "Export drawing (Ctrl-e)",   "callback": self.on_menu_item_activated, "data": "Ctrl-e" },
+                { "label": "Font (Ctrl-f)",             "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
+                { "label": "Help [F1]",                 "callback": self.on_menu_item_activated, "data": "h" },
+                { "label": "Quit (Ctrl-q)",             "callback": self.on_menu_item_activated, "data": "x" },
+        ]
+
+        self.context_menu = self.build_menu(menu_items)
+
+    def create_object_menu(self):
+        menu_items = [
+                { "label": "Copy (Ctrl-c)",        "callback": self.on_menu_item_activated, "data": "Ctrl-c" },
+                { "label": "Cut (Ctrl-x)",         "callback": self.on_menu_item_activated, "data": "Ctrl-x" },
+                { "separator": True },
+                { "label": "Delete (d, |Del|)",    "callback": self.on_menu_item_activated, "data": "d" },
+                { "label": "Group (g)",            "callback": self.on_menu_item_activated, "data": "g" },
+                { "label": "Ungroup (u)",          "callback": self.on_menu_item_activated, "data": "u" },
+                { "separator": True },
+                { "label": "Color (Ctrl-k)",            "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
+                { "label": "Font (Ctrl-f)",             "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
+                { "label": "Help [F1]",                 "callback": self.on_menu_item_activated, "data": "h" },
+                { "label": "Quit (Ctrl-q)",             "callback": self.on_menu_item_activated, "data": "x" },
+        ]
+        self.object_menu = self.build_menu(menu_items)
+
 
     def exit(self):
         ## close the savefile_f
@@ -1909,10 +1940,6 @@ class TransparentWindow(Gtk.Window):
     def on_button_press(self, widget, event):
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
 
-        if event.button == 3:
-            self.context_menu.popup(None, None, None, None, event.button, event.time)
-            return True
-
         modifiers  = Gtk.accelerator_get_default_mod_mask()
         hover_obj  = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
@@ -1923,6 +1950,18 @@ class TransparentWindow(Gtk.Window):
         pressure   = event.get_axis(Gdk.AxisUse.PRESSURE) or 0
         print("shift:", shift, "ctrl:", ctrl, "double:", double, "pressure:", pressure)
         print(modifiers)
+
+        if event.button == 3:
+            if hover_obj:
+                self.mode = "move"
+                self.default_cursor(self.mode)
+                self.selection = DrawableGroup([ hover_obj ])
+                self.object_menu.popup(None, None, None, None, event.button, event.time)
+                self.queue_draw()
+            else:
+                self.context_menu.popup(None, None, None, None, event.button, event.time)
+            return True
+
 
         if corner_obj[0]:
             print("corner click:", corner_obj[0].type, corner_obj[1])
@@ -2798,7 +2837,7 @@ if __name__ == "__main__":
     win = TransparentWindow()
     css = b"""
     #myMenu {
-        background-color: rgba(255, 255, 255, 0.5); /* Semi-transparent white */
+        background-color: rgba(255, 255, 255, 0.7); /* Semi-transparent white */
     }
     """
 
