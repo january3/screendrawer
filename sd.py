@@ -2411,7 +2411,7 @@ class TransparentWindow(Gtk.Window):
         """Fill the selected object."""
         if self.selection:
             for obj in self.selection.objects:
-                obj.fill(self.color)
+                obj.fill(self.pen.color)
             self.queue_draw()
 
     def select_previous_object(self):
