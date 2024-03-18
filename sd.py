@@ -1668,11 +1668,11 @@ class HelpDialog(Gtk.Dialog):
     def __init__(self, parent):
         super().__init__(title="Help", transient_for=parent, flags=0)
         self.add_buttons(Gtk.STOCK_OK, Gtk.ResponseType.OK)
-        self.set_default_size(900, 300)
+        self.set_default_size(1800, 300)
         self.set_border_width(10)
 
         # Example help text with Pango Markup (not Markdown but similar concept)
-        help_text = """
+        help_text = f"""
 
 <span font="24"><b>screendrawer</b></span>
 
@@ -1683,40 +1683,40 @@ Draw on the screen with Gnome and Cairo. Quick and dirty.
 <span font_family="monospace">
 <b>Mouse:</b>
 
-<b>All modes:</b>                          <b>Move mode:</b>
-shift-click: Enter text mode               click: Select object
-right-button: Move object                  move: Move object
-ctrl-click: Change line width              ctrl-a: Select all
-                                           Tab: Next object
-                                           Shift-Tab: Previous object
-                                           Shift-letter: quick color selection e.g. Shift-r for red
+<b>All modes:</b>                                 <b>Move mode:</b>
+shift-click:  Enter text mode              click: Select object   Resizing: click in corner
+right-button: Move object                  move: Move object      Rotating: ctrl-shift-click in corner
+ctrl-click:   Change line width            ctrl-a: Select all
+ctrl-shift-click: Change transparency
 
 Moving object to left lower screen corner deletes it.
 
 <b>Shortcut keys:</b>
 
-<b>Drawing modes:</b> (simple key)
+<b>Drawing modes:</b> (simple key, when not editing a text)
 
-<b>d:</b> Draw mode (pencil)                 <b>m:</b> Move mode (move objects around, copy and paste)
+<b>d:</b> Draw mode (pencil)                 <b>m, |SPACE|:</b> Move mode (move objects around, copy and paste)
 <b>t:</b> Text mode (text entry)             <b>b:</b> Box mode  (draw a rectangle)
 <b>c:</b> Circle mode (draw an ellipse)      <b>e:</b> Eraser mode (delete objects with a click)
 
-<b>With Ctrl:</b>                    <b>Simple key (not when entering text)</b>
-Ctrl-q: Quit                         x, q: Exit
-Ctrl-s: Save drawing                 h, F1, ?: Show this help dialog
-Ctrl-l: Clear drawing                l: Clear drawing                 
 
-Ctrl-c: Copy content                 &lt;Del&gt;: Delete selected object (in "move" mode)
-Ctrl-v: Paste content                &lt;Esc&gt;: Finish text input
-Ctrl-x: Cut content                  &lt;Enter&gt;: New line (in text mode)
+<b>Works always:</b>                                                                  <b>Move mode only:</b>
+<b>With Ctrl:</b>              <b>Simple key (not when entering text)</b>                    <b>With Ctrl:</b>             <b>Simple key (not when entering text)</b>
+Ctrl-q: Quit            x, q: Exit                                             Ctrl-c: Copy content   Tab: Next object
+Ctrl-e: Export drawing  h, F1, ?: Show this help dialog                        Ctrl-v: Paste content  Shift-Tab: Previous object
+Ctrl-l: Clear drawing   l: Clear drawing                                       Ctrl-x: Cut content    Shift-letter: quick color selection e.g. Shift-r for red
+Ctrl-i: insert image                                                                                  d, |Del|: Delete selected object
+Ctrl-z: undo            |Esc|: Finish text input                                                      g, u: group, ungroup                           
+Ctrl-y: redo            |Enter|: New line (in text mode)                                 
 
-Ctrl-k: Select color
-Ctrl-plus, Ctrl-minus: Change text size
+Ctrl-k: Select color                     f: fill with current color
+Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline
 Ctrl-b: Cycle background transparency
+Ctrl-p: switch pens
 
 </span>
 
-The state is saved in / loaded from `~/.screendrawer` so you can continue drawing later.
+The state is saved in / loaded from `{savefile}` so you can continue drawing later.
 You might want to remove that file if something goes wrong.
         """
 
@@ -2370,16 +2370,16 @@ class TransparentWindow(Gtk.Window):
             keyname = "Ctrl-" + keyname
 
         # these are single keystroke mode modifiers
-        modes = { 'd': "draw", 't': "text", 'e': "eraser", 'm': "move", 'c': "circle", 'b': "box", 's': "move" }
+        modes = { 'd': "draw", 't': "text", 'e': "eraser", 'm': "move", 'c': "circle", 'b': "box", 's': "move", 'space': "move" }
 
         # these are single keystroke actions
         actions = {
             'h':                    {'action': self.show_help_dialog},
             'F1':                   {'action': self.show_help_dialog},
             'question':             {'action': self.show_help_dialog},
+            'Shift-question':       {'action': self.show_help_dialog},
             'Ctrl-l':               {'action': self.clear},
             'Ctrl-b':               {'action': self.cycle_background},
-            'Ctrl-m':               {'action': self.smoothen},
             'x':                    {'action': self.exit},
             'q':                    {'action': self.exit},
             'Ctrl-q':               {'action': self.exit},
@@ -2408,8 +2408,10 @@ class TransparentWindow(Gtk.Window):
             'g':                    {'action': self.selection_group,    'modes': ["move"]},
             'u':                    {'action': self.selection_ungroup,  'modes': ["move"]},
             'Delete':               {'action': self.selection_delete,   'modes': ["move"]},
-            'Ctrl-c':               {'action': self.copy_content,  'modes': ["move"]},
-            'Ctrl-x':               {'action': self.cut_content,   'modes': ["move"]},
+            'd':                    {'action': self.selection_delete,   'modes': ["move"]},
+            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
+            'Ctrl-c':               {'action': self.copy_content,       'modes': ["move"]},
+            'Ctrl-x':               {'action': self.cut_content,        'modes': ["move"]},
             'Ctrl-a':               {'action': self.select_all},
             'Ctrl-r':               {'action': self.select_reverse},
             'Ctrl-v':               {'action': self.paste_content},
