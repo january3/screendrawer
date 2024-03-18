@@ -1,3 +1,6 @@
+ * rotating should work like this: the obect can take arbitrary center for
+   rotation. This is the center of the bounding box. However, for rotating
+   a group this will be a different point.
  * set transparency with a tool similar to setting line width
  * eraser should allow a selection like with selection tool
  * create a pen class which allows to switch between different pens

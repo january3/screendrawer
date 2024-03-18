@@ -442,6 +442,7 @@ class RotateCommand(MoveResizeCommand):
         super().__init__("rotate", obj, origin, corner=corner)
         bb = obj.bbox()
         self._rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
+        obj.rotate_start(self._rotation_centre)
 
     def event_update(self, x, y):
         angle = calc_rotation_angle(self._rotation_centre, self.start_point, (x, y))
@@ -449,13 +450,17 @@ class RotateCommand(MoveResizeCommand):
         self._angle = angle
 
     def event_finish(self):
-        self.obj.rotate_finalize(self._rotation_centre, self._angle)
+        self.obj.rotate_finalize()
 
     def undo(self):
+        self.obj.rotate_start(self._rotation_centre)
         self.obj.rotate(-self._angle)
+        self.obj.rotate_finalize()
 
     def redo(self):
+        self.obj.rotate_start(self._rotation_centre)
         self.obj.rotate(self._angle)
+        self.obj.rotate_finalize()
 
 class MoveCommand(MoveResizeCommand):
     """Simple class for handling move events."""
@@ -576,16 +581,27 @@ class Drawable:
     """Base class for drawable objects."""
     def __init__(self, type, coords, color, line_width, fill_color = None):
         self.type       = type
-        self.rotation   = 0
         self.coords     = coords
         self.color      = color
         self.line_width = line_width
         self.origin     = None
         self.resizing   = None
         self.fill_color = fill_color
+        self.rotation   = 0
+        self.rot_origin = None
+
+    def rotate_start(self, origin):
+        self.rot_origin = origin
 
     def rotate(self, angle, set = False):
-        raise NotImplementedError("rotate method not implemented")
+        # the self.rotation variable is for drawing while rotating
+        if set:
+            self.rotation = angle
+        else:
+            self.rotation += angle
+
+    def rotate_finalize(self):
+        raise NotImplementedError("draw method not implemented")
 
     def resize_start(self, corner, origin):
         self.resizing = {
@@ -725,6 +741,22 @@ class DrawableGroup(Drawable):
         for obj in self.objects:
             obj.resize_start(corner, origin)
  
+
+    def rotate_start(self, origin):
+        self.rot_origin = origin
+        for obj in self.objects:
+            obj.rotate_start(origin)
+
+    def rotate(self, angle, set = False):
+        self.rotation += angle
+        for obj in self.objects:
+            obj.rotate(angle, set)
+
+    def rotate_finalize(self):
+        for obj in self.objects:
+            obj.rotate_finalize()
+        self.rot_origin = None
+        self.rotation = 0
  
     def resize_update(self, bbox):
         """Resize the group of objects. we need to calculate the new
@@ -1146,18 +1178,12 @@ class Path(Drawable):
         move_coords(self.outline, dx, dy)
         self.bb = None
 
-    def rotate(self, angle, set = False):
-        # the self.rotation variable is for drawing while rotating
-        if set:
-            self.rotation = angle
-        else:
-            self.rotation += angle
-
-    def rotate_finalize(self, origin, angle):
+    def rotate_finalize(self):
         # rotate all coords and outline
-        self.coords  = coords_rotate(self.coords, angle, origin)
-        self.outline = coords_rotate(self.outline, angle, origin)
-        self.rotation = 0
+        self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
+        self.outline = coords_rotate(self.outline, self.rotation, self.rot_origin)
+        self.rotation   = 0
+        self.rot_origin = None
         # recalculate bbox
         self.bb = path_bbox(self.coords)
 
@@ -1343,6 +1369,7 @@ class Path(Drawable):
             coords = self.coords
 
         cr.set_source_rgb(*self.color)
+        cr.set_line_width(0.5)
         cr.move_to(coords[0][0], coords[0][1])
         for point in coords[1:]:
             cr.line_to(point[0], point[1])
@@ -1358,9 +1385,9 @@ class Path(Drawable):
         if self.rotation != 0:
             cr.save()
             bb = self.bbox()
-            cr.translate(bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
             cr.rotate(self.rotation)
-            cr.translate(-bb[0] - bb[2] / 2, -bb[1] - bb[3] / 2)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
 
         dd = 1 if hover else 0
         if self.resizing:
@@ -2203,7 +2230,7 @@ class TransparentWindow(Gtk.Window):
             'Shift-P':              {'action': self.set_color, 'args': [COLORS["purple"]]},
 
             # dialogs
-            'Ctrl-s':               {'action': self.save_drawing},
+            'Ctrl-e':               {'action': self.export_drawing},
             'Ctrl-k':               {'action': self.select_color},
             'Ctrl-i':               {'action': self.select_image_and_create_pixbuf},
 
@@ -2216,7 +2243,7 @@ class TransparentWindow(Gtk.Window):
             'Ctrl-c':               {'action': self.copy_content,  'modes': ["move"]},
             'Ctrl-x':               {'action': self.cut_content,   'modes': ["move"]},
             'Ctrl-a':               {'action': self.select_all},
-            'Ctrl-r':         {'action': self.select_reverse},
+            'Ctrl-r':               {'action': self.select_reverse},
             'Ctrl-v':               {'action': self.paste_content},
 
             'Ctrl-y':               {'action': self.redo},
@@ -2299,7 +2326,7 @@ class TransparentWindow(Gtk.Window):
         """Change the cursor to the specified cursor."""
         if self.current_cursor == cursor_name:
             return
-        print("changing cursor to", cursor_name)
+        #print("changing cursor to", cursor_name)
         cursor = self.cursors[cursor_name]
         self.get_window().set_cursor(cursor)
         self.current_cursor = cursor_name
@@ -2335,7 +2362,7 @@ class TransparentWindow(Gtk.Window):
         response = dialog.run()
         dialog.destroy()
 
-    def save_drawing(self):
+    def export_drawing(self):
         """Save the drawing to a file."""
         # Choose where to save the file
         dialog = Gtk.FileChooserDialog("Save as", self, Gtk.FileChooserAction.SAVE,
