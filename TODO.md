@@ -17,7 +17,6 @@ Design issues:
    issue.
 
 Bugs:
- * first pressure point on a line is 0 regardless.
  * proportional resize isn't
  * when the bb is smaller than the corner clicking area, bad things happen
  * when exiting while selection is being made with a box, the selection
@@ -27,6 +26,7 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * first pressure point on a line is 0 regardless.
  * pasting text into a new object ends with cursor set
  * paste cannot be undone
  * When grouped, the bounding box of the group is incorrect until next

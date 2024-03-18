@@ -1947,7 +1947,9 @@ class TransparentWindow(Gtk.Window):
         shift = (event.state & Gdk.ModifierType.SHIFT_MASK) != 0
         ctrl  = (event.state & Gdk.ModifierType.CONTROL_MASK) != 0
         double     = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
-        pressure   = event.get_axis(Gdk.AxisUse.PRESSURE) or 0
+        pressure   = event.get_axis(Gdk.AxisUse.PRESSURE)
+        if pressure is None:
+            pressure = 1
         print("shift:", shift, "ctrl:", ctrl, "double:", double, "pressure:", pressure)
         print(modifiers)
 
