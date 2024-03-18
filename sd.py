@@ -1739,7 +1739,8 @@ class TransparentWindow(Gtk.Window):
         self.gtk_clipboard       = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 
         # defaults for drawing
-        self.pen = Pen(line_width = 4, color = (0.2, 0, 0), font_size = 24, transparency = .5)
+        self.pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
+        self.pen2 = Pen(line_width = 40, color = (1, 1, 0), font_size = 24, transparency = .2)
         self.transparent = 0
         self.outline     = False
 
@@ -2316,6 +2317,11 @@ class TransparentWindow(Gtk.Window):
             self.redo_stack.append(command)
             self.queue_draw()
 
+    def switch_pens(self):
+        """Switch between pens."""
+        self.pen, self.pen2 = self.pen2, self.pen
+        self.queue_draw()
+
     def handle_shortcuts(self, keyname, ctrl, shift):
         """Handle keyboard shortcuts."""
         print(keyname)
@@ -2357,6 +2363,7 @@ class TransparentWindow(Gtk.Window):
             'Ctrl-e':               {'action': self.export_drawing},
             'Ctrl-k':               {'action': self.select_color},
             'Ctrl-i':               {'action': self.select_image_and_create_pixbuf},
+            'Ctrl-p':               {'action': self.switch_pens},
 
             # selections and moving objects
             'Tab':                  {'action': self.select_next_object, 'modes': ["move"]},
@@ -2567,6 +2574,7 @@ class TransparentWindow(Gtk.Window):
         config = {
                 'transparent': self.transparent,
                 'pen': self.pen.to_dict(),
+                'pen2': self.pen2.to_dict()
         }
 
         objects = [ obj.to_dict() for obj in self.objects ]
@@ -2588,6 +2596,7 @@ class TransparentWindow(Gtk.Window):
         self.objects           = [ Drawable.from_dict(d) for d in state['objects'] ]
         self.transparent       = state['config']['transparent']
         self.pen               = Pen.from_dict(state['config']['pen'])
+        self.pen2              = Pen.from_dict(state['config']['pen2'])
 
 
 ## ---------------------------------------------------------------------
