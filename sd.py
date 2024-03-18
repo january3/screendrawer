@@ -748,7 +748,10 @@ class DrawableGroup(Drawable):
             obj.rotate_start(origin)
 
     def rotate(self, angle, set = False):
-        self.rotation += angle
+        if set:
+            self.rotation = angle
+        else:
+            self.rotation += angle
         for obj in self.objects:
             obj.rotate(angle, set)
 
@@ -818,7 +821,15 @@ class DrawableGroup(Drawable):
     def draw(self, cr, hover=False, selected=False, outline=False):
         for obj in self.objects:
             obj.draw(cr, hover=False, selected=selected)
+
         cr.set_source_rgb(0, 0, 0)
+
+        if self.rotation:
+            cr.save()
+            x, y = self.rot_origin[0], self.rot_origin[1]
+            cr.translate(x, y)
+            cr.rotate(self.rotation)
+            cr.translate(-x, -y)
 
         if selected:
             cr.set_source_rgb(1, 0, 0)
@@ -826,7 +837,8 @@ class DrawableGroup(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.5)
 
-
+        if self.rotation:
+            cr.restore()
 
 class Image(Drawable):
     """Class for Images"""
