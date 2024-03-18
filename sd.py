@@ -286,6 +286,7 @@ def move_coords(coords, dx, dy):
         ValueError("No coordinates to move")
     for i in range(len(coords)):
         coords[i] = (coords[i][0] + dx, coords[i][1] + dy)
+    return coords
 
 def path_bbox(coords):
     """Calculate the bounding box of a path."""
@@ -443,11 +444,13 @@ class RotateCommand(MoveResizeCommand):
         bb = obj.bbox()
         self._rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
         obj.rotate_start(self._rotation_centre)
+        self._angle = 0
 
     def event_update(self, x, y):
         angle = calc_rotation_angle(self._rotation_centre, self.start_point, (x, y))
-        self.obj.rotate(angle, set = True)
+        d_a = angle - self._angle
         self._angle = angle
+        self.obj.rotate(d_a, set = False)
 
     def event_finish(self):
         self.obj.rotate_finalize()
@@ -601,7 +604,7 @@ class Drawable:
             self.rotation += angle
 
     def rotate_finalize(self):
-        raise NotImplementedError("draw method not implemented")
+        raise NotImplementedError("rotate_finalize method not implemented")
 
     def resize_start(self, corner, origin):
         self.resizing = {
@@ -957,8 +960,8 @@ class Text(Drawable):
         self.content = content
         self.size    = size
         self.line    = 0
-        self.cursor_pos = None
-        self.bb         = None
+        self.cursor_pos   = None
+        self.bb           = None
         self.font_extents = None
 
     def is_close_to_click(self, click_x, click_y, threshold):
@@ -967,6 +970,19 @@ class Text(Drawable):
         x, y, width, height = self.bb
         if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
             return True
+
+    def move(self, dx, dy):
+        move_coords(self.coords, dx, dy)
+        if self.rotation:
+            self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
+
+    def rotate_finalize(self):
+        if self.bb:
+            center_x, center_y = self.bb[0] + self.bb[2] / 2, self.bb[1] + self.bb[3] / 2
+            new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
+            self.move(new_center[0] - center_x, new_center[1] - center_y)
+        self.rot_origin = new_center
+        pass
 
     def stroke_change(self, direction):
         """Change text size up or down."""
@@ -1144,6 +1160,12 @@ class Text(Drawable):
         bb_y = position[1] - ascent
         bb_w = 0
         bb_h = 0
+
+        if self.rotation:
+            cr.save()
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
         
         for i in range(len(content)):
             fragment = content[i]
@@ -1175,6 +1197,9 @@ class Text(Drawable):
             self.bbox_draw(cr, lw=1.5)
         if hover:
             self.bbox_draw(cr, lw=.5)
+
+        if self.rotation:
+            cr.restore()
 
 class Path(Drawable):
     def __init__(self, coords, color, line_width, outline = None, pressure = None):
