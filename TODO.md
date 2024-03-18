@@ -1,3 +1,6 @@
+ * add a better color picker
+ * add any kind of font picker
+ * add moving and rotating with keyboard
  * implement rotating for: Box, Circle
  * show corners of the bounding box
  * grid

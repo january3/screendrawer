@@ -738,7 +738,6 @@ class Drawable:
         return {
             "type": self.type,
             "coords": self.coords,
-            "color": self.color,
             "pen": self.pen.to_dict()
         }
 
@@ -1790,6 +1789,7 @@ class TransparentWindow(Gtk.Window):
         self.connect("button-release-event", self.on_button_release)
         self.connect("motion-notify-event", self.on_motion_notify)
 
+        self.create_context_menu()
         self.make_cursors()
         self.set_keep_above(True)
         self.maximize()
@@ -1804,6 +1804,38 @@ class TransparentWindow(Gtk.Window):
         else:
             self.clipboard = None
         return True
+
+    def on_menu_item_activated(self, widget, data):
+        print("Menu item activated:", data)
+
+        if data in ["m", "d", "t", "b", "c", "e", "h", "x"]:
+            self.handle_shortcuts(data)
+
+    def create_context_menu(self):
+        self.context_menu = Gtk.Menu()
+        self.context_menu.set_name("myMenu")
+
+        menu_items = [
+                { "label": "Move",   "callback": self.on_menu_item_activated, "data": "m" },
+                { "label": "Pencil", "callback": self.on_menu_item_activated, "data": "d" },
+                { "label": "Text",   "callback": self.on_menu_item_activated, "data": "t" },
+                { "label": "Box",    "callback": self.on_menu_item_activated, "data": "b" },
+                { "label": "Circle", "callback": self.on_menu_item_activated, "data": "c" },
+                { "label": "Eraser", "callback": self.on_menu_item_activated, "data": "e" },
+                { "separator": True },
+                { "label": "Help",   "callback": self.on_menu_item_activated, "data": "h" },
+                { "label": "Quit",   "callback": self.on_menu_item_activated, "data": "x" },
+        ]
+
+        for m in menu_items:
+            if "separator" in m:
+                menu_item = Gtk.SeparatorMenuItem()
+            else:
+                menu_item = Gtk.MenuItem(label=m["label"])
+                menu_item.connect("activate", m["callback"], m["data"])
+            self.context_menu.append(menu_item)
+
+        self.context_menu.show_all()
 
     def exit(self):
         ## close the savefile_f
@@ -1846,6 +1878,10 @@ class TransparentWindow(Gtk.Window):
 
     def on_button_press(self, widget, event):
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
+
+        if event.button == 3:
+            self.context_menu.popup(None, None, None, None, event.button, event.time)
+            return True
 
         modifiers  = Gtk.accelerator_get_default_mod_mask()
         hover_obj  = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
@@ -2359,15 +2395,9 @@ class TransparentWindow(Gtk.Window):
         self.pen, self.pen2 = self.pen2, self.pen
         self.queue_draw()
 
-    def handle_shortcuts(self, keyname, ctrl, shift):
+    def handle_shortcuts(self, keyname):
         """Handle keyboard shortcuts."""
         print(keyname)
-
-        if shift:
-            keyname = "Shift-" + keyname
-
-        if ctrl:
-            keyname = "Ctrl-" + keyname
 
         # these are single keystroke mode modifiers
         modes = { 'd': "draw", 't': "text", 'e': "eraser", 'm': "move", 'c': "circle", 'b': "box", 's': "move", 'space': "move" }
@@ -2440,20 +2470,26 @@ class TransparentWindow(Gtk.Window):
         ctrl    = event.state & Gdk.ModifierType.CONTROL_MASK
         shift   = event.state & Gdk.ModifierType.SHIFT_MASK
 
+        keyfull = keyname
+        if shift:
+            keyfull = "Shift-" + keyname
+        if ctrl:
+            keyfull = "Ctrl-" + keyname
+
         # End text input
         if keyname == "Escape":
             self.finish_text_input()
 
-        # Handle ctrl-keyboard shortcuts 
+        # Handle ctrl-keyboard shortcuts: priority
         elif event.state & ctrl:
-            self.handle_shortcuts(keyname, True, shift)
+            self.handle_shortcuts(keyfull)
        
         # Handle text input
         elif self.current_object and self.current_object.type == "text":
             self.update_text_input(keyname, char)
         else:
         # handle single keystroke shortcuts
-            self.handle_shortcuts(keyname, False, shift)
+            self.handle_shortcuts(keyfull)
 
         return True
 
@@ -2642,6 +2678,20 @@ class TransparentWindow(Gtk.Window):
 
 if __name__ == "__main__":
     win = TransparentWindow()
+    css = b"""
+    #myMenu {
+        background-color: rgba(255, 255, 255, 0.5); /* Semi-transparent white */
+    }
+    """
+
+    style_provider = Gtk.CssProvider()
+    style_provider.load_from_data(css)
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(),
+        style_provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
+
     win.show_all()
     win.present()
     win.change_cursor("default")
