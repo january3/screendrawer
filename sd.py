@@ -1890,10 +1890,10 @@ class TransparentWindow(Gtk.Window):
                 { "label": "Group (g)",            "callback": self.on_menu_item_activated, "data": "g" },
                 { "label": "Ungroup (u)",          "callback": self.on_menu_item_activated, "data": "u" },
                 { "separator": True },
-                { "label": "Color (Ctrl-k)",            "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
-                { "label": "Font (Ctrl-f)",             "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
-                { "label": "Help [F1]",                 "callback": self.on_menu_item_activated, "data": "h" },
-                { "label": "Quit (Ctrl-q)",             "callback": self.on_menu_item_activated, "data": "x" },
+                { "label": "Color (Ctrl-k)",       "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
+                { "label": "Font (Ctrl-f)",        "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
+                { "label": "Help [F1]",            "callback": self.on_menu_item_activated, "data": "h" },
+                { "label": "Quit (Ctrl-q)",        "callback": self.on_menu_item_activated, "data": "x" },
         ]
         self.object_menu = self.build_menu(menu_items)
 
