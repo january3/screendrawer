@@ -16,10 +16,6 @@ Design issues:
    issue.
 
 Bugs:
- * incorrect bb when text is rotated
- * multiple rotations of text in a group cause it to jump slightly around.
-   This is probably due to the fact that the bounding box is not recalculated
-   after rotation.
  * when the bb is smaller than the corner clicking area, bad things happen
  * When grouped, the bounding box of the group is incorrect until next
    recalculation
@@ -32,6 +28,10 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * incorrect bb when text is rotated
+ * multiple rotations of text in a group cause it to jump slightly around.
+   This is probably due to the fact that the bounding box is not recalculated
+   after rotation.
  * after rotating, bounding box is not updated
  * rotating should work like this: the obect can take arbitrary center for
    rotation. This is the center of the bounding box. However, for rotating
