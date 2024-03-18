@@ -445,11 +445,15 @@ class MoveResizeCommand(Command):
 
 class RotateCommand(MoveResizeCommand):
     """Simple class for handling rotate events."""
-    def __init__(self, obj, origin, corner=None):
+    def __init__(self, obj, origin=None, corner=None, angle = None):
         super().__init__("rotate", obj, origin, corner=corner)
         bb = obj.bbox()
         self._rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
         obj.rotate_start(self._rotation_centre)
+
+        if not angle is None:
+            self.obj.rotate(angle, set = False)
+
         self._angle = 0
 
     def event_update(self, x, y):
@@ -2395,14 +2399,32 @@ class TransparentWindow(Gtk.Window):
         self.pen, self.pen2 = self.pen2, self.pen
         self.queue_draw()
 
-    def move_by(self, dx, dy):
-        """Move the selected objects by the given amount."""
-        if not self.selection:
-            return
-        eventObj = MoveCommand(self.selection, (0, 0))
+    def move_obj(self, obj, dx, dy):
+        """Move the object by the given amount."""
+        eventObj = MoveCommand(obj, (0, 0))
         eventObj.event_update(dx, dy)
         self.history.append(eventObj)
         self.queue_draw()
+
+    def move_selection(self, dx, dy):
+        """Move the selected objects by the given amount."""
+        if not self.selection:
+            return
+        self.move_obj(self.selection, dx, dy)
+
+    def rotate_obj(self, obj, angle):
+        """Rotate the object by the given angle (degrees)."""
+        print("rotating by", angle)
+        eventObj = RotateCommand(obj, angle=math.radians(angle))
+        eventObj.event_finish()
+        self.history.append(eventObj)
+        self.queue_draw()
+
+    def rotate_selection(self, angle):
+        """Rotate the selected objects by the given angle (degrees)."""
+        if not self.selection:
+            return
+        self.rotate_obj(self.selection, angle)
 
     def handle_shortcuts(self, keyname):
         """Handle keyboard shortcuts."""
@@ -2426,18 +2448,25 @@ class TransparentWindow(Gtk.Window):
             'f':                    {'action': self.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
             'o':                    {'action': self.outline_toggle, 'modes': ["box", "circle", "draw", "move"]},
 
-            'Up':                   {'action': self.move_by, 'args': [0, -10], 'modes': ["move"]},
-            'Shift-Up':             {'action': self.move_by, 'args': [0, -1], 'modes': ["move"]},
-            'Ctrl-Up':              {'action': self.move_by, 'args': [0, -100], 'modes': ["move"]},
-            'Down':                 {'action': self.move_by, 'args': [0, 10], 'modes': ["move"]},
-            'Shift-Down':           {'action': self.move_by, 'args': [0, 1], 'modes': ["move"]},
-            'Ctrl-Down':            {'action': self.move_by, 'args': [0, 100], 'modes': ["move"]},
-            'Left':                 {'action': self.move_by, 'args': [-10, 0], 'modes': ["move"]},
-            'Shift-Left':           {'action': self.move_by, 'args': [-1, 0], 'modes': ["move"]},
-            'Ctrl-Left':            {'action': self.move_by, 'args': [-100, 0], 'modes': ["move"]},
-            'Right':                {'action': self.move_by, 'args': [10, 0], 'modes': ["move"]},
-            'Shift-Right':          {'action': self.move_by, 'args': [1, 0], 'modes': ["move"]},
-            'Ctrl-Right':           {'action': self.move_by, 'args': [100, 0], 'modes': ["move"]},
+            'Up':                   {'action': self.move_selection, 'args': [0, -10], 'modes': ["move"]},
+            'Shift-Up':             {'action': self.move_selection, 'args': [0, -1], 'modes': ["move"]},
+            'Ctrl-Up':              {'action': self.move_selection, 'args': [0, -100], 'modes': ["move"]},
+            'Down':                 {'action': self.move_selection, 'args': [0, 10], 'modes': ["move"]},
+            'Shift-Down':           {'action': self.move_selection, 'args': [0, 1], 'modes': ["move"]},
+            'Ctrl-Down':            {'action': self.move_selection, 'args': [0, 100], 'modes': ["move"]},
+            'Left':                 {'action': self.move_selection, 'args': [-10, 0], 'modes': ["move"]},
+            'Shift-Left':           {'action': self.move_selection, 'args': [-1, 0], 'modes': ["move"]},
+            'Ctrl-Left':            {'action': self.move_selection, 'args': [-100, 0], 'modes': ["move"]},
+            'Right':                {'action': self.move_selection, 'args': [10, 0], 'modes': ["move"]},
+            'Shift-Right':          {'action': self.move_selection, 'args': [1, 0], 'modes': ["move"]},
+            'Ctrl-Right':           {'action': self.move_selection, 'args': [100, 0], 'modes': ["move"]},
+
+            'Page_Up':                {'action': self.rotate_selection, 'args': [10], 'modes': ["move"]},
+            'Shift-Page_Up':          {'action': self.rotate_selection, 'args': [1], 'modes': ["move"]},
+            'Ctrl-Page_Up':           {'action': self.rotate_selection, 'args': [90], 'modes': ["move"]},
+            'Page_Down':              {'action': self.rotate_selection, 'args': [-10], 'modes': ["move"]},
+            'Shift-Page_Down':        {'action': self.rotate_selection, 'args': [-1], 'modes': ["move"]},
+            'Ctrl-Page_Down':         {'action': self.rotate_selection, 'args': [-90], 'modes': ["move"]},
 
 
             'Shift-W':              {'action': self.set_color, 'args': [COLORS["white"]]},
