@@ -21,6 +21,8 @@ who wrote it, it suits my needs perfectly.
  * Move, group, resize, erase objects
  * Change drawing modes
 
+![Jaculus orientalis](jaculus_orientalis.svg)
+
 # Installation
 
 ## Dependencies

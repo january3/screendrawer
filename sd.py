@@ -2852,7 +2852,7 @@ if __name__ == "__main__":
     win.show_all()
     win.present()
     win.change_cursor("default")
-    #win.stick()
+    win.stick()
 
     Gtk.main()
 

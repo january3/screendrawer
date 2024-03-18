@@ -1,5 +1,5 @@
+ * add laserpointer mode?
  * add a better color picker
- * add any kind of font picker
  * add a line mode and Line object class
  * implement rotating for: Box, Circle
  * show corners of the bounding box
@@ -29,6 +29,7 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * add any kind of font picker
  * add rotating with keyboard
  * add moving with keyboard
  * paths do not report correct bounding box initially.
