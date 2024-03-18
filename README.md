@@ -21,6 +21,10 @@ who wrote it, it suits my needs perfectly.
  * Move, group, resize, erase objects
  * Change drawing modes
 
+Here is the 
+[Greater Egyptian jerboa](https://en.wikipedia.org/wiki/Greater_Egyptian_jerboa), _Jaculus orientalis_, drawn with
+screendrawer (from a photograph, not from life):
+
 ![Jaculus orientalis](jaculus_orientalis.svg)
 
 # Installation
