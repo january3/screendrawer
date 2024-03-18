@@ -1679,7 +1679,7 @@ class TransparentWindow(Gtk.Window):
         """Draw the objects in the given context. Used also by export functions."""
 
         for obj in self.objects:
-            hover    = obj == self.hover
+            hover    = obj == self.hover and self.mode == "move"
             selected = self.selection and self.selection.contains(obj) and self.mode == "move"
             obj.draw(cr, hover=hover, selected=selected, outline = self.outline)
 
@@ -1903,6 +1903,7 @@ class TransparentWindow(Gtk.Window):
 
             if corner_obj[0] and corner_obj[0].bbox():
                 self.change_cursor(corner_obj[1])
+                self.hover = corner_obj[0]
                 self.queue_draw()
 
             if prev_hover != self.hover:
