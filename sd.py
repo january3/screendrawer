@@ -529,7 +529,7 @@ class ResizeCommand(MoveResizeCommand):
         if self._prop:
             dx = dy = min(dx, dy)
 
-        bb = self.obj.bbox()
+        bb = self._orig_bb
 
         corner = self.corner
 
@@ -547,7 +547,7 @@ class ResizeCommand(MoveResizeCommand):
 
         self._newbb = newbb
         self.obj.resize_update(newbb)
-        self.origin_set((x, y))
+        #self.origin_set((x, y))
 
 ## ---------------------------------------------------------------------
 class Wiglet:
@@ -744,6 +744,8 @@ class Drawable:
 
     def move(self, dx, dy):
         move_coords(self.coords, dx, dy)
+        if self.rotation:
+            self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
 
     def bbox(self):
         if self.resizing:
@@ -929,7 +931,7 @@ class DrawableGroup(Drawable):
 
 class Image(Drawable):
     """Class for Images"""
-    def __init__(self, coords, pen, image, image_base64 = None, transform = None):
+    def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
 
         if image_base64:
             self.image_base64 = image_base64
@@ -943,9 +945,33 @@ class Image(Drawable):
         coords = [ (coords[0][0], coords[0][1]), (coords[0][0] + width, coords[0][1] + height) ]
         super().__init__("image", coords, pen)
         self.image = image
+        self._orig_bbox = None
+
+        if rotation:
+            self.rotation = rotation
+            self.rotate_start((coords[0][0] + width / 2, coords[0][1] + height / 2))
+
+    def _bbox_internal(self):
+        x, y = self.coords[0]
+        w, h = self.coords[1]
+        return (x, y, w - x, h - y)
+
+    def rotate_finalize(self):
+        bb = self._bbox_internal()
+        center_x, center_y = bb[0] + bb[2] / 2, bb[1] + bb[3] / 2
+        new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
+        self.move(new_center[0] - center_x, new_center[1] - center_y)
+        self.rot_origin = new_center
+        pass
 
     def draw(self, cr, hover=False, selected=False, outline=False):
         cr.save()
+
+        if self.rotation:
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
         cr.translate(self.coords[0][0], self.coords[0][1])
 
         if self.transform:
@@ -957,35 +983,56 @@ class Image(Drawable):
 
         cr.restore()
 
-        cr.set_source_rgb(*self.color)
+        cr.set_source_rgb(*self.pen.color)
         if selected:
             self.bbox_draw(cr, lw=1.5)
         if hover:
             self.bbox_draw(cr, lw=.5)
 
-    def coords_from_scale(self):
-        x0, y0 = self.coords[0]
-        w0, h0 = self.image_size
-        w1, h1 = w0 * self.transform[0], h0 * self.transform[1]
-        self.coords = [(x0, y0), (x0 + w1, y0 + h1)]
+    def bbox(self):
+        bb = self._bbox_internal()
+        if self.rotation:
+            # first, calculate position bb after rotation relative to the
+            # text origin
+            x, y, w, h = bb
+            x1, y1 = x + w, y + h
+            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)], self.rotation, self.rot_origin)
+            bb = path_bbox(bb)
+
+        return bb
+
+    def resize_start(self, corner, origin):
+        self._orig_bbox = self.bbox()
+        self.resizing = {
+            "corner": corner,
+            "origin": origin,
+            "bbox":   self.bbox(),
+            "transform": self.transform
+            }
 
     def resize_update(self, bbox):
         self.resizing["bbox"] = bbox
         old_bbox = self.bbox()
         coords = self.coords
 
-        x0, y0 = coords[0][0], coords[0][1]
-        w0, h0 = self.image_size[0], self.image_size[1]
         x1, y1, w1, h1 = bbox
 
-        w_scale = w1 / w0
-        h_scale = h1 / h0
+        # calculate scale relative to the old bbox
+        print("old bbox is", self._orig_bbox)
+        print("new bbox is", bbox)
+
+        w_scale = w1 / self._orig_bbox[2]
+        h_scale = h1 / self._orig_bbox[3]
+
+        print("resizing image", w_scale, h_scale)
+        print("old transform is", self.resizing["transform"])
 
         self.coords[0] = (x1, y1)
         self.coords[1] = (x1 + w1, y1 + h1)
-        self.transform = (w_scale, h_scale)
+        self.transform = (w_scale * self.resizing["transform"][0], h_scale * self.resizing["transform"][1])
 
     def resize_end(self):
+        self.coords[1] = (self.coords[0][0] + self.image_size[0] * self.transform[0], self.coords[0][1] + self.image_size[1] * self.transform[1])
         self.resizing = None
 
     def is_close_to_click(self, click_x, click_y, threshold):
@@ -1029,6 +1076,7 @@ class Image(Drawable):
             "coords": self.coords,
             "pen": self.pen.to_dict(),
             "image": None,
+            "rotation": self.rotation,
             "transform": self.transform,
             "image_base64": self.base64(),
         }
@@ -1608,8 +1656,7 @@ class Box(Drawable):
         w, h = (abs(x1 - x2), abs(y1 - y2))
         x0, y0 = (min(x1, x2), min(y1, y2))
 
-        if self.fill_color:
-            print("filling with color", self.pen.fill_color)
+        if self.pen.fill_color:
             cr.set_source_rgb(*self.pen.fill_color)
             cr.rectangle(x0, y0, w, h)
             cr.fill()
@@ -1900,7 +1947,7 @@ class TransparentWindow(Gtk.Window):
                     self.selection = None
                     self.dragobj   = None
                     print("starting selection")
-                    self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], (1, 0, 0), 0.3)
+                    self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], Pen(line_width = 0.2, color = (1, 0, 0)))
                     self.objects.append(self.current_object)
                     self.selection_tool = self.current_object
                     self.queue_draw()
@@ -2563,7 +2610,7 @@ class TransparentWindow(Gtk.Window):
 
         if pixbuf is not None:
             pos = self.cursor_pos or (100, 100)
-            self.current_object = Image([ pos ], self.color, self.line_width, pixbuf)
+            self.current_object = Image([ pos ], self.pen, pixbuf)
             self.history.append(AddCommand(self.current_object, self.objects))
             self.queue_draw()
         

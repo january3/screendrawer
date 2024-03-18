@@ -1,7 +1,5 @@
  * implement rotating for: Image, Box, Circle
- * set transparency with a tool similar to setting line width
  * eraser should allow a selection like with selection tool
- * create a pen class which allows to switch between different pens
  * show corners of the bounding box
  * grid
  * inverse selection
@@ -29,6 +27,8 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * create a pen class which allows to switch between different pens
+ * set transparency with a tool similar to setting line width
  * incorrect bb when text is rotated
  * multiple rotations of text in a group cause it to jump slightly around.
    This is probably due to the fact that the bounding box is not recalculated
