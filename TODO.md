@@ -1,6 +1,3 @@
- * rotating should work like this: the obect can take arbitrary center for
-   rotation. This is the center of the bounding box. However, for rotating
-   a group this will be a different point.
  * set transparency with a tool similar to setting line width
  * eraser should allow a selection like with selection tool
  * create a pen class which allows to switch between different pens
@@ -19,7 +16,10 @@ Design issues:
    issue.
 
 Bugs:
- * after rotating, bounding box is not updated
+ * incorrect bb when text is rotated
+ * multiple rotations of text in a group cause it to jump slightly around.
+   This is probably due to the fact that the bounding box is not recalculated
+   after rotation.
  * when the bb is smaller than the corner clicking area, bad things happen
  * When grouped, the bounding box of the group is incorrect until next
    recalculation
@@ -32,6 +32,10 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * after rotating, bounding box is not updated
+ * rotating should work like this: the obect can take arbitrary center for
+   rotation. This is the center of the bounding box. However, for rotating
+   a group this will be a different point.
  * when you make a path small, it loses points. Resizing should not modify
    the original coordinates vector, but rather only the outline.
  * undo

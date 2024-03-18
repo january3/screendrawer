@@ -1058,8 +1058,18 @@ class Text(Drawable):
         if self.resizing:
             return self.resizing["bbox"]
         if not self.bb:
-            return (self.coords[0][0], self.coords[0][1], 50, 50)
-        return self.bb
+            bb = (self.coords[0][0], self.coords[0][1], 50, 50)
+        else:
+            bb = self.bb
+        if self.rotation:
+            # first, calculate position bb after rotation relative to the
+            # text origin
+            x, y, w, h = bb
+            x1, y1 = x + w, y + h
+            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)], self.rotation, self.rot_origin)
+            bb = path_bbox(bb)
+
+        return bb
 
     def as_string(self):
         return "\n".join(self.content)
@@ -1193,13 +1203,13 @@ class Text(Drawable):
 
         self.bb = (bb_x, bb_y, bb_w, bb_h)
 
+        if self.rotation:
+            cr.restore()
         if selected: 
             self.bbox_draw(cr, lw=1.5)
         if hover:
             self.bbox_draw(cr, lw=.5)
 
-        if self.rotation:
-            cr.restore()
 
 class Path(Drawable):
     def __init__(self, coords, color, line_width, outline = None, pressure = None):
