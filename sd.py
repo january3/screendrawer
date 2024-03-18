@@ -546,14 +546,18 @@ class ResizeCommand(MoveResizeCommand):
 ## ---------------------------------------------------------------------
 class Pen:
     """Store current line width, color and text size."""
-    def __init__(self, color, line_width, text_size, fill_color = None):
-        self.color     = color
-        self.line_width = line_width
-        self.text_size = text_size
-        self.fill_color = fill_color
+    def __init__(self, color, line_width, font_size = 12, transparency = 1, fill_color = None):
+        self.color        = color
+        self.line_width   = line_width
+        self.font_size    = font_size
+        self.fill_color   = fill_color
+        self.transparency = transparency
 
     def color_set(self, color):
         self.color = color
+
+    def transparency_set(self, transparency):
+        self.transparency = transparency
     
     def fill_set(self, color):
         self.fill_color = color
@@ -569,12 +573,17 @@ class Pen:
         return {
             "color": self.color,
             "line_width": self.line_width,
-            "text_size": self.text_size
+            "transparency": self.transparency,
+            "fill_color": self.fill_color,
+            "font_size": self.font_size
         }
+
+    def copy(self):
+        return Pen(self.color, self.line_width, self.font_size, self.transparency, self.fill_color)
 
     @classmethod
     def from_dict(cls, d):
-        return cls(d["color"], d["line_width"], d["text_size"])
+        return cls(d["color"], d["line_width"], d["font_size"], d["transparency"], d["fill_color"])
 
 ## ---------------------------------------------------------------------
 ## These are the objects that can be displayed. It includes groups, but
@@ -582,16 +591,20 @@ class Pen:
 
 class Drawable:
     """Base class for drawable objects."""
-    def __init__(self, type, coords, color, line_width, fill_color = None):
+    def __init__(self, type, coords, pen):
         self.type       = type
         self.coords     = coords
-        self.color      = color
-        self.line_width = line_width
         self.origin     = None
         self.resizing   = None
-        self.fill_color = fill_color
         self.rotation   = 0
         self.rot_origin = None
+        if pen:
+            self.pen    = pen.copy()
+        else:
+            self.pen    = None
+
+    def pen_set(self, pen):
+        self.pen = pen.copy()
 
     def rotate_start(self, origin):
         self.rot_origin = origin
@@ -614,26 +627,22 @@ class Drawable:
             }
 
     def stroke_change(self, direction):
-        if self.line_width > 2:
-            self.line_width += direction
-        else:
-            self.line_width += direction / 10
-        self.line_width = max(0.1, self.line_width)
+        self.pen.stroke_change(direction)
 
     def smoothen(self, threshold=20):
         print("smoothening not implemented")
 
     def unfill(self):
-        self.fill_color = None
+        self.pen.fill_set(None)
 
     def fill(self, color = None):
-        self.fill_color = color
+        self.pen.fill_set(color)
 
     def resize_update(self, bbox):
         self.resizing["bbox"] = bbox
 
     def color_set(self, color):
-        self.color = color
+        self.pen.color_set(color)
 
     def resize_end(self):
         self.resizing = None
@@ -657,8 +666,7 @@ class Drawable:
             "type": self.type,
             "coords": self.coords,
             "color": self.color,
-            "fill_color": self.fill_color,
-            "line_width": self.line_width
+            "pen": self.pen.to_dict()
         }
 
     def move(self, dx, dy):
@@ -697,6 +705,9 @@ class Drawable:
         if type not in type_map:
             raise ValueError("Invalid type:", type)
 
+        if "pen" in d:
+            d["pen"] = Pen.from_dict(d["pen"])
+
         return type_map.get(type)(**d)
 
 
@@ -708,7 +719,7 @@ class DrawableGroup(Drawable):
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
 
         print("Creating DrawableGroup with objects", objects)
-        super().__init__("drawable_group", [ (None, None) ], None, None)
+        super().__init__("drawable_group", [ (None, None) ], None)
         self.objects = objects
         self.type = "group"
 
@@ -845,7 +856,7 @@ class DrawableGroup(Drawable):
 
 class Image(Drawable):
     """Class for Images"""
-    def __init__(self, coords, color, line_width, image, image_base64 = None, transform = None):
+    def __init__(self, coords, pen, image, image_base64 = None, transform = None):
 
         if image_base64:
             self.image_base64 = image_base64
@@ -857,7 +868,7 @@ class Image(Drawable):
         self.transform = transform or (1, 1)
         width, height = self.image_size[0] * self.transform[0], self.image_size[1] * self.transform[1]
         coords = [ (coords[0][0], coords[0][1]), (coords[0][0] + width, coords[0][1] + height) ]
-        super().__init__("image", coords, color, line_width)
+        super().__init__("image", coords, pen)
         self.image = image
 
     def draw(self, cr, hover=False, selected=False, outline=False):
@@ -943,22 +954,20 @@ class Image(Drawable):
         return {
             "type": self.type,
             "coords": self.coords,
-            "color": self.color,
+            "pen": self.pen.to_dict(),
             "image": None,
             "transform": self.transform,
             "image_base64": self.base64(),
-            "line_width": self.line_width
         }
 
 
 class Text(Drawable):
-    def __init__(self, coords, color, line_width, content, size):
-        super().__init__("text", coords, color, line_width)
+    def __init__(self, coords, pen, content):
+        super().__init__("text", coords, pen)
 
         # split content by newline
         content = content.split("\n")
         self.content = content
-        self.size    = size
         self.line    = 0
         self.cursor_pos   = None
         self.bb           = None
@@ -986,8 +995,8 @@ class Text(Drawable):
 
     def stroke_change(self, direction):
         """Change text size up or down."""
-        self.size += direction
-        self.size = max(8, min(128, self.size))
+        self.pen.font_size += direction
+        self.pen.font_size = max(8, min(128, self.pen.font_size))
  
     def resize_update(self, bbox):
         print("resizing text", bbox)
@@ -999,8 +1008,8 @@ class Text(Drawable):
         self.resizing["bbox"] = bbox
 
     def resize_end(self):
-        new_bbox = self.resizing["bbox"]
-        old_bbox = self.bb
+        new_bbox   = self.resizing["bbox"]
+        old_bbox   = self.bb
         old_coords = self.coords
 
         if not self.font_extents:
@@ -1021,12 +1030,12 @@ class Text(Drawable):
         self.coords = [ (0, 0), (old_bbox[2], old_bbox[3]) ]
         # loop while font size not larger than max_fs and not smaller than
         # min_fs
-        print("resizing text, dir=", dir, "font size is", self.size)
+        print("resizing text, dir=", dir, "font size is", self.pen.font_size)
         while True:
-            self.size += dir
-            print("trying font size", self.size)
+            self.pen.font_size += dir
+            print("trying font size", self.pen.font_size)
             self.draw(cr, False, False)
-            if (self.size < min_fs and dir < 0) or (self.size > max_fs and dir > 0):
+            if (self.pen.font_size < min_fs and dir < 0) or (self.pen.font_size > max_fs and dir > 0):
                 print("font size out of range")
                 break
             current_bbox = self.bb
@@ -1048,10 +1057,8 @@ class Text(Drawable):
         return {
             "type": self.type,
             "coords": self.coords,
-            "color": self.color,
-            "line_width": self.line_width,
-            "content": self.as_string(),
-            "size": self.size
+            "pen": self.pen.to_dict(),
+            "content": self.as_string()
         }
 
     def bbox(self):
@@ -1153,7 +1160,7 @@ class Text(Drawable):
         cr.stroke()
 
     def draw(self, cr, hover=False, selected=False, outline=False):
-        position, content, size, color, cursor_pos = self.coords[0], self.content, self.size, self.color, self.cursor_pos
+        position, content, size, color, cursor_pos = self.coords[0], self.content, self.pen.font_size, self.pen.color, self.cursor_pos
         
         # get font info
         cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
@@ -1212,8 +1219,8 @@ class Text(Drawable):
 
 
 class Path(Drawable):
-    def __init__(self, coords, color, line_width, outline = None, pressure = None):
-        super().__init__("path", coords, color, line_width)
+    def __init__(self, coords, pen, outline = None, pressure = None):
+        super().__init__("path", coords, pen = pen)
         self.outline   = outline  or []
         self.pressure  = pressure or []
         self.outline_l = []
@@ -1243,17 +1250,8 @@ class Path(Drawable):
             "coords": self.coords,
             "outline": self.outline,
             "pressure": self.pressure,
-            "color": self.color,
-            "line_width": self.line_width
+            "pen": self.pen.to_dict()
         }
-
-    def stroke_change(self, direction):
-        if self.line_width > 2:
-            self.line_width += direction
-        else:
-            self.line_width += direction / 10
-        self.line_width = max(0.1, self.line_width)
-        self.outline_recalculate_new()
 
     def smoothen(self, threshold=20):
         if len(self.coords) < 3:
@@ -1267,6 +1265,8 @@ class Path(Drawable):
             coords = self.coords
         if not pressure:
             pressure = self.pressure
+
+        lwd = self.pen.line_width
 
         if len(coords) < 3:
             return
@@ -1287,7 +1287,7 @@ class Path(Drawable):
             nx, ny = normal_vec(p0, p1)
             mx, my = normal_vec(p1, p2)
 
-            width  = self.line_width * pressure[i] / 2
+            width  = lwd * pressure[i] / 2
             #width  = self.line_width / 2
 
             left_segment1_start = (p0[0] + nx * width, p0[1] + ny * width)
@@ -1330,7 +1330,7 @@ class Path(Drawable):
            polygon around the path. Only used when path is created to 
            allow for a good preview. Later, the path is smoothed and recalculated."""
         coords = self.coords
-        width  = self.line_width * pressure
+        width  = self.pen.line_width * pressure
 
         if len(coords) == 0:
             self.pressure.append(pressure)
@@ -1390,8 +1390,8 @@ class Path(Drawable):
         else:
             coords = self.coords
 
-        cr.set_source_rgb(*self.color)
-        #cr.set_line_width(0.5)
+        cr.set_source_rgb(*self.pen.color)
+
         for i in range(len(coords) - 1):
             cr.move_to(coords[i][0], coords[i][1])
             cr.line_to(coords[i + 1][0], coords[i + 1][1])
@@ -1415,7 +1415,7 @@ class Path(Drawable):
         else:
             coords = self.coords
 
-        cr.set_source_rgb(*self.color)
+        cr.set_source_rgb(*self.pen.color)
         cr.set_line_width(0.5)
         cr.move_to(coords[0][0], coords[0][1])
         for point in coords[1:]:
@@ -1442,7 +1442,7 @@ class Path(Drawable):
             return
        ##return
         
-        cr.set_source_rgb(*self.color)
+        cr.set_source_rgb(*self.pen.color)
         cr.set_fill_rule(cairo.FillRule.WINDING)
         if outline:
             cr.set_line_width(0.5)
@@ -1472,8 +1472,8 @@ class Path(Drawable):
 
 class Circle(Drawable):
     """Class for creating circles."""
-    def __init__(self, coords, color, line_width, fill_color = None):
-        super().__init__("circle", coords, color, line_width, fill_color)
+    def __init__(self, coords, pen):
+        super().__init__("circle", coords, pen)
 
     def resize_end(self):
         bbox = self.bbox()
@@ -1486,10 +1486,11 @@ class Circle(Drawable):
 
     def draw(self, cr, hover=False, selected=False, outline=False):
         if hover:
-            cr.set_line_width(self.line_width + 1)
+            cr.set_line_width(self.pen.line_width + 1)
         else:
-            cr.set_line_width(self.line_width)
-        cr.set_source_rgb(*self.color)
+            cr.set_line_width(self.pen.line_width)
+
+        cr.set_source_rgb(*self.pen.color)
         x1, y1 = self.coords[0]
         x2, y2 = self.coords[1]
         w, h = (abs(x1 - x2), abs(y1 - y2))
@@ -1499,16 +1500,17 @@ class Circle(Drawable):
         cr.translate(x0 + w / 2, y0 + h / 2)
         cr.scale(w / 2, h / 2)
         cr.arc(0, 0, 1, 0, 2 * 3.14159)
-        if self.fill_color:
-            cr.set_source_rgb(*self.fill_color)
+
+        if self.pen.fill_color:
+            cr.set_source_rgb(*self.pen.fill_color)
             cr.fill_preserve()
         cr.restore()
         cr.stroke()
 
 class Box(Drawable):
     """Class for creating a box."""
-    def __init__(self, coords, color, line_width, fill_color = None):
-        super().__init__("box", coords, color, line_width, fill_color)
+    def __init__(self, coords, pen):
+        super().__init__("box", coords, pen)
 
     def resize_end(self):
         bbox = self.bbox()
@@ -1520,12 +1522,12 @@ class Box(Drawable):
         self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
 
     def draw(self, cr, hover=False, selected=False, outline=False):
-        cr.set_source_rgb(*self.color)
+        cr.set_source_rgb(*self.pen.color)
 
         if hover:
-            cr.set_line_width(self.line_width + 1)
+            cr.set_line_width(self.pen.line_width + 1)
         else:
-            cr.set_line_width(self.line_width)
+            cr.set_line_width(self.pen.line_width)
 
         x1, y1 = self.coords[0]
         x2, y2 = self.coords[1]
@@ -1533,13 +1535,13 @@ class Box(Drawable):
         x0, y0 = (min(x1, x2), min(y1, y2))
 
         if self.fill_color:
-            print("filling with color", self.fill_color)
-            cr.set_source_rgb(*self.fill_color)
+            print("filling with color", self.pen.fill_color)
+            cr.set_source_rgb(*self.pen.fill_color)
             cr.rectangle(x0, y0, w, h)
             cr.fill()
             cr.stroke()
 
-        cr.set_source_rgb(*self.color)
+        cr.set_source_rgb(*self.pen.color)
         cr.rectangle(x0, y0, w, h)
         cr.stroke()
 
@@ -1663,11 +1665,9 @@ class TransparentWindow(Gtk.Window):
         self.gtk_clipboard       = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 
         # defaults for drawing
+        self.pen = Pen(line_width = 4, color = (0.2, 0, 0), font_size = 24, transparency = .5)
         self.transparent = 0
-        self.outline    = False
-        self.font_size  = 24
-        self.line_width = 4
-        self.color      = (0.2, 0, 0)
+        self.outline     = False
 
         # distance for selecting objects
         self.max_dist   = 15
@@ -1699,7 +1699,6 @@ class TransparentWindow(Gtk.Window):
         print("Exiting")
         self.save_state()
         Gtk.main_quit()
-        
 
     def on_draw(self, widget, cr):
         """Handle draw events."""
@@ -1720,9 +1719,9 @@ class TransparentWindow(Gtk.Window):
 
         # If changing line width, draw a preview of the new line width
         if self.changing_line_width:
-            cr.set_line_width(self.line_width)
-            cr.set_source_rgb(*self.color)
-            self.draw_dot(cr, *self.cur_pos, self.line_width)
+            cr.set_line_width(self.pen.line_width)
+            cr.set_source_rgb(*self.pen.color)
+            self.draw_dot(cr, *self.cur_pos, self.pen.line_width)
 
     def clear(self):
         """Clear the drawing."""
@@ -1762,7 +1761,7 @@ class TransparentWindow(Gtk.Window):
         # Start changing line width: single click with ctrl pressed
         if ctrl and event.button == 1 and self.mode == "draw": 
             self.cur_pos = (event.x, event.y)
-            self.changing_line_width = self.line_width
+            self.changing_line_width = self.pen.line_width
             return True
 
         # double click on a text object: start editing
@@ -1779,24 +1778,24 @@ class TransparentWindow(Gtk.Window):
             if self.mode == "text" or (self.mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
                 print("new text")
                 self.change_cursor("none")
-                self.current_object = Text([ (event.x, event.y) ], self.color, self.line_width, content="", size = self.font_size)
+                self.current_object = Text([ (event.x, event.y) ], pen = self.pen, content = "")
                 self.current_object.move_cursor("Home")
                 self.history.append(AddCommand(self.current_object, self.objects))
                 #self.objects.append(self.current_object)
 
             elif self.mode == "draw":
                 print("starting path")
-                self.current_object = Path([ (event.x, event.y) ], self.color, self.line_width, pressure = [ pressure ])
+                self.current_object = Path([ (event.x, event.y) ], pen = self.pen, pressure = [ pressure ])
                 self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "box":
                 print("drawing box / circle")
-                self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
+                self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], pen = self.pen)
                 self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "circle":
                 print("drawing circle")
-                self.current_object = Circle([ (event.x, event.y), (event.x + 1, event.y + 1) ], self.color, self.line_width)
+                self.current_object = Circle([ (event.x, event.y), (event.x + 1, event.y + 1) ], pen = self.pen)
                 self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "move":
@@ -1906,7 +1905,7 @@ class TransparentWindow(Gtk.Window):
         if self.changing_line_width:
             dx = event.x - self.cur_pos[0]
             print("changing line width", dx)
-            self.line_width = max(1, min(60, self.changing_line_width + (event.x - self.cur_pos[0])/20))
+            self.pen.line_width = max(1, min(60, self.changing_line_width + (event.x - self.cur_pos[0])/20))
             self.queue_draw()
             return True
 
@@ -1992,7 +1991,7 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
         else:
             pos = self.cursor_pos or (100, 100)
-            new_text = Text([ pos ], self.color, self.line_width, content=clip_text, size = self.font_size)
+            new_text = Text([ pos ], pen = self.pen, content=clip_text)
             new_text.move_cursor("End")
             self.objects.append(new_text)
             self.queue_draw()
@@ -2000,7 +1999,7 @@ class TransparentWindow(Gtk.Window):
     def paste_image(self, clip_img):
         """Create an image object from clipboard image."""
         pos = self.cursor_pos or (100, 100)
-        self.current_object = Image([ pos ], self.color, self.line_width, clip_img)
+        self.current_object = Image([ pos ], pen, clip_img)
         self.history.append(AddCommand(self.current_object, self.objects))
         self.queue_draw()
 
@@ -2110,9 +2109,9 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
 
         if self.mode == "draw":
-            self.line_width = max(1, self.line_width + direction)
+            self.pen.line_width = max(1, self.pen.line_width + direction)
         elif self.mode == "text":
-            self.font_size = max(1, self.font_size + direction)
+            self.pen.font_size = max(1, self.pen.font_size + direction)
 
     def selection_group(self):
         """Group selected objects."""
@@ -2209,10 +2208,10 @@ class TransparentWindow(Gtk.Window):
         self.queue_draw()
 
     def set_color(self, color):
-        self.color = color
+        self.pen.color_set(color)
         if self.selection:
             for obj in self.selection.objects:
-                obj.color_set(self.color)
+                obj.color_set(self.pen.color)
         self.queue_draw()
 
     def smoothen(self):
@@ -2495,9 +2494,7 @@ class TransparentWindow(Gtk.Window):
         """Save the current drawing state to a file."""
         config = {
                 'transparent': self.transparent,
-                'font_size': self.font_size,
-                'line_width': self.line_width,
-                'color': self.color
+                'pen': self.pen.to_dict(),
         }
 
         objects = [ obj.to_dict() for obj in self.objects ]
@@ -2518,9 +2515,7 @@ class TransparentWindow(Gtk.Window):
             #state = yaml.load(f, Loader=yaml.FullLoader)
         self.objects           = [ Drawable.from_dict(d) for d in state['objects'] ]
         self.transparent       = state['config']['transparent']
-        self.font_size         = state['config']['font_size']
-        self.line_width        = state['config']['line_width']
-        self.color             = state['config']['color']
+        self.pen               = Pen.from_dict(state['config']['pen'])
 
 
 ## ---------------------------------------------------------------------
