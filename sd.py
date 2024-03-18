@@ -889,7 +889,7 @@ class DrawableGroup(Drawable):
             return self.resizing["bbox"]
         if not self.objects:
             return None
-        print("calculating bbox for group with", len(self.objects), "objects")
+
         left, top, width, height = self.objects[0].bbox()
         bottom, right = top + height, left + width
 
@@ -1506,31 +1506,19 @@ class Path(Drawable):
         self.resizing  = None
         self.bb = path_bbox(self.coords)
 
-    def draw_outline(self, cr, hover=False, selected=False, bbox=None):
+    def draw_outline(self, cr):
         """draws each segment separately and makes a dot at each coord."""
-        if len(self.coords) < 2:
-            return
-
-        if bbox:
-            old_bbox = path_bbox(self.coords)
-            coords = transform_coords(self.coords, old_bbox, bbox)
-        else:
-            coords = self.coords
-
-        cr.set_source_rgb(*self.pen.color)
 
         for i in range(len(coords) - 1):
             cr.move_to(coords[i][0], coords[i][1])
             cr.line_to(coords[i + 1][0], coords[i + 1][1])
             cr.stroke()
             # make a dot at each coord
-            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle
-
-        if selected:
-            self.bbox_draw(cr, lw=1.5)
+            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+            cr.fill()
 
 
-    def draw_simple(self, cr, hover=False, selected=False, bbox=None):
+    def draw_simple(self, cr, bbox=None):
         """draws the path as a single line. Useful for resizing."""
 
         if len(self.coords) < 2:
@@ -1549,8 +1537,15 @@ class Path(Drawable):
             cr.line_to(point[0], point[1])
         cr.stroke()
 
-        if selected:
-            self.bbox_draw(cr, lw=1.5)
+
+    def draw_standard(self, cr):
+        cr.set_fill_rule(cairo.FillRule.WINDING)
+
+        cr.move_to(self.outline[0][0], self.outline[0][1])
+        for point in self.outline[1:]:
+            cr.line_to(point[0], point[1])
+        cr.close_path()
+
 
     def draw(self, cr, hover=False, selected=False, outline = False):
         if len(self.outline) < 4 or len(self.coords) < 3:
@@ -1563,28 +1558,17 @@ class Path(Drawable):
             cr.rotate(self.rotation)
             cr.translate(-self.rot_origin[0], -self.rot_origin[1])
 
-        dd = 1 if hover else 0
-        if self.resizing:
-            self.draw_simple(cr, hover=hover, selected=selected, bbox=self.resizing["bbox"])
-            return
-       ##return
-        
         cr.set_source_rgba(*self.pen.color, self.pen.transparency)
-        cr.set_fill_rule(cairo.FillRule.WINDING)
-        if outline:
-            cr.set_line_width(0.5)
-        #cr.set_source_rgba(*self.color, .75)
-
-        cr.move_to(self.outline[0][0] + dd, self.outline[0][1] + dd)
-        for point in self.outline[1:]:
-            cr.line_to(point[0] + dd, point[1] + dd)
-        cr.close_path()
-
-        if outline:
-            cr.stroke()
-            self.draw_outline(cr, hover=hover, selected=selected, bbox=None)
+        if self.resizing:
+            self.draw_simple(cr, bbox=self.resizing["bbox"])
         else:
-            cr.fill()   
+            self.draw_standard(cr)
+            if outline:
+                cr.stroke()
+                self.draw_outline(cr)
+            else:
+                cr.fill()   
+
 
         if selected:
             cr.set_source_rgba(1, 0, 0)
@@ -1936,6 +1920,7 @@ class TransparentWindow(Gtk.Window):
                         self.resizeobj = ResizeCommand(obj, origin = (event.x, event.y), corner = corner, proportional = ctrl)
                     else:
                         self.resizeobj = RotateCommand(obj, origin = (event.x, event.y), corner = corner)
+                    self.selection = DrawableGroup([ obj ])
                     self.history.append(self.resizeobj)
                     self.change_cursor(corner)
                 elif hover_obj:
