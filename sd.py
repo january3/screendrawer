@@ -350,6 +350,12 @@ def img_object_copy(obj):
     pixbuf = Gdk.pixbuf_get_from_surface(surface, 0, 0, width, height)
     return pixbuf
 
+def draw_dot(cr, x, y, diameter):
+    """Draws a dot at the specified position with the given diameter."""
+    cr.arc(x, y, diameter / 2, 0, 2 * 3.14159)  # Draw a circle
+    cr.fill()  # Fill the circle to make a dot
+
+
 ## ---------------------------------------------------------------------
 ## These are the commands that can be executed on the objects. They should
 ## be undoable and redoable. It is their responsibility to update the
@@ -542,6 +548,73 @@ class ResizeCommand(MoveResizeCommand):
         self._newbb = newbb
         self.obj.resize_update(newbb)
         self.origin_set((x, y))
+
+## ---------------------------------------------------------------------
+class Wiglet:
+    """drawable dialog-like objects on the canvas"""
+    def __init__(self, type, coords):
+        self.type   = type
+        self.coords = coords
+
+    def draw(self, cr):
+        raise NotImplementedError("draw method not implemented")
+
+    def event_update(self, x, y):
+        raise NotImplementedError("event_update method not implemented")
+
+    def event_finish(self):
+        raise NotImplementedError("event_finish method not implemented")
+
+class WigletTransparency(Wiglet):
+    """Wiglet for changing the transparency."""
+    def __init__(self, coords, pen):
+        super().__init__("transparency", coords)
+
+        if not pen or not isinstance(pen, Pen):
+            raise ValueError("Pen is not defined or not of class Pen")
+        self.pen      = pen
+        self._last_pt = coords[0]
+        self._initial_transparency = pen.transparency
+        print("initial transparency:", self._initial_transparency)
+
+    def draw(self, cr):
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+        draw_dot(cr, *self.coords, 50)
+
+    def event_update(self, x, y):
+        dx = x - self.coords[0]
+        print("changing transparency", dx)
+        ## we want to change the transparency by 0.1 for every 20 pixels
+        self.pen.transparency = max(0, min(1, self._initial_transparency + dx/500))
+        print("new transparency:", self.pen.transparency)
+
+    def event_finish(self):
+        pass
+
+class WigletLineWidth(Wiglet):
+    """Wiglet for changing the line width."""
+    """directly operates on the pen of the object"""
+    def __init__(self, coords, pen):
+        super().__init__("line_width", coords)
+
+        if not pen or not isinstance(pen, Pen):
+            raise ValueError("Pen is not defined or not of class Pen")
+        self.pen      = pen
+        self._last_pt = coords[0]
+        self._initial_width = pen.line_width
+
+    def draw(self, cr):
+        cr.set_source_rgb(*self.pen.color)
+        draw_dot(cr, *self.coords, self.pen.line_width)
+
+    def event_update(self, x, y):
+        dx = x - self.coords[0]
+        print("changing line width", dx)
+        self.pen.line_width = max(1, min(60, self._initial_width + dx/20))
+        return True
+
+    def event_finish(self):
+        pass
 
 ## ---------------------------------------------------------------------
 class Pen:
@@ -1160,11 +1233,12 @@ class Text(Drawable):
         cr.stroke()
 
     def draw(self, cr, hover=False, selected=False, outline=False):
-        position, content, size, color, cursor_pos = self.coords[0], self.content, self.pen.font_size, self.pen.color, self.cursor_pos
+        position = self.coords[0]
+        content, pen, cursor_pos = self.content, self.pen, self.cursor_pos
         
         # get font info
         cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-        cr.set_font_size(size)
+        cr.set_font_size(pen.font_size)
 
         font_extents      = cr.font_extents()
         self.font_extents = font_extents
@@ -1192,9 +1266,9 @@ class Text(Drawable):
             bb_w = max(bb_w, t_width + x_bearing)
             bb_h += height
 
-            cr.set_font_size(size)
+            cr.set_font_size(pen.font_size)
             cr.move_to(position[0], position[1] + dy)
-            cr.set_source_rgb(*color)
+            cr.set_source_rgba(*pen.color, pen.transparency)
             cr.show_text(fragment)
             cr.stroke()
 
@@ -1442,7 +1516,7 @@ class Path(Drawable):
             return
        ##return
         
-        cr.set_source_rgb(*self.pen.color)
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
         cr.set_fill_rule(cairo.FillRule.WINDING)
         if outline:
             cr.set_line_width(0.5)
@@ -1651,7 +1725,7 @@ class TransparentWindow(Gtk.Window):
         self.history             = [ ]
         self.redo_stack          = [ ]
         self.current_object      = None
-        self.changing_line_width = False
+        self.wiglet_active       = None
         self.selection           = None
         self.dragobj             = None
         self.resizeobj           = None
@@ -1717,12 +1791,10 @@ class TransparentWindow(Gtk.Window):
             selected = self.selection and self.selection.contains(obj) and self.mode == "move"
             obj.draw(cr, hover=hover, selected=selected, outline = self.outline)
 
+        if self.wiglet_active:
+            self.wiglet_active.draw(cr)
         # If changing line width, draw a preview of the new line width
-        if self.changing_line_width:
-            cr.set_line_width(self.pen.line_width)
-            cr.set_source_rgb(*self.pen.color)
-            self.draw_dot(cr, *self.cur_pos, self.pen.line_width)
-
+      
     def clear(self):
         """Clear the drawing."""
         self.selection      = None
@@ -1760,9 +1832,12 @@ class TransparentWindow(Gtk.Window):
 
         # Start changing line width: single click with ctrl pressed
         if ctrl and event.button == 1 and self.mode == "draw": 
-            self.cur_pos = (event.x, event.y)
-            self.changing_line_width = self.pen.line_width
+            if not shift: 
+                self.wiglet_active = WigletLineWidth((event.x, event.y), self.pen)
+            else:
+                self.wiglet_active = WigletTransparency((event.x, event.y), self.pen)
             return True
+
 
         # double click on a text object: start editing
         if event.button == 1 and double and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text", "move"]:
@@ -1855,7 +1930,12 @@ class TransparentWindow(Gtk.Window):
 
         # this two are for changing line width
         self.cur_pos             = None
-        self.changing_line_width = False
+
+        if self.wiglet_active:
+            self.wiglet_active.event_finish()
+            self.wiglet_active = None
+            self.queue_draw()
+            return True
 
         # if the user clicked to create a text, we are not really done yet
         if self.current_object and self.current_object.type != "text":
@@ -1902,13 +1982,10 @@ class TransparentWindow(Gtk.Window):
         self.cursor_pos = (event.x, event.y)
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
 
-        if self.changing_line_width:
-            dx = event.x - self.cur_pos[0]
-            print("changing line width", dx)
-            self.pen.line_width = max(1, min(60, self.changing_line_width + (event.x - self.cur_pos[0])/20))
+        if self.wiglet_active:
+            self.wiglet_active.event_update(event.x, event.y)
             self.queue_draw()
             return True
-
         if obj and (obj.type == "box" or obj.type == "circle"):
             obj.coords[1] = (event.x, event.y)
             self.queue_draw()
@@ -2333,11 +2410,6 @@ class TransparentWindow(Gtk.Window):
             self.handle_shortcuts(keyname, False, shift)
 
         return True
-
-    def draw_dot(self, cr, x, y, diameter):
-        """Draws a dot at the specified position with the given diameter."""
-        cr.arc(x, y, diameter / 2, 0, 2 * 3.14159)  # Draw a circle
-        cr.fill()  # Fill the circle to make a dot
 
     def make_cursors(self):
         """Create cursors for different modes."""
