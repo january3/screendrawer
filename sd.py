@@ -2569,6 +2569,7 @@ class TransparentWindow(Gtk.Window):
             'Ctrl-f':               {'action': self.select_font},
             'Ctrl-i':               {'action': self.select_image_and_create_pixbuf},
             'Ctrl-p':               {'action': self.switch_pens},
+            'Ctrl-o':               {'action': self.open_drawing},
 
             # selections and moving objects
             'Tab':                  {'action': self.select_next_object, 'modes': ["move"]},
@@ -2801,6 +2802,36 @@ class TransparentWindow(Gtk.Window):
         
         return pixbuf
 
+    def open_drawing(self):
+        # Create a file chooser dialog
+        dialog = Gtk.FileChooserDialog(
+            title="Select an .sdrw file",
+            action=Gtk.FileChooserAction.OPEN,
+            buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+        )
+
+        # Filter to only show image files
+        # file_filter = Gtk.FileFilter()
+        # file_filter.set_name("Image files")
+        # file_filter.add_mime_type("image/jpeg")
+        # file_filter.add_mime_type("image/png")
+        # file_filter.add_mime_type("image/tiff")
+        # dialog.add_filter(file_filter)
+
+        # Show the dialog and wait for the user response
+        response = dialog.run()
+
+        pixbuf = None
+        if response == Gtk.ResponseType.OK:
+            image_path = dialog.get_filename()
+            self.read_file(image_path)
+        elif response == Gtk.ResponseType.CANCEL:
+            print("No image selected")
+
+        # Clean up and destroy the dialog
+        dialog.destroy()
+
+
     def save_state(self): 
         """Save the current drawing state to a file."""
         config = {
@@ -2817,18 +2848,22 @@ class TransparentWindow(Gtk.Window):
             pickle.dump(state, f)
         print("Saved drawing to", savefile)
 
-    def load_state(self):
-        """Load the drawing state from a file."""
-        if not os.path.exists(savefile):
-            print("No saved drawing found at", savefile)
+    def read_file(self, filename):
+        """Read the drawing state from a file."""
+        if not os.path.exists(filename):
+            print("No saved drawing found at", filename)
             return
-        with open(savefile, 'rb') as f:
+        with open(filename, 'rb') as f:
             state = pickle.load(f)
             #state = yaml.load(f, Loader=yaml.FullLoader)
         self.objects           = [ Drawable.from_dict(d) for d in state['objects'] ]
         self.transparent       = state['config']['transparent']
         self.pen               = Pen.from_dict(state['config']['pen'])
         self.pen2              = Pen.from_dict(state['config']['pen2'])
+
+    def load_state(self):
+        """Load the drawing state from a file."""
+        self.read_file(savefile)
 
 
 ## ---------------------------------------------------------------------
