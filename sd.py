@@ -2395,6 +2395,15 @@ class TransparentWindow(Gtk.Window):
         self.pen, self.pen2 = self.pen2, self.pen
         self.queue_draw()
 
+    def move_by(self, dx, dy):
+        """Move the selected objects by the given amount."""
+        if not self.selection:
+            return
+        eventObj = MoveCommand(self.selection, (0, 0))
+        eventObj.event_update(dx, dy)
+        self.history.append(eventObj)
+        self.queue_draw()
+
     def handle_shortcuts(self, keyname):
         """Handle keyboard shortcuts."""
         print(keyname)
@@ -2416,6 +2425,20 @@ class TransparentWindow(Gtk.Window):
             'l':                    {'action': self.clear},
             'f':                    {'action': self.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
             'o':                    {'action': self.outline_toggle, 'modes': ["box", "circle", "draw", "move"]},
+
+            'Up':                   {'action': self.move_by, 'args': [0, -10], 'modes': ["move"]},
+            'Shift-Up':             {'action': self.move_by, 'args': [0, -1], 'modes': ["move"]},
+            'Ctrl-Up':              {'action': self.move_by, 'args': [0, -100], 'modes': ["move"]},
+            'Down':                 {'action': self.move_by, 'args': [0, 10], 'modes': ["move"]},
+            'Shift-Down':           {'action': self.move_by, 'args': [0, 1], 'modes': ["move"]},
+            'Ctrl-Down':            {'action': self.move_by, 'args': [0, 100], 'modes': ["move"]},
+            'Left':                 {'action': self.move_by, 'args': [-10, 0], 'modes': ["move"]},
+            'Shift-Left':           {'action': self.move_by, 'args': [-1, 0], 'modes': ["move"]},
+            'Ctrl-Left':            {'action': self.move_by, 'args': [-100, 0], 'modes': ["move"]},
+            'Right':                {'action': self.move_by, 'args': [10, 0], 'modes': ["move"]},
+            'Shift-Right':          {'action': self.move_by, 'args': [1, 0], 'modes': ["move"]},
+            'Ctrl-Right':           {'action': self.move_by, 'args': [100, 0], 'modes': ["move"]},
+
 
             'Shift-W':              {'action': self.set_color, 'args': [COLORS["white"]]},
             'Shift-B':              {'action': self.set_color, 'args': [COLORS["black"]]},
