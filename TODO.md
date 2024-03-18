@@ -17,18 +17,20 @@ Design issues:
    issue.
 
 Bugs:
+ * first pressure point on a line is 0 regardless.
+ * proportional resize isn't
  * when the bb is smaller than the corner clicking area, bad things happen
- * When grouped, the bounding box of the group is incorrect until next
-   recalculation
- * paste cannot be undone
  * when exiting while selection is being made with a box, the selection
    box becomes an object upon new start
- * pasting text into a new object ends with cursor set
  * double click enters text editing only in draw mode, not in text mode
    - the problem is that before a double click event is raised, single
      click events happen which confuse the app.
 
 Done:
+ * pasting text into a new object ends with cursor set
+ * paste cannot be undone
+ * When grouped, the bounding box of the group is incorrect until next
+   recalculation
  * add any kind of font picker
  * add rotating with keyboard
  * add moving with keyboard

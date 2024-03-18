@@ -2213,8 +2213,8 @@ class TransparentWindow(Gtk.Window):
         else:
             pos = self.cursor_pos or (100, 100)
             new_text = Text([ pos ], pen = self.pen, content=clip_text)
-            new_text.move_cursor("End")
-            self.objects.append(new_text)
+            #new_text.move_cursor("End")
+            self.history.append(AddCommand(new_text, self.objects))
             self.queue_draw()
 
     def paste_image(self, clip_img):
