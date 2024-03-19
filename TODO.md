@@ -1,5 +1,6 @@
 To do (sorted by priority):
 
+ * implement undo for fonts as well
  * shortcut or menu item for decorating / unmaximizing the window (so it
    can be moved to another monitor)
  * close path: converts a path to polygon (what with the outline / pressure? do we loose it?)
@@ -33,13 +34,25 @@ Bugs:
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
    should be mostly outside of the bb
- * when exiting while selection is being made with a box, the selection
-   box becomes an object upon new start
+ * when exiting while selection is being made with a box, the selection box
+   becomes an object upon new start
  * double click enters text editing only in draw mode, not in text mode
    - the problem is that before a double click event is raised, single
      click events happen which confuse the app.
 
 Done:
+ * Cannot undo color changes, and it is a fundamental problem, because I
+   change the colors of drawable objects via a command, and commands act
+   also on object groups (which belong to the same superclass as drawable
+   objects), and groups pass the color change to the individual objects and
+   other groups, so command doesn't really keep track of all the changes
+   (after all, every object in the group can have different color). So
+   either we need to pass the command down the group structure, resulting
+   in a CommandGroup that can be undone in one go, or the objects must have
+   their own history, which is nonsense. Or is there another solution?
+   [ solved by adding a method to the DrawableGroup which returns a
+   flattened list of primitives contained in that group, and then storing
+   the color change for each of the primitives ]
  * add a Polygon class for drawing closed shapes
  * shift-click on an object does not add to selection
  * right-click context menu when clicked on a part of selection only

@@ -43,21 +43,6 @@ import appdirs
 
 import pyautogui
 from PIL import ImageGrab
-
-def get_color_under_cursor():
-    # Get the current position of the cursor
-    x, y = pyautogui.position()
-    # Grab a single pixel at the cursor's position
-    pixel = ImageGrab.grab(bbox=(x, y, x+1, y+1))
-    # Retrieve the color of the pixel
-    color = pixel.getpixel((0, 0))
-    # divide by 255
-    color = (color[0] / 255, color[1] / 255, color[2] / 255)
-    return color
-
-def rgb_to_hex(rgb):
-    return "#{:02x}{:02x}{:02x}".format(*[int(255 * c) for c in rgb])
-
 # Example usage
 #color = get_color_under_cursor()
 #print(f"Color under cursor: {color}")
@@ -109,6 +94,38 @@ COLORS = {
 # open file for appending if exists, or create if not
 
 ## ---------------------------------------------------------------------
+
+
+def get_color_under_cursor():
+    """Get the color under the cursor."""
+
+    # Get the current position of the cursor
+    x, y = pyautogui.position()
+    # Grab a single pixel at the cursor's position
+    pixel = ImageGrab.grab(bbox=(x, y, x+1, y+1))
+    # Retrieve the color of the pixel
+    color = pixel.getpixel((0, 0))
+    # divide by 255
+    color = (color[0] / 255, color[1] / 255, color[2] / 255)
+    return color
+
+def rgb_to_hex(rgb):
+    """Convert an RGB color to a hexadecimal string."""
+    return "#{:02x}{:02x}{:02x}".format(*[int(255 * c) for c in rgb])
+
+
+def flatten_and_unique(lst, result_set=None):
+    """Flatten a list and remove duplicates."""
+    if result_set is None:
+        result_set = set()
+        
+    for item in lst:
+        if isinstance(item, list):
+            flatten_and_unique(item, result_set)
+        else:
+            result_set.add(item)
+            
+    return list(result_set)
 
 def sort_by_stack(objs, stack):
     """Sort a list of objects by their position in the stack."""
@@ -416,6 +433,23 @@ class CommandGroup(Command):
         for cmd in self._commands:
             cmd.redo()
 
+class SetColorCommand(Command):
+    """Simple class for handling color changes."""
+    def __init__(self, objects, color):
+        super().__init__("set_color", objects.get_primitive())
+        self._color = color
+        self._undo_color = { obj: obj.pen.color for obj in self.obj }
+
+        for obj in self.obj:
+            obj.color_set(color)
+
+    def undo(self):
+        for obj in self.obj:
+            obj.color_set(self._undo_color[obj])
+
+    def redo(self):
+        for obj in self.obj:
+            obj.color_set(self._color)
 
 class RemoveCommand(Command):
     """Simple class for handling deleting objects."""
@@ -816,6 +850,10 @@ class Drawable:
         else:
             self.pen    = None
 
+    def get_primitive(self):
+        """This is for allowing to distinguish between primitives and groups."""
+        return self
+
     def pen_set(self, pen):
         self.pen = pen.copy()
 
@@ -991,9 +1029,14 @@ class DrawableGroup(Drawable):
             "orig_bbox": self.bbox(),
             "objects": { obj: obj.bbox() for obj in self.objects }
             }
+
         for obj in self.objects:
             obj.resize_start(corner, origin)
  
+    def get_primitive(self):
+        primitives = [ obj.get_primitive() for obj in self.objects ]
+        return flatten_and_unique(primitives)
+
 
     def rotate_start(self, origin):
         self.rot_origin = origin
@@ -2707,8 +2750,7 @@ class TransparentWindow(Gtk.Window):
     def set_color(self, color):
         self.pen.color_set(color)
         if self.selection:
-            for obj in self.selection.objects:
-                obj.color_set(self.pen.color)
+            self.history.append(SetColorCommand(self.selection, color))
         self.queue_draw()
 
     def set_font(self, font_description):
