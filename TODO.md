@@ -27,6 +27,9 @@ Design issues:
    class and then record transformations for each object. This way, I
    would be able to undo transformations easily. This is a big design
    issue.
+ * Maybe we should not be appending the object to the self.objects and the
+   command to the history *until* it is not finished? And draw the current
+   object separately after all the other objects?
 
 Bugs:
  * grouping changes the order of the objects, should sort the objects first

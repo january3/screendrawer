@@ -1604,6 +1604,15 @@ class Polygon(Drawable):
         self.resizing  = None
         self.bb = path_bbox(self.coords)
 
+    def rotate_end(self):
+        # rotate all coords and outline
+        self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
+        self.rotation   = 0
+        self.rot_origin = None
+        # recalculate bbox
+        self.bb = path_bbox(self.coords)
+
+
     def draw_outline(self, cr):
         """draws each segment separately and makes a dot at each coord."""
 
@@ -1956,6 +1965,14 @@ class Circle(Drawable):
             cr.fill_preserve()
         cr.restore()
         cr.stroke()
+
+        if selected:
+            cr.set_source_rgba(1, 0, 0)
+            self.bbox_draw(cr, lw=.35)
+
+        if hover:
+            self.bbox_draw(cr, lw=.35)
+
 
 class Box(Drawable):
     """Class for creating a box."""
@@ -2373,10 +2390,10 @@ class TransparentWindow(Gtk.Window):
                 else:
                     self.selection = None
                     self.dragobj   = None
-                    print("starting selection")
-                    self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], Pen(line_width = 0.2, color = (1, 0, 0)))
-                    self.objects.append(self.current_object)
-                    self.selection_tool = self.current_object
+                    print("starting selection tool")
+                    # XXX this should be solved in a different way
+                    self.selection_tool = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], Pen(line_width = 0.2, color = (1, 0, 0)))
+                    self.objects.append(self.selection_tool)
                     self.queue_draw()
 
         # moving an object, or erasing it, if an object is underneath the cursor
@@ -2408,21 +2425,25 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
             return True
 
-        # if the user clicked to create a text, we are not really done yet
-        if self.current_object and self.current_object.type != "text":
-            self.selection = DrawableGroup([ self.current_object ])
-            self.current_object = None
-            self.queue_draw()
-            return True
-
         # if selection tool is active, finish it
         if self.selection_tool:
+            print("finishing selection tool")
             self.objects.remove(self.selection_tool)
             bb = self.selection_tool.bbox()
             self.selection_tool = None
             obj = find_obj_in_bbox(bb, self.objects)
             self.selection = DrawableGroup(obj) if len(obj) > 0 else None
             self.queue_draw()
+            return True
+
+
+        # if the user clicked to create a text, we are not really done yet
+        if self.current_object and self.current_object.type != "text":
+            print("there is a current object: ", self.current_object)
+            self.selection = DrawableGroup([ self.current_object ])
+            self.current_object = None
+            self.queue_draw()
+            return True
 
         if self.resizeobj:
             print("finishing resize / rotate")
@@ -2451,10 +2472,12 @@ class TransparentWindow(Gtk.Window):
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
 
-        obj = self.current_object
+        obj = self.current_object or self.selection_tool
         self.cursor_pos = (event.x, event.y)
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
+
         pressure = event.get_axis(Gdk.AxisUse.PRESSURE) 
+
         if pressure is None:
             pressure = 1
 
@@ -2462,6 +2485,7 @@ class TransparentWindow(Gtk.Window):
             self.wiglet_active.event_update(event.x, event.y)
             self.queue_draw()
             return True
+
         if obj and (obj.type == "box" or obj.type == "circle"):
             obj.coords[1] = (event.x, event.y)
             self.queue_draw()
@@ -2496,6 +2520,8 @@ class TransparentWindow(Gtk.Window):
         # stop event propagation
         return True
 
+# ---------------------------------------------------------------------
+
     def finish_text_input(self):
         """Clean up current text and finish text input."""
         print("finishing text input")
@@ -2510,6 +2536,8 @@ class TransparentWindow(Gtk.Window):
     def update_text_input(self, keyname, char):
         """Update the current text input."""
         cur  = self.current_object
+        if not cur:
+            raise ValueError("No current object")
     
         if keyname == "BackSpace": # and cur["cursor_pos"] > 0:
             cur.backspace()
