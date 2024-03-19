@@ -850,6 +850,10 @@ class Drawable:
         else:
             self.pen    = None
 
+    def update(self, x, y):
+        """Called when the mouse moves during drawing."""
+        pass
+
     def finish(self):
         """Called when building (drawing, typing etc.) is concluded."""
         pass
@@ -1565,6 +1569,9 @@ class Polygon(Drawable):
         self.coords, pressure = smooth_path(self.coords)
         #self.outline_recalculate_new()
 
+    def update(self, x, y, pressure):
+        self.path_append(x, y, pressure)
+
     def move(self, dx, dy):
         move_coords(self.coords, dx, dy)
 
@@ -1696,6 +1703,9 @@ class Path(Drawable):
         self.outline_recalculate_new()
         if len(self.coords) != len(self.pressure):
             raise ValueError("Pressure and coords don't match")
+
+    def update(self, x, y, pressure):
+        self.path_append(x, y, pressure)
 
     def move(self, dx, dy):
         move_coords(self.coords, dx, dy)
@@ -1934,6 +1944,9 @@ class Circle(Drawable):
     def __init__(self, coords, pen):
         super().__init__("circle", coords, pen)
 
+    def update(self, x, y, pressure):
+        self.coords[1] = (x, y)
+
     def resize_end(self):
         bbox = self.bbox()
         self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
@@ -1979,6 +1992,9 @@ class Box(Drawable):
     def __init__(self, coords, pen):
         super().__init__("box", coords, pen)
 
+    def update(self, x, y, pressure):
+        self.coords[1] = (x, y)
+
     def resize_end(self):
         bbox = self.bbox()
         self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
@@ -2016,6 +2032,13 @@ class Box(Drawable):
             cr.arc(x0, y0, 10, 0, 2 * 3.14159)  # Draw a circle
             #cr.fill()  # Fill the circle to make a dot
             cr.stroke()
+        if selected:
+            cr.set_source_rgba(1, 0, 0)
+            self.bbox_draw(cr, lw=.35)
+
+        if hover:
+            self.bbox_draw(cr, lw=.35)
+
 
 
 ## ---------------------------------------------------------------------
@@ -2238,6 +2261,11 @@ class TransparentWindow(Gtk.Window):
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
         self.draw(cr)
+
+        if self.current_object:
+            self.current_object.draw(cr)
+        if self.wiglet_active:
+            self.wiglet_active.draw(cr)
         return True
 
     def draw(self, cr):
@@ -2248,8 +2276,6 @@ class TransparentWindow(Gtk.Window):
             selected = self.selection and self.selection.contains(obj) and self.mode == "move"
             obj.draw(cr, hover=hover, selected=selected, outline = self.outline)
 
-        if self.wiglet_active:
-            self.wiglet_active.draw(cr)
         # If changing line width, draw a preview of the new line width
       
     def clear(self):
@@ -2297,10 +2323,13 @@ class TransparentWindow(Gtk.Window):
         print("shift:", shift, "ctrl:", ctrl, "double:", double, "pressure:", pressure)
 
         # Ignore clicks when text input is active
-        if self.current_object and self.current_object.type == "text":
-            print("click, but text input active - finishing it first")
-            self.finish_text_input()
-            return True
+        if self.current_object:
+            if  self.current_object.type == "text":
+                print("click, but text input active - finishing it first")
+                self.finish_text_input()
+                return True
+            else:
+                raise ValueError("current_object is not text, button was clicked. This should not happen.")
 
         # right click: open context menu
         if event.button == 3 and not shift:
@@ -2335,73 +2364,76 @@ class TransparentWindow(Gtk.Window):
             self.change_cursor("none")
             return True
 
-        # simple click: start drawing
-        if event.button == 1 and not self.current_object:
+        if event.button == 1 and self.mode == "move":
+            if corner_obj[0] and corner_obj[0].bbox():
+                print("starting resize")
+                obj    = corner_obj[0]
+                corner = corner_obj[1]
+                print("ctrl:", ctrl, "shift:", shift)
+                if not (ctrl and shift):
+                    self.resizeobj = ResizeCommand(obj, origin = (event.x, event.y), corner = corner, proportional = ctrl)
+                else:
+                    self.resizeobj = RotateCommand(obj, origin = (event.x, event.y), corner = corner)
+                self.selection = DrawableGroup([ obj ])
+                self.history.append(self.resizeobj)
+                self.change_cursor(corner)
+            elif hover_obj:
+                if shift and self.selection:
+                    # create Draw Group with the two objects
+                    self.selection.add(hover_obj)
+                elif not self.selection or not self.selection.contains(hover_obj):
+                        self.selection = DrawableGroup([ hover_obj ])
+                self.dragobj = MoveCommand(self.selection, (event.x, event.y))
+                self.history.append(self.dragobj)
+                self.change_cursor("grabbing")
+            else:
+                self.selection = None
+                self.dragobj   = None
+                print("starting selection tool")
+                # XXX this should be solved in a different way
+                self.selection_tool = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], Pen(line_width = 0.2, color = (1, 0, 0)))
+                self.objects.append(self.selection_tool)
+                self.queue_draw()
+            return True
+
+
+        # simple click: create modus
+        if event.button == 1:
             if self.mode == "text" or (self.mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
                 print("new text")
                 self.change_cursor("none")
                 self.current_object = Text([ (event.x, event.y) ], pen = self.pen, content = "")
                 self.selection = DrawableGroup([ self.current_object ])
                 self.current_object.move_cursor("Home")
-                self.history.append(AddCommand(self.current_object, self.objects))
+                #self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "draw":
                 print("starting path")
                 self.current_object = Path([ (event.x, event.y) ], pen = self.pen, pressure = [ pressure ])
-                self.history.append(AddCommand(self.current_object, self.objects))
+                #self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "box":
                 print("drawing box / circle")
                 self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], pen = self.pen)
-                self.history.append(AddCommand(self.current_object, self.objects))
+                #self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "polygon":
                 print("drawing polygon")
                 self.current_object = Polygon([ (event.x, event.y) ], pen = self.pen)
-                self.history.append(AddCommand(self.current_object, self.objects))
+                #self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "circle":
                 print("drawing circle")
                 self.current_object = Circle([ (event.x, event.y), (event.x + 1, event.y + 1) ], pen = self.pen)
-                self.history.append(AddCommand(self.current_object, self.objects))
+                #self.history.append(AddCommand(self.current_object, self.objects))
 
-            elif self.mode == "move":
-                if corner_obj[0] and corner_obj[0].bbox():
-                    print("starting resize")
-                    obj    = corner_obj[0]
-                    corner = corner_obj[1]
-                    print("ctrl:", ctrl, "shift:", shift)
-                    if not (ctrl and shift):
-                        self.resizeobj = ResizeCommand(obj, origin = (event.x, event.y), corner = corner, proportional = ctrl)
-                    else:
-                        self.resizeobj = RotateCommand(obj, origin = (event.x, event.y), corner = corner)
-                    self.selection = DrawableGroup([ obj ])
-                    self.history.append(self.resizeobj)
-                    self.change_cursor(corner)
-                elif hover_obj:
-                    if shift and self.selection:
-                        # create Draw Group with the two objects
-                        self.selection.add(hover_obj)
-                    elif not self.selection or not self.selection.contains(hover_obj):
-                            self.selection = DrawableGroup([ hover_obj ])
-                    self.dragobj = MoveCommand(self.selection, (event.x, event.y))
-                    self.history.append(self.dragobj)
-                    self.change_cursor("grabbing")
-                else:
-                    self.selection = None
-                    self.dragobj   = None
-                    print("starting selection tool")
-                    # XXX this should be solved in a different way
-                    self.selection_tool = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], Pen(line_width = 0.2, color = (1, 0, 0)))
-                    self.objects.append(self.selection_tool)
-                    self.queue_draw()
-
-        # moving an object, or erasing it, if an object is underneath the cursor
+        # erasing an object, if an object is underneath the cursor
         if hover_obj and event.button == 1 and self.mode == "eraser":
                 self.history.append(RemoveCommand([ hover_obj ], self.objects))
                 self.selection = None
                 self.dragobj   = None
                 self.revert_cursor()
+
         self.queue_draw()
 
         return True
@@ -2411,6 +2443,9 @@ class TransparentWindow(Gtk.Window):
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         obj = self.current_object
+        if obj:
+            self.history.append(AddCommand(self.current_object, self.objects))
+
         if obj and obj.type in [ "polygon", "path" ]:
             print("finishing path / polygon")
             obj.path_append(event.x, event.y, 0)
@@ -2440,7 +2475,8 @@ class TransparentWindow(Gtk.Window):
         # if the user clicked to create a text, we are not really done yet
         if self.current_object and self.current_object.type != "text":
             print("there is a current object: ", self.current_object)
-            self.selection = DrawableGroup([ self.current_object ])
+            # self.selection = DrawableGroup([ self.current_object ])
+            self.selection = None
             self.current_object = None
             self.queue_draw()
             return True
@@ -2486,11 +2522,8 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
             return True
 
-        if obj and (obj.type == "box" or obj.type == "circle"):
-            obj.coords[1] = (event.x, event.y)
-            self.queue_draw()
-        elif obj and obj.type in [ "path", "polygon" ]:
-            obj.path_append(event.x, event.y, pressure)
+        if obj:
+            obj.update(event.x, event.y, pressure)
             self.queue_draw()
         elif self.resizeobj:
             self.resizeobj.event_update(event.x, event.y)
@@ -2520,7 +2553,7 @@ class TransparentWindow(Gtk.Window):
         # stop event propagation
         return True
 
-# ---------------------------------------------------------------------
+    # ---------------------------------------------------------------------
 
     def finish_text_input(self):
         """Clean up current text and finish text input."""
@@ -2598,8 +2631,6 @@ class TransparentWindow(Gtk.Window):
 
     def paste_content(self):
         """Paste content from clipboard."""
-
-        print("paste_content:", self.clipboard)
 
         # internal paste
         if self.clipboard:
