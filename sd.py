@@ -29,7 +29,7 @@ import yaml
 import pickle
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, Gdk, GdkPixbuf, Pango
+from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
 import cairo
 import os
 import time
@@ -688,6 +688,9 @@ class ResizeCommand(MoveResizeCommand):
         obj.resize_start(corner, origin)
         self._orig_bb = obj.bbox()
         self._prop    = proportional
+        ## XXX check the bb for pitfalls
+        self._orig_bb_ratio = self._orig_bb[3] / self._orig_bb[2]
+
 
     def undo(self):
         obj = self.obj
@@ -706,30 +709,38 @@ class ResizeCommand(MoveResizeCommand):
         self.obj.resize_end()
 
     def event_update(self, x, y):
-        dx = x - self.origin[0]
-        dy = y - self.origin[1]
-        if self._prop:
-            dx = dy = min(dx, dy)
-
         bb = self._orig_bb
-
         corner = self.corner
 
-        #print("realizing resize by", dx, dy, "in corner", corner)
+        if corner in ["upper_left", "lower_right"]:
+            dx = x - self.origin[0]
+            dy = y - self.origin[1]
+        else:
+            dx = (self.origin[0] + bb[2]) - x
+            dy = y - self.origin[1] + bb[3]
+
+        if dx == 0 or dy == 0:
+            return
+
+        if self._prop:
+            if dy / dx > self._orig_bb_ratio:
+                dy = dx * self._orig_bb_ratio
+            else:
+                dx = dy / self._orig_bb_ratio
+            
         if corner == "lower_left":
-            newbb = (bb[0] + dx, bb[1], bb[2] - dx, bb[3] + dy)
-        elif corner == "lower_right":
-            newbb = (bb[0], bb[1], bb[2] + dx, bb[3] + dy)
+            newbb = (bb[0] + bb[2] - dx, bb[1], dx, dy)
+        elif corner == "upper_right":
+            newbb = (bb[0], bb[1] + dy - bb[3], bb[2] * 2 - dx, bb[3] - dy + bb[3])
         elif corner == "upper_left":
             newbb = (bb[0] + dx, bb[1] + dy, bb[2] - dx, bb[3] - dy)
-        elif corner == "upper_right":
-            newbb = (bb[0], bb[1] + dy, bb[2] + dx, bb[3] - dy)
+        elif corner == "lower_right":
+            newbb = (bb[0], bb[1], bb[2] + dx, bb[3] + dy)
         else:
             raise ValueError("Invalid corner:", corner)
 
         self._newbb = newbb
         self.obj.resize_update(newbb)
-        #self.origin_set((x, y))
 
 
 ## ---------------------------------------------------------------------
@@ -2158,6 +2169,7 @@ class TransparentWindow(Gtk.Window):
         self.objects             = [ ]
         self.history             = [ ]
         self.redo_stack          = [ ]
+        self.hidden              = False
         self.current_object      = None
         self.wiglet_active       = None
         self.selection           = None
@@ -2275,6 +2287,10 @@ class TransparentWindow(Gtk.Window):
 
     def on_draw(self, widget, cr):
         """Handle draw events."""
+        if self.hidden:
+            print("I am hidden!")
+            return True
+
         cr.set_source_rgba(.8, .75, .65, self.transparent)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
@@ -3257,19 +3273,30 @@ class TransparentWindow(Gtk.Window):
         # Clean up and destroy the dialog
         dialog.destroy()
 
+    def screenshot_finalize(self, bb):
+        print("Taking screenshot now")
+        pixbuf, filename = get_screenshot(self, bb[0] - 3, bb[1] - 3, bb[0] + bb[2] + 6, bb[1] + bb[3] + 6)
+        self.hidden = False
+        self.queue_draw()
+
+        # Create the image and copy to clipboard
+        if pixbuf is not None:
+            img = Image([ (bb[0], bb[1]) ], self.pen, pixbuf)
+            self.history.append(AddCommand(img, self.objects))
+            self.queue_draw()
+            self.gtk_clipboard.set_text(filename, -1)
+            self.gtk_clipboard.store()
+
+
     def screenshot(self):
         if self.selection and self.selection.length() == 1 and self.selection.objects[0].type == "box":
             bb = self.selection.objects[0].bbox()
             print("bbox is", bb)
-            pixbuf, filename = get_screenshot(self, bb[0] + 3, bb[1] + 3, bb[0] + bb[2] - 6, bb[1] + bb[3] - 6)
-
-            # Create the image and copy to clipboard
-            if pixbuf is not None:
-                img = Image([ (bb[0], bb[1]) ], self.pen, pixbuf)
-                self.history.append(AddCommand(img, self.objects))
-                self.queue_draw()
-                self.gtk_clipboard.set_text(file_name, -1)
-                self.gtk_clipboard.store()
+            self.hidden = True
+            self.queue_draw()
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
+            GLib.timeout_add(100, self.screenshot_finalize, bb)
 
     def save_state(self): 
         """Save the current drawing state to a file."""
