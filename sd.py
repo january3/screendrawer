@@ -51,7 +51,12 @@ def get_color_under_cursor():
     pixel = ImageGrab.grab(bbox=(x, y, x+1, y+1))
     # Retrieve the color of the pixel
     color = pixel.getpixel((0, 0))
+    # divide by 255
+    color = (color[0] / 255, color[1] / 255, color[2] / 255)
     return color
+
+def rgb_to_hex(rgb):
+    return "#{:02x}{:02x}{:02x}".format(*[int(255 * c) for c in rgb])
 
 # Example usage
 #color = get_color_under_cursor()
@@ -1975,7 +1980,7 @@ Moving object to left lower screen corner deletes it.
 <b>d:</b> Draw mode (pencil)                 <b>m, |SPACE|:</b> Move mode (move objects around, copy and paste)
 <b>t:</b> Text mode (text entry)             <b>b:</b> Box mode  (draw a rectangle)
 <b>c:</b> Circle mode (draw an ellipse)      <b>e:</b> Eraser mode (delete objects with a click)
-<b>p:</b> Polygon mode (draw a polygon)      
+<b>p:</b> Polygon mode (draw a polygon)      <b>i:</b> Color pIcker mode (pick a color from the screen)
 
 <b>Works always:</b>                                                                  <b>Move mode only:</b>
 <b>With Ctrl:</b>              <b>Simple key (not when entering text)</b>                    <b>With Ctrl:</b>             <b>Simple key (not when entering text)</b>
@@ -2106,23 +2111,25 @@ class TransparentWindow(Gtk.Window):
 
     def create_context_menu(self):
         menu_items = [
-                { "label": "Move   [m]",        "callback": self.on_menu_item_activated, "data": "m" },
-                { "label": "Pencil [p]",        "callback": self.on_menu_item_activated, "data": "d" },
-                { "label": "Text   [t]",        "callback": self.on_menu_item_activated, "data": "t" },
-                { "label": "Box    [b]",        "callback": self.on_menu_item_activated, "data": "b" },
-                { "label": "Circle [c]",        "callback": self.on_menu_item_activated, "data": "c" },
-                { "label": "Eraser [e]",        "callback": self.on_menu_item_activated, "data": "e" },
+                { "label": "Move         [m]",        "callback": self.on_menu_item_activated, "data": "m" },
+                { "label": "Pencil       [d]",        "callback": self.on_menu_item_activated, "data": "d" },
+                { "label": "Polygon      [p]",        "callback": self.on_menu_item_activated, "data": "d" },
+                { "label": "Text         [t]",        "callback": self.on_menu_item_activated, "data": "t" },
+                { "label": "Box          [b]",        "callback": self.on_menu_item_activated, "data": "b" },
+                { "label": "Circle       [c]",        "callback": self.on_menu_item_activated, "data": "c" },
+                { "label": "Eraser       [e]",        "callback": self.on_menu_item_activated, "data": "e" },
+                { "label": "Color picker [i]",        "callback": self.on_menu_item_activated, "data": "i" },
                 { "separator": True },
-                { "label": "Select all (Ctrl-a)",     "callback": self.on_menu_item_activated, "data": "Ctrl-a" },
-                { "label": "Paste (Ctrl-v)",          "callback": self.on_menu_item_activated, "data": "Ctrl-v" },
+                { "label": "Select all    (Ctrl-a)",  "callback": self.on_menu_item_activated, "data": "Ctrl-a" },
+                { "label": "Paste         (Ctrl-v)",  "callback": self.on_menu_item_activated, "data": "Ctrl-v" },
                 { "label": "Clear drawing (Ctrl-l)",  "callback": self.on_menu_item_activated, "data": "Ctrl-l" },
                 { "separator": True },
-                { "label": "Color (Ctrl-k)",            "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
+                { "label": "Color           (Ctrl-k)",  "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
                 { "label": "Image from file (Ctrl-i)",  "callback": self.on_menu_item_activated, "data": "Ctrl-i" },
-                { "label": "Export drawing (Ctrl-e)",   "callback": self.on_menu_item_activated, "data": "Ctrl-e" },
-                { "label": "Font (Ctrl-f)",             "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
-                { "label": "Help [F1]",                 "callback": self.on_menu_item_activated, "data": "h" },
-                { "label": "Quit (Ctrl-q)",             "callback": self.on_menu_item_activated, "data": "x" },
+                { "label": "Export drawing  (Ctrl-e)",  "callback": self.on_menu_item_activated, "data": "Ctrl-e" },
+                { "label": "Font            (Ctrl-f)",  "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
+                { "label": "Help            [F1]",      "callback": self.on_menu_item_activated, "data": "h" },
+                { "label": "Quit            (Ctrl-q)",  "callback": self.on_menu_item_activated, "data": "x" },
         ]
 
         self.context_menu = self.build_menu(menu_items)
@@ -2183,7 +2190,7 @@ class TransparentWindow(Gtk.Window):
     # ---------------------------------------------------------------------
     #                              Event handlers
 
-    def on_right_click(self, hover_obj):
+    def on_right_click(self, event, hover_obj):
         """Handle right click events - context menus."""
         if hover_obj:
             self.mode = "move"
@@ -2223,7 +2230,7 @@ class TransparentWindow(Gtk.Window):
 
         # right click: open context menu
         if event.button == 3 and not shift:
-            self.on_right_click(hover_obj)
+            self.on_right_click(event, hover_obj)
             return True
 
         # Start changing line width: single click with ctrl pressed
@@ -2232,6 +2239,16 @@ class TransparentWindow(Gtk.Window):
                 self.wiglet_active = WigletLineWidth((event.x, event.y), self.pen)
             else:
                 self.wiglet_active = WigletTransparency((event.x, event.y), self.pen)
+            return True
+
+        if event.button == 1 and self.mode == "picker":
+            #print("picker mode")
+            color = get_color_under_cursor()
+            self.set_color(color) 
+            color_hex = rgb_to_hex(color)
+            self.gtk_clipboard.set_text(color_hex, -1)
+            self.gtk_clipboard.store()
+            #print(f"Color under cursor: {color}", rgb_to_hex(color))
             return True
 
         # double click on a text object: start editing
@@ -2378,8 +2395,6 @@ class TransparentWindow(Gtk.Window):
 
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
-        color = get_color_under_cursor()
-        print(f"Color under cursor: {color}")
 
         obj = self.current_object
         self.cursor_pos = (event.x, event.y)
@@ -2783,6 +2798,7 @@ class TransparentWindow(Gtk.Window):
         # these are single keystroke mode modifiers
         modes = { 'm': "move", 's': "move", 'space': "move", 
                   'd': "draw", 't': "text", 'e': "eraser", 
+                  'i': "picker",
                   'c': "circle", 'b': "box", 'p': "polygon" }
 
         # these are single keystroke actions
@@ -2916,6 +2932,7 @@ class TransparentWindow(Gtk.Window):
             "text":        Gdk.Cursor.new_from_name(self.get_display(), "text"),
             "eraser":      Gdk.Cursor.new_from_name(self.get_display(), "not-allowed"),
             "pencil":      Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
+            "picker":      Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
             "polygon":     Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
             "draw":        Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
             "crosshair":   Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
@@ -3148,6 +3165,7 @@ if __name__ == "__main__":
     css = b"""
     #myMenu {
         background-color: rgba(255, 255, 255, 0.7); /* Semi-transparent white */
+        font-family: Monospace, 'Monospace regular', monospace, 'Courier New'; /* Use 'Courier New', falling back to any monospace font */
     }
     """
 

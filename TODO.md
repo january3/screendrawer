@@ -1,6 +1,8 @@
 To do (sorted by priority):
 
- * close path: converts a path to polygon (what with the outline?)
+ * shortcut or menu item for decorating / unmaximizing the window (so it
+   can be moved to another monitor)
+ * close path: converts a path to polygon (what with the outline / pressure? do we loose it?)
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
  * add "pages" or "layers" or "frames" or "slides" or "whatever" to the
    drawing. This would allow to switch between different drawings.
@@ -26,7 +28,7 @@ Design issues:
    issue.
 
 Bugs:
- * add a Polygon class for drawing closed shapes
+ * Polygon should be smoothed like the path
  * proportional resize isn't
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
@@ -38,6 +40,7 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * add a Polygon class for drawing closed shapes
  * shift-click on an object does not add to selection
  * right-click context menu when clicked on a part of selection only
    affects the object under the cursor, not the whole selection
