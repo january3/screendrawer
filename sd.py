@@ -40,6 +40,22 @@ from io import BytesIO
 
 import warnings
 import appdirs
+
+import pyautogui
+from PIL import ImageGrab
+
+def get_color_under_cursor():
+    # Get the current position of the cursor
+    x, y = pyautogui.position()
+    # Grab a single pixel at the cursor's position
+    pixel = ImageGrab.grab(bbox=(x, y, x+1, y+1))
+    # Retrieve the color of the pixel
+    color = pixel.getpixel((0, 0))
+    return color
+
+# Example usage
+#color = get_color_under_cursor()
+#print(f"Color under cursor: {color}")
 # ---------------------------------------------------------------------
 
 app_name   = "ScreenDrawer"
@@ -1595,7 +1611,9 @@ class Polygon(Drawable):
         if self.rotation != 0:
             cr.restore()
 
-
+    @classmethod
+    def from_path(cls, path):
+        return cls(path.coords, path.pen)
 
 class Path(Drawable):
     """ Path is like polygon, but not closed and has an outline that depends on
@@ -1944,7 +1962,7 @@ Draw on the screen with Gnome and Cairo. Quick and dirty.
 
 <b>All modes:</b>                                 <b>Move mode:</b>
 shift-click:  Enter text mode              click: Select object   Resizing: click in corner
-right-button: Move object                  move: Move object      Rotating: ctrl-shift-click in corner
+                                           move: Move object      Rotating: ctrl-shift-click in corner
 ctrl-click:   Change line width            ctrl-a: Select all
 ctrl-shift-click: Change transparency
 
@@ -1957,7 +1975,7 @@ Moving object to left lower screen corner deletes it.
 <b>d:</b> Draw mode (pencil)                 <b>m, |SPACE|:</b> Move mode (move objects around, copy and paste)
 <b>t:</b> Text mode (text entry)             <b>b:</b> Box mode  (draw a rectangle)
 <b>c:</b> Circle mode (draw an ellipse)      <b>e:</b> Eraser mode (delete objects with a click)
-
+<b>p:</b> Polygon mode (draw a polygon)      
 
 <b>Works always:</b>                                                                  <b>Move mode only:</b>
 <b>With Ctrl:</b>              <b>Simple key (not when entering text)</b>                    <b>With Ctrl:</b>             <b>Simple key (not when entering text)</b>
@@ -2360,6 +2378,9 @@ class TransparentWindow(Gtk.Window):
 
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
+        color = get_color_under_cursor()
+        print(f"Color under cursor: {color}")
+
         obj = self.current_object
         self.cursor_pos = (event.x, event.y)
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)

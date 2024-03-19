@@ -1,11 +1,17 @@
 To do (sorted by priority):
 
+ * close path: converts a path to polygon (what with the outline?)
+ * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
  * add "pages" or "layers" or "frames" or "slides" or "whatever" to the
    drawing. This would allow to switch between different drawings.
  * implement rotating for: Box, Circle
  * add a better color picker
  * add a line mode and Line object class
  * show corners of the bounding box
+ * an idea: wiglets which are shown (optionally, toggleable) on the left
+   side of the screen, allowing to quickly select colors, line widths,
+   transparency etc.
+ * color picker.
  * grid
  * horizontal and vertical guides
  * turn it into a Gnome plugin
