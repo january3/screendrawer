@@ -2046,10 +2046,24 @@ class TransparentWindow(Gtk.Window):
     # ---------------------------------------------------------------------
     #                              Event handlers
 
+    def on_right_click(self, hover_obj):
+        if hover_obj:
+            self.mode = "move"
+            self.default_cursor(self.mode)
+
+            if not (self.selection and self.selection.contains(hover_obj)):
+                self.selection = DrawableGroup([ hover_obj ])
+
+            self.object_menu.popup(None, None, None, None, event.button, event.time)
+            self.queue_draw()
+        else:
+            self.context_menu.popup(None, None, None, None, event.button, event.time)
+
+    # XXX this code should be completely rewritten, cleaned up, refactored
+    # and god knows what else. It's a mess.
     def on_button_press(self, widget, event):
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
 
-        modifiers  = Gtk.accelerator_get_default_mod_mask()
         hover_obj  = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
 
@@ -2057,33 +2071,21 @@ class TransparentWindow(Gtk.Window):
         ctrl  = (event.state & Gdk.ModifierType.CONTROL_MASK) != 0
         double     = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
         pressure   = event.get_axis(Gdk.AxisUse.PRESSURE)
-        if pressure is None:
+
+        if pressure is None:  # note that 0 is perfectly valid
             pressure = 1
+
         print("shift:", shift, "ctrl:", ctrl, "double:", double, "pressure:", pressure)
-        print(modifiers)
-
-        if event.button == 3 and not shift:
-            if hover_obj:
-                self.mode = "move"
-                self.default_cursor(self.mode)
-
-                if not (self.selection and self.selection.contains(hover_obj)):
-                    self.selection = DrawableGroup([ hover_obj ])
-
-                self.object_menu.popup(None, None, None, None, event.button, event.time)
-                self.queue_draw()
-            else:
-                self.context_menu.popup(None, None, None, None, event.button, event.time)
-            return True
-
-
-        if corner_obj[0]:
-            print("corner click:", corner_obj[0].type, corner_obj[1])
 
         # Ignore clicks when text input is active
         if self.current_object and self.current_object.type == "text":
             print("click, but text input active - finishing it first")
             self.finish_text_input()
+            return True
+
+        # right click: open context menu
+        if event.button == 3 and not shift:
+            self.on_right_click(hover_obj)
             return True
 
         # Start changing line width: single click with ctrl pressed
@@ -2094,10 +2096,10 @@ class TransparentWindow(Gtk.Window):
                 self.wiglet_active = WigletTransparency((event.x, event.y), self.pen)
             return True
 
-
         # double click on a text object: start editing
         if event.button == 1 and double and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text", "move"]:
             # put the cursor in the last line, end of the text
+            # this should be a Command event
             hover_obj.move_cursor("End")
             self.current_object = hover_obj
             self.queue_draw()
@@ -2113,7 +2115,6 @@ class TransparentWindow(Gtk.Window):
                 self.selection = DrawableGroup([ self.current_object ])
                 self.current_object.move_cursor("Home")
                 self.history.append(AddCommand(self.current_object, self.objects))
-                #self.objects.append(self.current_object)
 
             elif self.mode == "draw":
                 print("starting path")
@@ -2146,7 +2147,6 @@ class TransparentWindow(Gtk.Window):
                 elif hover_obj:
                     if shift and self.selection:
                         # create Draw Group with the two objects
-                        print("adding to group")
                         self.selection.add(hover_obj)
                     elif not self.selection or not self.selection.contains(hover_obj):
                             self.selection = DrawableGroup([ hover_obj ])
@@ -2173,6 +2173,7 @@ class TransparentWindow(Gtk.Window):
         return True
 
     # Event handlers
+    # XXX same comment as above
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         obj = self.current_object
@@ -2186,9 +2187,6 @@ class TransparentWindow(Gtk.Window):
                 self.objects.remove(obj)
             self.queue_draw()
 
-        # this two are for changing line width
-        self.cur_pos             = None
-
         if self.wiglet_active:
             self.wiglet_active.event_finish()
             self.wiglet_active = None
@@ -2200,17 +2198,15 @@ class TransparentWindow(Gtk.Window):
             self.selection = DrawableGroup([ self.current_object ])
             self.current_object = None
             self.queue_draw()
+            return True
 
         # if selection tool is active, finish it
         if self.selection_tool:
             self.objects.remove(self.selection_tool)
             bb = self.selection_tool.bbox()
-            obj = find_obj_in_bbox(bb, self.objects)
             self.selection_tool = None
-            if len(obj) > 0:
-                self.selection = DrawableGroup(obj)
-            else:
-                self.selection = None
+            obj = find_obj_in_bbox(bb, self.objects)
+            self.selection = DrawableGroup(obj) if len(obj) > 0 else None
             self.queue_draw()
 
         if self.resizeobj:
@@ -2218,6 +2214,7 @@ class TransparentWindow(Gtk.Window):
             self.resizeobj.event_finish()
             self.resizeobj = None
             self.queue_draw()
+            return True
 
         if self.dragobj:
             # If the user was dragging a selected object and the drag ends
@@ -2241,6 +2238,9 @@ class TransparentWindow(Gtk.Window):
         obj = self.current_object
         self.cursor_pos = (event.x, event.y)
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
+        pressure = event.get_axis(Gdk.AxisUse.PRESSURE) 
+        if pressure is None:
+            pressure = 1
 
         if self.wiglet_active:
             self.wiglet_active.event_update(event.x, event.y)
@@ -2250,9 +2250,6 @@ class TransparentWindow(Gtk.Window):
             obj.coords[1] = (event.x, event.y)
             self.queue_draw()
         elif obj and obj.type == "path":
-            pressure = event.get_axis(Gdk.AxisUse.PRESSURE) 
-            if pressure is None:
-                pressure = 1
             obj.path_append(event.x, event.y, pressure)
             self.queue_draw()
         elif self.resizeobj:
