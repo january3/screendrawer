@@ -1,7 +1,5 @@
 To do (sorted by priority):
 
- * shortcut or menu item for decorating / unmaximizing the window (so it
-   can be moved to another monitor) (this is needed in teaching!)
  * implement undo for fonts as well
  * close path: converts a path to polygon (what with the outline / pressure? do we loose it?)
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
@@ -16,10 +14,17 @@ To do (sorted by priority):
    transparency etc.
  * grid
  * horizontal and vertical guides
- * turn it into a Gnome plugin
+
+Rejected ideas:
+ * turn it into a Gnome plugin (who 一体 needs that?)
  * eraser should allow a selection like with selection tool (really?)
- * add laserpointer mode?
- * loading from SVG
+ * add laserpointer mode? (why?)
+ * loading from SVG (come on. this is already a waste of time)
+ * shortcut or menu item for decorating / unmaximizing the window (so it
+   can be moved to another monitor) (this is needed in teaching!) -> pity,
+   I implemented it, but it doesn't work correctly; there seems to be a bug
+   either with Gnome or Gtk. However, if you move the cursor to the other
+   monitor and then start sd it opens there, so it is not a big problem.
 
 Design issues:
  * maybe I am doing it all wrong. Maybe I should define a transformation
@@ -31,11 +36,12 @@ Bugs:
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
    should be mostly outside of the bb
- * double click enters text editing only in draw mode, not in text mode
-   - the problem is that before a double click event is raised, single
-     click events happen which confuse the app.
 
 Done:
+ * double click enters text editing only in draw mode, not in text mode
+   - the problem is that before a double click event is raised, single
+     click events happen which confuse the app, because it starts typing a
+     text.
  * when exiting while selection is being made with a box, the selection box
    becomes an object upon new start
  * proportional resize isn't

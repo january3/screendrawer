@@ -2357,6 +2357,17 @@ class TransparentWindow(Gtk.Window):
 
         print("shift:", shift, "ctrl:", ctrl, "double:", double, "pressure:", pressure)
 
+        # double click on a text object: start editing
+        if event.button == 1 and double and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text", "move"]:
+            # put the cursor in the last line, end of the text
+            # this should be a Command event
+            hover_obj.move_cursor("End")
+            self.current_object = hover_obj
+            self.queue_draw()
+            self.change_cursor("none")
+            return True
+
+
         # Ignore clicks when text input is active
         if self.current_object:
             if  self.current_object.type == "text":
@@ -2387,16 +2398,6 @@ class TransparentWindow(Gtk.Window):
             self.gtk_clipboard.set_text(color_hex, -1)
             self.gtk_clipboard.store()
             #print(f"Color under cursor: {color}", rgb_to_hex(color))
-            return True
-
-        # double click on a text object: start editing
-        if event.button == 1 and double and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text", "move"]:
-            # put the cursor in the last line, end of the text
-            # this should be a Command event
-            hover_obj.move_cursor("End")
-            self.current_object = hover_obj
-            self.queue_draw()
-            self.change_cursor("none")
             return True
 
         if event.button == 1 and self.mode == "move":
