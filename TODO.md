@@ -29,7 +29,9 @@ Design issues:
    issue.
 
 Bugs:
- * Polygon should be smoothed like the path
+ * grouping changes the order of the objects, should sort the objects first
+   by their poosition in the object list
+ * regression: selection tool no longer works
  * proportional resize isn't
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
@@ -41,6 +43,7 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * Polygon should be smoothed like the path
  * Cannot undo color changes, and it is a fundamental problem, because I
    change the colors of drawable objects via a command, and commands act
    also on object groups (which belong to the same superclass as drawable

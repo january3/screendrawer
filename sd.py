@@ -850,6 +850,10 @@ class Drawable:
         else:
             self.pen    = None
 
+    def finish(self):
+        """Called when building (drawing, typing etc.) is concluded."""
+        pass
+
     def get_primitive(self):
         """This is for allowing to distinguish between primitives and groups."""
         return self
@@ -1556,6 +1560,11 @@ class Polygon(Drawable):
         super().__init__("polygon", coords, pen)
         self.bb = None
 
+    def finish(self):
+        print("finishing polygon")
+        self.coords, pressure = smooth_path(self.coords)
+        #self.outline_recalculate_new()
+
     def move(self, dx, dy):
         move_coords(self.coords, dx, dy)
 
@@ -1673,6 +1682,11 @@ class Path(Drawable):
         self.outline_l = []
         self.outline_r = []
         self.bb        = []
+
+    def finish(self):
+        self.outline_recalculate_new()
+        if len(self.coords) != len(self.pressure):
+            raise ValueError("Pressure and coords don't match")
 
     def move(self, dx, dy):
         move_coords(self.coords, dx, dy)
@@ -2380,12 +2394,10 @@ class TransparentWindow(Gtk.Window):
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         obj = self.current_object
-        if obj and obj.type == "path":
-            print("finishing path")
+        if obj and obj.type in [ "polygon", "path" ]:
+            print("finishing path / polygon")
             obj.path_append(event.x, event.y, 0)
-            obj.outline_recalculate_new()
-            if len(obj.coords) != len(obj.pressure):
-                print("Pressure and coords don't match")
+            obj.finish()
             if len(obj.coords) < 3:
                 self.objects.remove(obj)
             self.queue_draw()
@@ -2658,7 +2670,8 @@ class TransparentWindow(Gtk.Window):
         if not self.selection or self.selection.length() < 2:
             return
         print("Grouping", self.selection.length(), "objects")
-        new_grp_obj = DrawableGroup(self.selection.objects)
+        objects = sort_by_stack(self.selection.objects, self.objects)
+        new_grp_obj = DrawableGroup(objects)
         for obj in self.selection.objects:
             self.objects.remove(obj)
         self.objects.append(new_grp_obj)
