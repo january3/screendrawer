@@ -89,6 +89,12 @@ COLORS = {
 
 ## ---------------------------------------------------------------------
 
+def sort_by_stack(objs, stack):
+    """Sort a list of objects by their position in the stack."""
+    # sort the list of objects by their position in the stack
+    return sorted(objs, key=lambda x: stack.index(x))
+
+
 def distance(p1, p2):
     """Calculate the Euclidean distance between two points."""
     return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
@@ -391,7 +397,7 @@ class CommandGroup(Command):
 
 
 class RemoveCommand(Command):
-    """Simple class for handling remove object commands."""
+    """Simple class for handling deleting objects."""
     def __init__(self, objects, stack):
         super().__init__("remove", objects)
         self._stack = stack
@@ -409,7 +415,7 @@ class RemoveCommand(Command):
             self._stack.remove(obj)
 
 class AddCommand(Command):
-    """Simple class for handling add object commands."""
+    """Simple class for handling creating objects."""
     def __init__(self, objects, stack):
         super().__init__("add", objects)
         self._stack = stack
@@ -420,6 +426,104 @@ class AddCommand(Command):
 
     def redo(self):
         self._stack.append(self.obj)
+
+class ZStackCommand(Command):
+    """Simple class for handling z-stack operations."""
+    def __init__(self, objects, stack, operation):
+        super().__init__(type, objects)
+        self._operation  = operation
+        self._stack      = stack
+
+        for obj in objects:
+            if not obj in stack:
+                raise ValueError("Object not in stack:", obj)
+
+        self._objects = sort_by_stack(objects, stack)
+        # copy of the old stack
+        self._stack_orig = stack[:]
+
+        if operation == "raise":
+            self.hoist() # raise is reserved
+        elif operation == "lower":
+            self.lower()
+        elif operation == "top":
+            self.top()
+        elif operation == "bottom":
+            self.bottom()
+        else:
+            raise ValueError("Invalid operation:", operation)
+
+    ## here is the problem: not all objects that we get exist in the stack.
+    ## u
+
+    def hoist(self):
+        li = self._stack.index(self._objects[-1])
+        n  = len(self._stack)
+
+        # if the last element is already on top, we just move everything to
+        # the top
+        if li == n - 1:
+            self.top()
+            return
+
+        # otherwise, we move all the objects to the position of the element
+        # following the last one. Then, we just copy the elements from the
+        # stack to the new stack, and when we see the indicator object, we
+        # add our new objects.
+        ind_obj = self._stack[li + 1]
+
+        new_list = []
+        for i in range(n):
+            o = self._stack[i]
+            if not o in self._objects:
+                new_list.append(o)
+            if o == ind_obj:
+                new_list.extend(self._objects)
+
+        self._stack[:] = new_list[:]
+
+    def lower(self):
+        fi = self._stack.index(self._objects[0])
+        n  = len(self._stack)
+
+        if fi == 0:
+            self.bottom()
+            return
+
+        # otherwise, we move all the objects to the position of the element
+        # preceding the first one. Then, we just copy the elements from the
+        # stack to the new stack, and when we see the indicator object, we
+        # this could be done more efficiently, but that way it is clearer
+
+        ind_obj = self._stack[fi - 1]
+        new_list = []
+        for i in range(n):
+            o = self._stack[i]
+            if o == ind_obj:
+                new_list.extend(self._objects)
+            if not o in self._objects:
+                new_list.append(o)
+
+        self._stack[:] = new_list[:]
+
+    def top(self):
+        for obj in self._objects:
+            self._stack.remove(obj)
+            self._stack.append(obj)
+
+    def bottom(self):
+        for obj in self.obj[::-1]:
+            self._stack.remove(obj)
+            self._stack.insert(0, obj)
+
+    def undo(self):
+        self.swap_stacks(self._stack, self._stack_orig)
+
+    def redo(self):
+        self.swap_stacks(self._stack, self._stack_orig)
+
+    def swap_stacks(self, stack1, stack2):
+        stack1[:], stack2[:] = stack2[:], stack1[:]
 
 
 class MoveResizeCommand(Command):
@@ -552,6 +656,7 @@ class ResizeCommand(MoveResizeCommand):
         self._newbb = newbb
         self.obj.resize_update(newbb)
         #self.origin_set((x, y))
+
 
 ## ---------------------------------------------------------------------
 class Wiglet:
@@ -750,9 +855,12 @@ class Drawable:
         x1, y1 = self.coords[0]
         x2, y2 = self.coords[1]
      
-        # by default, we just check whether the click is close to the bounding box
-        path = [ (x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1) ]
-        return is_click_close_to_path(click_x, click_y, path, threshold)
+        ## by default, we just check whether the click is close to the bounding box
+        # path = [ (x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1) ]
+        ## return is_click_close_to_path(click_x, click_y, path, threshold)
+        # we return True if click is within the bbox
+        return (x1 - threshold <= click_x <= x2 + threshold and
+                y1 - threshold <= click_y <= y2 + threshold)
 
     def to_dict(self):
         return {
@@ -2114,6 +2222,8 @@ class TransparentWindow(Gtk.Window):
             obj = self.dragobj.obj
             if event.x < 10 and event.y > self.get_size()[1] - 10:
                 print("removal by drag")
+                # command group because these are two commands: first move,
+                # then remove
                 self.history.append(CommandGroup([ RemoveCommand(obj.objects, self.objects), self.dragobj ]))
                 self.selection = None
             self.dragobj    = None
@@ -2513,6 +2623,12 @@ class TransparentWindow(Gtk.Window):
             return
         self.rotate_obj(self.selection, angle)
 
+    def selection_zmove(self, operation):
+        """move the selected objects long the z-axis."""
+        if self.selection:
+            self.history.append(ZStackCommand(self.selection.objects, self.objects, operation))
+            self.queue_draw()
+
     def handle_shortcuts(self, keyname):
         """Handle keyboard shortcuts."""
         print(keyname)
@@ -2535,25 +2651,30 @@ class TransparentWindow(Gtk.Window):
             'f':                    {'action': self.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
             'o':                    {'action': self.outline_toggle, 'modes': ["box", "circle", "draw", "move"]},
 
-            'Up':                   {'action': self.move_selection, 'args': [0, -10], 'modes': ["move"]},
-            'Shift-Up':             {'action': self.move_selection, 'args': [0, -1], 'modes': ["move"]},
+            'Up':                   {'action': self.move_selection, 'args': [0, -10],  'modes': ["move"]},
+            'Shift-Up':             {'action': self.move_selection, 'args': [0, -1],   'modes': ["move"]},
             'Ctrl-Up':              {'action': self.move_selection, 'args': [0, -100], 'modes': ["move"]},
-            'Down':                 {'action': self.move_selection, 'args': [0, 10], 'modes': ["move"]},
-            'Shift-Down':           {'action': self.move_selection, 'args': [0, 1], 'modes': ["move"]},
-            'Ctrl-Down':            {'action': self.move_selection, 'args': [0, 100], 'modes': ["move"]},
-            'Left':                 {'action': self.move_selection, 'args': [-10, 0], 'modes': ["move"]},
-            'Shift-Left':           {'action': self.move_selection, 'args': [-1, 0], 'modes': ["move"]},
+            'Down':                 {'action': self.move_selection, 'args': [0, 10],   'modes': ["move"]},
+            'Shift-Down':           {'action': self.move_selection, 'args': [0, 1],    'modes': ["move"]},
+            'Ctrl-Down':            {'action': self.move_selection, 'args': [0, 100],  'modes': ["move"]},
+            'Left':                 {'action': self.move_selection, 'args': [-10, 0],  'modes': ["move"]},
+            'Shift-Left':           {'action': self.move_selection, 'args': [-1, 0],   'modes': ["move"]},
             'Ctrl-Left':            {'action': self.move_selection, 'args': [-100, 0], 'modes': ["move"]},
-            'Right':                {'action': self.move_selection, 'args': [10, 0], 'modes': ["move"]},
-            'Shift-Right':          {'action': self.move_selection, 'args': [1, 0], 'modes': ["move"]},
-            'Ctrl-Right':           {'action': self.move_selection, 'args': [100, 0], 'modes': ["move"]},
+            'Right':                {'action': self.move_selection, 'args': [10, 0],   'modes': ["move"]},
+            'Shift-Right':          {'action': self.move_selection, 'args': [1, 0],    'modes': ["move"]},
+            'Ctrl-Right':           {'action': self.move_selection, 'args': [100, 0],  'modes': ["move"]},
 
-            'Page_Up':                {'action': self.rotate_selection, 'args': [10], 'modes': ["move"]},
-            'Shift-Page_Up':          {'action': self.rotate_selection, 'args': [1], 'modes': ["move"]},
-            'Ctrl-Page_Up':           {'action': self.rotate_selection, 'args': [90], 'modes': ["move"]},
-            'Page_Down':              {'action': self.rotate_selection, 'args': [-10], 'modes': ["move"]},
-            'Shift-Page_Down':        {'action': self.rotate_selection, 'args': [-1], 'modes': ["move"]},
-            'Ctrl-Page_Down':         {'action': self.rotate_selection, 'args': [-90], 'modes': ["move"]},
+            'Page_Up':              {'action': self.rotate_selection, 'args': [10],  'modes': ["move"]},
+            'Shift-Page_Up':        {'action': self.rotate_selection, 'args': [1],   'modes': ["move"]},
+            'Ctrl-Page_Up':         {'action': self.rotate_selection, 'args': [90],  'modes': ["move"]},
+            'Page_Down':            {'action': self.rotate_selection, 'args': [-10], 'modes': ["move"]},
+            'Shift-Page_Down':      {'action': self.rotate_selection, 'args': [-1],  'modes': ["move"]},
+            'Ctrl-Page_Down':       {'action': self.rotate_selection, 'args': [-90], 'modes': ["move"]},
+
+            'Alt-Page_Up':          {'action': self.selection_zmove, 'args': [ "top"    ], 'modes': ["move"]},
+            'Alt-Page_Down':        {'action': self.selection_zmove, 'args': [ "bottom" ], 'modes': ["move"]},
+            'Alt-Up':               {'action': self.selection_zmove, 'args': [ "raise"  ], 'modes': ["move"]},
+            'Alt-Down':             {'action': self.selection_zmove, 'args': [ "lower"  ], 'modes': ["move"]},
 
 
             'Shift-W':              {'action': self.set_color, 'args': [COLORS["white"]]},
@@ -2610,12 +2731,15 @@ class TransparentWindow(Gtk.Window):
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
         ctrl    = event.state & Gdk.ModifierType.CONTROL_MASK
         shift   = event.state & Gdk.ModifierType.SHIFT_MASK
+        alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
 
         keyfull = keyname
         if shift:
             keyfull = "Shift-" + keyname
         if ctrl:
             keyfull = "Ctrl-" + keyname
+        if alt_l:
+            keyfull = "Alt-" + keyname
 
         # End text input
         if keyname == "Escape":

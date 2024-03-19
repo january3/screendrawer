@@ -89,3 +89,12 @@ The state is saved in / loaded from `savefile` (on Ubuntu, in the
 # Problems
 
 Try to remove the savefile if you have problems.
+
+# Design principles
+
+ * Transparent, sticky, not decorated window
+ * Must start up and exit quickly
+ * Everything that could be done with a menu must have a shortcut. The
+   opposite is not true.
+ * This is not inkscape or illustrator, it does not loads of features.
+ * Single keystrokes and simple shortcuts are preferred

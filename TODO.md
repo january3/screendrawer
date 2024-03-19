@@ -1,14 +1,18 @@
- * add laserpointer mode?
+To do (sorted by priority):
+
+ * add a Polygon class for drawing closed shapes
+ * add "pages" or "layers" or "frames" or "slides" or "whatever" to the
+   drawing. This would allow to switch between different drawings.
+ * implement rotating for: Box, Circle
  * add a better color picker
  * add a line mode and Line object class
- * implement rotating for: Box, Circle
  * show corners of the bounding box
  * grid
  * horizontal and vertical guides
- * z position
- * loading from SVG
  * turn it into a Gnome plugin
  * eraser should allow a selection like with selection tool (really?)
+ * add laserpointer mode?
+ * loading from SVG
 
 Design issues:
  * maybe I am doing it all wrong. Maybe I should define a transformation
@@ -17,8 +21,11 @@ Design issues:
    issue.
 
 Bugs:
+ * shift-click on an object does not add to selection
  * proportional resize isn't
  * when the bb is smaller than the corner clicking area, bad things happen
+   (it is hard to move the object for example) -> the corner clicking area
+   should be mostly outside of the bb
  * when exiting while selection is being made with a box, the selection
    box becomes an object upon new start
  * double click enters text editing only in draw mode, not in text mode
@@ -26,6 +33,8 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * z position: add moving up and down with alt+up and alt+down (undoable,
+   so with the Command class)
  * first pressure point on a line is 0 regardless.
  * pasting text into a new object ends with cursor set
  * paste cannot be undone
