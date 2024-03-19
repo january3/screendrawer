@@ -21,7 +21,6 @@ Design issues:
    issue.
 
 Bugs:
- * shift-click on an object does not add to selection
  * proportional resize isn't
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
@@ -33,6 +32,9 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * shift-click on an object does not add to selection
+ * right-click context menu when clicked on a part of selection only
+   affects the object under the cursor, not the whole selection
  * z position: add moving up and down with alt+up and alt+down (undoable,
    so with the Command class)
  * first pressure point on a line is 0 regardless.

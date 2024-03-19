@@ -903,6 +903,7 @@ class Drawable:
             "group": DrawableGroup,
             "text": Text
         }
+
         type = d.pop("type")
         if type not in type_map:
             raise ValueError("Invalid type:", type)
@@ -1844,7 +1845,7 @@ Moving object to left lower screen corner deletes it.
 Ctrl-q: Quit            x, q: Exit                                             Ctrl-c: Copy content   Tab: Next object
 Ctrl-e: Export drawing  h, F1, ?: Show this help dialog                        Ctrl-v: Paste content  Shift-Tab: Previous object
 Ctrl-l: Clear drawing   l: Clear drawing                                       Ctrl-x: Cut content    Shift-letter: quick color selection e.g. Shift-r for red
-Ctrl-i: insert image                                                                                  d, |Del|: Delete selected object
+Ctrl-i: insert image                                                                                  |Del|: Delete selected object
 Ctrl-z: undo            |Esc|: Finish text input                                                      g, u: group, ungroup                           
 Ctrl-y: redo            |Enter|: New line (in text mode)                                 
 
@@ -1994,7 +1995,7 @@ class TransparentWindow(Gtk.Window):
                 { "label": "Copy (Ctrl-c)",        "callback": self.on_menu_item_activated, "data": "Ctrl-c" },
                 { "label": "Cut (Ctrl-x)",         "callback": self.on_menu_item_activated, "data": "Ctrl-x" },
                 { "separator": True },
-                { "label": "Delete (d, |Del|)",    "callback": self.on_menu_item_activated, "data": "d" },
+                { "label": "Delete (|Del|)",    "callback": self.on_menu_item_activated, "data": "Delete" },
                 { "label": "Group (g)",            "callback": self.on_menu_item_activated, "data": "g" },
                 { "label": "Ungroup (u)",          "callback": self.on_menu_item_activated, "data": "u" },
                 { "separator": True },
@@ -2061,11 +2062,14 @@ class TransparentWindow(Gtk.Window):
         print("shift:", shift, "ctrl:", ctrl, "double:", double, "pressure:", pressure)
         print(modifiers)
 
-        if event.button == 3:
+        if event.button == 3 and not shift:
             if hover_obj:
                 self.mode = "move"
                 self.default_cursor(self.mode)
-                self.selection = DrawableGroup([ hover_obj ])
+
+                if not (self.selection and self.selection.contains(hover_obj)):
+                    self.selection = DrawableGroup([ hover_obj ])
+
                 self.object_menu.popup(None, None, None, None, event.button, event.time)
                 self.queue_draw()
             else:
@@ -2700,7 +2704,6 @@ class TransparentWindow(Gtk.Window):
             'g':                    {'action': self.selection_group,    'modes': ["move"]},
             'u':                    {'action': self.selection_ungroup,  'modes': ["move"]},
             'Delete':               {'action': self.selection_delete,   'modes': ["move"]},
-            'd':                    {'action': self.selection_delete,   'modes': ["move"]},
             'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
             'Ctrl-c':               {'action': self.copy_content,       'modes': ["move"]},
             'Ctrl-x':               {'action': self.cut_content,        'modes': ["move"]},
