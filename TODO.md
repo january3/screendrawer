@@ -28,17 +28,17 @@ Design issues:
    issue.
 
 Bugs:
- * proportional resize isn't
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
    should be mostly outside of the bb
- * when exiting while selection is being made with a box, the selection box
-   becomes an object upon new start
  * double click enters text editing only in draw mode, not in text mode
    - the problem is that before a double click event is raised, single
      click events happen which confuse the app.
 
 Done:
+ * when exiting while selection is being made with a box, the selection box
+   becomes an object upon new start
+ * proportional resize isn't
  * color picker.
  * make a screenshot tool (create rectangle, snap!)
  * Maybe we should not be appending the object to the self.objects and the

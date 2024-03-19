@@ -2427,7 +2427,8 @@ class TransparentWindow(Gtk.Window):
                 print("starting selection tool")
                 # XXX this should be solved in a different way
                 self.selection_tool = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], Pen(line_width = 0.2, color = (1, 0, 0)))
-                self.objects.append(self.selection_tool)
+                #self.objects.append(self.selection_tool)
+                self.current_object = self.selection_tool
                 self.queue_draw()
             return True
 
@@ -2478,7 +2479,7 @@ class TransparentWindow(Gtk.Window):
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         obj = self.current_object
-        if obj:
+        if obj and obj != self.selection_tool:
             self.history.append(AddCommand(self.current_object, self.objects))
 
         if obj and obj.type in [ "polygon", "path" ]:
@@ -3286,7 +3287,6 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
             self.gtk_clipboard.set_text(filename, -1)
             self.gtk_clipboard.store()
-
 
     def screenshot(self):
         if self.selection and self.selection.length() == 1 and self.selection.objects[0].type == "box":
