@@ -880,7 +880,7 @@ class Drawable:
         else:
             self.pen    = None
 
-    def update(self, x, y):
+    def update(self, x, y, pressure):
         """Called when the mouse moves during drawing."""
         pass
 
@@ -2646,7 +2646,7 @@ class TransparentWindow(Gtk.Window):
     def paste_image(self, clip_img):
         """Create an image object from clipboard image."""
         pos = self.cursor_pos or (100, 100)
-        self.current_object = Image([ pos ], pen, clip_img)
+        self.current_object = Image([ pos ], self.pen, clip_img)
         self.history.append(AddCommand(self.current_object, self.objects))
         self.queue_draw()
 
