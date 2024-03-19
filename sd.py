@@ -1531,7 +1531,6 @@ class Text(Drawable):
         content, pen, cursor_pos = self.content, self.pen, self.cursor_pos
         
         # get font info
-        print("family=",pen.font_family, pen.font_style, pen.font_weight)
         cr.select_font_face(pen.font_family, 
                             pen.font_style == "italic" and cairo.FONT_SLANT_ITALIC or cairo.FONT_SLANT_NORMAL,
                             pen.font_weight == "bold"  and cairo.FONT_WEIGHT_BOLD  or cairo.FONT_WEIGHT_NORMAL)
@@ -2375,7 +2374,7 @@ class TransparentWindow(Gtk.Window):
                 self.finish_text_input()
                 return True
             else:
-                raise ValueError("current_object is not text, button was clicked. This should not happen.")
+                print("click, but text input active - ignoring it; object=", self.current_object)
 
         # right click: open context menu
         if event.button == 3 and not shift:
@@ -3022,7 +3021,7 @@ class TransparentWindow(Gtk.Window):
             'Ctrl-a':               {'action': self.select_all},
             'Ctrl-r':               {'action': self.select_reverse},
             'Ctrl-v':               {'action': self.paste_content},
-            'Ctrl-f':               {'action': self.screenshot},
+            'Ctrl-F':               {'action': self.screenshot},
 
             'Ctrl-y':               {'action': self.redo},
             'Ctrl-z':               {'action': self.undo},
@@ -3289,15 +3288,30 @@ class TransparentWindow(Gtk.Window):
             self.gtk_clipboard.set_text(filename, -1)
             self.gtk_clipboard.store()
 
-    def screenshot(self):
+    def find_screenshot_box(self):
+        if self.current_object and self.current_object.type == "box":
+            return self.current_object
         if self.selection and self.selection.length() == 1 and self.selection.objects[0].type == "box":
-            bb = self.selection.objects[0].bbox()
-            print("bbox is", bb)
-            self.hidden = True
-            self.queue_draw()
-            while Gtk.events_pending():
-                Gtk.main_iteration_do(False)
-            GLib.timeout_add(100, self.screenshot_finalize, bb)
+            return self.selection.objects[0]
+
+        for obj in self.objects[::-1]:
+            if obj.type == "box":
+                return obj
+        return None
+
+    def screenshot(self):
+        obj = self.find_screenshot_box()
+        if not obj:
+            print("no suitable box found")
+            return
+
+        bb = obj.bbox()
+        print("bbox is", bb)
+        self.hidden = True
+        self.queue_draw()
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
+        GLib.timeout_add(100, self.screenshot_finalize, bb)
 
     def save_state(self): 
         """Save the current drawing state to a file."""

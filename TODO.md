@@ -33,6 +33,7 @@ Design issues:
    issue.
 
 Bugs:
+ * Screenshot tool should automatically select the closest rectangle
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
    should be mostly outside of the bb
