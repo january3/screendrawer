@@ -1,8 +1,8 @@
 To do (sorted by priority):
 
- * implement undo for fonts as well
  * shortcut or menu item for decorating / unmaximizing the window (so it
-   can be moved to another monitor)
+   can be moved to another monitor) (this is needed in teaching!)
+ * implement undo for fonts as well
  * close path: converts a path to polygon (what with the outline / pressure? do we loose it?)
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
  * add "pages" or "layers" or "frames" or "slides" or "whatever" to the
@@ -14,7 +14,6 @@ To do (sorted by priority):
  * an idea: wiglets which are shown (optionally, toggleable) on the left
    side of the screen, allowing to quickly select colors, line widths,
    transparency etc.
- * color picker.
  * grid
  * horizontal and vertical guides
  * turn it into a Gnome plugin
@@ -27,9 +26,6 @@ Design issues:
    class and then record transformations for each object. This way, I
    would be able to undo transformations easily. This is a big design
    issue.
- * Maybe we should not be appending the object to the self.objects and the
-   command to the history *until* it is not finished? And draw the current
-   object separately after all the other objects?
 
 Bugs:
  * proportional resize isn't
@@ -43,6 +39,11 @@ Bugs:
      click events happen which confuse the app.
 
 Done:
+ * color picker.
+ * make a screenshot tool (create rectangle, snap!)
+ * Maybe we should not be appending the object to the self.objects and the
+   command to the history *until* it is not finished? And draw the current
+   object separately after all the other objects?
  * regression: selection tool no longer works
  * grouping changes the order of the objects, should sort the objects first
    by their poosition in the object list

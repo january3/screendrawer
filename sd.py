@@ -113,6 +113,25 @@ def rgb_to_hex(rgb):
     """Convert an RGB color to a hexadecimal string."""
     return "#{:02x}{:02x}{:02x}".format(*[int(255 * c) for c in rgb])
 
+def get_screenshot(window, x0, y0, x1, y1):
+
+    # Get the absolute position of the area to capture
+    window_position = window.get_position()
+    x0 = window_position[0] + x0
+    y0 = window_position[1] + y0
+    x1 = window_position[0] + x1
+    y1 = window_position[1] + y1
+
+    screenshot = ImageGrab.grab(bbox=(x0, y0, x1, y1))
+
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+    screenshot.save(temp_file, format="PNG")
+    temp_file_name = temp_file.name  
+    temp_file.close()
+    print("Saved screenshot to temporary file:", temp_file_name)
+
+    pixbuf = GdkPixbuf.Pixbuf.new_from_file(temp_file_name)
+    return pixbuf, temp_file_name
 
 def flatten_and_unique(lst, result_set=None):
     """Flatten a list and remove duplicates."""
@@ -2985,6 +3004,7 @@ class TransparentWindow(Gtk.Window):
             'Ctrl-a':               {'action': self.select_all},
             'Ctrl-r':               {'action': self.select_reverse},
             'Ctrl-v':               {'action': self.paste_content},
+            'Ctrl-f':               {'action': self.screenshot},
 
             'Ctrl-y':               {'action': self.redo},
             'Ctrl-z':               {'action': self.undo},
@@ -3237,6 +3257,19 @@ class TransparentWindow(Gtk.Window):
         # Clean up and destroy the dialog
         dialog.destroy()
 
+    def screenshot(self):
+        if self.selection and self.selection.length() == 1 and self.selection.objects[0].type == "box":
+            bb = self.selection.objects[0].bbox()
+            print("bbox is", bb)
+            pixbuf, filename = get_screenshot(self, bb[0] + 3, bb[1] + 3, bb[0] + bb[2] - 6, bb[1] + bb[3] - 6)
+
+            # Create the image and copy to clipboard
+            if pixbuf is not None:
+                img = Image([ (bb[0], bb[1]) ], self.pen, pixbuf)
+                self.history.append(AddCommand(img, self.objects))
+                self.queue_draw()
+                self.gtk_clipboard.set_text(file_name, -1)
+                self.gtk_clipboard.store()
 
     def save_state(self): 
         """Save the current drawing state to a file."""
