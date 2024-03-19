@@ -1,6 +1,5 @@
 To do (sorted by priority):
 
- * add a Polygon class for drawing closed shapes
  * add "pages" or "layers" or "frames" or "slides" or "whatever" to the
    drawing. This would allow to switch between different drawings.
  * implement rotating for: Box, Circle
@@ -21,6 +20,7 @@ Design issues:
    issue.
 
 Bugs:
+ * add a Polygon class for drawing closed shapes
  * proportional resize isn't
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area

@@ -852,6 +852,13 @@ class Drawable:
 
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the object."""
+        if self.coords is None:
+            return False
+        if len(self.coords) == 1:
+            x, y = self.coords[0]
+            return (x - threshold <= click_x <= x + threshold and
+                    y - threshold <= click_y <= y + threshold)
+
         x1, y1 = self.coords[0]
         x2, y2 = self.coords[1]
      
@@ -897,6 +904,7 @@ class Drawable:
     def from_dict(cls, d):
         type_map = {
             "path": Path,
+            "polygon": Polygon,
             "circle": Circle,
             "box": Box,
             "image": Image,
@@ -1478,8 +1486,120 @@ class Text(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.5)
 
+class Polygon(Drawable):
+    """Class for polygons (closed paths with no outline)."""
+    def __init__(self, coords, pen):
+        super().__init__("polygon", coords, pen)
+        self.bb = None
+
+    def move(self, dx, dy):
+        move_coords(self.coords, dx, dy)
+
+    def rotate_end(self):
+        self.coords = coords_rotate(self.coords, self.rotation, self.rot_origin)
+        self.rotation = 0
+        self.rot_origin = None
+        self.bb = path_bbox(self.coords)
+
+    def move(self, dx, dy):
+        move_coords(self.coords, dx, dy)
+        self.bb = None
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        bb = self.bbox()
+        if bb is None:
+            return False
+        x, y, width, height = bb
+        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
+            return True
+    
+    def path_append(self, x, y, pressure):
+        self.coords.append((x, y))
+        self.bb = None
+
+    def bbox(self):
+        if self.resizing:
+            return self.resizing["bbox"]
+        if not self.bb:
+            self.bb = path_bbox(self.coords)
+        return self.bb
+
+    def resize_end(self):
+        """recalculate the coordinates after resizing"""
+        old_bbox = self.bb or path_bbox(self.coords)
+        self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
+        self.resizing  = None
+        self.bb = path_bbox(self.coords)
+
+    def draw_outline(self, cr):
+        """draws each segment separately and makes a dot at each coord."""
+
+        for i in range(len(coords) - 1):
+            cr.move_to(coords[i][0], coords[i][1])
+            cr.line_to(coords[i + 1][0], coords[i + 1][1])
+            cr.stroke()
+            # make a dot at each coord
+            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+            cr.fill()
+        cr.move_to(coords[-1][0], coords[-1][1])
+        cr.line_to(coords[0][0], coords[0][1])
+        cr.stroke()
+
+    def draw_simple(self, cr, bbox=None):
+        """draws the path as a single line. Useful for resizing."""
+
+        if len(self.coords) < 3:
+            return
+
+        if bbox:
+            old_bbox = path_bbox(self.coords)
+            coords = transform_coords(self.coords, old_bbox, bbox)
+        else:
+            coords = self.coords
+
+        cr.set_line_width(0.5)
+        cr.move_to(coords[0][0], coords[0][1])
+        for point in coords[1:]:
+            cr.line_to(point[0], point[1])
+        cr.close_path()
+
+
+    def draw(self, cr, hover=False, selected=False, outline = False):
+        if len(self.coords) < 3:
+            return
+
+        if self.rotation != 0:
+            cr.save()
+            bb = self.bbox()
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+        res_bb = self.resizing and self.resizing["bbox"] or None
+        self.draw_simple(cr, res_bb)
+
+        if outline:
+            cr.stroke()
+            self.draw_outline(cr)
+        else:
+            cr.fill()   
+
+        if selected:
+            cr.set_source_rgba(1, 0, 0)
+            self.bbox_draw(cr, lw=.2)
+
+        if hover:
+            self.bbox_draw(cr, lw=.2)
+
+        if self.rotation != 0:
+            cr.restore()
+
+
 
 class Path(Drawable):
+    """ Path is like polygon, but not closed and has an outline that depends on
+        line width and pressure."""
     def __init__(self, coords, pen, outline = None, pressure = None):
         super().__init__("path", coords, pen = pen)
         self.outline   = outline  or []
@@ -1517,7 +1637,6 @@ class Path(Drawable):
     def stroke_change(self, direction):
         self.pen.stroke_change(direction)
         self.outline_recalculate_new()
-
 
     def smoothen(self, threshold=20):
         if len(self.coords) < 3:
@@ -2047,6 +2166,7 @@ class TransparentWindow(Gtk.Window):
     #                              Event handlers
 
     def on_right_click(self, hover_obj):
+        """Handle right click events - context menus."""
         if hover_obj:
             self.mode = "move"
             self.default_cursor(self.mode)
@@ -2124,6 +2244,11 @@ class TransparentWindow(Gtk.Window):
             elif self.mode == "box":
                 print("drawing box / circle")
                 self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], pen = self.pen)
+                self.history.append(AddCommand(self.current_object, self.objects))
+
+            elif self.mode == "polygon":
+                print("drawing polygon")
+                self.current_object = Polygon([ (event.x, event.y) ], pen = self.pen)
                 self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "circle":
@@ -2249,7 +2374,7 @@ class TransparentWindow(Gtk.Window):
         if obj and (obj.type == "box" or obj.type == "circle"):
             obj.coords[1] = (event.x, event.y)
             self.queue_draw()
-        elif obj and obj.type == "path":
+        elif obj and obj.type in [ "path", "polygon" ]:
             obj.path_append(event.x, event.y, pressure)
             self.queue_draw()
         elif self.resizeobj:
@@ -2635,7 +2760,9 @@ class TransparentWindow(Gtk.Window):
         print(keyname)
 
         # these are single keystroke mode modifiers
-        modes = { 'd': "draw", 't': "text", 'e': "eraser", 'm': "move", 'c': "circle", 'b': "box", 's': "move", 'space': "move" }
+        modes = { 'm': "move", 's': "move", 'space': "move", 
+                  'd': "draw", 't': "text", 'e': "eraser", 
+                  'c': "circle", 'b': "box", 'p': "polygon" }
 
         # these are single keystroke actions
         actions = {
@@ -2768,6 +2895,7 @@ class TransparentWindow(Gtk.Window):
             "text":        Gdk.Cursor.new_from_name(self.get_display(), "text"),
             "eraser":      Gdk.Cursor.new_from_name(self.get_display(), "not-allowed"),
             "pencil":      Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
+            "polygon":     Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
             "draw":        Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
             "crosshair":   Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
             "circle":      Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
