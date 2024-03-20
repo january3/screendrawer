@@ -1,5 +1,7 @@
 To do (sorted by priority):
 
+ * change the way selectionObject works -> it should be a selectionManager
+   rather than a transient object
  * implement undo for fonts as well
  * close path: converts a path to polygon (what with the outline / pressure? do we loose it?)
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)

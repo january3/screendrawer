@@ -1331,70 +1331,94 @@ class SelectionObject(DrawableGroup):
     object (e.g. to inverse a selection).
     """
 
-    def __init__(self, objects = [ ], objects_dict = None):
-        super().__init__(objects, objects_dict)
+    def __init__(self, all_objects):
+        super().__init__([ ], None)
 
-    @classmethod
-    def next(cls, selection, all_objects):
+        self._all_objects = all_objects
+
+    def n(self):
+        return len(self.objects)
+
+    def clear(self):
+        self.objects = [ ]
+
+    def toggle(self, obj):
+        if obj in self.objects:
+            self.objects.remove(obj)
+        else:
+            self.objects.append(obj)
+
+    def set(self, objects):
+        self.objects = objects
+
+    def add(self, obj):
+        if not obj in self.objects:
+            self.objects.append(obj)
+
+    def all(self):
+        self.objects = self._all_objects[:]
+
+    def next(self):
         """
         Return a selection object with the next object in the list,
         relative to the current selection.
         """
+
+        all_objects = self._all_objects
+
         if not all_objects:
-            return None
+            return
 
-        if not selection:
-            return cls([ all_objects[0] ])
+        if not self.objects:
+            self.objects = [ all_objects[0] ]
+            return
 
-        idx = all_objects.index(selection.objects[-1])
+        idx = all_objects.index(self.objects[-1])
         idx += 1
         if idx >= len(all_objects):
             idx = 0
 
-        return cls([ all_objects[idx] ])
+        self.objects = [ all_objects[idx] ]
 
-    @classmethod
-    def prev(cls, selection, all_objects):
+
+    def prev(self):
         """
         Return a selection object with the previous object in the list,
         relative to the current selection.
         """
+
+        all_objects = self._all_objects
+
         if not all_objects:
-            return None
+            return
 
-        if not selection:
-            return cls([ all_objects[-1] ])
+        if not self.objects:
+            self.objects = [ all_objects[-1] ]
+            return
 
-        idx = all_objects.index(selection.objects[-1])
+        idx = all_objects.index(self.objects[-1])
         idx -= 1
         if idx < 0:
             idx = len(all_objects) - 1
+        self.objects = [ all_objects[idx] ]
 
-        return cls([ all_objects[idx] ])
 
-    @classmethod
-    def reverse(cls, selection, all_objects):
+    def reverse(self):
         """
         Return a selection object with the objects in reverse order.
         """
-        if not selection:
+        if not self.objects:
             print("no selection yet, selecting everything")
-            return cls(all_objects[:])
+            self.objects = self._all_objects[:]
+            return
 
         new_sel = [ ]
-        for obj in all_objects:
-            if not selection.contains(obj):
+        for obj in self._all_objects:
+            if not self.contains(obj):
                 new_sel.append(obj)
 
-        return cls(new_sel)
+        self.objects = new_sel
     
-
-#       n = len(all_objects)
-#       i = all_objects.index(self.objects[-1])
-#       if i == n - 1:
-#           return None
-#
-#       return SelectionObject(self.objects + [ all_objects[i + 1] ])
 
 class Image(Drawable):
     """Class for Images"""
@@ -2607,7 +2631,7 @@ class TransparentWindow(Gtk.Window):
         self.hidden              = False
         self.current_object      = None
         self.wiglet_active       = None
-        self.selection           = None
+        self.selection           = SelectionObject(self.objects)
         self.resizeobj           = None
         self.mode                = "draw"
         self.cursor              = CursorManager(self)
@@ -2727,14 +2751,14 @@ class TransparentWindow(Gtk.Window):
 
         for obj in self.objects:
             hover    = obj == self.hover and self.mode == "move"
-            selected = self.selection and self.selection.contains(obj) and self.mode == "move"
+            selected = self.selection.contains(obj) and self.mode == "move"
             obj.draw(cr, hover=hover, selected=selected, outline = self.outline)
 
         # If changing line width, draw a preview of the new line width
       
     def clear(self):
         """Clear the drawing."""
-        self.selection      = None
+        self.selection.clear()
         self.resizeobj      = None
         self.current_object = None
         self.history.append(RemoveCommand(self.objects[:], self.objects))
@@ -2749,8 +2773,8 @@ class TransparentWindow(Gtk.Window):
             self.mode = "move"
             self.cursor.default(self.mode)
 
-            if not (self.selection and self.selection.contains(hover_obj)):
-                self.selection = DrawableGroup([ hover_obj ])
+            if not self.selection.contains(hover_obj):
+                self.selection.set([ hover_obj ])
 
             self.object_menu.popup(None, None, None, None, event.button, event.time)
             self.queue_draw()
@@ -2827,26 +2851,27 @@ class TransparentWindow(Gtk.Window):
                     self.resizeobj = ResizeCommand(obj, origin = (event.x, event.y), corner = corner, proportional = ctrl)
                 else:
                     self.resizeobj = RotateCommand(obj, origin = (event.x, event.y), corner = corner)
-                self.selection = DrawableGroup([ obj ])
+                self.selection.set([ obj ])
                 self.history.append(self.resizeobj)
                 self.cursor.set(corner)
             elif hover_obj:
-                if shift and self.selection:
-                    # create Draw Group with the two objects
+                if shift:
+                    # add if not present, remove if present
+                    print("adding object", hover_obj)
                     self.selection.add(hover_obj)
-                elif not self.selection or not self.selection.contains(hover_obj):
-                        self.selection = DrawableGroup([ hover_obj ])
+                if not self.selection.contains(hover_obj):
+                    print("object not in selection, setting it", hover_obj)
+                    self.selection.set([ hover_obj ])
                 self.resizeobj = MoveCommand(self.selection, (event.x, event.y))
                 self.history.append(self.resizeobj)
                 self.cursor.set("grabbing")
             else:
-                self.selection = None
+                self.selection.clear()
                 self.resizeobj   = None
                 print("starting selection tool")
                 # XXX this should be solved in a different way
                 self.selection_tool = SelectionTool([ (event.x, event.y), (event.x + 1, event.y + 1) ])
                                       
-                #self.objects.append(self.selection_tool)
                 self.current_object = self.selection_tool
                 self.queue_draw()
             return True
@@ -2858,7 +2883,7 @@ class TransparentWindow(Gtk.Window):
                 print("new text")
                 self.cursor.set("none")
                 self.current_object = Text([ (event.x, event.y) ], pen = self.pen, content = "")
-                self.selection = DrawableGroup([ self.current_object ])
+                self.selection.set([ self.current_object ])
                 self.current_object.move_caret("Home")
                 #self.history.append(AddCommand(self.current_object, self.objects))
 
@@ -2885,7 +2910,7 @@ class TransparentWindow(Gtk.Window):
         # erasing an object, if an object is underneath the cursor
         if hover_obj and event.button == 1 and self.mode == "eraser":
                 self.history.append(RemoveCommand([ hover_obj ], self.objects))
-                self.selection = None
+                self.selection.clear()
                 self.resizeobj   = None
                 self.cursor.revert()
 
@@ -2923,8 +2948,11 @@ class TransparentWindow(Gtk.Window):
             print("finishing selection tool")
             #self.objects.remove(self.selection_tool)
             #bb = self.selection_tool.bbox()
-            obj = self.selection_tool.objects_in_selection(self.objects)
-            self.selection = DrawableGroup(obj) if len(obj) > 0 else None
+            objects = self.selection_tool.objects_in_selection(self.objects)
+            if len(objects) > 0:
+                self.selection.set(objects)
+            else:
+                self.selection.clear()
             self.selection_tool = None
             self.queue_draw()
             return True
@@ -2933,7 +2961,7 @@ class TransparentWindow(Gtk.Window):
         if self.current_object and self.current_object.type != "text":
             print("there is a current object: ", self.current_object)
             # self.selection = DrawableGroup([ self.current_object ])
-            self.selection = None
+            self.selection.clear()
             self.current_object = None
             self.queue_draw()
             return True
@@ -2947,7 +2975,7 @@ class TransparentWindow(Gtk.Window):
                 # command group because these are two commands: first move,
                 # then remove
                 self.history.append(CommandGroup([ RemoveCommand(obj.objects, self.objects), self.resizeobj ]))
-                self.selection = None
+                self.selection.clear()
             self.resizeobj    = None
             self.cursor.revert()
             self.queue_draw()
@@ -3100,7 +3128,7 @@ class TransparentWindow(Gtk.Window):
 
     def copy_content(self, destroy = False):
         """Copy content to clipboard."""
-        if not self.selection:
+        if not self.selection.n():
             return
 
         print("Copying content", self.selection)
@@ -3108,7 +3136,7 @@ class TransparentWindow(Gtk.Window):
 
         if destroy:
             self.history.append(RemoveCommand(self.selection.objects, self.objects))
-            self.selection = None
+            self.selection.clear()
             self.queue_draw()
 
     def cut_content(self):
@@ -3131,7 +3159,7 @@ class TransparentWindow(Gtk.Window):
             self.current_object.stroke_change(direction)
             self.pen.font_size = self.current_object.pen.font_size
             self.queue_draw()
-        elif self.selection:
+        elif self.selection.n():
             for obj in self.selection.objects:
                 obj.stroke_change(direction)
             self.queue_draw()
@@ -3144,15 +3172,17 @@ class TransparentWindow(Gtk.Window):
 
     def selection_group(self):
         """Group selected objects."""
-        if not self.selection or self.selection.length() < 2:
+        if self.selection.n() < 2:
             return
-        print("Grouping", self.selection.length(), "objects")
+        print("Grouping", self.selection.n(), "objects")
         objects = sort_by_stack(self.selection.objects, self.objects)
         new_grp_obj = DrawableGroup(objects)
+
         for obj in self.selection.objects:
             self.objects.remove(obj)
+
         self.objects.append(new_grp_obj)
-        self.selection = DrawableGroup([ new_grp_obj ])
+        self.selection.set([ new_grp_obj ])
         self.queue_draw()
 
     def selection_ungroup(self):
@@ -3169,7 +3199,7 @@ class TransparentWindow(Gtk.Window):
 
     def select_reverse(self):
         """Reverse the selection."""
-        self.selection = SelectionObject.reverse(self.selection, self.objects)
+        self.selection.reverse()
         self.queue_draw()
 
     def select_all(self):
@@ -3179,35 +3209,32 @@ class TransparentWindow(Gtk.Window):
 
         self.mode = 'move'
         self.cursor.default('move')
-
-        self.selection = DrawableGroup([ self.objects[0] ])
-        for obj in self.objects[1:]:
-            self.selection.add(obj)
+        self.selection.all()
         self.queue_draw()
 
     def selection_delete(self):
         """Delete selected objects."""
-        if self.selection:
+        if self.selection.n() > 0:
             self.history.append(RemoveCommand(self.selection.objects, self.objects))
-            self.selection = None
+            self.selection.clear()
             self.resizeobj   = None
             self.queue_draw()
 
     def select_next_object(self):
         """Select the next object."""
-        self.selection = SelectionObject.next(self.selection, self.objects)
+        self.selection.next()
         self.queue_draw()
 
     def selection_fill(self):
         """Fill the selected object."""
-        if self.selection:
+        if self.selection.n() > 0:
             for obj in self.selection.objects:
                 obj.fill(self.pen.color)
             self.queue_draw()
 
     def select_previous_object(self):
         """Select the previous object."""
-        self.selection = SelectionObject.previous(self.selection, self.objects)
+        self.selection.previous()
         self.queue_draw()
 
     def outline_toggle(self):
@@ -3217,7 +3244,7 @@ class TransparentWindow(Gtk.Window):
 
     def set_color(self, color):
         self.pen.color_set(color)
-        if self.selection:
+        if self.selection.n() > 0:
             self.history.append(SetColorCommand(self.selection, color))
         self.queue_draw()
 
@@ -3225,7 +3252,7 @@ class TransparentWindow(Gtk.Window):
         """Set the font."""
         self.pen.font_set_from_description(font_description)
 
-        if self.selection:
+        if self.selection.n() > 0:
             for obj in self.selection.objects:
                 obj.pen.font_set_from_description(font_description)
 
@@ -3233,7 +3260,7 @@ class TransparentWindow(Gtk.Window):
 
     def smoothen(self):
         """Smoothen the selected object."""
-        if self.selection:
+        if self.selection.n() > 0:
             for obj in self.selection.objects:
                 obj.smoothen()
             self.queue_draw()
@@ -3270,7 +3297,7 @@ class TransparentWindow(Gtk.Window):
 
     def move_selection(self, dx, dy):
         """Move the selected objects by the given amount."""
-        if not self.selection:
+        if not self.selection.n() > 0:
             return
         self.move_obj(self.selection, dx, dy)
 
@@ -3284,13 +3311,13 @@ class TransparentWindow(Gtk.Window):
 
     def rotate_selection(self, angle):
         """Rotate the selected objects by the given angle (degrees)."""
-        if not self.selection:
+        if not self.selection.n() > 0:
             return
         self.rotate_obj(self.selection, angle)
 
     def selection_zmove(self, operation):
         """move the selected objects long the z-axis."""
-        if self.selection:
+        if self.selection.n() > 0:
             self.history.append(ZStackCommand(self.selection.objects, self.objects, operation))
             self.queue_draw()
 
@@ -3570,7 +3597,7 @@ class TransparentWindow(Gtk.Window):
     def find_screenshot_box(self):
         if self.current_object and self.current_object.type == "box":
             return self.current_object
-        if self.selection and self.selection.length() == 1 and self.selection.objects[0].type == "box":
+        if self.selection.n() == 1 and self.selection.objects[0].type == "box":
             return self.selection.objects[0]
 
         for obj in self.objects[::-1]:
