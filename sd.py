@@ -1321,6 +1321,23 @@ class DrawableGroup(Drawable):
         if self.rotation:
             cr.restore()
 
+class SelectionObject(DrawableGroup):
+    """Class for handling the selection of objects."""
+    def __init__(self, objects = [ ], objects_dict = None):
+        super().__init__(objects, objects_dict)
+
+    def next(self, all_objects):
+        """Return a selection object with the next object in the list."""
+        if not all_objects:
+            return None
+
+#       n = len(all_objects)
+#       i = all_objects.index(self.objects[-1])
+#       if i == n - 1:
+#           return None
+#
+#       return SelectionObject(self.objects + [ all_objects[i + 1] ])
+
 class Image(Drawable):
     """Class for Images"""
     def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
@@ -2048,6 +2065,7 @@ class Path(Drawable):
     def draw_outline(self, cr):
         """draws each segment separately and makes a dot at each coord."""
 
+        coords = self.coords
         for i in range(len(coords) - 1):
             cr.move_to(coords[i][0], coords[i][1])
             cr.line_to(coords[i + 1][0], coords[i + 1][1])
@@ -2103,6 +2121,7 @@ class Path(Drawable):
         else:
             self.draw_standard(cr)
             if outline:
+                print("drawing outline")
                 cr.stroke()
                 self.draw_outline(cr)
             else:
