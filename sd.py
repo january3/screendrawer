@@ -681,7 +681,7 @@ class MoveCommand(MoveResizeCommand):
         self._last_pt = (x, y)
         self.origin_set((x, y))
 
-    def move_event_finish(self):
+    def event_finish(self):
         pass
 
     def undo(self):
@@ -769,7 +769,7 @@ class ResizeCommand(MoveResizeCommand):
 class Wiglet:
     """drawable dialog-like objects on the canvas"""
     def __init__(self, type, coords):
-        self.type   = type
+        self.wiglet_type   = type
         self.coords = coords
 
     def draw(self, cr):
@@ -788,6 +788,7 @@ class WigletTransparency(Wiglet):
 
         if not pen or not isinstance(pen, Pen):
             raise ValueError("Pen is not defined or not of class Pen")
+
         self.pen      = pen
         self._last_pt = coords[0]
         self._initial_transparency = pen.transparency
@@ -834,9 +835,47 @@ class WigletLineWidth(Wiglet):
 
 ## ---------------------------------------------------------------------
 class Pen:
-    """Store current line width, color and text size."""
+    """
+    Represents a pen with customizable drawing properties.
+
+    This class encapsulates properties like color, line width, and font settings
+    that can be applied to drawing operations on a canvas.
+
+    Attributes:
+        color (tuple): The RGB color of the pen as a tuple (r, g, b), with each component ranging from 0 to 1.
+        line_width (float): The width of the lines drawn by the pen.
+        font_size (int): The size of the font when drawing text.
+        fill_color (tuple or None): The RGB fill color for shapes. `None` means no fill.
+        transparency (float): The transparency level of the pen's color, where 1 is opaque and 0 is fully transparent.
+        font_family (str): The name of the font family used for drawing text.
+        font_weight (str): The weight of the font ('normal', 'bold', etc.).
+        font_style (str): The style of the font ('normal', 'italic', etc.).
+
+    Args:
+        color (tuple, optional): Initial color of the pen. Defaults to (0, 0, 0) for black.
+        line_width (int, optional): Initial line width. Defaults to 12.
+        transparency (float, optional): Initial transparency level. Defaults to 1 (opaque).
+        fill_color (tuple, optional): Initial fill color. Defaults to None.
+        font_size (int, optional): Initial font size. Defaults to 12.
+        font_family (str, optional): Initial font family. Defaults to "Sans".
+        font_weight (str, optional): Initial font weight. Defaults to "normal".
+        font_style (str, optional): Initial font style. Defaults to "normal".
+
+    Example usage:
+        >>> my_pen = Pen(color=(1, 0, 0), line_width=5, transparency=0.5)
+        >>> print(my_pen.color)
+        (1, 0, 0)
+
+    Note:
+        This class does not directly handle drawing operations. It is used to store
+        and manage drawing properties that can be applied by a drawing context.
+    """
+
     def __init__(self, color = (0, 0, 0), line_width = 12, transparency = 1, fill_color = None, 
                  font_size = 12, font_family = "Sans", font_weight = "normal", font_style = "normal"):
+        """
+        Initializes a new Pen object with the specified drawing properties.
+        """
         self.color        = color
         self.line_width   = line_width
         self.font_size    = font_size
@@ -857,6 +896,7 @@ class Pen:
         self.fill_color = color
 
     def stroke_change(self, direction):
+        # for thin lines, a fine tuned change of line width
         if self.line_width > 2:
             self.line_width += direction
         else:
@@ -2093,15 +2133,22 @@ class Box(Drawable):
 
 
 ## ---------------------------------------------------------------------
-
 class HelpDialog(Gtk.Dialog):
     def __init__(self, parent):
         super().__init__(title="Help", transient_for=parent, flags=0)
         self.add_buttons(Gtk.STOCK_OK, Gtk.ResponseType.OK)
-        self.set_default_size(1800, 300)
+
+        parent_size = parent.get_size()
+        self.set_default_size(max(parent_size[0] * 0.8, 400), max(parent_size[1] * 0.9, 300))
         self.set_border_width(10)
 
-        # Example help text with Pango Markup (not Markdown but similar concept)
+        scrolled_window = Gtk.ScrolledWindow()
+        scrolled_window.set_min_content_width(380)
+        scrolled_window.set_min_content_height(280)
+        scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scrolled_window.set_hexpand(True)  # Allow horizontal expansion
+        scrolled_window.set_vexpand(True)  # Allow vertical expansion
+
         help_text = f"""
 
 <span font="24"><b>screendrawer</b></span>
@@ -2150,14 +2197,19 @@ The state is saved in / loaded from `{savefile}` so you can continue drawing lat
 You might want to remove that file if something goes wrong.
         """
 
+
+
         label = Gtk.Label()
         label.set_markup(help_text)
         label.set_justify(Gtk.Justification.LEFT)
         label.set_line_wrap(True)
-        
+        scrolled_window.add(label)
+
         box = self.get_content_area()
-        box.add(label)
+        box.pack_start(scrolled_window, True, True, 0)  # Use pack_start with expand and fill
+
         self.show_all()
+
 
 ## ---------------------------------------------------------------------
 
@@ -2521,7 +2573,7 @@ class TransparentWindow(Gtk.Window):
         # if selection tool is active, finish it
         if self.selection_tool:
             print("finishing selection tool")
-            self.objects.remove(self.selection_tool)
+            #self.objects.remove(self.selection_tool)
             bb = self.selection_tool.bbox()
             self.selection_tool = None
             obj = find_obj_in_bbox(bb, self.objects)
