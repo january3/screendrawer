@@ -35,13 +35,15 @@ Design issues:
    issue.
 
 Bugs:
- * paste image can't be undone
+ * when text is rotated, the algorithm for checking for hover objects does
+   not consider the enlarged bounding box
  * bounding boxes of objects that were reversed during resize are incorrect
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
    should be mostly outside of the bb
 
 Done:
+ * paste image can't be undone
  * implement argparse
  * regression: images can't be pasted
  * Screenshot tool should automatically select the closest rectangle

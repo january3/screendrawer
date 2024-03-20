@@ -281,6 +281,12 @@ def find_obj_in_bbox(bbox, objects):
     ret = []
     for obj in objects:
         x_o, y_o, w_o, h_o = obj.bbox()
+        if w_o < 0:
+            x_o += w_o
+            w_o = -w_o
+        if h_o < 0:
+            y_o += h_o
+            h_o = -h_o
         if x_o >= x and y_o >= y and x_o + w_o <= x + w and y_o + h_o <= y + h:
             ret.append(obj)
     return ret
@@ -416,7 +422,7 @@ class Command:
         self._type = type
         self._undone = False
 
-    def type(self):
+    def command_type(self):
         return self._type
 
     def undo(self):
@@ -2154,6 +2160,18 @@ class Box(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.35)
 
+class SelectionTool(Box):
+    """Class for creating a box."""
+    def __init__(self, coords, pen = None):
+        if not pen:
+            pen = Pen(line_width = 0.2, color = (1, 0, 0))
+        super().__init__(coords, pen)
+
+    def objects_in_selection(self, objects):
+        """Return a list of objects that are in the selection."""
+        bb  = self.bbox()
+        obj = find_obj_in_bbox(bb, objects)
+        return obj
 
 
 ## ---------------------------------------------------------------------
@@ -2368,7 +2386,7 @@ class TransparentWindow(Gtk.Window):
         self.current_object      = None
         self.wiglet_active       = None
         self.selection           = None
-        self.dragobj             = None
+        self.resizeobj             = None
         self.resizeobj           = None
         self.mode                = "draw"
         self.current_cursor      = None
@@ -2497,7 +2515,7 @@ class TransparentWindow(Gtk.Window):
     def clear(self):
         """Clear the drawing."""
         self.selection      = None
-        self.dragobj        = None
+        self.resizeobj        = None
         self.current_object = None
         self.history.append(RemoveCommand(self.objects[:], self.objects))
         #self.objects = []
@@ -2599,15 +2617,16 @@ class TransparentWindow(Gtk.Window):
                     self.selection.add(hover_obj)
                 elif not self.selection or not self.selection.contains(hover_obj):
                         self.selection = DrawableGroup([ hover_obj ])
-                self.dragobj = MoveCommand(self.selection, (event.x, event.y))
-                self.history.append(self.dragobj)
+                self.resizeobj = MoveCommand(self.selection, (event.x, event.y))
+                self.history.append(self.resizeobj)
                 self.change_cursor("grabbing")
             else:
                 self.selection = None
-                self.dragobj   = None
+                self.resizeobj   = None
                 print("starting selection tool")
                 # XXX this should be solved in a different way
-                self.selection_tool = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], Pen(line_width = 0.2, color = (1, 0, 0)))
+                self.selection_tool = SelectionTool([ (event.x, event.y), (event.x + 1, event.y + 1) ])
+                                      
                 #self.objects.append(self.selection_tool)
                 self.current_object = self.selection_tool
                 self.queue_draw()
@@ -2648,7 +2667,7 @@ class TransparentWindow(Gtk.Window):
         if hover_obj and event.button == 1 and self.mode == "eraser":
                 self.history.append(RemoveCommand([ hover_obj ], self.objects))
                 self.selection = None
-                self.dragobj   = None
+                self.resizeobj   = None
                 self.revert_cursor()
 
         self.queue_draw()
@@ -2684,10 +2703,10 @@ class TransparentWindow(Gtk.Window):
         if self.selection_tool:
             print("finishing selection tool")
             #self.objects.remove(self.selection_tool)
-            bb = self.selection_tool.bbox()
-            self.selection_tool = None
-            obj = find_obj_in_bbox(bb, self.objects)
+            #bb = self.selection_tool.bbox()
+            obj = self.selection_tool.objects_in_selection(self.objects)
             self.selection = DrawableGroup(obj) if len(obj) > 0 else None
+            self.selection_tool = None
             self.queue_draw()
             return True
 
@@ -2701,24 +2720,16 @@ class TransparentWindow(Gtk.Window):
             return True
 
         if self.resizeobj:
-            print("finishing resize / rotate")
-            self.resizeobj.event_finish()
-            self.resizeobj = None
-            self.queue_draw()
-            return True
-
-        if self.dragobj:
             # If the user was dragging a selected object and the drag ends
             # in the lower left corner, delete the object
-            # self.dragobj.origin_remove()
-            obj = self.dragobj.obj
-            if event.x < 10 and event.y > self.get_size()[1] - 10:
-                print("removal by drag")
+            self.resizeobj.event_finish()
+            obj = self.resizeobj.obj
+            if self.resizeobj.command_type == "move" and  event.x < 10 and event.y > self.get_size()[1] - 10:
                 # command group because these are two commands: first move,
                 # then remove
-                self.history.append(CommandGroup([ RemoveCommand(obj.objects, self.objects), self.dragobj ]))
+                self.history.append(CommandGroup([ RemoveCommand(obj.objects, self.objects), self.resizeobj ]))
                 self.selection = None
-            self.dragobj    = None
+            self.resizeobj    = None
             self.revert_cursor()
             self.queue_draw()
         return True
@@ -2727,7 +2738,6 @@ class TransparentWindow(Gtk.Window):
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
 
-        obj = self.current_object or self.selection_tool
         self.cursor_pos = (event.x, event.y)
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
 
@@ -2741,14 +2751,13 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
             return True
 
+        obj = self.current_object or self.selection_tool
+
         if obj:
             obj.update(event.x, event.y, pressure)
             self.queue_draw()
         elif self.resizeobj:
             self.resizeobj.event_update(event.x, event.y)
-            self.queue_draw()
-        elif self.dragobj is not None:
-            self.dragobj.event_update(event.x, event.y)
             self.queue_draw()
         elif self.mode == "move":
             object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
@@ -2968,7 +2977,7 @@ class TransparentWindow(Gtk.Window):
         if self.selection:
             self.history.append(RemoveCommand(self.selection.objects, self.objects))
             self.selection = None
-            self.dragobj   = None
+            self.resizeobj   = None
             self.queue_draw()
 
     def select_next_object(self):
