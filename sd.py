@@ -1009,7 +1009,20 @@ class Pen:
 ## also primitives like boxes, paths and text.
 
 class Drawable:
-    """Base class for drawable objects."""
+    """
+    Base class for drawable objects.
+
+    This class represents a drawable object that can be displayed on a canvas.
+
+    Attributes:
+        type (str): The type of the drawable object.
+        coords (list of tuples): The coordinates of the object's shape.
+        origin (tuple): The original position of the object (when resizing etc).
+        resizing (dict): The state of the object's resizing operation.
+        rotation (float): The rotation angle of the object in radians.
+        rot_origin (tuple): The origin of the rotation operation.
+        pen (Pen): The pen used for drawing the object.
+    """
     def __init__(self, type, coords, pen):
         self.type       = type
         self.coords     = coords
@@ -1165,8 +1178,13 @@ class Drawable:
 
 
 class DrawableGroup(Drawable):
-    """Class for creating groups of drawable objects or other groups.
-       Most of the time it just passes events around. """
+    """
+    Class for creating groups of drawable objects or other groups.
+    Most of the time it just passes events around. 
+
+    Attributes:
+        objects (list): The list of objects in the group.
+    """
     def __init__(self, objects = [ ], objects_dict = None):
 
         if objects_dict:
@@ -1340,6 +1358,7 @@ class SelectionObject(DrawableGroup):
         return len(self.objects)
 
     def clear(self):
+        print("clearing selection")
         self.objects = [ ]
 
     def toggle(self, obj):
@@ -1349,14 +1368,19 @@ class SelectionObject(DrawableGroup):
             self.objects.append(obj)
 
     def set(self, objects):
+        print("setting selection to", objects)
         self.objects = objects
 
     def add(self, obj):
+        print("adding object to selection:", obj, "selection is", self.objects)
         if not obj in self.objects:
             self.objects.append(obj)
 
     def all(self):
+        print("selecting everything")  
         self.objects = self._all_objects[:]
+        print("selection has now", len(self.objects), "objects")
+        print("all objects have", len(self._all_objects), "objects")
 
     def next(self):
         """
@@ -2631,7 +2655,6 @@ class TransparentWindow(Gtk.Window):
         self.hidden              = False
         self.current_object      = None
         self.wiglet_active       = None
-        self.selection           = SelectionObject(self.objects)
         self.resizeobj           = None
         self.mode                = "draw"
         self.cursor              = CursorManager(self)
@@ -2649,6 +2672,7 @@ class TransparentWindow(Gtk.Window):
         self.max_dist   = 15
 
         self.load_state()
+        self.selection           = SelectionObject(self.objects)
 
         self.connect("button-press-event",   self.on_button_press)
         self.connect("button-release-event", self.on_button_release)
