@@ -611,19 +611,25 @@ class ZStackCommand(Command):
 
 
 class MoveResizeCommand(Command):
-    """Simple class for handling move and resize events."""
-    def __init__(self, type, obj, origin, corner=None):
+    """
+    Simple class for handling move and resize events.
+
+    Attributes:
+        start_point (tuple): the point where the first click was made
+        origin (tuple): the original position of the object
+        bbox (tuple): the bounding box of the object
+
+    Arguments:
+        type (str): the type of the command
+        obj (Drawable): the object to be moved or resized
+        origin (tuple): the original position of the object
+    """
+
+    def __init__(self, type, obj, origin):
         super().__init__("move", obj)
-        self.corner      = corner
         self.start_point = origin
         self.origin      = origin
         self.bbox        = obj.bbox()
-
-    def origin_set(self, origin):
-        self.origin = origin
-
-    def origin_get(self):
-        return self.origin
 
     def event_update(self, x, y):
         raise NotImplementedError("event_update method not implemented for type", self._type)
@@ -632,9 +638,24 @@ class MoveResizeCommand(Command):
         raise NotImplementedError("event_finish method not implemented for type", self._type)
 
 class RotateCommand(MoveResizeCommand):
-    """Simple class for handling rotate events."""
+    """
+    Simple class for handling rotate events.
+
+    Attributes:
+        
+        corner (str): the corner which is being dragged, e.g. "upper_left"
+        _rotation_centre (tuple): the point around which the rotation is done
+
+    Arguments:
+        obj (Drawable): object to be rotated
+        origin (tuple, optional): where the first click was made
+        corner (str, optional): which corner has been clicked
+        angle (float, optional): set the rotation angle directly
+    """
+
     def __init__(self, obj, origin=None, corner=None, angle = None):
-        super().__init__("rotate", obj, origin, corner=corner)
+        super().__init__("rotate", obj, origin)
+        self.corner      = corner
         bb = obj.bbox()
         self._rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
         obj.rotate_start(self._rotation_centre)
@@ -679,7 +700,6 @@ class MoveCommand(MoveResizeCommand):
 
         self.obj.move(dx, dy)
         self._last_pt = (x, y)
-        self.origin_set((x, y))
 
     def event_finish(self):
         pass
@@ -702,7 +722,8 @@ class MoveCommand(MoveResizeCommand):
 class ResizeCommand(MoveResizeCommand):
     """Simple class for handling resize events."""
     def __init__(self, obj, origin, corner, proportional = False):
-        super().__init__("resize", obj, origin, corner)
+        super().__init__("resize", obj, origin)
+        self.corner = corner
         obj.resize_start(corner, origin)
         self._orig_bb = obj.bbox()
         self._prop    = proportional
@@ -1020,6 +1041,9 @@ class Drawable:
 
         x1, y1 = self.coords[0]
         x2, y2 = self.coords[1]
+
+        x1, x2 = min(x1, x2), max(x1, x2)
+        y1, y2 = min(y1, y2), max(y1, y2)
      
         ## by default, we just check whether the click is close to the bounding box
         # path = [ (x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1) ]
@@ -2213,6 +2237,104 @@ You might want to remove that file if something goes wrong.
 
 ## ---------------------------------------------------------------------
 
+class Clipboard:
+    """
+    Class to handle clipboard operations. Basically, it handles internally
+    the clipboard within the app, but sets the gtk clipboard if necessary.
+
+    Atrributes:
+        clipboard_owner (bool): True if the app owns the clipboard.
+        clipboard (unspecified): The clipboard content.
+
+    """
+
+    def __init__(self, gtk_clipboard=None):
+        self._gtk_clipboard = gtk_clipboard or Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        self._gtk_clipboard.connect('owner-change', self.on_clipboard_owner_change)
+        self.clipboard_owner = False
+        self.clipboard = None
+
+    def on_clipboard_owner_change(self, clipboard, event):
+        """Handle clipboard owner change events."""
+
+        print("Owner change, removing internal clipboard")
+        print("reason:", event.reason)
+        if self.clipboard_owner:
+            self.clipboard_owner = False
+        else:
+            self.clipboard = None
+        return True
+
+    def set_text(self, text):
+        """
+        Set text to clipboard and store it.
+
+        Note:
+            This is like external copy, so the internal clipboard is set to None.
+        """
+        self.clipboard_owner = False
+        self.clipboard = None
+        self._gtk_clipboard.set_text(text, -1)
+        self._gtk_clipboard.store()
+
+    def get_content(self):
+        # internal paste
+        if self.clipboard:
+            print("Pasting content internally")
+            return "internal", self.clipboard
+
+        # external paste
+        clipboard = self._gtk_clipboard
+        clip_text = clipboard.wait_for_text()
+
+        if clip_text:
+            return "text", clip_text
+
+        clip_img = clipboard.wait_for_image()
+        if clip_img:
+            return "image", clip_img
+        return None, None
+
+    def copy_content(self, selection):
+        """
+        Copy internal content: object or objects from current selection.
+
+        Args:
+            selection (Drawable): The selection to copy, either a group or
+                                  a single object.
+        """
+        clipboard = self._gtk_clipboard
+
+        if selection.length() == 1:
+            sel = selection.objects[0]
+        else:
+            sel = selection
+
+        if sel.type == "text":
+            text = sel.as_string()
+            print("Copying text", text)
+            # just copy the text
+            clipboard.set_text(text, -1)
+            clipboard.store()
+        elif sel.type == "image":
+            print("Copying image")
+            # simply copy the image into clipboard
+            clipboard.set_image(sel.image)
+            clipboard.store()
+        else:
+            print("Copying another object")
+            # draw a little image and copy it to clipboard
+            img_copy = img_object_copy(sel)
+            clipboard.set_image(img_copy)
+            clipboard.store()
+
+        print("Setting internal clipboard")
+        self.clipboard = selection
+        self.clipboard_owner = True
+
+
+## ---------------------------------------------------------------------
+
 class TransparentWindow(Gtk.Window):
     """Main app window. Holds all information and everything that exists.
        One window to rule them all."""
@@ -2252,10 +2374,8 @@ class TransparentWindow(Gtk.Window):
         self.current_cursor      = None
         self.hover               = None
         self.cursor_pos          = None
-        self.clipboard           = None
-        self.clipboard_owner     = False # we need to keep track of the clipboard
+        self.clipboard           = Clipboard()
         self.selection_tool      = None
-        self.gtk_clipboard       = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 
         # defaults for drawing
         self.pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
@@ -2268,7 +2388,6 @@ class TransparentWindow(Gtk.Window):
 
         self.load_state()
 
-        self.gtk_clipboard.connect('owner-change', self.on_clipboard_owner_change)
         self.connect("button-press-event", self.on_button_press)
         self.connect("button-release-event", self.on_button_release)
         self.connect("motion-notify-event", self.on_motion_notify)
@@ -2278,17 +2397,6 @@ class TransparentWindow(Gtk.Window):
         self.make_cursors()
         self.set_keep_above(True)
         self.maximize()
-
-    def on_clipboard_owner_change(self, clipboard, event):
-        """Handle clipboard owner change events."""
-
-        print("Owner change, removing internal clipboard")
-        print("reason:", event.reason)
-        if self.clipboard_owner:
-            self.clipboard_owner = False
-        else:
-            self.clipboard = None
-        return True
 
     def on_menu_item_activated(self, widget, data):
         print("Menu item activated:", data)
@@ -2446,9 +2554,9 @@ class TransparentWindow(Gtk.Window):
             if  self.current_object.type == "text":
                 print("click, but text input active - finishing it first")
                 self.finish_text_input()
-                return True
             else:
                 print("click, but text input active - ignoring it; object=", self.current_object)
+            return True
 
         # right click: open context menu
         if event.button == 3 and not shift:
@@ -2468,9 +2576,8 @@ class TransparentWindow(Gtk.Window):
             color = get_color_under_cursor()
             self.set_color(color) 
             color_hex = rgb_to_hex(color)
-            self.gtk_clipboard.set_text(color_hex, -1)
-            self.gtk_clipboard.store()
-            #print(f"Color under cursor: {color}", rgb_to_hex(color))
+            self.clipboard.set_text(color_hex)
+
             return True
 
         if event.button == 1 and self.mode == "move":
@@ -2553,8 +2660,11 @@ class TransparentWindow(Gtk.Window):
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         obj = self.current_object
-        if obj and obj != self.selection_tool:
-            self.history.append(AddCommand(self.current_object, self.objects))
+        if obj:
+            if obj != self.selection_tool:
+                self.history.append(AddCommand(self.current_object, self.objects))
+            else:
+                self.current_object = None
 
         if obj and obj.type in [ "polygon", "path" ]:
             print("finishing path / polygon")
@@ -2580,7 +2690,6 @@ class TransparentWindow(Gtk.Window):
             self.selection = DrawableGroup(obj) if len(obj) > 0 else None
             self.queue_draw()
             return True
-
 
         # if the user clicked to create a text, we are not really done yet
         if self.current_object and self.current_object.type != "text":
@@ -2703,9 +2812,8 @@ class TransparentWindow(Gtk.Window):
         self.queue_draw()
 
     def paste_text(self, clip_text):
-        """Create a text object from clipboard text."""
+        """Enter some text in the current object or create a new object."""
         clip_text = clip_text.strip()
-        # split by new lines
 
         if self.current_object and self.current_object.type == "text":
             self.current_object.add_text(clip_text)
@@ -2718,7 +2826,7 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
 
     def paste_image(self, clip_img):
-        """Create an image object from clipboard image."""
+        """Create an image object from a pixbuf image."""
         pos = self.cursor_pos or (100, 100)
         self.current_object = Image([ pos ], self.pen, clip_img)
         self.history.append(AddCommand(self.current_object, self.objects))
@@ -2741,27 +2849,26 @@ class TransparentWindow(Gtk.Window):
 
     def paste_content(self):
         """Paste content from clipboard."""
+        clip_type, clip = self.clipboard.get_content()
 
-        # internal paste
-        if self.clipboard:
-            print("Pasting content internally")
-            if self.clipboard.type != "group":
-                Raise("Internal clipboard is not a group")
-            bb = self.clipboard.bbox()
-            print("clipboard bbox:", bb)
-            for obj in self.clipboard.objects:
-                self.object_create_copy(obj, bb)
+        if not clip:
+            print("Nothing to paste")
             return
 
-        # external paste
-        clipboard = self.gtk_clipboard
-        clip_text = clipboard.wait_for_text()
-        if clip_text:
-            self.paste_text(clip_text)
-
-        clip_img = clipboard.wait_for_image()
-        if clip_img:
-            self.paste_image(clip_img)
+        # internal paste
+        if clip_type == "internal":
+            print("Pasting content internally")
+            if clip.type != "group":
+                Raise("Internal clipboard is not a group")
+            bb = clip.bbox()
+            print("clipboard bbox:", bb)
+            for obj in clip.objects:
+                self.object_create_copy(obj, bb)
+            return
+        elif clip_type == "text":
+            self.paste_text(clip)
+        elif clip_type == "image":
+            self.paste_image(clip)
 
     def copy_content(self, destroy = False):
         """Copy content to clipboard."""
@@ -2769,34 +2876,7 @@ class TransparentWindow(Gtk.Window):
             return
 
         print("Copying content", self.selection)
-        clipboard = self.gtk_clipboard
-
-        if self.selection.length() == 1:
-            sel = self.selection.objects[0]
-        else:
-            sel = self.selection
-
-        if sel.type == "text":
-            text = "\n".join(sel.content)
-            print("Copying text", text)
-            # just copy the text
-            clipboard.set_text(text, -1)
-            clipboard.store()
-        elif sel.type == "image":
-            print("Copying image")
-            # simply copy the image into clipboard
-            clipboard.set_image(sel.image)
-            clipboard.store()
-        else:
-            print("Copying another object")
-            # draw a little image and copy it to clipboard
-            img_copy = img_object_copy(sel)
-            clipboard.set_image(img_copy)
-            clipboard.store()
-
-        print("Setting internal clipboard")
-        self.clipboard = self.selection
-        self.clipboard_owner = True
+        self.clipboard.copy_content(self.selection)
 
         if destroy:
             self.history.append(RemoveCommand(self.selection.objects, self.objects))
@@ -3354,13 +3434,12 @@ class TransparentWindow(Gtk.Window):
         self.hidden = False
         self.queue_draw()
 
-        # Create the image and copy to clipboard
+        # Create the image and copy the file name to clipboard
         if pixbuf is not None:
             img = Image([ (bb[0], bb[1]) ], self.pen, pixbuf)
             self.history.append(AddCommand(img, self.objects))
             self.queue_draw()
-            self.gtk_clipboard.set_text(filename, -1)
-            self.gtk_clipboard.store()
+            self.clipboard.set_text(filename)
 
     def find_screenshot_box(self):
         if self.current_object and self.current_object.type == "box":
@@ -3450,7 +3529,7 @@ if __name__ == "__main__":
     win = TransparentWindow()
     css = b"""
     #myMenu {
-        background-color: rgba(255, 255, 255, 0.7); /* Semi-transparent white */
+        background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
         font-family: Monospace, 'Monospace regular', monospace, 'Courier New'; /* Use 'Courier New', falling back to any monospace font */
     }
     """

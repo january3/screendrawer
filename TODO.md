@@ -1,6 +1,5 @@
 To do (sorted by priority):
 
- * implement argparse
  * implement undo for fonts as well
  * close path: converts a path to polygon (what with the outline / pressure? do we loose it?)
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
@@ -28,17 +27,22 @@ Rejected ideas:
    monitor and then start sd it opens there, so it is not a big problem.
 
 Design issues:
+ * the app main window code should be split into UIManager, DrawManager and
+   EventManager, which would communicate via callbacks.
  * maybe I am doing it all wrong. Maybe I should define a transformation
    class and then record transformations for each object. This way, I
    would be able to undo transformations easily. This is a big design
    issue.
 
 Bugs:
+ * paste image can't be undone
+ * bounding boxes of objects that were reversed during resize are incorrect
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
    should be mostly outside of the bb
 
 Done:
+ * implement argparse
  * regression: images can't be pasted
  * Screenshot tool should automatically select the closest rectangle
  * double click enters text editing only in draw mode, not in text mode
