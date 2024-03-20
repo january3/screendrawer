@@ -36,7 +36,6 @@ Design issues:
    issue.
 
 Bugs:
- * pasting after cutting internal objects does not work
  * when creating boxes, sometimes tiny itsy bitsy boxes are created
  * when text is rotated, the algorithm for checking for hover objects does
    not consider the enlarged bounding box
@@ -46,6 +45,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * pasting after cutting internal objects does not work
  * internal pasting cannot be undone
  * select all, reverse selection do not work
  * change the way selectionObject works -> it should be a selectionManager

@@ -2607,7 +2607,7 @@ class Clipboard:
             clipboard.store()
 
         print("Setting internal clipboard")
-        self.clipboard = selection
+        self.clipboard = DrawableGroup(selection.objects[:])
         self.clipboard_owner = True
 
 ## ---------------------------------------------------------------------
@@ -3179,7 +3179,6 @@ class TransparentWindow(Gtk.Window):
         clip_type, clip = self.clipboard.get_content()
 
         if not clip:
-            print("Nothing to paste")
             return
 
         # internal paste
@@ -3192,6 +3191,7 @@ class TransparentWindow(Gtk.Window):
             for obj in clip.objects:
                 self.object_create_copy(obj, bb)
             return
+
         elif clip_type == "text":
             self.paste_text(clip)
         elif clip_type == "image":
