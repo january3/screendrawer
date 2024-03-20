@@ -1853,6 +1853,17 @@ class Text(Drawable):
         else:
             raise ValueError("Invalid direction:", direction)
 
+    def update_by_key(self, keyname, char):
+        if keyname == "BackSpace": # and cur["caret_pos"] > 0:
+            self.backspace()
+        elif keyname in ["Home", "End", "Down", "Up", "Right", "Left"]:
+            self.move_caret(keyname)
+        elif keyname == "Return":
+            self.newline()
+        elif char and char.isprintable():
+            self.add_char(char)
+
+
     def draw_caret(self, cr, xx0, yy0, height):
         cr.set_line_width(1)
         cr.move_to(xx0, yy0)
@@ -2855,6 +2866,8 @@ class TransparentWindow(Gtk.Window):
         else:
             self.context_menu.popup(None, None, None, None, event.button, event.time)
 
+    # ---------------------------------------------------------------------
+
     def move_resize_rotate(self, ev):
         corner_obj = ev.corner()
         hover_obj  = ev.hover()
@@ -3120,61 +3133,45 @@ class TransparentWindow(Gtk.Window):
         cur  = self.current_object
         if not cur:
             raise ValueError("No current object")
-    
-        if keyname == "BackSpace": # and cur["caret_pos"] > 0:
-            cur.backspace()
-        elif keyname in ["Home", "End", "Down", "Up", "Right", "Left"]:
-            cur.move_caret(keyname)
-        elif keyname == "Return":
-            cur.newline()
-        elif char and char.isprintable():
-            cur.add_char(char)
+        cur.update_by_key(keyname, char)
         self.queue_draw()
 
     def cycle_background(self):
         """Cycle through background transparency."""
-        if self.transparent == 1:
-            self.transparent = 0
-        elif self.transparent == 0:
-            self.transparent = .5
-        else:
-            self.transparent = 1
+        self.transparent = {1: 0, 0: 0.5, 0.5: 1}[self.transparent]
         self.queue_draw()
 
     def paste_text(self, clip_text):
         """Enter some text in the current object or create a new object."""
-        clip_text = clip_text.strip()
 
         if self.current_object and self.current_object.type == "text":
-            self.current_object.add_text(clip_text)
+            self.current_object.add_text(clip_text.strip())
             self.queue_draw()
         else:
-            pos = self.cursor.pos()
-            new_text = Text([ pos ], pen = self.pen, content=clip_text)
-            #new_text.move_caret("End")
+            new_text = Text([ self.cursor.pos() ], 
+                            pen = self.pen, content=clip_text.strip())
             self.history.append(AddCommand(new_text, self.objects))
             self.queue_draw()
 
     def paste_image(self, clip_img):
         """Create an image object from a pixbuf image."""
-        pos = self.cursor.pos()
-        self.current_object = Image([ pos ], self.pen, clip_img)
+        self.current_object = Image([ self.cursor.pos() ], self.pen, clip_img)
         self.history.append(AddCommand(self.current_object, self.objects))
         self.queue_draw()
 
     def object_create_copy(self, obj, bb = None):
-        """Copy the current object into a new object."""
+        """Copy the given object into a new object."""
+        # XXX cannot be undone
         new_obj = copy.deepcopy(obj.to_dict())
         new_obj = Drawable.from_dict(new_obj)
 
         # move the new object to the current location
-        pos = self.cursor.pos()
+        x, y = self.cursor.pos()
         if bb is None:
             bb  = new_obj.bbox()
-        dx, dy = pos[0] - bb[0], pos[1] - bb[1]
-        new_obj.move(dx, dy)
+        new_obj.move(x - bb[0], y - bb[1])
 
-        self.objects.append(new_obj)
+        self.history.append(AddCommand(new_obj, self.objects))
         self.queue_draw()
 
     def paste_content(self):
