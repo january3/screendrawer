@@ -453,6 +453,20 @@ def ColorChooser(parent = None):
     color_chooser.destroy()
     return color
 
+def build_menu(menu_items):
+    menu = Gtk.Menu()
+    menu.set_name("myMenu")
+
+    for m in menu_items:
+        if "separator" in m:
+            menu_item = Gtk.SeparatorMenuItem()
+        else:
+            menu_item = Gtk.MenuItem(label=m["label"])
+            menu_item.connect("activate", m["callback"], m["data"])
+        menu.append(menu_item)
+    menu.show_all()
+    return menu
+
 
 ## ---------------------------------------------------------------------
 ## These are the commands that can be executed on the objects. They should
@@ -834,6 +848,55 @@ class ResizeCommand(MoveResizeCommand):
 
         self._newbb = newbb
         self.obj.resize_update(newbb)
+
+## ---------------------------------------------------------------------
+class MouseEvent:
+    """
+    Simple class for handling mouse events.
+
+    Takes the event and computes a number of useful things.
+
+    One advantage of using it: the computationaly intensive stuff is
+    computed only once and only if it is needed.
+    """
+    def __init__(self, event, objects):
+        self.event   = event
+        self.objects = objects
+        self._pos    = (event.x, event.y)
+        self._hover  = None
+        self._corner = None
+        self._shift  = (event.state & Gdk.ModifierType.SHIFT_MASK) != 0
+        self._ctrl   = (event.state & Gdk.ModifierType.CONTROL_MASK) != 0
+        self._double = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
+        self._pressure = event.get_axis(Gdk.AxisUse.PRESSURE)
+        if self._pressure is None:  # note that 0 is perfectly valid
+            self._pressure = 1
+
+
+    def hover(self):
+        if not self._hover:
+            self._hover = find_obj_close_to_click(self._pos[0], self._pos[1], self.objects, 20)
+        return self._hover
+
+    def corner(self):
+        if not self._corner:
+            self._corner = find_corners_next_to_click(self._pos[0], self._pos[1], self.objects, 20)
+        return self._corner
+
+    def pos(self):
+        return self._pos
+
+    def shift(self):
+        return self._shift
+
+    def ctrl(self):
+        return self._ctrl
+
+    def double(self):
+        return self._double
+
+    def pressure(self):
+        return self._pressure
 
 
 ## ---------------------------------------------------------------------
@@ -1791,6 +1854,7 @@ class Text(Drawable):
             raise ValueError("Invalid direction:", direction)
 
     def draw_caret(self, cr, xx0, yy0, height):
+        cr.set_line_width(1)
         cr.move_to(xx0, yy0)
         cr.line_to(xx0, yy0 + height)
         cr.stroke()
@@ -2688,20 +2752,6 @@ class TransparentWindow(Gtk.Window):
 
         self.handle_shortcuts(data)
 
-    def build_menu(self, menu_items):
-        menu = Gtk.Menu()
-        menu.set_name("myMenu")
-
-        for m in menu_items:
-            if "separator" in m:
-                menu_item = Gtk.SeparatorMenuItem()
-            else:
-                menu_item = Gtk.MenuItem(label=m["label"])
-                menu_item.connect("activate", m["callback"], m["data"])
-            menu.append(menu_item)
-        menu.show_all()
-        return menu
-
 
     def create_context_menu(self):
         menu_items = [
@@ -2726,14 +2776,14 @@ class TransparentWindow(Gtk.Window):
                 { "label": "Quit            (Ctrl-q)",  "callback": self.on_menu_item_activated, "data": "x" },
         ]
 
-        self.context_menu = self.build_menu(menu_items)
+        self.context_menu = build_menu(menu_items)
 
     def create_object_menu(self):
         menu_items = [
                 { "label": "Copy (Ctrl-c)",        "callback": self.on_menu_item_activated, "data": "Ctrl-c" },
                 { "label": "Cut (Ctrl-x)",         "callback": self.on_menu_item_activated, "data": "Ctrl-x" },
                 { "separator": True },
-                { "label": "Delete (|Del|)",    "callback": self.on_menu_item_activated, "data": "Delete" },
+                { "label": "Delete (|Del|)",       "callback": self.on_menu_item_activated, "data": "Delete" },
                 { "label": "Group (g)",            "callback": self.on_menu_item_activated, "data": "g" },
                 { "label": "Ungroup (u)",          "callback": self.on_menu_item_activated, "data": "u" },
                 { "separator": True },
@@ -2742,7 +2792,7 @@ class TransparentWindow(Gtk.Window):
                 { "label": "Help [F1]",            "callback": self.on_menu_item_activated, "data": "h" },
                 { "label": "Quit (Ctrl-q)",        "callback": self.on_menu_item_activated, "data": "x" },
         ]
-        self.object_menu = self.build_menu(menu_items)
+        self.object_menu = build_menu(menu_items)
 
 
     def exit(self):
@@ -2805,26 +2855,83 @@ class TransparentWindow(Gtk.Window):
         else:
             self.context_menu.popup(None, None, None, None, event.button, event.time)
 
+    def move_resize_rotate(self, ev):
+        corner_obj = ev.corner()
+        hover_obj  = ev.hover()
+        pos = ev.pos()
+        shift, ctrl = ev.shift(), ev.ctrl()
+
+        if corner_obj[0] and corner_obj[0].bbox():
+            print("starting resize")
+            obj    = corner_obj[0]
+            corner = corner_obj[1]
+            print("ctrl:", ctrl, "shift:", shift)
+            if not (ctrl and shift):
+                self.resizeobj = ResizeCommand(obj, origin = pos, corner = corner, proportional = ctrl)
+            else:
+                self.resizeobj = RotateCommand(obj, origin = pos, corner = corner)
+            self.selection.set([ obj ])
+            self.history.append(self.resizeobj)
+            self.cursor.set(corner)
+        elif hover_obj:
+            if ev.shift():
+                # add if not present, remove if present
+                print("adding object", hover_obj)
+                self.selection.add(hover_obj)
+            if not self.selection.contains(hover_obj):
+                print("object not in selection, setting it", hover_obj)
+                self.selection.set([ hover_obj ])
+            self.resizeobj = MoveCommand(self.selection, pos)
+            self.history.append(self.resizeobj)
+            self.cursor.set("grabbing")
+        else:
+            self.selection.clear()
+            self.resizeobj   = None
+            print("starting selection tool")
+            # XXX this should be solved in a different way
+            self.selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
+                                  
+            self.current_object = self.selection_tool
+            self.queue_draw()
+        return True
+
+    def create_object(self, ev):
+        print("create object of type", self.mode)
+        shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
+        pos = ev.pos()
+        corner_obj = ev.corner()
+        hover_obj  = ev.hover()
+
+        if self.mode == "text" or (self.mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
+            self.cursor.set("none")
+            self.current_object = Text([ pos ], pen = self.pen, content = "")
+            self.selection.set([ self.current_object ])
+            self.current_object.move_caret("Home")
+
+        elif self.mode == "draw":
+            self.current_object = Path([ pos ], pen = self.pen, pressure = [ pressure ])
+
+        elif self.mode == "box":
+            self.current_object = Box([ pos, (pos[0] + 1, pos[1] + 1) ], pen = self.pen)
+
+        elif self.mode == "polygon":
+            self.current_object = Polygon([ pos ], pen = self.pen)
+
+        elif self.mode == "circle":
+            self.current_object = Circle([ pos, (pos[0] + 1, pos[1] + 1) ], pen = self.pen)
+
+
     # XXX this code should be completely rewritten, cleaned up, refactored
     # and god knows what else. It's a mess.
     def on_button_press(self, widget, event):
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
 
-        hover_obj  = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
-        corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
-
-        shift = (event.state & Gdk.ModifierType.SHIFT_MASK) != 0
-        ctrl  = (event.state & Gdk.ModifierType.CONTROL_MASK) != 0
-        double     = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
-        pressure   = event.get_axis(Gdk.AxisUse.PRESSURE)
-
-        if pressure is None:  # note that 0 is perfectly valid
-            pressure = 1
-
-        print("shift:", shift, "ctrl:", ctrl, "double:", double, "pressure:", pressure)
+        ev = MouseEvent(event, self.objects)
+        shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
+        hover_obj = ev.hover()
 
         # double click on a text object: start editing
-        if event.button == 1 and double and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text", "move"]:
+        if event.button == 1 and ev.double() and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text", "move"]:
             # put the cursor in the last line, end of the text
             # this should be a Command event
             hover_obj.move_caret("End")
@@ -2832,7 +2939,6 @@ class TransparentWindow(Gtk.Window):
             self.queue_draw()
             self.cursor.set("none")
             return True
-
 
         # Ignore clicks when text input is active
         if self.current_object:
@@ -2848,6 +2954,9 @@ class TransparentWindow(Gtk.Window):
             self.on_right_click(event, hover_obj)
             return True
 
+        if event.button != 1:
+            return True
+
         # Start changing line width: single click with ctrl pressed
         if ctrl and event.button == 1 and self.mode == "draw": 
             if not shift: 
@@ -2856,87 +2965,27 @@ class TransparentWindow(Gtk.Window):
                 self.wiglet_active = WigletTransparency((event.x, event.y), self.pen)
             return True
 
-        if event.button == 1 and self.mode == "picker":
+        if self.mode == "picker":
             #print("picker mode")
             color = get_color_under_cursor()
             self.set_color(color) 
             color_hex = rgb_to_hex(color)
             self.clipboard.set_text(color_hex)
-
             return True
 
-        if event.button == 1 and self.mode == "move":
-            if corner_obj[0] and corner_obj[0].bbox():
-                print("starting resize")
-                obj    = corner_obj[0]
-                corner = corner_obj[1]
-                print("ctrl:", ctrl, "shift:", shift)
-                if not (ctrl and shift):
-                    self.resizeobj = ResizeCommand(obj, origin = (event.x, event.y), corner = corner, proportional = ctrl)
-                else:
-                    self.resizeobj = RotateCommand(obj, origin = (event.x, event.y), corner = corner)
-                self.selection.set([ obj ])
-                self.history.append(self.resizeobj)
-                self.cursor.set(corner)
-            elif hover_obj:
-                if shift:
-                    # add if not present, remove if present
-                    print("adding object", hover_obj)
-                    self.selection.add(hover_obj)
-                if not self.selection.contains(hover_obj):
-                    print("object not in selection, setting it", hover_obj)
-                    self.selection.set([ hover_obj ])
-                self.resizeobj = MoveCommand(self.selection, (event.x, event.y))
-                self.history.append(self.resizeobj)
-                self.cursor.set("grabbing")
-            else:
-                self.selection.clear()
-                self.resizeobj   = None
-                print("starting selection tool")
-                # XXX this should be solved in a different way
-                self.selection_tool = SelectionTool([ (event.x, event.y), (event.x + 1, event.y + 1) ])
-                                      
-                self.current_object = self.selection_tool
-                self.queue_draw()
-            return True
-
-
-        # simple click: create modus
-        if event.button == 1:
-            if self.mode == "text" or (self.mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
-                print("new text")
-                self.cursor.set("none")
-                self.current_object = Text([ (event.x, event.y) ], pen = self.pen, content = "")
-                self.selection.set([ self.current_object ])
-                self.current_object.move_caret("Home")
-                #self.history.append(AddCommand(self.current_object, self.objects))
-
-            elif self.mode == "draw":
-                print("starting path")
-                self.current_object = Path([ (event.x, event.y) ], pen = self.pen, pressure = [ pressure ])
-                #self.history.append(AddCommand(self.current_object, self.objects))
-
-            elif self.mode == "box":
-                print("drawing box / circle")
-                self.current_object = Box([ (event.x, event.y), (event.x + 1, event.y + 1) ], pen = self.pen)
-                #self.history.append(AddCommand(self.current_object, self.objects))
-
-            elif self.mode == "polygon":
-                print("drawing polygon")
-                self.current_object = Polygon([ (event.x, event.y) ], pen = self.pen)
-                #self.history.append(AddCommand(self.current_object, self.objects))
-
-            elif self.mode == "circle":
-                print("drawing circle")
-                self.current_object = Circle([ (event.x, event.y), (event.x + 1, event.y + 1) ], pen = self.pen)
-                #self.history.append(AddCommand(self.current_object, self.objects))
+        elif self.mode == "move":
+            return self.move_resize_rotate(ev)
 
         # erasing an object, if an object is underneath the cursor
-        if hover_obj and event.button == 1 and self.mode == "eraser":
+        elif self.mode == "eraser" and hover_obj: 
                 self.history.append(RemoveCommand([ hover_obj ], self.objects))
                 self.selection.clear()
                 self.resizeobj   = None
                 self.cursor.revert()
+
+        # simple click: create modus
+        else:
+            self.create_object(ev)
 
         self.queue_draw()
 
@@ -3009,37 +3058,38 @@ class TransparentWindow(Gtk.Window):
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
 
-        self.cursor.update_pos(event.x, event.y)
-        corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
-
-        pressure = event.get_axis(Gdk.AxisUse.PRESSURE) 
-
-        if pressure is None:
-            pressure = 1
+        ev = MouseEvent(event, self.objects)
+        x, y = ev.pos()
+        self.cursor.update_pos(x, y)
 
         if self.wiglet_active:
-            self.wiglet_active.event_update(event.x, event.y)
+            self.wiglet_active.event_update(x, y)
             self.queue_draw()
             return True
 
         obj = self.current_object or self.selection_tool
 
         if obj:
-            obj.update(event.x, event.y, pressure)
+            obj.update(x, y, ev.pressure())
             self.queue_draw()
         elif self.resizeobj:
-            self.resizeobj.event_update(event.x, event.y)
+            self.resizeobj.event_update(x, y)
             self.queue_draw()
         elif self.mode == "move":
-            object_underneath = find_obj_close_to_click(event.x, event.y, self.objects, self.max_dist)
+            object_underneath = ev.hover()
             prev_hover = self.hover
 
             if object_underneath:
-                self.cursor.set("moving")
+                if object_underneath.type == "text":
+                    self.cursor.set("text")
+                else:
+                    self.cursor.set("moving")
                 self.hover = object_underneath
             else:
                 self.cursor.revert()
                 self.hover = None
+
+            corner_obj = ev.corner()
 
             if corner_obj[0] and corner_obj[0].bbox():
                 self.cursor.set(corner_obj[1])

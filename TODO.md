@@ -1,5 +1,6 @@
 To do (sorted by priority):
 
+ * implement "copy pen" or "set with pen" thingy
  * implement undo for fonts as well
  * close path: converts a path to polygon (what with the outline / pressure? do we loose it?)
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
@@ -35,6 +36,7 @@ Design issues:
    issue.
 
 Bugs:
+ * when creating boxes, sometimes tiny itsy bitsy boxes are created
  * when text is rotated, the algorithm for checking for hover objects does
    not consider the enlarged bounding box
  * bounding boxes of objects that were reversed during resize are incorrect
