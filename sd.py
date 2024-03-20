@@ -1071,6 +1071,24 @@ class Pen:
 ## These are the objects that can be displayed. It includes groups, but
 ## also primitives like boxes, paths and text.
 
+class DrawableFactory:
+    @staticmethod
+    def create_drawable(drawable_type, **kwargs):
+        if drawable_type == "circle":
+            return Circle(**kwargs)
+        elif drawable_type == "path":
+            return Path(**kwargs)
+        elif drawable_type == "polygon":
+            return Polygon(**kwargs)
+        elif drawable_type == "box":
+            return Box(**kwargs)
+        elif drawable_type == "image":
+            return Image(**kwargs)
+        elif drawable_type == "text":
+            return Text(**kwargs)
+        else:
+            raise ValueError(f"Unknown drawable type: {drawable_type}")
+
 class Drawable:
     """
     Base class for drawable objects.
@@ -2879,10 +2897,14 @@ class TransparentWindow(Gtk.Window):
             obj    = corner_obj[0]
             corner = corner_obj[1]
             print("ctrl:", ctrl, "shift:", shift)
-            if not (ctrl and shift):
-                self.resizeobj = ResizeCommand(obj, origin = pos, corner = corner, proportional = ctrl)
-            else:
+            # XXX this code here is one of the reasons why rotating or resizing the
+            # whole selection does not work. The other reason is that the
+            # selection object itself is not considered when detecting
+            # hover or corner objects.
+            if ctrl and shift:
                 self.resizeobj = RotateCommand(obj, origin = pos, corner = corner)
+            else:
+                self.resizeobj = ResizeCommand(obj, origin = pos, corner = corner, proportional = ctrl)
             self.selection.set([ obj ])
             self.history.append(self.resizeobj)
             self.cursor.set(corner)
@@ -2901,9 +2923,7 @@ class TransparentWindow(Gtk.Window):
             self.selection.clear()
             self.resizeobj   = None
             print("starting selection tool")
-            # XXX this should be solved in a different way
             self.selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
-                                  
             self.current_object = self.selection_tool
             self.queue_draw()
         return True

@@ -36,6 +36,8 @@ Design issues:
    issue.
 
 Bugs:
+ * rotating the whole selection does not work (b/c the way selection
+   behaves)
  * when creating boxes, sometimes tiny itsy bitsy boxes are created
  * when text is rotated, the algorithm for checking for hover objects does
    not consider the enlarged bounding box
