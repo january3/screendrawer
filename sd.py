@@ -1421,16 +1421,20 @@ class Image(Drawable):
 
 
 class Text(Drawable):
-    def __init__(self, coords, pen, content):
+    def __init__(self, coords, pen, content, rotation = None, rot_origin = None):
         super().__init__("text", coords, pen)
 
         # split content by newline
         content = content.split("\n")
         self.content = content
         self.line    = 0
-        self.cursor_pos   = None
+        self.caret_pos    = None
         self.bb           = None
         self.font_extents = None
+
+        if rotation:
+            self.rotation = rotation
+            self.rot_origin = rot_origin
 
     def is_close_to_click(self, click_x, click_y, threshold):
         if self.bb is None:
@@ -1517,6 +1521,8 @@ class Text(Drawable):
             "type": self.type,
             "coords": self.coords,
             "pen": self.pen.to_dict(),
+            "rotation": self.rotation,
+            "rot_origin": self.rot_origin,
             "content": self.as_string()
         }
 
@@ -1549,65 +1555,66 @@ class Text(Drawable):
         for i, line in enumerate(lines):
             if i == 0:
                 self.content[self.line] += line
-                self.cursor_pos += len(text)
+                self.caret_pos += len(text)
             else:
                 self.content.insert(self.line + i, line)
-                self.cursor_pos = len(line)
+                self.caret_pos = len(line)
 
     def backspace(self):
         cnt = self.content
-        if self.cursor_pos > 0:
-            cnt[self.line] = cnt[self.line][:self.cursor_pos - 1] + cnt[self.line][self.cursor_pos:]
-            self.cursor_pos -= 1
+        if self.caret_pos > 0:
+            cnt[self.line] = cnt[self.line][:self.caret_pos - 1] + cnt[self.line][self.caret_pos:]
+            self.caret_pos -= 1
         elif self.line > 0:
-            self.cursor_pos = len(cnt[self.line - 1])
+            self.caret_pos = len(cnt[self.line - 1])
             cnt[self.line - 1] += cnt[self.line]
             cnt.pop(self.line)
             self.line -= 1
 
     def newline(self):
-        self.content.insert(self.line + 1, self.content[self.line][self.cursor_pos:])
-        self.content[self.line] = self.content[self.line][:self.cursor_pos]
+        self.content.insert(self.line + 1,
+                            self.content[self.line][self.caret_pos:])
+        self.content[self.line] = self.content[self.line][:self.caret_pos]
         self.line += 1
-        self.cursor_pos = 0
+        self.caret_pos = 0
 
     def add_char(self, char):
-        self.content[self.line] = self.content[self.line][:self.cursor_pos] + char + self.content[self.line][self.cursor_pos:]
-        self.cursor_pos += 1
+        self.content[self.line] = self.content[self.line][:self.caret_pos] + char + self.content[self.line][self.caret_pos:]
+        self.caret_pos += 1
 
-    def move_cursor(self, direction):
+    def move_caret(self, direction):
         if direction == "End":
             self.line = len(self.content) - 1
-            self.cursor_pos = len(self.content[self.line])
+            self.caret_pos = len(self.content[self.line])
         elif direction == "Home":
             self.line = 0
-            self.cursor_pos = 0
+            self.caret_pos = 0
         elif direction == "Right":
-            if self.cursor_pos < len(self.content[self.line]):
-                self.cursor_pos += 1
+            if self.caret_pos < len(self.content[self.line]):
+                self.caret_pos += 1
             elif self.line < len(self.content) - 1:
                 self.line += 1
-                self.cursor_pos = 0
+                self.caret_pos = 0
         elif direction == "Left":
-            if self.cursor_pos > 0:
-                self.cursor_pos -= 1
+            if self.caret_pos > 0:
+                self.caret_pos -= 1
             elif self.line > 0:
                 self.line -= 1
-                self.cursor_pos = len(self.content[self.line])
+                self.caret_pos = len(self.content[self.line])
         elif direction == "Down":
             if self.line < len(self.content) - 1:
                 self.line += 1
-                if self.cursor_pos > len(self.content[self.line]):
-                    self.cursor_pos = len(self.content[self.line])
+                if self.caret_pos > len(self.content[self.line]):
+                    self.caret_pos = len(self.content[self.line])
         elif direction == "Up":
             if self.line > 0:
                 self.line -= 1
-                if self.cursor_pos > len(self.content[self.line]):
-                    self.cursor_pos = len(self.content[self.line])
+                if self.caret_pos > len(self.content[self.line]):
+                    self.caret_pos = len(self.content[self.line])
         else:
             raise ValueError("Invalid direction:", direction)
 
-    def draw_cursor(self, cr, xx0, yy0, height):
+    def draw_caret(self, cr, xx0, yy0, height):
         cr.move_to(xx0, yy0)
         cr.line_to(xx0, yy0 + height)
         cr.stroke()
@@ -1620,7 +1627,7 @@ class Text(Drawable):
 
     def draw(self, cr, hover=False, selected=False, outline=False):
         position = self.coords[0]
-        content, pen, cursor_pos = self.content, self.pen, self.cursor_pos
+        content, pen, caret_pos = self.content, self.pen, self.caret_pos
         
         # get font info
         cr.select_font_face(pen.font_family, 
@@ -1660,13 +1667,13 @@ class Text(Drawable):
             cr.show_text(fragment)
             cr.stroke()
 
-            # draw the cursor
-            if cursor_pos != None and i == self.line:
-                x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents("|" + fragment[:cursor_pos] + "|")
+            # draw the caret
+            if caret_pos != None and i == self.line:
+                x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents("|" + fragment[:caret_pos] + "|")
                 x_bearing2, y_bearing2, t_width2, t_height2, x_advance2, y_advance2 = cr.text_extents("|")
                 cr.set_source_rgb(1, 0, 0)
                 xx0, yy0 = position[0] - x_bearing + t_width - 2 * t_width2, position[1] + dy - ascent
-                self.draw_cursor(cr, xx0, yy0, height)
+                self.draw_caret(cr, xx0, yy0, height)
 
             dy += height
 
@@ -2642,7 +2649,7 @@ class TransparentWindow(Gtk.Window):
         if event.button == 1 and double and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text", "move"]:
             # put the cursor in the last line, end of the text
             # this should be a Command event
-            hover_obj.move_cursor("End")
+            hover_obj.move_caret("End")
             self.current_object = hover_obj
             self.queue_draw()
             self.cursor.set("none")
@@ -2722,7 +2729,7 @@ class TransparentWindow(Gtk.Window):
                 self.cursor.set("none")
                 self.current_object = Text([ (event.x, event.y) ], pen = self.pen, content = "")
                 self.selection = DrawableGroup([ self.current_object ])
-                self.current_object.move_cursor("Home")
+                self.current_object.move_caret("Home")
                 #self.history.append(AddCommand(self.current_object, self.objects))
 
             elif self.mode == "draw":
@@ -2869,7 +2876,7 @@ class TransparentWindow(Gtk.Window):
         """Clean up current text and finish text input."""
         print("finishing text input")
         if self.current_object and self.current_object.type == "text":
-            self.current_object.cursor_pos = None
+            self.current_object.caret_pos = None
             if self.current_object.strlen() == 0:
                 self.objects.remove(self.current_object)
             self.current_object = None
@@ -2882,10 +2889,10 @@ class TransparentWindow(Gtk.Window):
         if not cur:
             raise ValueError("No current object")
     
-        if keyname == "BackSpace": # and cur["cursor_pos"] > 0:
+        if keyname == "BackSpace": # and cur["caret_pos"] > 0:
             cur.backspace()
         elif keyname in ["Home", "End", "Down", "Up", "Right", "Left"]:
-            cur.move_cursor(keyname)
+            cur.move_caret(keyname)
         elif keyname == "Return":
             cur.newline()
         elif char and char.isprintable():
@@ -2912,7 +2919,7 @@ class TransparentWindow(Gtk.Window):
         else:
             pos = self.cursor.pos()
             new_text = Text([ pos ], pen = self.pen, content=clip_text)
-            #new_text.move_cursor("End")
+            #new_text.move_caret("End")
             self.history.append(AddCommand(new_text, self.objects))
             self.queue_draw()
 
