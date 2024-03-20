@@ -1322,14 +1322,72 @@ class DrawableGroup(Drawable):
             cr.restore()
 
 class SelectionObject(DrawableGroup):
-    """Class for handling the selection of objects."""
+    """
+    Class for handling the selection of objects.
+
+    It is an extension of the DrawableGroup class, with additional methods for
+    selecting and manipulating objects. Note that more often than not, the
+    methods in this class need to have access to the global list of all
+    object (e.g. to inverse a selection).
+    """
+
     def __init__(self, objects = [ ], objects_dict = None):
         super().__init__(objects, objects_dict)
 
-    def next(self, all_objects):
-        """Return a selection object with the next object in the list."""
+    @classmethod
+    def next(cls, selection, all_objects):
+        """
+        Return a selection object with the next object in the list,
+        relative to the current selection.
+        """
         if not all_objects:
             return None
+
+        if not selection:
+            return cls([ all_objects[0] ])
+
+        idx = all_objects.index(selection.objects[-1])
+        idx += 1
+        if idx >= len(all_objects):
+            idx = 0
+
+        return cls([ all_objects[idx] ])
+
+    @classmethod
+    def prev(cls, selection, all_objects):
+        """
+        Return a selection object with the previous object in the list,
+        relative to the current selection.
+        """
+        if not all_objects:
+            return None
+
+        if not selection:
+            return cls([ all_objects[-1] ])
+
+        idx = all_objects.index(selection.objects[-1])
+        idx -= 1
+        if idx < 0:
+            idx = len(all_objects) - 1
+
+        return cls([ all_objects[idx] ])
+
+    @classmethod
+    def reverse(cls, selection, all_objects):
+        """
+        Return a selection object with the objects in reverse order.
+        """
+        if not selection:
+            print("no selection yet, selecting everything")
+            return cls(all_objects[:])
+
+        new_sel = [ ]
+        for obj in all_objects:
+            if not selection.contains(obj):
+                new_sel.append(obj)
+
+        return cls(new_sel)
+    
 
 #       n = len(all_objects)
 #       i = all_objects.index(self.objects[-1])
@@ -3111,13 +3169,7 @@ class TransparentWindow(Gtk.Window):
 
     def select_reverse(self):
         """Reverse the selection."""
-        if not self.selection:
-            return
-        new_sel = [ ]
-        for obj in self.objects:
-            if not self.selection.contains(obj):
-                new_sel.append(obj)
-        self.selection = DrawableGroup(new_sel)
+        self.selection = SelectionObject.reverse(self.selection, self.objects)
         self.queue_draw()
 
     def select_all(self):
@@ -3143,15 +3195,7 @@ class TransparentWindow(Gtk.Window):
 
     def select_next_object(self):
         """Select the next object."""
-        if len(self.objects) == 0:
-            return
-        if not self.selection:
-            self.selection = DrawableGroup([ self.objects[0] ])
-        idx = self.objects.index(self.selection.objects[-1])
-        idx += 1
-        if idx >= len(self.objects):
-            idx = 0
-        self.selection = DrawableGroup([ self.objects[idx] ])
+        self.selection = SelectionObject.next(self.selection, self.objects)
         self.queue_draw()
 
     def selection_fill(self):
@@ -3163,15 +3207,7 @@ class TransparentWindow(Gtk.Window):
 
     def select_previous_object(self):
         """Select the previous object."""
-        if len(self.objects) == 0:
-            return
-        if not self.selection:
-            self.selection = DrawableGroup([ self.objects[-1] ])
-        idx = self.objects.index(self.selection.objects[0])
-        idx -= 1
-        if idx < 0:
-            idx = len(self.objects) - 1
-        self.selection = DrawableGroup([ self.objects[idx] ])
+        self.selection = SelectionObject.previous(self.selection, self.objects)
         self.queue_draw()
 
     def outline_toggle(self):

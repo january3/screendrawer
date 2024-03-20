@@ -92,9 +92,10 @@ Try to remove the savefile if you have problems.
 
 # Design principles
 
+ * ONE FILE. No dependencies beyond widely spread modules, no installation, no configuration
  * Transparent, sticky, not decorated window
  * Must start up and exit quickly
  * Everything that could be done with a menu must have a shortcut. The
    opposite is not true.
- * This is not inkscape or illustrator, it does not loads of features.
+ * This is not inkscape or illustrator, it does not have loads of features.
  * Single keystrokes and simple shortcuts are preferred
