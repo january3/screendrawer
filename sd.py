@@ -2350,6 +2350,91 @@ class Clipboard:
         self.clipboard = selection
         self.clipboard_owner = True
 
+## ---------------------------------------------------------------------
+
+class CursorManager:
+    """
+    Class to manage the cursor.
+
+    Attributes:
+        _window (Gtk.Window): The window to manage the cursor for.
+        _cursors (dict):       A dictionary of premade cursors for different modes.
+        _current_cursor (str): The name of the current cursor.
+        _default_cursor (str): The name of the default cursor.
+        _pos (tuple):          The current position of the cursor.
+
+    """
+
+
+    def __init__(self, window):
+        self._window  = window
+        self._cursors = None
+        self._current_cursor = "default"
+        self._default_cursor = "default"
+
+        self._make_cursors(window)
+
+        self.default("default")
+
+        self._pos = (100, 100)
+
+    def _make_cursors(self, window):
+        """Create cursors for different modes."""
+        self._cursors = {
+            "hand":        Gdk.Cursor.new_from_name(window.get_display(), "hand1"),
+            "move":        Gdk.Cursor.new_from_name(window.get_display(), "hand2"),
+            "grabbing":    Gdk.Cursor.new_from_name(window.get_display(), "grabbing"),
+            "moving":      Gdk.Cursor.new_from_name(window.get_display(), "grab"),
+            "text":        Gdk.Cursor.new_from_name(window.get_display(), "text"),
+            "eraser":      Gdk.Cursor.new_from_name(window.get_display(), "not-allowed"),
+            "pencil":      Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
+            "picker":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
+            "polygon":     Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
+            "draw":        Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
+            "crosshair":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
+            "circle":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
+            "box":         Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
+            "none":        Gdk.Cursor.new_from_name(window.get_display(), "none"),
+            "upper_left":  Gdk.Cursor.new_from_name(window.get_display(), "nw-resize"),
+            "upper_right": Gdk.Cursor.new_from_name(window.get_display(), "ne-resize"),
+            "lower_left":  Gdk.Cursor.new_from_name(window.get_display(), "sw-resize"),
+            "lower_right": Gdk.Cursor.new_from_name(window.get_display(), "se-resize"),
+            "default":     Gdk.Cursor.new_from_name(window.get_display(), "pencil")
+        }
+
+    def pos(self):
+        return self._pos
+
+    def update_pos(self, x, y):
+        self._pos = (x, y)
+
+    def default(self, cursor_name):
+        """Set the default cursor to the specified cursor."""
+        if self._current_cursor == cursor_name:
+            return
+        print("setting default cursor to", cursor_name)
+        self._default_cursor = cursor_name
+        self._current_cursor = cursor_name
+
+        self._window.get_window().set_cursor(self._cursors[cursor_name])
+
+    def revert(self):
+        """Revert to the default cursor."""
+        if self._current_cursor == self._default_cursor:
+            return
+        print("reverting cursor")
+        self._window.get_window().set_cursor(self._cursors[self._default_cursor])
+        self._current_cursor = self._default_cursor
+
+    def set(self, cursor_name):
+        """Change the cursor to the specified cursor."""
+        if self._current_cursor == cursor_name:
+            return
+        #print("changing cursor to", cursor_name)
+        self._window.get_window().set_cursor(self._cursors[cursor_name])
+        self._current_cursor = cursor_name
+
+
 
 ## ---------------------------------------------------------------------
 
@@ -2386,12 +2471,10 @@ class TransparentWindow(Gtk.Window):
         self.current_object      = None
         self.wiglet_active       = None
         self.selection           = None
-        self.resizeobj             = None
         self.resizeobj           = None
         self.mode                = "draw"
-        self.current_cursor      = None
+        self.cursor              = CursorManager(self)
         self.hover               = None
-        self.cursor_pos          = None
         self.clipboard           = Clipboard()
         self.selection_tool      = None
 
@@ -2406,13 +2489,12 @@ class TransparentWindow(Gtk.Window):
 
         self.load_state()
 
-        self.connect("button-press-event", self.on_button_press)
+        self.connect("button-press-event",   self.on_button_press)
         self.connect("button-release-event", self.on_button_release)
-        self.connect("motion-notify-event", self.on_motion_notify)
+        self.connect("motion-notify-event",  self.on_motion_notify)
 
         self.create_context_menu()
         self.create_object_menu()
-        self.make_cursors()
         self.set_keep_above(True)
         self.maximize()
 
@@ -2498,6 +2580,7 @@ class TransparentWindow(Gtk.Window):
 
         if self.current_object:
             self.current_object.draw(cr)
+
         if self.wiglet_active:
             self.wiglet_active.draw(cr)
         return True
@@ -2515,10 +2598,9 @@ class TransparentWindow(Gtk.Window):
     def clear(self):
         """Clear the drawing."""
         self.selection      = None
-        self.resizeobj        = None
+        self.resizeobj      = None
         self.current_object = None
         self.history.append(RemoveCommand(self.objects[:], self.objects))
-        #self.objects = []
         self.queue_draw()
 
     # ---------------------------------------------------------------------
@@ -2528,7 +2610,7 @@ class TransparentWindow(Gtk.Window):
         """Handle right click events - context menus."""
         if hover_obj:
             self.mode = "move"
-            self.default_cursor(self.mode)
+            self.cursor.default(self.mode)
 
             if not (self.selection and self.selection.contains(hover_obj)):
                 self.selection = DrawableGroup([ hover_obj ])
@@ -2563,7 +2645,7 @@ class TransparentWindow(Gtk.Window):
             hover_obj.move_cursor("End")
             self.current_object = hover_obj
             self.queue_draw()
-            self.change_cursor("none")
+            self.cursor.set("none")
             return True
 
 
@@ -2610,7 +2692,7 @@ class TransparentWindow(Gtk.Window):
                     self.resizeobj = RotateCommand(obj, origin = (event.x, event.y), corner = corner)
                 self.selection = DrawableGroup([ obj ])
                 self.history.append(self.resizeobj)
-                self.change_cursor(corner)
+                self.cursor.set(corner)
             elif hover_obj:
                 if shift and self.selection:
                     # create Draw Group with the two objects
@@ -2619,7 +2701,7 @@ class TransparentWindow(Gtk.Window):
                         self.selection = DrawableGroup([ hover_obj ])
                 self.resizeobj = MoveCommand(self.selection, (event.x, event.y))
                 self.history.append(self.resizeobj)
-                self.change_cursor("grabbing")
+                self.cursor.set("grabbing")
             else:
                 self.selection = None
                 self.resizeobj   = None
@@ -2637,7 +2719,7 @@ class TransparentWindow(Gtk.Window):
         if event.button == 1:
             if self.mode == "text" or (self.mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
                 print("new text")
-                self.change_cursor("none")
+                self.cursor.set("none")
                 self.current_object = Text([ (event.x, event.y) ], pen = self.pen, content = "")
                 self.selection = DrawableGroup([ self.current_object ])
                 self.current_object.move_cursor("Home")
@@ -2668,7 +2750,7 @@ class TransparentWindow(Gtk.Window):
                 self.history.append(RemoveCommand([ hover_obj ], self.objects))
                 self.selection = None
                 self.resizeobj   = None
-                self.revert_cursor()
+                self.cursor.revert()
 
         self.queue_draw()
 
@@ -2730,7 +2812,7 @@ class TransparentWindow(Gtk.Window):
                 self.history.append(CommandGroup([ RemoveCommand(obj.objects, self.objects), self.resizeobj ]))
                 self.selection = None
             self.resizeobj    = None
-            self.revert_cursor()
+            self.cursor.revert()
             self.queue_draw()
         return True
 
@@ -2738,7 +2820,7 @@ class TransparentWindow(Gtk.Window):
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
 
-        self.cursor_pos = (event.x, event.y)
+        self.cursor.update_pos(event.x, event.y)
         corner_obj = find_corners_next_to_click(event.x, event.y, self.objects, 20)
 
         pressure = event.get_axis(Gdk.AxisUse.PRESSURE) 
@@ -2764,14 +2846,14 @@ class TransparentWindow(Gtk.Window):
             prev_hover = self.hover
 
             if object_underneath:
-                self.change_cursor("moving")
+                self.cursor.set("moving")
                 self.hover = object_underneath
             else:
-                self.revert_cursor()
+                self.cursor.revert()
                 self.hover = None
 
             if corner_obj[0] and corner_obj[0].bbox():
-                self.change_cursor(corner_obj[1])
+                self.cursor.set(corner_obj[1])
                 self.hover = corner_obj[0]
                 self.queue_draw()
 
@@ -2791,7 +2873,7 @@ class TransparentWindow(Gtk.Window):
             if self.current_object.strlen() == 0:
                 self.objects.remove(self.current_object)
             self.current_object = None
-        self.revert_cursor()
+        self.cursor.revert()
         self.queue_draw()
 
     def update_text_input(self, keyname, char):
@@ -2828,7 +2910,7 @@ class TransparentWindow(Gtk.Window):
             self.current_object.add_text(clip_text)
             self.queue_draw()
         else:
-            pos = self.cursor_pos or (100, 100)
+            pos = self.cursor.pos()
             new_text = Text([ pos ], pen = self.pen, content=clip_text)
             #new_text.move_cursor("End")
             self.history.append(AddCommand(new_text, self.objects))
@@ -2836,7 +2918,7 @@ class TransparentWindow(Gtk.Window):
 
     def paste_image(self, clip_img):
         """Create an image object from a pixbuf image."""
-        pos = self.cursor_pos or (100, 100)
+        pos = self.cursor.pos()
         self.current_object = Image([ pos ], self.pen, clip_img)
         self.history.append(AddCommand(self.current_object, self.objects))
         self.queue_draw()
@@ -2847,7 +2929,7 @@ class TransparentWindow(Gtk.Window):
         new_obj = Drawable.from_dict(new_obj)
 
         # move the new object to the current location
-        pos = self.cursor_pos or (100, 100)
+        pos = self.cursor.pos()
         if bb is None:
             bb  = new_obj.bbox()
         dx, dy = pos[0] - bb[0], pos[1] - bb[1]
@@ -2965,7 +3047,7 @@ class TransparentWindow(Gtk.Window):
             return
 
         self.mode = 'move'
-        self.default_cursor('move')
+        self.cursor.default('move')
 
         self.selection = DrawableGroup([ self.objects[0] ])
         for obj in self.objects[1:]:
@@ -3194,7 +3276,7 @@ class TransparentWindow(Gtk.Window):
 
         if keyname in modes:
             self.mode = modes[keyname]
-            self.default_cursor(modes[keyname])
+            self.cursor.default(modes[keyname])
             self.queue_draw()
         elif keyname in actions:
             if not "modes" in actions[keyname] or self.mode in actions[keyname]["modes"]:
@@ -3235,56 +3317,6 @@ class TransparentWindow(Gtk.Window):
             self.handle_shortcuts(keyfull)
 
         return True
-
-    def make_cursors(self):
-        """Create cursors for different modes."""
-        self.cursors = {
-            "hand":        Gdk.Cursor.new_from_name(self.get_display(), "hand1"),
-            "move":        Gdk.Cursor.new_from_name(self.get_display(), "hand2"),
-            "grabbing":    Gdk.Cursor.new_from_name(self.get_display(), "grabbing"),
-            "moving":      Gdk.Cursor.new_from_name(self.get_display(), "grab"),
-            "text":        Gdk.Cursor.new_from_name(self.get_display(), "text"),
-            "eraser":      Gdk.Cursor.new_from_name(self.get_display(), "not-allowed"),
-            "pencil":      Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
-            "picker":      Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
-            "polygon":     Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
-            "draw":        Gdk.Cursor.new_from_name(self.get_display(), "pencil"),
-            "crosshair":   Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
-            "circle":      Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
-            "box":         Gdk.Cursor.new_from_name(self.get_display(), "crosshair"),
-            "none":        Gdk.Cursor.new_from_name(self.get_display(), "none"),
-            "upper_left":  Gdk.Cursor.new_from_name(self.get_display(), "nw-resize"),
-            "upper_right": Gdk.Cursor.new_from_name(self.get_display(), "ne-resize"),
-            "lower_left":  Gdk.Cursor.new_from_name(self.get_display(), "sw-resize"),
-            "lower_right": Gdk.Cursor.new_from_name(self.get_display(), "se-resize"),
-            "default":     Gdk.Cursor.new_from_name(self.get_display(), "pencil")
-        }
-
-    def revert_cursor(self):
-        """Revert to the default cursor."""
-        if self.current_cursor == "default":
-            return
-        print("reverting cursor")
-        self.get_window().set_cursor(self.cursors["default"])
-        self.current_cursor = "default"
-
-    def change_cursor(self, cursor_name):
-        """Change the cursor to the specified cursor."""
-        if self.current_cursor == cursor_name:
-            return
-        #print("changing cursor to", cursor_name)
-        cursor = self.cursors[cursor_name]
-        self.get_window().set_cursor(cursor)
-        self.current_cursor = cursor_name
-
-    def default_cursor(self, cursor_name):
-        """Set the default cursor to the specified cursor."""
-        if self.current_cursor == cursor_name:
-            return
-        print("setting default cursor to", cursor_name)
-        self.cursors["default"] = self.cursors[cursor_name]
-        self.get_window().set_cursor(self.cursors["default"])
-        self.current_cursor = cursor_name
 
     def select_color(self):
         """Select a color for drawing."""
@@ -3401,7 +3433,7 @@ class TransparentWindow(Gtk.Window):
         dialog.destroy()
 
         if pixbuf is not None:
-            pos = self.cursor_pos or (100, 100)
+            pos = self.cursor.pos()
             self.current_object = Image([ pos ], self.pen, pixbuf)
             self.history.append(AddCommand(self.current_object, self.objects))
             self.queue_draw()
@@ -3553,7 +3585,7 @@ if __name__ == "__main__":
 
     win.show_all()
     win.present()
-    win.change_cursor("default")
+    win.cursor.set(win.mode)
     win.stick()
 
     Gtk.main()
