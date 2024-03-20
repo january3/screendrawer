@@ -40,37 +40,12 @@ from io import BytesIO
 
 import warnings
 import appdirs
+import argparse
 
 import pyautogui
 from PIL import ImageGrab
-# Example usage
-#color = get_color_under_cursor()
-#print(f"Color under cursor: {color}")
 # ---------------------------------------------------------------------
 
-app_name   = "ScreenDrawer"
-app_author = "JanuaryWeiner"  # Optional; used on Windows
-
-# Get user-specific data directory
-user_data_dir = appdirs.user_data_dir(app_name, app_author)
-print(f"User data directory: {user_data_dir}")
-# Create the directory if it does not exist
-os.makedirs(user_data_dir, exist_ok=True)
-# The filename for the save file: dir + "savefile"
-savefile = os.path.join(user_data_dir, "savefile")
-print("Save file is:", savefile)
-
-# Get user-specific config directory
-user_config_dir = appdirs.user_config_dir(app_name, app_author)
-print(f"User config directory: {user_config_dir}")
-
-# Get user-specific cache directory
-#user_cache_dir = appdirs.user_cache_dir(app_name, app_author)
-#print(f"User cache directory: {user_cache_dir}")
-
-# Get user-specific log directory
-#user_log_dir = appdirs.user_log_dir(app_name, app_author)
-#print(f"User log directory: {user_log_dir}")
 
 # ---------------------------------------------------------------------
 # defaults
@@ -94,6 +69,16 @@ COLORS = {
 # open file for appending if exists, or create if not
 
 ## ---------------------------------------------------------------------
+
+def get_default_savefile(app_name, app_author):
+    # Get user-specific data directory
+    user_data_dir = appdirs.user_data_dir(app_name, app_author)
+    print(f"User data directory: {user_data_dir}")
+    # Create the directory if it does not exist
+    os.makedirs(user_data_dir, exist_ok=True)
+    # The filename for the save file: dir + "savefile"
+    savefile = os.path.join(user_data_dir, "savefile")
+    return savefile
 
 
 def get_color_under_cursor():
@@ -429,6 +414,7 @@ class Command:
     def __init__(self, type, objects):
         self.obj   = objects
         self._type = type
+        self._undone = False
 
     def type(self):
         return self._type
@@ -447,13 +433,20 @@ class CommandGroup(Command):
     def undo(self):
         for cmd in self._commands:
             cmd.undo()
+        self._undone = True
 
     def redo(self):
+        if not self._undone:
+            return
         for cmd in self._commands:
             cmd.redo()
+        self._undone = False
+        
 
 class SetColorCommand(Command):
     """Simple class for handling color changes."""
+    # XXX: what happens if an object is added to group after the command,
+    # but before the undo? well, bad things happen
     def __init__(self, objects, color):
         super().__init__("set_color", objects.get_primitive())
         self._color = color
@@ -464,11 +457,16 @@ class SetColorCommand(Command):
 
     def undo(self):
         for obj in self.obj:
-            obj.color_set(self._undo_color[obj])
+            if obj in self._undo_color:
+                obj.color_set(self._undo_color[obj])
+        self._undone = True
 
     def redo(self):
+        if not self._undone:
+            return
         for obj in self.obj:
             obj.color_set(self._color)
+        self._undone = False
 
 class RemoveCommand(Command):
     """Simple class for handling deleting objects."""
@@ -483,10 +481,14 @@ class RemoveCommand(Command):
     def undo(self):
         for obj in self.obj:
             self._stack.append(obj)
+        self._undone = True
 
     def redo(self):
+        if not self._undone:
+            return
         for obj in self.obj:
             self._stack.remove(obj)
+        self._undone = False
 
 class AddCommand(Command):
     """Simple class for handling creating objects."""
@@ -497,14 +499,18 @@ class AddCommand(Command):
 
     def undo(self):
         self._stack.remove(self.obj)
+        self._undone = True
 
     def redo(self):
+        if not self._undone:
+            return
         self._stack.append(self.obj)
+        self._undone = False
 
 class ZStackCommand(Command):
     """Simple class for handling z-stack operations."""
     def __init__(self, objects, stack, operation):
-        super().__init__(type, objects)
+        super().__init__("z_stack", objects)
         self._operation  = operation
         self._stack      = stack
 
@@ -592,9 +598,13 @@ class ZStackCommand(Command):
 
     def undo(self):
         self.swap_stacks(self._stack, self._stack_orig)
+        self._undone = True
 
     def redo(self):
+        if not self._undone:
+            return
         self.swap_stacks(self._stack, self._stack_orig)
+        self._undone = False
 
     def swap_stacks(self, stack1, stack2):
         stack1[:], stack2[:] = stack2[:], stack1[:]
@@ -647,11 +657,15 @@ class RotateCommand(MoveResizeCommand):
         self.obj.rotate_start(self._rotation_centre)
         self.obj.rotate(-self._angle)
         self.obj.rotate_end()
+        self._undone = True
 
     def redo(self):
+        if not self._undone:
+            return
         self.obj.rotate_start(self._rotation_centre)
         self.obj.rotate(self._angle)
         self.obj.rotate_end()
+        self._undone = False
 
 class MoveCommand(MoveResizeCommand):
     """Simple class for handling move events."""
@@ -674,11 +688,15 @@ class MoveCommand(MoveResizeCommand):
         dx = self.start_point[0] - self._last_pt[0]
         dy = self.start_point[1] - self._last_pt[1]
         self.obj.move(dx, dy)
+        self._undone = True
 
     def redo(self):
+        if not self._undone:
+            return
         dx = self.start_point[0] - self._last_pt[0]
         dy = self.start_point[1] - self._last_pt[1]
         self.obj.move(-dx, -dy)
+        self._undone = False
 
 
 class ResizeCommand(MoveResizeCommand):
@@ -698,12 +716,16 @@ class ResizeCommand(MoveResizeCommand):
         obj.resize_start(self.corner, pt)
         self.obj.resize_update(self._orig_bb)
         obj.resize_end()
+        self._undone = True
 
     def redo(self):
+        if not self._undone:
+            return
         obj = self.obj
         obj.resize_start(self.corner, self.start_point)
         obj.resize_update(self._newbb)
         obj.resize_end()
+        self._undone = False
 
     def event_finish(self):
         self.obj.resize_end()
@@ -3350,6 +3372,29 @@ class TransparentWindow(Gtk.Window):
 ## ---------------------------------------------------------------------
 
 if __name__ == "__main__":
+    app_name   = "ScreenDrawer"
+    app_author = "JanuaryWeiner"  # Optional; used on Windows
+
+    # Get user-specific config directory
+    user_config_dir = appdirs.user_config_dir(app_name, app_author)
+    print(f"User config directory: {user_config_dir}")
+
+    #user_cache_dir = appdirs.user_cache_dir(app_name, app_author)
+    #user_log_dir   = appdirs.user_log_dir(app_name, app_author)
+
+
+# ---------------------------------------------------------------------
+
+    parser = argparse.ArgumentParser(description="Drawing on the screen")
+    parser.add_argument("-s", "--savefile", help="File for automatic save upon exit")
+    parser.add_argument("-a", "--load",     help="Load this file when starting")
+
+    args     = parser.parse_args()
+    savefile = args.savefile or get_default_savefile(app_name, app_author)
+    print("Save file is:", savefile)
+
+# ---------------------------------------------------------------------
+
     win = TransparentWindow()
     css = b"""
     #myMenu {

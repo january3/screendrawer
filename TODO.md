@@ -1,5 +1,6 @@
 To do (sorted by priority):
 
+ * implement argparse
  * implement undo for fonts as well
  * close path: converts a path to polygon (what with the outline / pressure? do we loose it?)
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
@@ -33,12 +34,13 @@ Design issues:
    issue.
 
 Bugs:
- * Screenshot tool should automatically select the closest rectangle
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
    should be mostly outside of the bb
 
 Done:
+ * regression: images can't be pasted
+ * Screenshot tool should automatically select the closest rectangle
  * double click enters text editing only in draw mode, not in text mode
    - the problem is that before a double click event is raised, single
      click events happen which confuse the app, because it starts typing a
