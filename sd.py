@@ -409,6 +409,50 @@ def draw_dot(cr, x, y, diameter):
     cr.arc(x, y, diameter / 2, 0, 2 * 3.14159)  # Draw a circle
     cr.fill()  # Fill the circle to make a dot
 
+def FontChooser(pen, parent = None):
+
+    # check that pen is an instance of Pen
+    if not isinstance(pen, Pen):
+        raise ValueError("Pen is not defined or not of class Pen")
+
+    font_dialog = Gtk.FontChooserDialog(title="Select a Font", parent=parent)
+    font_dialog.set_preview_text("Zażółć gęślą jaźń")
+    
+    # You can set the initial font for the dialog
+    font_dialog.set_font(pen.font_family + " " + 
+                         pen.font_style + " " +
+                         str(pen.font_weight) + " " +
+                         str(pen.font_size))
+    
+    response = font_dialog.run()
+
+    font_description = None
+
+    if response == Gtk.ResponseType.OK:
+        font_description = font_dialog.get_font_desc()
+
+    font_dialog.destroy()
+    return font_description
+
+
+def ColorChooser(parent = None):
+    """Select a color for drawing."""
+    # Create a new color chooser dialog
+    color_chooser = Gtk.ColorChooserDialog("Select Current Foreground Color", parent = parent)
+
+    # Show the dialog
+    response = color_chooser.run()
+    color = None
+
+    # Check if the user clicked the OK button
+    if response == Gtk.ResponseType.OK:
+        color = color_chooser.get_rgba()
+        #self.set_color((color.red, color.green, color.blue))
+
+    # Don't forget to destroy the dialog
+    color_chooser.destroy()
+    return color
+
 
 ## ---------------------------------------------------------------------
 ## These are the commands that can be executed on the objects. They should
@@ -915,6 +959,15 @@ class Pen:
 
     def color_set(self, color):
         self.color = color
+
+    def font_set_from_description(self, font_description):
+        self.font_family = font_description.get_family()
+        self.font_size   = font_description.get_size() / Pango.SCALE
+        self.font_weight = "bold"   if font_description.get_weight() == Pango.Weight.BOLD  else "normal"
+        self.font_style  = "italic" if font_description.get_style()  == Pango.Style.ITALIC else "normal"
+
+        print("setting font to", self.font_family, self.font_size, self.font_weight, self.font_style)
+
 
     def transparency_set(self, transparency):
         self.transparency = transparency
@@ -3115,18 +3168,11 @@ class TransparentWindow(Gtk.Window):
 
     def set_font(self, font_description):
         """Set the font."""
-        # XXX not really nice
-        self.pen.font_family = font_description.get_family()
-        self.pen.font_size   = font_description.get_size() / Pango.SCALE
-        self.pen.font_weight = "bold"   if font_description.get_weight() == Pango.Weight.BOLD  else "normal"
-        self.pen.font_style  = "italic" if font_description.get_style()  == Pango.Style.ITALIC else "normal"
-
-        print("setting font to", self.pen.font_family, self.pen.font_size, self.pen.font_weight, self.pen.font_style)
+        self.pen.font_set_from_description(font_description)
 
         if self.selection:
             for obj in self.selection.objects:
-                print("setting font for", obj)
-                obj.font_set(self.pen.font_size, self.pen.font_family, self.pen.font_weight, self.pen.font_style)
+                obj.pen.font_set_from_description(font_description)
 
         self.queue_draw()
 
@@ -3327,38 +3373,15 @@ class TransparentWindow(Gtk.Window):
 
     def select_color(self):
         """Select a color for drawing."""
-        # Create a new color chooser dialog
-        color_chooser = Gtk.ColorChooserDialog("Select Current Foreground Color", None)
-
-        # Show the dialog
-        response = color_chooser.run()
-
-        # Check if the user clicked the OK button
-        if response == Gtk.ResponseType.OK:
-            color = color_chooser.get_rgba()
+        color = ColorChooser(self)
+        if color:
             self.set_color((color.red, color.green, color.blue))
 
-        # Don't forget to destroy the dialog
-        color_chooser.destroy()
-
     def select_font(self):
-        font_dialog = Gtk.FontChooserDialog(title="Select a Font", parent=self)
-        font_dialog.set_preview_text("Zażółć gęślą jaźń")
-        
-        # You can set the initial font for the dialog
-        font_dialog.set_font(self.pen.font_family + " " + 
-                             self.pen.font_style + " " +
-                             str(self.pen.font_weight) + " " +
-                             str(self.pen.font_size))
-        
-        response = font_dialog.run()
+        font_description = FontChooser(self.pen, self)
 
-        if response == Gtk.ResponseType.OK:
-            font_description = font_dialog.get_font_desc()
+        if font_description:
             self.set_font(font_description)
-
-        font_dialog.destroy()
-
 
     def show_help_dialog(self):
         """Show the help dialog."""

@@ -43,6 +43,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * text does not save the rotation
  * paste image can't be undone
  * implement argparse
  * regression: images can't be pasted
