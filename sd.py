@@ -1072,22 +1072,40 @@ class Pen:
 ## also primitives like boxes, paths and text.
 
 class DrawableFactory:
-    @staticmethod
-    def create_drawable(drawable_type, **kwargs):
-        if drawable_type == "circle":
-            return Circle(**kwargs)
-        elif drawable_type == "path":
-            return Path(**kwargs)
-        elif drawable_type == "polygon":
-            return Polygon(**kwargs)
-        elif drawable_type == "box":
-            return Box(**kwargs)
-        elif drawable_type == "image":
-            return Image(**kwargs)
-        elif drawable_type == "text":
-            return Text(**kwargs)
+    @classmethod
+    def create_drawable(cls, mode, manager, ev):
+        print("create object of type", mode)
+        shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
+        pos = ev.pos()
+        corner_obj = ev.corner()
+        hover_obj  = ev.hover()
+
+        ret_obj = None
+        pen = manager.pen
+
+        if mode == "text" or (mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
+            manager.cursor.set("none")
+            ret_obj = Text([ pos ], pen = pen, content = "")
+            ret_obj.move_caret("Home")
+            manager.selection.set([ ret_obj ])
+
+        elif mode == "draw":
+            ret_obj = Path([ pos ], pen = pen, pressure = [ pressure ])
+
+        elif mode == "box":
+            ret_obj = Box([ pos, (pos[0] + 1, pos[1] + 1) ], pen = pen)
+
+        elif mode == "polygon":
+            ret_obj = Polygon([ pos ], pen = pen)
+
+        elif mode == "circle":
+            ret_obj = Circle([ pos, (pos[0] + 1, pos[1] + 1) ], pen = pen)
+
         else:
-            raise ValueError(f"Unknown drawable type: {drawable_type}")
+            raise ValueError("Unknown mode:", mode)
+
+        return ret_obj
+
 
 class Drawable:
     """
@@ -2931,28 +2949,9 @@ class TransparentWindow(Gtk.Window):
     def create_object(self, ev):
         print("create object of type", self.mode)
         shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
-        pos = ev.pos()
-        corner_obj = ev.corner()
-        hover_obj  = ev.hover()
-
-        if self.mode == "text" or (self.mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
-            self.cursor.set("none")
-            self.current_object = Text([ pos ], pen = self.pen, content = "")
-            self.selection.set([ self.current_object ])
-            self.current_object.move_caret("Home")
-
-        elif self.mode == "draw":
-            self.current_object = Path([ pos ], pen = self.pen, pressure = [ pressure ])
-
-        elif self.mode == "box":
-            self.current_object = Box([ pos, (pos[0] + 1, pos[1] + 1) ], pen = self.pen)
-
-        elif self.mode == "polygon":
-            self.current_object = Polygon([ pos ], pen = self.pen)
-
-        elif self.mode == "circle":
-            self.current_object = Circle([ pos, (pos[0] + 1, pos[1] + 1) ], pen = self.pen)
-
+        obj = DrawableFactory.create_drawable(self.mode, self, ev)
+        if obj:
+            self.current_object = obj
 
     # XXX this code should be completely rewritten, cleaned up, refactored
     # and god knows what else. It's a mess.
