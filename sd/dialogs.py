@@ -190,7 +190,8 @@ def FontChooser(pen, parent = None):
         raise ValueError("Pen is not defined or not of class Pen")
 
     font_dialog = Gtk.FontChooserDialog(title="Select a Font", parent=parent)
-    font_dialog.set_preview_text("Zażółć gęślą jaźń")
+    #font_dialog.set_preview_text("Zażółć gęślą jaźń")
+    font_dialog.set_preview_text("Sphinx of black quartz, judge my vow.")
     
     # You can set the initial font for the dialog
     font_dialog.set_font(pen.font_family + " " + 
