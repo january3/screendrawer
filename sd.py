@@ -2734,6 +2734,87 @@ class CursorManager:
 
 ## ---------------------------------------------------------------------
 
+class GraphicsObjectManager:
+    """
+    Class to manage graphics objects.
+
+    Attributes:
+        _objects (list): The list of objects.
+        _history_stack (list): The list of commands in the history.
+        _hidden (bool): True if the objects are hidden.
+        _current_object (Drawable): The current object.
+        _wiglet_active (Drawable): The active wiglet.
+        _resizeobj (Drawable): The object being resized.
+        _mode (str): The current mode.
+        _cursor (CursorManager): The cursor manager.
+        _hover (Drawable): The object being hovered over.
+        _clipboard (Clipboard): The clipboard.
+        _selection_tool (SelectionTool): The selection tool.
+    """
+
+    def __init__(self, window):
+        # public attr
+        self.clipboard = Clipboard()
+
+        # private attr
+        self._objects = []
+        self._history = []
+
+        self._hidden = False
+        self._current_object = None
+        self._wiglet_active = None
+        self._resizeobj = None
+        self._mode = "draw"
+        self._hover = None
+        self._selection_tool = None
+
+    def add_object(self, obj):
+        """Add an object to the list of objects."""
+        self._objects.append(obj)
+
+    def remove_object(self, obj):
+        """Remove an object from the list of objects."""
+        self._objects.remove(obj)
+
+    def clear(self):
+        """Clear the list of objects."""
+        self._objects = []
+
+    def undo(self):
+        """Undo the last action."""
+        if len(self._history) > 0:
+            obj = self._history.pop()
+            self._redo_stack.append(obj)
+            self._objects = self._history[:]
+
+    def redo(self):
+        """Redo the last action."""
+        if len(self._redo_stack) > 0:
+            obj = self._redo_stack.pop()
+            self._history.append(obj)
+            self._objects = self._history[:]
+
+    def hide(self):
+        """Hide the objects."""
+        self._hidden = True
+
+    def show(self):
+        """Show the objects."""
+        self._hidden = False
+
+    def toggle_visibility(self):
+        """Toggle the visibility of the objects."""
+        self._hidden = not self._hidden
+
+    def mode(self, mode = None):
+        """Get or set the mode."""
+        if mode:
+            self._mode = mode
+        return self._mode
+
+
+## ---------------------------------------------------------------------
+
 class TransparentWindow(Gtk.Window):
     """Main app window. Holds all information and everything that exists.
        One window to rule them all."""
@@ -2760,6 +2841,7 @@ class TransparentWindow(Gtk.Window):
         self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
 
         # Drawing setup
+        self.gom                 = GraphicsObjectManager(self)
         self.objects             = [ ]
         self.history             = [ ]
         self.redo_stack          = [ ]
@@ -2947,9 +3029,8 @@ class TransparentWindow(Gtk.Window):
         return True
 
     def create_object(self, ev):
-        print("create object of type", self.mode)
-        shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
-        obj = DrawableFactory.create_drawable(self.mode, self, ev)
+        """Create an object based on the current mode."""
+        obj = DrawableFactory.create_drawable(self.mode, manager=self, ev=ev)
         if obj:
             self.current_object = obj
 
