@@ -26,7 +26,6 @@ class DrawableFactory:
             manager.cursor.set("none")
             ret_obj = Text([ pos ], pen = pen, content = "")
             ret_obj.move_caret("Home")
-            manager.selection.set([ ret_obj ])
 
         elif mode == "draw":
             ret_obj = Path([ pos ], pen = pen, pressure = [ pressure ])

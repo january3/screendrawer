@@ -1,6 +1,7 @@
 import gi # <remove>
 import os # <remove>
 from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib # <remove>
+from .pen import Pen # <remove>
 
 ## ---------------------------------------------------------------------
 class help_dialog(Gtk.Dialog):
@@ -97,7 +98,8 @@ def _dialog_add_image_formats(dialog):
 ## ---------------------------------------------------------------------
 
 def export_dialog(widget, parent = None):
-    """Show a file chooser dialog to select a file to save the drawing."""
+    """Show a file chooser dialog to select a file to save the drawing as
+    an image / pdf / svg."""
     file_name, selected_filter = None, None
 
     dialog = Gtk.FileChooserDialog(
@@ -110,12 +112,6 @@ def export_dialog(widget, parent = None):
     dialog.set_current_folder(current_directory)
 
     _dialog_add_image_formats(dialog)
-
-#   # Add file format filters
-#   filter_sdrw = Gtk.FileFilter()
-#   filter_sdrw.set_name("Screendrawer files")
-#   filter_sdrw.add_pattern("*.sdrw")
-#   dialog.add_filter(filter_sdrw)
 
     # Show the dialog
     response = dialog.run()
@@ -163,7 +159,7 @@ def import_image_dialog(widget, parent = None):
     return image_path
 
 def open_drawing_dialog(parent):
-    # Create a file chooser dialog
+    """Show a file chooser dialog to select a .sdrw file."""
     dialog = Gtk.FileChooserDialog(
         title="Select an .sdrw file",
         action=Gtk.FileChooserAction.OPEN,
@@ -186,3 +182,50 @@ def open_drawing_dialog(parent):
     # Clean up and destroy the dialog
     dialog.destroy()
     return image_path
+
+def FontChooser(pen, parent = None):
+
+    # check that pen is an instance of Pen
+    if not isinstance(pen, Pen):
+        raise ValueError("Pen is not defined or not of class Pen")
+
+    font_dialog = Gtk.FontChooserDialog(title="Select a Font", parent=parent)
+    font_dialog.set_preview_text("Zażółć gęślą jaźń")
+    
+    # You can set the initial font for the dialog
+    font_dialog.set_font(pen.font_family + " " + 
+                         pen.font_style + " " +
+                         str(pen.font_weight) + " " +
+                         str(pen.font_size))
+    
+    response = font_dialog.run()
+
+    font_description = None
+
+    if response == Gtk.ResponseType.OK:
+        font_description = font_dialog.get_font_desc()
+
+    font_dialog.destroy()
+    return font_description
+
+
+def ColorChooser(parent = None):
+    """Select a color for drawing."""
+    # Create a new color chooser dialog
+    color_chooser = Gtk.ColorChooserDialog("Select Current Foreground Color", parent = parent)
+
+    # Show the dialog
+    response = color_chooser.run()
+    color = None
+
+    # Check if the user clicked the OK button
+    if response == Gtk.ResponseType.OK:
+        color = color_chooser.get_rgba()
+        #self.set_color((color.red, color.green, color.blue))
+
+    # Don't forget to destroy the dialog
+    color_chooser.destroy()
+    return color
+
+
+

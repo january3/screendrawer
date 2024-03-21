@@ -1,3 +1,5 @@
+from gi.repository import Pango  # <remove>
+
 class Pen:
     """
     Represents a pen with customizable drawing properties.

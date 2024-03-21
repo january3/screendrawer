@@ -226,6 +226,9 @@ class TransparentWindow(Gtk.Window):
             hover    = obj == self.hover and self.mode == "move"
             selected = self.gom.selection.contains(obj) and self.mode == "move"
             obj.draw(cr, hover=hover, selected=selected, outline = self.outline)
+    #   if self.current_object:
+    #       print("drawing current object:", self.current_object, "mode:", self.mode)
+    #       self.current_object.draw(cr)
 
         # If changing line width, draw a preview of the new line width
       
@@ -529,7 +532,6 @@ class TransparentWindow(Gtk.Window):
 
     def object_create_copy(self, obj, bb = None):
         """Copy the given object into a new object."""
-        # XXX cannot be undone
         new_obj = copy.deepcopy(obj.to_dict())
         new_obj = Drawable.from_dict(new_obj)
 
@@ -652,7 +654,8 @@ class TransparentWindow(Gtk.Window):
             'q':                    {'action': self.exit},
             'Ctrl-q':               {'action': self.exit},
             'l':                    {'action': self.clear},
-            'f':                    {'action': self.gom.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
+            # XXX something is rotten here
+            #'f':                    {'action': self.gom.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
             'o':                    {'action': self.outline_toggle, 'modes': ["box", "circle", "draw", "move"]},
 
             'Up':                   {'action': self.gom.move_selection, 'args': [0, -10],  'modes': ["move"]},
@@ -760,6 +763,7 @@ class TransparentWindow(Gtk.Window):
         # handle single keystroke shortcuts
             self.handle_shortcuts(keyfull)
 
+        self.queue_draw()
         return True
 
     def select_color(self):
