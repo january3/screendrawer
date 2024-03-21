@@ -1,15 +1,20 @@
 To do (sorted by priority):
 
- * implement "copy pen" or "set with pen" thingy
+ * question: if a file is opened with ctrl-o, should the modifications go
+   into that file or in savefile?
+ * implement "copy pen" or "set with pen" thingy. Also, how should the
+   color picker and the color selection dialog colaborate?
  * think hard how I want the color setting / pen thing to work
  * implement undo for fonts as well
  * implement command line conversion between sdrw and (png, svg, pdf, ...)
+   -> this will require detaching the drawing from the window!
  * close path: converts a path to polygon (what with the outline / pressure? do we loose it?)
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
  * add "pages" or "layers" or "frames" or "slides" or "whatever" to the
    drawing. This would allow to switch between different drawings.
  * implement rotating for: Box, Circle
- * add a better color picker
+ * add a better color picker, the gtk thing sucks. Something like in
+   inkscape could be nice.
  * add a line mode and Line object class
  * show corners of the bounding box
  * an idea: wiglets which are shown (optionally, toggleable) on the left
@@ -17,6 +22,7 @@ To do (sorted by priority):
    transparency etc.
  * grid
  * horizontal and vertical guides
+ * maybe an infinite drawing area? Scrollable like?
 
 Rejected ideas:
  * turn it into a Gnome plugin (who 一体 needs that?)
@@ -32,6 +38,20 @@ Rejected ideas:
 Design issues:
  * the app main window code should be split into UIManager, DrawManager and
    EventManager, which would communicate via callbacks.
+
+   OK, so I implemented the Graphical Object Manager aka GOM. It takes care
+   of the object list as well as the selection (because several
+   selection-related operations, like "next object" or "select all" require
+   access to the object list).
+
+   Next task is the EventManager, which should take care of the mouse
+   related events mostly (keyboard events seem to be quite a different
+   thing and the central hub I have with the satellite and GOM functions
+   seems to work well). However I am still not sure what parts should
+   belong to the EventManager and how the communication between the
+   managers should look like. Does the EM get access to GOM and calls GOM
+   methods? Or does GOM register itself with EM and EM calls GOM methods?
+   or what?
  * maybe I am doing it all wrong. Maybe I should define a transformation
    class and then record transformations for each object. This way, I
    would be able to undo transformations easily. This is a big design

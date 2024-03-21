@@ -56,10 +56,11 @@ from sd.commands import *           ###<placeholder sd/commands.py>
 from sd.pen import Pen              ###<placeholder sd/pen.py>
 from sd.drawable import *           ###<placeholder sd/drawable.py>
 from sd.events import *             ###<placeholder sd/events.py>
-from sd.dialogs import HelpDialog   ###<placeholder sd/dialogs.py>
+from sd.dialogs import *   ###<placeholder sd/dialogs.py>
 from sd.clipboard import Clipboard  ###<placeholder sd/clipboard.py>
 from sd.cursor import CursorManager ###<placeholder sd/cursor.py>
 from sd.gom import GraphicsObjectManager ###<placeholder sd/gom.py>
+from sd.import_export import *      ###<placeholder sd/import_export.py>
 
 # ---------------------------------------------------------------------
 # defaults
@@ -419,7 +420,6 @@ class TransparentWindow(Gtk.Window):
         # if the user clicked to create a text, we are not really done yet
         if self.current_object and self.current_object.type != "text":
             print("there is a current object: ", self.current_object)
-            # self.selection = DrawableGroup([ self.current_object ])
             self.gom.selection.clear()
             self.current_object = None
             self.queue_draw()
@@ -775,119 +775,38 @@ class TransparentWindow(Gtk.Window):
 
     def show_help_dialog(self):
         """Show the help dialog."""
-        dialog = HelpDialog(self)
+        dialog = help_dialog(self)
         response = dialog.run()
         dialog.destroy()
 
     def export_drawing(self):
         """Save the drawing to a file."""
         # Choose where to save the file
-        dialog = Gtk.FileChooserDialog("Save as", self, Gtk.FileChooserAction.SAVE,
-            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_SAVE, Gtk.ResponseType.OK))
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            filename = dialog.get_filename()
-            # Ensure the filename has the correct extension
-            if not filename.endswith('.svg'):
-                filename += '.svg'
-            #self.export_to_png(filename)
-            self.export(filename, "svg")
-        dialog.destroy()
-
-    def export(self, filename, file_format):
-        """Export the drawing to a file."""
-        # Create a Cairo surface of the same size as the window content
+        #    self.export(filename, "svg")
+        file_name, file_format = export_dialog(self)
         width, height = self.get_size()
-        if file_format == "png":
-            surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
-        elif file_format == "svg":
-            surface = cairo.SVGSurface(filename, width, height)
-        else:
-            raise ValueError("Invalid file format")
-
-        cr = cairo.Context(surface)
-        cr.set_source_rgba(1, 1, 1)
-        cr.paint()
-        self.draw(cr)
-
-        # Save the surface to the file
-        if file_format == "png":
-            surface.write_to_png(filename)
-        elif file_format == "svg":
-            surface.finish()
-
+        export_image(width, height, file_name, self.draw, file_format)
 
     def select_image_and_create_pixbuf(self):
-        # Create a file chooser dialog
-        dialog = Gtk.FileChooserDialog(
-            title="Select an Image",
-            action=Gtk.FileChooserAction.OPEN,
-            buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
-        )
+        """Select an image file and create a pixbuf from it."""
 
-        # Filter to only show image files
-        file_filter = Gtk.FileFilter()
-        file_filter.set_name("Image files")
-        file_filter.add_mime_type("image/jpeg")
-        file_filter.add_mime_type("image/png")
-        file_filter.add_mime_type("image/tiff")
-        dialog.add_filter(file_filter)
-
-        # Show the dialog and wait for the user response
-        response = dialog.run()
-
+        image_file = import_image_dialog(self)
         pixbuf = None
-        if response == Gtk.ResponseType.OK:
-            image_path = dialog.get_filename()
+
+        if image_file:
             try:
-                # Generate a GdkPixbuf from the selected image file
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file(image_path)
-                print(f"Loaded image: {image_path}")
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file(image_file)
+                print(f"Loaded image: {image_file}")
             except Exception as e:
                 print(f"Failed to load image: {e}")
-        elif response == Gtk.ResponseType.CANCEL:
-            print("No image selected")
 
-        # Clean up and destroy the dialog
-        dialog.destroy()
-
-        if pixbuf is not None:
-            pos = self.cursor.pos()
-            self.current_object = Image([ pos ], self.pen, pixbuf)
-            self.history.append(AddCommand(self.current_object, self.objects))
-            self.queue_draw()
+            if pixbuf is not None:
+                pos = self.cursor.pos()
+                img = Image([ pos ], self.pen, pixbuf)
+                self.gom.add_object(img)
+                self.queue_draw()
         
         return pixbuf
-
-    def open_drawing(self):
-        # Create a file chooser dialog
-        dialog = Gtk.FileChooserDialog(
-            title="Select an .sdrw file",
-            action=Gtk.FileChooserAction.OPEN,
-            buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
-        )
-
-        # Filter to only show image files
-        # file_filter = Gtk.FileFilter()
-        # file_filter.set_name("Image files")
-        # file_filter.add_mime_type("image/jpeg")
-        # file_filter.add_mime_type("image/png")
-        # file_filter.add_mime_type("image/tiff")
-        # dialog.add_filter(file_filter)
-
-        # Show the dialog and wait for the user response
-        response = dialog.run()
-
-        pixbuf = None
-        if response == Gtk.ResponseType.OK:
-            image_path = dialog.get_filename()
-            self.read_file(image_path)
-        elif response == Gtk.ResponseType.CANCEL:
-            print("No image selected")
-
-        # Clean up and destroy the dialog
-        dialog.destroy()
 
     def screenshot_finalize(self, bb):
         print("Taking screenshot now")
@@ -936,27 +855,27 @@ class TransparentWindow(Gtk.Window):
         }
 
         objects = self.gom.export_objects()
+        save_file_as_sdrw(savefile, config, objects)
 
-        state = { 'config': config, 'objects': objects }
-        with open(savefile, 'wb') as f:
-            #yaml.dump(state, f)
-            pickle.dump(state, f)
-        print("Saved drawing to", savefile)
+    def open_drawing(self):
+        file_name = open_drawing_dialog(self)
+        if self.read_file(file_name):
+            savefile = file_name
 
-    def read_file(self, filename):
+    def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
-        print("reading file", filename)
-        if not os.path.exists(filename):
-            print("No saved drawing found at", filename)
-            return
-        with open(filename, 'rb') as f:
-            state = pickle.load(f)
-            #state = yaml.load(f, Loader=yaml.FullLoader)
-        objects           = [ Drawable.from_dict(d) for d in state['objects'] ] or [ ]
-        self.gom.set_objects(objects)
-        self.transparent       = state['config']['transparent']
-        self.pen               = Pen.from_dict(state['config']['pen'])
-        self.pen2              = Pen.from_dict(state['config']['pen2'])
+        config, objects = read_file_as_sdrw(filename)
+
+        if objects:
+            self.gom.set_objects(objects)
+
+        if config and load_config:
+            self.transparent       = config['transparent']
+            self.pen               = Pen.from_dict(config['pen'])
+            self.pen2              = Pen.from_dict(config['pen2'])
+        if config and objects:
+            return True
+        return False
 
     def load_state(self):
         """Load the drawing state from a file."""
