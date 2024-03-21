@@ -1,26 +1,26 @@
 ## ---------------------------------------------------------------------
-import gi
-import copy
-import yaml
-import pickle
-gi.require_version('Gtk', '3.0')
-
-from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
-import cairo
-import os
-import time
-import math
-import base64
-import tempfile
-from io import BytesIO
-
-import warnings
-import appdirs
-import argparse
-
-import pyautogui
-from PIL import ImageGrab
-
+import gi                                                           #<remove>                                                                 
+import copy                                                         #<remove>           
+import yaml                                                         #<remove>           
+import pickle                                                       #<remove>             
+gi.require_version('Gtk', '3.0')                                    #<remove>                                
+                                                                    #<remove>
+from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib          #<remove>                                                          
+import cairo                                                        #<remove>            
+import os                                                           #<remove>         
+import time                                                         #<remove>           
+import math                                                         #<remove>           
+import base64                                                       #<remove>             
+import tempfile                                                     #<remove>               
+from io import BytesIO                                              #<remove>                      
+                                                                    #<remove>
+import warnings                                                     #<remove>               
+import appdirs                                                      #<remove>              
+import argparse                                                     #<remove>               
+                                                                    #<remove>
+import pyautogui                                                    #<remove>                
+from PIL import ImageGrab                                           #<remove>                                                                   
+                                                                     
 
 def get_default_savefile(app_name, app_author):
     # Get user-specific data directory

@@ -1,5 +1,5 @@
-import gi
-from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
+import gi # <remove>
+from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib # <remove>
 
 ## ---------------------------------------------------------------------
 class HelpDialog(Gtk.Dialog):

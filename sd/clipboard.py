@@ -1,5 +1,5 @@
 ## ---------------------------------------------------------------------
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk # <remove>
 
 class Clipboard:
     """

@@ -2,12 +2,12 @@
 ## These are the objects that can be displayed. It includes groups, but
 ## also primitives like boxes, paths and text.
 
-from .pen import Pen
-import base64
-import cairo
-from io import BytesIO
-from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
-from .utils import *
+from .pen import Pen                     # <remove>
+import base64                            # <remove>
+import cairo                             # <remove>
+from io import BytesIO                   # <remove>
+from gi.repository import Gdk, GdkPixbuf # <remove>
+from .utils import *                     # <remove>
 
 
 class DrawableFactory:

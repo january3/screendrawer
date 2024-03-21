@@ -53,7 +53,10 @@ chmod a+x ~/bin/sd
 Alternatively, get the [latest release](https://github.com/january3/screendrawer/releases/latest) as a
 Debian package or a zip file.
 
+
 # Usage
+
+## Basic usage
 
 Run the `sd` command to start drawing on the screen
 
@@ -86,11 +89,13 @@ keys, respectively), resize them, or delete them.
 The state is saved in / loaded from `savefile` (on Ubuntu, in the
 `~/.local/share/ScreenDrawer` directory) so you can continue drawing later.
 
-# Problems
+## Problems
 
 Try to remove the savefile if you have problems.
 
-# Design principles
+# Development
+
+## Design principles
 
  * ONE FILE. No dependencies beyond widely spread modules, no installation, no configuration
  * Transparent, sticky, not decorated window
@@ -99,3 +104,17 @@ Try to remove the savefile if you have problems.
    opposite does not need to be true.
  * This is not inkscape or illustrator, it does not have loads of features.
  * Single keystrokes and simple shortcuts are preferred
+
+## Code organization
+
+The code is *intended* to be in a single file, `sd.py`. However you can't
+conveniently develop a 4K line script in a single file. So I use a hybrid
+approach:
+
+ * package `sd` contains most of the code - classes, utils etc.
+ * The file `sd_devel.py` is a single file that imports the `sd` package and
+   runs the main loop. It is used for development.
+ * the file `make.py` compiles the package into a single script called
+   `sd.py` 
+
+
