@@ -56,6 +56,8 @@ Design issues:
    issue.
 
 Bugs:
+ * When font choice dialog is clicked when a text is being edited, the text
+   font is not changed
  * rotating the whole selection does not work (b/c the way selection
    behaves)
  * when creating boxes, sometimes tiny itsy bitsy boxes are created

@@ -620,6 +620,8 @@ class TransparentWindow(Gtk.Window):
         """Set the font."""
         self.pen.font_set_from_description(font_description)
         self.gom.selection_font_set(font_description)
+        if self.current_object and self.current_object.type == "text":
+            self.current_object.pen.font_set_from_description(font_description)
 
 #   def smoothen(self):
 #       """Smoothen the selected object."""
