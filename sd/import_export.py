@@ -42,7 +42,7 @@ def export_image(width, height, filename, draw_func, file_format = "all"):
         surface.finish()
 
 def save_file_as_sdrw(filename, config, objects):
-    """Save the objects to a file."""
+    """Save the objects to a file in native format."""
     state = { 'config': config, 'objects': objects }
     try:
         with open(filename, 'wb') as f:
@@ -54,10 +54,8 @@ def save_file_as_sdrw(filename, config, objects):
         print("Error saving file:", e)
         return False
 
-
-
 def read_file_as_sdrw(filename):
-    """Read the objects from a file."""
+    """Read the objects from a file in native format."""
     if not path.exists(filename):
         print("No saved drawing found at", filename)
         return None, None

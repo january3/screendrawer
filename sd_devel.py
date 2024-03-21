@@ -90,9 +90,10 @@ class TransparentWindow(Gtk.Window):
     """Main app window. Holds all information and everything that exists.
        One window to rule them all."""
 
-    def __init__(self):
+    def __init__(self, savefile = None):
         super(TransparentWindow, self).__init__()
 
+        self.savefile            = savefile
         self.init_ui()
     
     def init_ui(self):
@@ -848,6 +849,11 @@ class TransparentWindow(Gtk.Window):
 
     def save_state(self): 
         """Save the current drawing state to a file."""
+        if not self.savefile:
+            print("No savefile set")
+            return
+
+        print("savefile:", self.savefile)
         config = {
                 'transparent': self.transparent,
                 'pen': self.pen.to_dict(),
@@ -855,12 +861,13 @@ class TransparentWindow(Gtk.Window):
         }
 
         objects = self.gom.export_objects()
-        save_file_as_sdrw(savefile, config, objects)
+        save_file_as_sdrw(self.savefile, config, objects)
 
     def open_drawing(self):
         file_name = open_drawing_dialog(self)
         if self.read_file(file_name):
-            savefile = file_name
+            print("Setting savefile to", file_name)
+            self.savefile = file_name
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
@@ -879,7 +886,7 @@ class TransparentWindow(Gtk.Window):
 
     def load_state(self):
         """Load the drawing state from a file."""
-        self.read_file(savefile)
+        self.read_file(self.savefile)
 
 
 ## ---------------------------------------------------------------------
@@ -909,7 +916,7 @@ if __name__ == "__main__":
 
 # ---------------------------------------------------------------------
 
-    win = TransparentWindow()
+    win = TransparentWindow(savefile = savefile)
     if files:
         win.read_file(files[0])
 

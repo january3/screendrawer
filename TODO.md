@@ -1,7 +1,5 @@
 To do (sorted by priority):
 
- * question: if a file is opened with ctrl-o, should the modifications go
-   into that file or in savefile?
  * implement "copy pen" or "set with pen" thingy. Also, how should the
    color picker and the color selection dialog colaborate?
  * think hard how I want the color setting / pen thing to work
@@ -58,9 +56,6 @@ Design issues:
    issue.
 
 Bugs:
- * command line loading of drawings does not work
- * for some reason, boxes around images are filled with black [cannot
-   reproduce]
  * rotating the whole selection does not work (b/c the way selection
    behaves)
  * when creating boxes, sometimes tiny itsy bitsy boxes are created
@@ -72,6 +67,11 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * for some reason, boxes around images are filled with black [cannot
+   reproduce]
+ * command line loading of drawings does not work
+ * question: if a file is opened with ctrl-o, should the modifications go
+   into that file or in savefile?
  * regression: loading data from the savefile no longer works :-(
  * regression: exception thrown when no savefile present
  * seleting all / reverse etc. does not work (regression after introducing GOM)
