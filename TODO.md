@@ -1,7 +1,9 @@
 To do (sorted by priority):
 
  * implement "copy pen" or "set with pen" thingy
+ * think hard how I want the color setting / pen thing to work
  * implement undo for fonts as well
+ * implement command line conversion between sdrw and (png, svg, pdf, ...)
  * close path: converts a path to polygon (what with the outline / pressure? do we loose it?)
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
  * add "pages" or "layers" or "frames" or "slides" or "whatever" to the
@@ -36,6 +38,9 @@ Design issues:
    issue.
 
 Bugs:
+ * command line loading of drawings does not work
+ * for some reason, boxes around images are filled with black [cannot
+   reproduce]
  * rotating the whole selection does not work (b/c the way selection
    behaves)
  * when creating boxes, sometimes tiny itsy bitsy boxes are created
@@ -47,6 +52,9 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * regression: loading data from the savefile no longer works :-(
+ * regression: exception thrown when no savefile present
+ * seleting all / reverse etc. does not work (regression after introducing GOM)
  * pasting after cutting internal objects does not work
  * internal pasting cannot be undone
  * select all, reverse selection do not work

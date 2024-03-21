@@ -211,7 +211,7 @@ class Drawable:
 
         if "pen" in d:
             d["pen"] = Pen.from_dict(d["pen"])
-
+        #print("generating object of type", type, "with data", d)
         return type_map.get(type)(**d)
 
 
@@ -228,7 +228,7 @@ class DrawableGroup(Drawable):
         if objects_dict:
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
 
-        print("Creating DrawableGroup with objects", objects)
+        print("Creating DrawableGroup with ", len(objects), "objects")
         super().__init__("drawable_group", [ (None, None) ], None)
         self.objects = objects
         self.type = "group"

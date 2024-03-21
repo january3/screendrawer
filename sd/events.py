@@ -1,5 +1,6 @@
 from gi.repository import Gtk, Gdk # <remove>
 from .utils import *               # <remove>
+from .pen import Pen               # <remove>
 
 ## ---------------------------------------------------------------------
 class MouseEvent:

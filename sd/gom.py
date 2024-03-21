@@ -42,7 +42,6 @@ class GraphicsObjectManager:
 
     def objects(self):
         """Return the list of objects."""
-        print("GOM: returning n=", len(self._objects), "objects")
         return self._objects
 
     def set_objects(self, objects):
@@ -50,11 +49,16 @@ class GraphicsObjectManager:
         ## no undo
         print("GOM: setting n=", len(objects), "objects")
         self._objects = objects
+        self.selection = SelectionObject(self._objects)
 
     def add_object(self, obj):
         """Add an object to the list of objects."""
         self._history.append(AddCommand(obj, self._objects))
         ##self._objects.append(obj)
+
+    def export_objects(self):
+        objects = [ obj.to_dict() for obj in self._objects ]
+        return objects
 
     def kill_object(self, obj):
         """Directly remove an object from the list of objects."""

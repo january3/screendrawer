@@ -1143,7 +1143,7 @@ class Drawable:
 
         if "pen" in d:
             d["pen"] = Pen.from_dict(d["pen"])
-
+        #print("generating object of type", type, "with data", d)
         return type_map.get(type)(**d)
 
 
@@ -1160,7 +1160,7 @@ class DrawableGroup(Drawable):
         if objects_dict:
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
 
-        print("Creating DrawableGroup with objects", objects)
+        print("Creating DrawableGroup with ", len(objects), "objects")
         super().__init__("drawable_group", [ (None, None) ], None)
         self.objects = objects
         self.type = "group"
@@ -2772,7 +2772,6 @@ class GraphicsObjectManager:
 
     def objects(self):
         """Return the list of objects."""
-        print("GOM: returning n=", len(self._objects), "objects")
         return self._objects
 
     def set_objects(self, objects):
@@ -2780,11 +2779,16 @@ class GraphicsObjectManager:
         ## no undo
         print("GOM: setting n=", len(objects), "objects")
         self._objects = objects
+        self.selection = SelectionObject(self._objects)
 
     def add_object(self, obj):
         """Add an object to the list of objects."""
         self._history.append(AddCommand(obj, self._objects))
         ##self._objects.append(obj)
+
+    def export_objects(self):
+        objects = [ obj.to_dict() for obj in self._objects ]
+        return objects
 
     def kill_object(self, obj):
         """Directly remove an object from the list of objects."""
@@ -2998,15 +3002,16 @@ class TransparentWindow(Gtk.Window):
         self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
 
         # Drawing setup
+        self.mode                = "draw"
         self.gom                 = GraphicsObjectManager(self)
+        self.clipboard           = Clipboard()
+        self.cursor              = CursorManager(self)
         self.hidden              = False
+
         self.current_object      = None
         self.wiglet_active       = None
         self.resizeobj           = None
-        self.mode                = "draw"
-        self.cursor              = CursorManager(self)
         self.hover               = None
-        self.clipboard           = Clipboard()
         self.selection_tool      = None
 
         # defaults for drawing
@@ -3018,11 +3023,8 @@ class TransparentWindow(Gtk.Window):
         # distance for selecting objects
         self.max_dist   = 15
 
+        self.objects = [ ]
         self.load_state()
-        # XXX temporary; load objects into window, then pass to gom, then
-        # delete own
-        self.gom.set_objects(self.objects)
-        self.objects = None
 
         self.connect("button-press-event",   self.on_button_press)
         self.connect("button-release-event", self.on_button_release)
@@ -3787,17 +3789,17 @@ class TransparentWindow(Gtk.Window):
         # Create the image and copy the file name to clipboard
         if pixbuf is not None:
             img = Image([ (bb[0], bb[1]) ], self.pen, pixbuf)
-            self.history.append(AddCommand(img, self.objects))
+            self.gom.add_object(img)
             self.queue_draw()
             self.clipboard.set_text(filename)
 
     def find_screenshot_box(self):
         if self.current_object and self.current_object.type == "box":
             return self.current_object
-        if self.selection.n() == 1 and self.selection.objects[0].type == "box":
-            return self.selection.objects[0]
+        if self.gom.selection.n() == 1 and self.gom.selection.objects()[0].type == "box":
+            return self.gom.selection.objects()[0]
 
-        for obj in self.objects[::-1]:
+        for obj in self.gom.objects()[::-1]:
             if obj.type == "box":
                 return obj
         return None
@@ -3824,7 +3826,7 @@ class TransparentWindow(Gtk.Window):
                 'pen2': self.pen2.to_dict()
         }
 
-        objects = [ obj.to_dict() for obj in self.gom.objects() ]
+        objects = self.gom.export_objects()
 
         state = { 'config': config, 'objects': objects }
         with open(savefile, 'wb') as f:
@@ -3834,13 +3836,15 @@ class TransparentWindow(Gtk.Window):
 
     def read_file(self, filename):
         """Read the drawing state from a file."""
+        print("reading file", filename)
         if not os.path.exists(filename):
             print("No saved drawing found at", filename)
             return
         with open(filename, 'rb') as f:
             state = pickle.load(f)
             #state = yaml.load(f, Loader=yaml.FullLoader)
-        self.objects           = [ Drawable.from_dict(d) for d in state['objects'] ]
+        objects           = [ Drawable.from_dict(d) for d in state['objects'] ] or [ ]
+        self.gom.set_objects(objects)
         self.transparent       = state['config']['transparent']
         self.pen               = Pen.from_dict(state['config']['pen'])
         self.pen2              = Pen.from_dict(state['config']['pen2'])
@@ -3868,15 +3872,19 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Drawing on the screen")
     parser.add_argument("-s", "--savefile", help="File for automatic save upon exit")
-    parser.add_argument("-a", "--load",     help="Load this file when starting")
+    parser.add_argument("files", nargs="*")
 
     args     = parser.parse_args()
     savefile = args.savefile or get_default_savefile(app_name, app_author)
+    files    = args.files
     print("Save file is:", savefile)
 
 # ---------------------------------------------------------------------
 
     win = TransparentWindow()
+    if files:
+        win.read_file(files[0])
+
     css = b"""
     #myMenu {
         background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
