@@ -24,17 +24,6 @@ To do (sorted by priority):
  * horizontal and vertical guides
  * maybe an infinite drawing area? Scrollable like?
 
-Rejected ideas:
- * turn it into a Gnome plugin (who 一体 needs that?)
- * eraser should allow a selection like with selection tool (really?)
- * add laserpointer mode? (why?)
- * loading from SVG (come on. this is already a waste of time)
- * shortcut or menu item for decorating / unmaximizing the window (so it
-   can be moved to another monitor) (this is needed in teaching!) -> pity,
-   I implemented it, but it doesn't work correctly; there seems to be a bug
-   either with Gnome or Gtk. However, if you move the cursor to the other
-   monitor and then start sd it opens there, so it is not a big problem.
-
 Design issues:
  * the app main window code should be split into UIManager, DrawManager and
    EventManager, which would communicate via callbacks.
@@ -58,8 +47,6 @@ Design issues:
    issue.
 
 Bugs:
- * close path: converts a path to polygon 
-   (what with the outline / pressure? do we loose it? - yeah, we do)
  * the undo is, I think, still buggy. 
  * undo remove object places the object in the wrong position in stack - at
    the end of the stack, instead of the exact position that it was located.
@@ -81,6 +68,8 @@ Done:
  * autosave
  * copy of an image does not work
  * move does not undo????
+ * close path: converts a path to polygon 
+   (what with the outline / pressure? do we loose it? - yeah, we do)
  * When font choice dialog is clicked when a text is being edited, the text
    font is not changed
  * for some reason, boxes around images are filled with black [cannot
@@ -173,3 +162,17 @@ Done:
      object. *And* something weird is happening with the colors!
  * copy and paste groups and paths
  * grouping
+
+Rejected ideas:
+ * turn it into a Gnome plugin (who 一体 needs that?)
+ * eraser should allow a selection like with selection tool (really?)
+ * add laserpointer mode? (why?)
+ * loading from SVG (come on. this is already a waste of time)
+ * shortcut or menu item for decorating / unmaximizing the window (so it
+   can be moved to another monitor) (this is needed in teaching!) -> pity,
+   I implemented it, but it doesn't work correctly; there seems to be a bug
+   either with Gnome or Gtk. However, if you move the cursor to the other
+   monitor and then start sd it opens there, so it is not a big problem.
+
+
+

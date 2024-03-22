@@ -856,7 +856,7 @@ class TransparentWindow(Gtk.Window):
     def find_screenshot_box(self):
         if self.current_object and self.current_object.type == "box":
             return self.current_object
-        if self.gom.selection.n() == 1 and self.gom.selection.objects()[0].type == "box":
+        if self.gom.selection.n() == 1 and self.gom.selected_objects()[0].type == "box":
             return self.gom.selection.objects()[0]
 
         for obj in self.gom.objects()[::-1]:
