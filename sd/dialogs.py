@@ -45,28 +45,42 @@ Moving object to left lower screen corner deletes it.
 <b>Drawing modes:</b> (simple key, when not editing a text)
 
 <b>d:</b> Draw mode (pencil)                 <b>m, |SPACE|:</b> Move mode (move objects around, copy and paste)
-<b>t:</b> Text mode (text entry)             <b>b:</b> Box mode  (draw a rectangle)
+<b>t:</b> Text mode (text entry)             <b>r:</b> rectangle mode  (draw a rectangle)
 <b>c:</b> Circle mode (draw an ellipse)      <b>e:</b> Eraser mode (delete objects with a click)
-<b>p:</b> Polygon mode (draw a polygon)      <b>i:</b> Color pIcker mode (pick a color from the screen)
+<b>p:</b> Polygon mode (draw a polygon)      <b>i:</b> Color p<b>I</b>cker mode (pick a color from the screen)
 
-<b>Works always:</b>                                                                  <b>Move mode only:</b>
-<b>With Ctrl:</b>              <b>Simple key (not when entering text)</b>                    <b>With Ctrl:</b>             <b>Simple key (not when entering text)</b>
-Ctrl-q: Quit            x, q: Exit                                             Ctrl-c: Copy content   Tab: Next object
-Ctrl-e: Export drawing  h, F1, ?: Show this help dialog                        Ctrl-v: Paste content  Shift-Tab: Previous object
-Ctrl-l: Clear drawing   l: Clear drawing                                       Ctrl-x: Cut content    Shift-letter: quick color selection e.g. Shift-r for red
-Ctrl-i: insert image                                                                                  |Del|: Delete selected object
-Ctrl-z: undo            |Esc|: Finish text input                                                      g, u: group, ungroup                           
-Ctrl-y: redo            |Enter|: New line (in text mode)                                 
-
-Ctrl-k: Select color                     f: fill with current color
-Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline
+<b>Works always:</b>                                                             <b>Move mode only:</b>
+<b>With Ctrl:</b>              <b>Simple key (not when entering text)</b>               <b>With Ctrl:</b>             <b>Simple key (not when entering text)</b>
+Ctrl-q: Quit            x, q: Exit                                        Ctrl-c: Copy content   Tab: Next object
+Ctrl-e: Export drawing  h, F1, ?: Show this help dialog                   Ctrl-v: Paste content  Shift-Tab: Previous object
+Ctrl-l: Clear drawing   l: Clear drawing                                  Ctrl-x: Cut content    Shift-letter: quick color selection e.g. 
+                                                                                                 Shift-r for red
+Ctrl-i: insert image                                                                             |Del|: Delete selected object(s)
+Ctrl-z: undo            |Esc|: Finish text input                                                 g, u: group, ungroup                           
+Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up, Alt-Down: Move object up, down
+                                                                          Alt-PgUp, Alt-PgDown: Move object to front, back
+Ctrl-k: Select color                     f: fill with current color       Alt-p: convert drawing(s) to polygon(s)
+Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline                Alt-Shift-p: convert polygon(s) to drawing(s)
 Ctrl-b: Cycle background transparency
-Ctrl-p: switch pens
+Ctrl-p: toggle between two pens
+Ctrl-Shift-f: screenshot: for a screenshot, you need at least one rectangle
+object (r mode) in the drawing which serves as the selection area. The
+screenshot will be pasted into the drawing.
+
+
+<b>Saving / importing:</b>
+Ctrl-i: Import image from a file (jpeg, png)
+Ctrl-o: Open a drawing from a file (.sdrw, that is the "native format") -
+        note that the subsequent modifications will be saved to that file only
+Ctrl-e: Export drawing to a file (png, jpeg, pdf)
+
+When you copy a selection or individual objects, you can paste them into
+other programs as a PNG image.
 
 </span>
 
-The state is saved in / loaded from `{parent.savefile}` so you can continue drawing later.
-You might want to remove that file if something goes wrong.
+The state is saved in / loaded from `{parent.savefile}` so you can continue drawing later. 
+An autosave happens every minute or so.
         """
         label = Gtk.Label()
         label.set_markup(help_text)

@@ -1,6 +1,8 @@
 To do (sorted by priority):
 
+
  * save selection as...
+ * Help should be actually a new screendrawer window with written on it!
  * implement "copy pen" or "set with pen" thingy. Also, how should the
    color picker and the color selection dialog colaborate?
  * add a method to change the color of the background

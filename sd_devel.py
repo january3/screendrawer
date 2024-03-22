@@ -164,7 +164,7 @@ class TransparentWindow(Gtk.Window):
                 { "label": "Pencil       [d]",        "callback": self.on_menu_item_activated, "data": "d" },
                 { "label": "Polygon      [p]",        "callback": self.on_menu_item_activated, "data": "d" },
                 { "label": "Text         [t]",        "callback": self.on_menu_item_activated, "data": "t" },
-                { "label": "Box          [b]",        "callback": self.on_menu_item_activated, "data": "b" },
+                { "label": "Rectangle    [r]",        "callback": self.on_menu_item_activated, "data": "r" },
                 { "label": "Circle       [c]",        "callback": self.on_menu_item_activated, "data": "c" },
                 { "label": "Eraser       [e]",        "callback": self.on_menu_item_activated, "data": "e" },
                 { "label": "Color picker [i]",        "callback": self.on_menu_item_activated, "data": "i" },
@@ -321,6 +321,7 @@ class TransparentWindow(Gtk.Window):
     # and god knows what else. It's a mess.
     def on_button_press(self, widget, event):
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
+        self.modified = True # better safe than sorry
 
         ev = MouseEvent(event, self.gom.objects())
         shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
@@ -660,12 +661,13 @@ class TransparentWindow(Gtk.Window):
     def handle_shortcuts(self, keyname):
         """Handle keyboard shortcuts."""
         print(keyname)
+        self.modified = True # better safe than sorry
 
         # these are single keystroke mode modifiers
         modes = { 'm': "move", 's': "move", 'space': "move", 
                   'd': "draw", 't': "text", 'e': "eraser", 
                   'i': "picker",
-                  'c': "circle", 'b': "box", 'p': "polygon" }
+                  'c': "circle", 'r': "box", 'p': "polygon" }
 
         # these are single keystroke actions
         actions = {
@@ -880,14 +882,15 @@ class TransparentWindow(Gtk.Window):
 
     def autosave(self):
         # XXX: not implemented, tracking modifications of state
-        #if not self.modified:
-        #   return
+        if not self.modified:
+           return
 
         if self.current_object: # not while drawing!
             return
 
         print("Autosaving")
         self.save_state()
+        self.modified = False
 
     def save_state(self): 
         """Save the current drawing state to a file."""
@@ -910,6 +913,7 @@ class TransparentWindow(Gtk.Window):
         if self.read_file(file_name):
             print("Setting savefile to", file_name)
             self.savefile = file_name
+            self.modified = True
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
@@ -923,6 +927,7 @@ class TransparentWindow(Gtk.Window):
             self.pen               = Pen.from_dict(config['pen'])
             self.pen2              = Pen.from_dict(config['pen2'])
         if config and objects:
+            self.modified = True
             return True
         return False
 
