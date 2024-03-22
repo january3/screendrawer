@@ -313,7 +313,7 @@ class TransparentWindow(Gtk.Window):
     def create_object(self, ev):
         """Create an object based on the current mode."""
         # not managed by GOM: first create, then decide whether to add to GOM
-        obj = DrawableFactory.create_drawable(self.mode, manager=self, ev=ev)
+        obj = DrawableFactory.create_drawable(self.mode, pen = self.pen, ev=ev)
         if obj:
             self.current_object = obj
 

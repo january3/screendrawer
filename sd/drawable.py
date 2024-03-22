@@ -12,7 +12,7 @@ from .utils import *                     # <remove>
 
 class DrawableFactory:
     @classmethod
-    def create_drawable(cls, mode, manager, ev):
+    def create_drawable(cls, mode, pen, ev):
         print("create object of type", mode)
         shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
         pos = ev.pos()
@@ -20,10 +20,9 @@ class DrawableFactory:
         hover_obj  = ev.hover()
 
         ret_obj = None
-        pen = manager.pen
 
         if mode == "text" or (mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
-            manager.cursor.set("none")
+            #manager.cursor.set("none")
             ret_obj = Text([ pos ], pen = pen, content = "")
             ret_obj.move_caret("Home")
 

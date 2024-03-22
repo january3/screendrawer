@@ -244,6 +244,6 @@ class GraphicsObjectManager:
         """move the selected objects long the z-axis."""
         if self.selection.is_empty():
             return
-        self.history.append(ZStackCommand(self.selection.objects, self._objects, operation))
+        self._history.append(ZStackCommand(self.selection.objects, self._objects, operation))
 
 

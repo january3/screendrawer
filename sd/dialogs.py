@@ -6,6 +6,7 @@ from .pen import Pen # <remove>
 ## ---------------------------------------------------------------------
 class help_dialog(Gtk.Dialog):
     def __init__(self, parent):
+        print("parent:", parent)
         super().__init__(title="Help", transient_for=parent, flags=0)
         self.add_buttons(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
@@ -64,7 +65,7 @@ Ctrl-p: switch pens
 
 </span>
 
-The state is saved in / loaded from `{savefile}` so you can continue drawing later.
+The state is saved in / loaded from `{parent.savefile}` so you can continue drawing later.
 You might want to remove that file if something goes wrong.
         """
         label = Gtk.Label()
