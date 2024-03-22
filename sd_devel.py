@@ -80,7 +80,7 @@ COLORS = {
         "grey": (0.5, 0.5, 0.5)
 }
 
-
+AUTOSAVE_INTERVAL = 30 * 1000 # 30 seconds
 
 
 
@@ -103,15 +103,23 @@ class TransparentWindow(Gtk.Window):
         self.connect("destroy", self.exit)
         self.set_default_size(800, 600)
 
+        # transparency
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
         if visual != None and screen.is_composited():
             self.set_visual(visual)
-
         self.set_app_paintable(True)
+
+        # connecting events
         self.connect("draw", self.on_draw)
         self.connect("key-press-event", self.on_key_press)
         self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
+        self.connect("button-press-event",   self.on_button_press)
+        self.connect("button-release-event", self.on_button_release)
+        self.connect("motion-notify-event",  self.on_motion_notify)
+
+        # autosave
+        GLib.timeout_add(AUTOSAVE_INTERVAL, self.autosave)
 
         # Drawing setup
         self.mode                = "draw"
@@ -137,10 +145,7 @@ class TransparentWindow(Gtk.Window):
 
         self.objects = [ ]
         self.load_state()
-
-        self.connect("button-press-event",   self.on_button_press)
-        self.connect("button-release-event", self.on_button_release)
-        self.connect("motion-notify-event",  self.on_motion_notify)
+        self.modified = False # for autosave
 
         self.create_context_menu()
         self.create_object_menu()
@@ -677,8 +682,8 @@ class TransparentWindow(Gtk.Window):
             # XXX something is rotten here
             #'f':                    {'action': self.gom.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
             'o':                    {'action': self.outline_toggle, 'modes': ["box", "circle", "draw", "move"]},
-            'Alt-p':                {'action': self.transmute, 'args': [ "polygon" ], 'modes': ["draw", "polygon", "move"]},
-            'Alt-P':                {'action': self.transmute, 'args': [ "draw" ], 'modes': ["draw", "polygon", "move"]},
+            'Alt-p':                {'action': self.gom.transmute_selection, 'args': [ "polygon" ], 'modes': ["draw", "polygon", "move"]},
+            'Alt-P':                {'action': self.gom.transmute_selection, 'args': [ "draw" ], 'modes': ["draw", "polygon", "move"]},
 
             'Up':                   {'action': self.gom.move_selection, 'args': [0, -10],  'modes': ["move"]},
             'Shift-Up':             {'action': self.gom.move_selection, 'args': [0, -1],   'modes': ["move"]},
@@ -872,6 +877,17 @@ class TransparentWindow(Gtk.Window):
         while Gtk.events_pending():
             Gtk.main_iteration_do(False)
         GLib.timeout_add(100, self.screenshot_finalize, bb)
+
+    def autosave(self):
+        # XXX: not implemented, tracking modifications of state
+        #if not self.modified:
+        #   return
+
+        if self.current_object: # not while drawing!
+            return
+
+        print("Autosaving")
+        self.save_state()
 
     def save_state(self): 
         """Save the current drawing state to a file."""

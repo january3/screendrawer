@@ -1,5 +1,6 @@
 To do (sorted by priority):
 
+ * save selection as...
  * implement "copy pen" or "set with pen" thingy. Also, how should the
    color picker and the color selection dialog colaborate?
  * add a method to change the color of the background
@@ -77,6 +78,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * autosave
  * copy of an image does not work
  * move does not undo????
  * When font choice dialog is clicked when a text is being edited, the text

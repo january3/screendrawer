@@ -59,6 +59,17 @@ class GraphicsObjectManager:
         """
         self._history.append(TransmuteCommand(objects, self._objects, mode))
 
+    def transmute_selection(self, mode):
+        """
+        Transmute the selected objects to the given mode.
+
+        Args:
+            mode ( str ): The mode to transmute to.
+        """
+        if self.selection.is_empty():
+            return
+        self.transmute(self.selection.objects, mode)
+
     def set_objects(self, objects):
         """Set the list of objects."""
         ## no undo
