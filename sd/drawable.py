@@ -31,19 +31,49 @@ class DrawableFactory:
             ret_obj = Path([ pos ], pen = pen, pressure = [ pressure ])
 
         elif mode == "box":
-            ret_obj = Box([ pos, (pos[0] + 1, pos[1] + 1) ], pen = pen)
+            ret_obj = Box([ pos, (pos[0], pos[1]) ], pen = pen)
 
         elif mode == "polygon":
             ret_obj = Polygon([ pos ], pen = pen)
 
         elif mode == "circle":
-            ret_obj = Circle([ pos, (pos[0] + 1, pos[1] + 1) ], pen = pen)
+            ret_obj = Circle([ pos, (pos[0], pos[1]) ], pen = pen)
 
         else:
             raise ValueError("Unknown mode:", mode)
 
         return ret_obj
 
+    @classmethod
+    def transmute(cls, obj, mode):
+        """
+        Transmute an object into another type.
+
+        For groups, the behaviour is special: rather than converting the group
+        into a single object, we convert all objects within the group into the
+        new type by calling the transmute_to method of the group object.
+        """
+        print("transmuting object to", mode)
+        
+        if obj.type == "group":
+            # XXX for now, we do not pass transmutations to groups, because
+            # we then cannot track the changes.
+            return obj
+        elif mode == "text":
+            obj = Text.from_object(obj)
+        elif mode == "draw":
+            obj = Path.from_object(obj)
+        elif mode == "box":
+            obj = Box.from_object(obj)
+        elif mode == "polygon":
+            print("calling Polygon.from_object")
+            obj = Polygon.from_object(obj)
+        elif mode == "circle":
+            obj = Circle.from_object(obj)
+        else:
+            raise ValueError("Unknown mode:", mode)
+
+        return obj
 
 class Drawable:
     """
@@ -84,9 +114,7 @@ class Drawable:
         """This is for allowing to distinguish between primitives and groups."""
         return self
 
-    def pen_set(self, pen):
-        self.pen = pen.copy()
-
+    # ------------ Drawable rotation methods ------------------
     def rotate_start(self, origin):
         self.rot_origin = origin
 
@@ -100,6 +128,7 @@ class Drawable:
     def rotate_end(self):
         raise NotImplementedError("rotate_end method not implemented")
 
+    # ------------ Drawable resizing methods ------------------
     def resize_start(self, corner, origin):
         self.resizing = {
             "corner": corner,
@@ -107,36 +136,49 @@ class Drawable:
             "bbox":   self.bbox()
             }
 
+    def resize_update(self, bbox):
+        """Update during the resize of the object."""
+        self.resizing["bbox"] = bbox
+
+    def resize_end(self):
+        """Finish the resizing operation."""
+        self.resizing = None
+        # not implemented
+        print("resize_end not implemented")
+
+    # ------------ Drawable attribute methods ------------------
+    def pen_set(self, pen):
+        self.pen = pen.copy()
+
     def stroke_change(self, direction):
+        """Change the stroke size of the object."""
         self.pen.stroke_change(direction)
 
     def smoothen(self, threshold=20):
         print("smoothening not implemented")
 
     def unfill(self):
+        """Remove the fill from the object."""
         self.pen.fill_set(None)
 
     def fill(self, color = None):
+        """Fill the object with a color."""
         self.pen.fill_set(color)
 
-    def resize_update(self, bbox):
-        self.resizing["bbox"] = bbox
-
     def color_set(self, color):
+        """Set the color of the object."""
         self.pen.color_set(color)
 
     def font_set(self, size, family, weight, style):
+        """Set the font of the object."""
         self.pen.font_size    = size
         self.pen.font_family  = family
         self.pen.font_weight  = weight
         self.pen.font_style   = style
 
-    def resize_end(self):
-        self.resizing = None
-        # not implemented
-        print("resize_end not implemented")
-
+    # ------------ Drawable modification methods ------------------
     def origin_remove(self):
+        """Remove the origin point."""
         self.origin = None
 
     def is_close_to_click(self, click_x, click_y, threshold):
@@ -192,6 +234,7 @@ class Drawable:
     def draw(self, cr, hover=False, selected=False, outline=False):
         raise NotImplementedError("draw method not implemented")
 
+    # ------------ Drawable conversion methods ------------------
     @classmethod
     def from_dict(cls, d):
         type_map = {
@@ -212,6 +255,17 @@ class Drawable:
             d["pen"] = Pen.from_dict(d["pen"])
         #print("generating object of type", type, "with data", d)
         return type_map.get(type)(**d)
+
+    @classmethod
+    def from_object(cls, obj):
+        """
+        Transmute Drawable object into another class.
+
+        The default method doesn't do much, but subclasses can override it to
+        allow conversions between different types of objects.
+        """
+        print("generic from_obj method called")
+        return obj
 
 
 class DrawableGroup(Drawable):
@@ -244,6 +298,12 @@ class DrawableGroup(Drawable):
     def stroke_change(self, direction):
         for obj in self.objects:
             obj.stroke_change(direction)
+
+    def transmute_to(self, mode):
+        """Transmute all objects within the group to a new type."""
+        print("transmuting group to", mode)
+        for i in range(len(self.objects)):
+            self.objects[i] = DrawableFactory.transmute(self.objects[i], mode)
 
     def to_dict(self):
         return {
@@ -1044,6 +1104,16 @@ class Polygon(Drawable):
     def from_path(cls, path):
         return cls(path.coords, path.pen)
 
+    @classmethod
+    def from_object(cls, obj):
+        print("Polygon.from_object", obj)
+        if obj.coords and len(obj.coords) > 2 and obj.pen:
+            return cls(obj.coords, obj.pen)
+        else:
+            # issue a warning
+            print("Polygon.from_object: invalid object")
+        return obj
+
 class Path(Drawable):
     """ Path is like polygon, but not closed and has an outline that depends on
         line width and pressure."""
@@ -1054,6 +1124,9 @@ class Path(Drawable):
         self.outline_l = []
         self.outline_r = []
         self.bb        = []
+
+        if len(self.coords) > 3 and not self.outline:
+            self.outline_recalculate_new()
 
     def finish(self):
         self.outline_recalculate_new()
@@ -1104,7 +1177,8 @@ class Path(Drawable):
         if not coords:
             coords = self.coords
         if not pressure:
-            pressure = self.pressure
+            pressure = self.pressure or [1] * len(coords)
+        
 
         lwd = self.pen.line_width
 
@@ -1295,6 +1369,20 @@ class Path(Drawable):
 
         if self.rotation != 0:
             cr.restore()
+
+    @classmethod
+    def from_polygon(cls, polygon):
+        return cls(polygon.coords, polygon.pen)
+
+    @classmethod
+    def from_object(cls, obj):
+        print("Path.from_object", obj)
+        if obj.coords and len(obj.coords) > 2 and obj.pen:
+            return cls(obj.coords, obj.pen)
+        else:
+            # issue a warning
+            print("Path.from_object: invalid object")
+        return obj
 
 
 class Circle(Drawable):

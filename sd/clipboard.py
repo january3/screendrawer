@@ -1,5 +1,7 @@
 ## ---------------------------------------------------------------------
 from gi.repository import Gtk, Gdk # <remove>
+from .drawable import DrawableGroup # <remove>
+from .utils import img_object_copy # <remove>
 
 class Clipboard:
     """

@@ -387,6 +387,7 @@ class TransparentWindow(Gtk.Window):
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         obj = self.current_object
+
         if obj and obj.type in [ "polygon", "path" ]:
             print("finishing path / polygon")
             obj.path_append(event.x, event.y, 0)
@@ -394,6 +395,12 @@ class TransparentWindow(Gtk.Window):
             if len(obj.coords) < 3:
                 obj = None
             self.queue_draw()
+
+        if obj:
+            # remove objects that are too small
+            bb = obj.bbox()
+            if bb and obj.type in [ "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
+                obj = None
 
         if obj:
             if obj != self.selection_tool:
@@ -439,6 +446,8 @@ class TransparentWindow(Gtk.Window):
                 # then remove
                 self.gom.command_append([ self.resizeobj, RemoveCommand([ obj ], self.gom.objects()) ])
                 self.selection.clear()
+            else:
+                self.gom.command_append([ self.resizeobj ])
             self.resizeobj    = None
             self.cursor.revert()
             self.queue_draw()
@@ -623,6 +632,14 @@ class TransparentWindow(Gtk.Window):
         if self.current_object and self.current_object.type == "text":
             self.current_object.pen.font_set_from_description(font_description)
 
+    def transmute(self, mode):
+        """Change the selected object(s) to a polygon."""
+        print("transmuting to", mode)
+        sel = self.gom.selected_objects()
+        # note to self: sel is a list, not the selection
+        if sel:
+            self.gom.transmute(sel, mode)
+
 #   def smoothen(self):
 #       """Smoothen the selected object."""
 #       if self.selection.n() > 0:
@@ -659,6 +676,8 @@ class TransparentWindow(Gtk.Window):
             # XXX something is rotten here
             #'f':                    {'action': self.gom.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
             'o':                    {'action': self.outline_toggle, 'modes': ["box", "circle", "draw", "move"]},
+            'Alt-p':                {'action': self.transmute, 'args': [ "polygon" ], 'modes': ["draw", "polygon", "move"]},
+            'Alt-P':                {'action': self.transmute, 'args': [ "draw" ], 'modes': ["draw", "polygon", "move"]},
 
             'Up':                   {'action': self.gom.move_selection, 'args': [0, -10],  'modes': ["move"]},
             'Shift-Up':             {'action': self.gom.move_selection, 'args': [0, -1],   'modes': ["move"]},

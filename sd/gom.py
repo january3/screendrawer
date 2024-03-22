@@ -1,6 +1,7 @@
 from .commands import *                                              # <remove>
 from .drawable import SelectionObject, DrawableGroup, SelectionTool  # <remove>
 from .clipboard import Clipboard                                     # <remove>
+from .drawable import DrawableFactory                                # <remove>
 
 
 ## ---------------------------------------------------------------------
@@ -43,6 +44,20 @@ class GraphicsObjectManager:
     def objects(self):
         """Return the list of objects."""
         return self._objects
+
+    def transmute(self, objects, mode):
+        """
+        Transmute the object to the given mode.
+
+        This is a dangerous operation, because we are replacing the objects
+        and we need to make sure that the old objects are removed from the
+        list of objects, selections etc.
+
+        Args:
+            objects (list): The list of objects.
+            mode (str): The mode to transmute to.
+        """
+        self._history.append(TransmuteCommand(objects, self._objects, mode))
 
     def set_objects(self, objects):
         """Set the list of objects."""

@@ -1,4 +1,5 @@
 from .utils import * ## <remove>
+from .drawable import DrawableFactory ## <remove>
 
 ## ---------------------------------------------------------------------
 ## These are the commands that can be executed on the objects. They should
@@ -38,7 +39,6 @@ class CommandGroup(Command):
             cmd.redo()
         self._undone = False
         
-
 class SetColorCommand(Command):
     """Simple class for handling color changes."""
     # XXX: what happens if an object is added to group after the command,
@@ -76,6 +76,7 @@ class RemoveCommand(Command):
 
     def undo(self):
         for obj in self.obj:
+        # XXX: it should insert at the same position!
             self._stack.append(obj)
         self._undone = True
 
@@ -101,6 +102,59 @@ class AddCommand(Command):
         if not self._undone:
             return
         self._stack.append(self.obj)
+        self._undone = False
+
+class TransmuteCommand(Command):
+    """
+    Turning object(s) into another type.
+
+    Internally, for each object we create a new object of the new type, and
+    replace the old object with the new one in the stack.
+
+    For undo method, we should store the old object as well as its position in the stack.
+    However, we don't. Instead we just slap the old object back onto the stack.
+    """
+
+    def __init__(self, objects, stack, new_type):
+        super().__init__("transmute", objects)
+        self._new_type = new_type
+        self._old_objs = [ ]
+        self._new_objs = [ ]
+        self._stack    = stack
+
+        for obj in self.obj:
+            new_obj = DrawableFactory.transmute(obj, new_type)
+
+            if not obj in self._stack:
+                raise ValueError("TransmuteCommand: Got Object not in stack:", obj)
+                continue
+
+            if obj == new_obj: # ignore if no transmutation
+                continue
+
+            self._old_objs.append(obj)
+            self._new_objs.append(new_obj)
+            self._stack.remove(obj)
+            self._stack.append(new_obj)
+
+    def undo(self):
+        """replace all the new objects with the old ones in the stack"""
+        if self._undone:
+            return
+        for obj in self._new_objs:
+            self._stack.remove(obj)
+        for obj in self._old_objs:
+            self._stack.append(obj)
+        self._undone = True
+
+    def redo(self):
+        """put the new objects again on the stack and remove the old ones"""
+        if not self._undone:
+            return
+        for obj in self._old_objs:
+            self._stack.remove(obj)
+        for obj in self._new_objs:
+            self._stack.append(obj)
         self._undone = False
 
 class ZStackCommand(Command):
@@ -289,6 +343,7 @@ class MoveCommand(MoveResizeCommand):
     def __init__(self, obj, origin):
         super().__init__("move", obj, origin)
         self._last_pt = origin
+        print("MoveCommand: origin is", origin)
 
     def event_update(self, x, y):
         dx = x - self._last_pt[0]
@@ -298,9 +353,13 @@ class MoveCommand(MoveResizeCommand):
         self._last_pt = (x, y)
 
     def event_finish(self):
+        print("MoveCommand: finish")
         pass
 
     def undo(self):
+        if self._undone:
+            return
+        print("MoveCommand: undo")
         dx = self.start_point[0] - self._last_pt[0]
         dy = self.start_point[1] - self._last_pt[1]
         self.obj.move(dx, dy)
