@@ -7,11 +7,11 @@ To do (sorted by priority):
  * implement undo for fonts as well
  * implement command line conversion between sdrw and (png, svg, pdf, ...)
    -> this will require detaching the drawing from the window!
- * close path: converts a path to polygon (what with the outline / pressure? do we loose it?)
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
  * add "pages" or "layers" or "frames" or "slides" or "whatever" to the
    drawing. This would allow to switch between different drawings.
- * implement rotating for: Box, Circle
+ * implement rotating for: Box, Circle (yes, since Circle can be an
+   ellipse)
  * add a better color picker, the gtk thing sucks. Something like in
    inkscape could be nice.
  * add a line mode and Line object class
@@ -57,6 +57,8 @@ Design issues:
    issue.
 
 Bugs:
+ * close path: converts a path to polygon 
+   (what with the outline / pressure? do we loose it? - yeah, we do)
  * the undo is, I think, still buggy. 
  * undo remove object places the object in the wrong position in stack - at
    the end of the stack, instead of the exact position that it was located.
@@ -75,6 +77,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * copy of an image does not work
  * move does not undo????
  * When font choice dialog is clicked when a text is being edited, the text
    font is not changed
