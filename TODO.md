@@ -2,6 +2,7 @@ To do (sorted by priority):
 
  * implement "copy pen" or "set with pen" thingy. Also, how should the
    color picker and the color selection dialog colaborate?
+ * add a method to change the color of the background
  * think hard how I want the color setting / pen thing to work
  * implement undo for fonts as well
  * implement command line conversion between sdrw and (png, svg, pdf, ...)
@@ -56,8 +57,13 @@ Design issues:
    issue.
 
 Bugs:
- * When font choice dialog is clicked when a text is being edited, the text
-   font is not changed
+ * the undo is, I think, still buggy. 
+ * undo remove object places the object in the wrong position in stack - at
+   the end of the stack, instead of the exact position that it was located.
+   Thus, after the undo operation, the stack is not the same as before the
+   operation. This may be a big problem with subsequent undos that actually
+   consider the stack order.
+ * When exporting, no background is produced
  * rotating the whole selection does not work (b/c the way selection
    behaves)
  * when creating boxes, sometimes tiny itsy bitsy boxes are created
@@ -69,6 +75,9 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * move does not undo????
+ * When font choice dialog is clicked when a text is being edited, the text
+   font is not changed
  * for some reason, boxes around images are filled with black [cannot
    reproduce]
  * command line loading of drawings does not work
