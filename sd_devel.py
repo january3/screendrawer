@@ -44,6 +44,7 @@ import argparse
 
 import pyautogui
 from PIL import ImageGrab
+from os import path
 
 # ---------------------------------------------------------------------
 # These are various classes and utilities for the sd.py script. In the

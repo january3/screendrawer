@@ -44,6 +44,7 @@ import argparse
 
 import pyautogui
 from PIL import ImageGrab
+from os import path
 
 # ---------------------------------------------------------------------
 # These are various classes and utilities for the sd.py script. In the
@@ -393,50 +394,6 @@ def draw_dot(cr, x, y, diameter):
     cr.arc(x, y, diameter / 2, 0, 2 * 3.14159)  # Draw a circle
     cr.fill()  # Fill the circle to make a dot
 
-def FontChooser(pen, parent = None):
-
-    # check that pen is an instance of Pen
-    if not isinstance(pen, Pen):
-        raise ValueError("Pen is not defined or not of class Pen")
-
-    font_dialog = Gtk.FontChooserDialog(title="Select a Font", parent=parent)
-    font_dialog.set_preview_text("Zażółć gęślą jaźń")
-    
-    # You can set the initial font for the dialog
-    font_dialog.set_font(pen.font_family + " " + 
-                         pen.font_style + " " +
-                         str(pen.font_weight) + " " +
-                         str(pen.font_size))
-    
-    response = font_dialog.run()
-
-    font_description = None
-
-    if response == Gtk.ResponseType.OK:
-        font_description = font_dialog.get_font_desc()
-
-    font_dialog.destroy()
-    return font_description
-
-
-def ColorChooser(parent = None):
-    """Select a color for drawing."""
-    # Create a new color chooser dialog
-    color_chooser = Gtk.ColorChooserDialog("Select Current Foreground Color", parent = parent)
-
-    # Show the dialog
-    response = color_chooser.run()
-    color = None
-
-    # Check if the user clicked the OK button
-    if response == Gtk.ResponseType.OK:
-        color = color_chooser.get_rgba()
-        #self.set_color((color.red, color.green, color.blue))
-
-    # Don't forget to destroy the dialog
-    color_chooser.destroy()
-    return color
-
 def build_menu(menu_items):
     menu = Gtk.Menu()
     menu.set_name("myMenu")
@@ -492,7 +449,6 @@ class CommandGroup(Command):
             cmd.redo()
         self._undone = False
         
-
 class SetColorCommand(Command):
     """Simple class for handling color changes."""
     # XXX: what happens if an object is added to group after the command,
@@ -530,6 +486,7 @@ class RemoveCommand(Command):
 
     def undo(self):
         for obj in self.obj:
+        # XXX: it should insert at the same position!
             self._stack.append(obj)
         self._undone = True
 
@@ -555,6 +512,59 @@ class AddCommand(Command):
         if not self._undone:
             return
         self._stack.append(self.obj)
+        self._undone = False
+
+class TransmuteCommand(Command):
+    """
+    Turning object(s) into another type.
+
+    Internally, for each object we create a new object of the new type, and
+    replace the old object with the new one in the stack.
+
+    For undo method, we should store the old object as well as its position in the stack.
+    However, we don't. Instead we just slap the old object back onto the stack.
+    """
+
+    def __init__(self, objects, stack, new_type):
+        super().__init__("transmute", objects)
+        self._new_type = new_type
+        self._old_objs = [ ]
+        self._new_objs = [ ]
+        self._stack    = stack
+
+        for obj in self.obj:
+            new_obj = DrawableFactory.transmute(obj, new_type)
+
+            if not obj in self._stack:
+                raise ValueError("TransmuteCommand: Got Object not in stack:", obj)
+                continue
+
+            if obj == new_obj: # ignore if no transmutation
+                continue
+
+            self._old_objs.append(obj)
+            self._new_objs.append(new_obj)
+            self._stack.remove(obj)
+            self._stack.append(new_obj)
+
+    def undo(self):
+        """replace all the new objects with the old ones in the stack"""
+        if self._undone:
+            return
+        for obj in self._new_objs:
+            self._stack.remove(obj)
+        for obj in self._old_objs:
+            self._stack.append(obj)
+        self._undone = True
+
+    def redo(self):
+        """put the new objects again on the stack and remove the old ones"""
+        if not self._undone:
+            return
+        for obj in self._old_objs:
+            self._stack.remove(obj)
+        for obj in self._new_objs:
+            self._stack.append(obj)
         self._undone = False
 
 class ZStackCommand(Command):
@@ -743,6 +753,7 @@ class MoveCommand(MoveResizeCommand):
     def __init__(self, obj, origin):
         super().__init__("move", obj, origin)
         self._last_pt = origin
+        print("MoveCommand: origin is", origin)
 
     def event_update(self, x, y):
         dx = x - self._last_pt[0]
@@ -752,9 +763,13 @@ class MoveCommand(MoveResizeCommand):
         self._last_pt = (x, y)
 
     def event_finish(self):
+        print("MoveCommand: finish")
         pass
 
     def undo(self):
+        if self._undone:
+            return
+        print("MoveCommand: undo")
         dx = self.start_point[0] - self._last_pt[0]
         dy = self.start_point[1] - self._last_pt[1]
         self.obj.move(dx, dy)
@@ -834,6 +849,7 @@ class ResizeCommand(MoveResizeCommand):
 
         self._newbb = newbb
         self.obj.resize_update(newbb)
+
 
 
 class Pen:
@@ -958,25 +974,54 @@ class DrawableFactory:
             manager.cursor.set("none")
             ret_obj = Text([ pos ], pen = pen, content = "")
             ret_obj.move_caret("Home")
-            manager.selection.set([ ret_obj ])
 
         elif mode == "draw":
             ret_obj = Path([ pos ], pen = pen, pressure = [ pressure ])
 
         elif mode == "box":
-            ret_obj = Box([ pos, (pos[0] + 1, pos[1] + 1) ], pen = pen)
+            ret_obj = Box([ pos, (pos[0], pos[1]) ], pen = pen)
 
         elif mode == "polygon":
             ret_obj = Polygon([ pos ], pen = pen)
 
         elif mode == "circle":
-            ret_obj = Circle([ pos, (pos[0] + 1, pos[1] + 1) ], pen = pen)
+            ret_obj = Circle([ pos, (pos[0], pos[1]) ], pen = pen)
 
         else:
             raise ValueError("Unknown mode:", mode)
 
         return ret_obj
 
+    @classmethod
+    def transmute(cls, obj, mode):
+        """
+        Transmute an object into another type.
+
+        For groups, the behaviour is special: rather than converting the group
+        into a single object, we convert all objects within the group into the
+        new type by calling the transmute_to method of the group object.
+        """
+        print("transmuting object to", mode)
+        
+        if obj.type == "group":
+            # XXX for now, we do not pass transmutations to groups, because
+            # we then cannot track the changes.
+            return obj
+        elif mode == "text":
+            obj = Text.from_object(obj)
+        elif mode == "draw":
+            obj = Path.from_object(obj)
+        elif mode == "box":
+            obj = Box.from_object(obj)
+        elif mode == "polygon":
+            print("calling Polygon.from_object")
+            obj = Polygon.from_object(obj)
+        elif mode == "circle":
+            obj = Circle.from_object(obj)
+        else:
+            raise ValueError("Unknown mode:", mode)
+
+        return obj
 
 class Drawable:
     """
@@ -1017,9 +1062,7 @@ class Drawable:
         """This is for allowing to distinguish between primitives and groups."""
         return self
 
-    def pen_set(self, pen):
-        self.pen = pen.copy()
-
+    # ------------ Drawable rotation methods ------------------
     def rotate_start(self, origin):
         self.rot_origin = origin
 
@@ -1033,6 +1076,7 @@ class Drawable:
     def rotate_end(self):
         raise NotImplementedError("rotate_end method not implemented")
 
+    # ------------ Drawable resizing methods ------------------
     def resize_start(self, corner, origin):
         self.resizing = {
             "corner": corner,
@@ -1040,36 +1084,49 @@ class Drawable:
             "bbox":   self.bbox()
             }
 
+    def resize_update(self, bbox):
+        """Update during the resize of the object."""
+        self.resizing["bbox"] = bbox
+
+    def resize_end(self):
+        """Finish the resizing operation."""
+        self.resizing = None
+        # not implemented
+        print("resize_end not implemented")
+
+    # ------------ Drawable attribute methods ------------------
+    def pen_set(self, pen):
+        self.pen = pen.copy()
+
     def stroke_change(self, direction):
+        """Change the stroke size of the object."""
         self.pen.stroke_change(direction)
 
     def smoothen(self, threshold=20):
         print("smoothening not implemented")
 
     def unfill(self):
+        """Remove the fill from the object."""
         self.pen.fill_set(None)
 
     def fill(self, color = None):
+        """Fill the object with a color."""
         self.pen.fill_set(color)
 
-    def resize_update(self, bbox):
-        self.resizing["bbox"] = bbox
-
     def color_set(self, color):
+        """Set the color of the object."""
         self.pen.color_set(color)
 
     def font_set(self, size, family, weight, style):
+        """Set the font of the object."""
         self.pen.font_size    = size
         self.pen.font_family  = family
         self.pen.font_weight  = weight
         self.pen.font_style   = style
 
-    def resize_end(self):
-        self.resizing = None
-        # not implemented
-        print("resize_end not implemented")
-
+    # ------------ Drawable modification methods ------------------
     def origin_remove(self):
+        """Remove the origin point."""
         self.origin = None
 
     def is_close_to_click(self, click_x, click_y, threshold):
@@ -1125,6 +1182,7 @@ class Drawable:
     def draw(self, cr, hover=False, selected=False, outline=False):
         raise NotImplementedError("draw method not implemented")
 
+    # ------------ Drawable conversion methods ------------------
     @classmethod
     def from_dict(cls, d):
         type_map = {
@@ -1145,6 +1203,17 @@ class Drawable:
             d["pen"] = Pen.from_dict(d["pen"])
         #print("generating object of type", type, "with data", d)
         return type_map.get(type)(**d)
+
+    @classmethod
+    def from_object(cls, obj):
+        """
+        Transmute Drawable object into another class.
+
+        The default method doesn't do much, but subclasses can override it to
+        allow conversions between different types of objects.
+        """
+        print("generic from_obj method called")
+        return obj
 
 
 class DrawableGroup(Drawable):
@@ -1177,6 +1246,12 @@ class DrawableGroup(Drawable):
     def stroke_change(self, direction):
         for obj in self.objects:
             obj.stroke_change(direction)
+
+    def transmute_to(self, mode):
+        """Transmute all objects within the group to a new type."""
+        print("transmuting group to", mode)
+        for i in range(len(self.objects)):
+            self.objects[i] = DrawableFactory.transmute(self.objects[i], mode)
 
     def to_dict(self):
         return {
@@ -1977,6 +2052,16 @@ class Polygon(Drawable):
     def from_path(cls, path):
         return cls(path.coords, path.pen)
 
+    @classmethod
+    def from_object(cls, obj):
+        print("Polygon.from_object", obj)
+        if obj.coords and len(obj.coords) > 2 and obj.pen:
+            return cls(obj.coords, obj.pen)
+        else:
+            # issue a warning
+            print("Polygon.from_object: invalid object")
+        return obj
+
 class Path(Drawable):
     """ Path is like polygon, but not closed and has an outline that depends on
         line width and pressure."""
@@ -1987,6 +2072,9 @@ class Path(Drawable):
         self.outline_l = []
         self.outline_r = []
         self.bb        = []
+
+        if len(self.coords) > 3 and not self.outline:
+            self.outline_recalculate_new()
 
     def finish(self):
         self.outline_recalculate_new()
@@ -2037,7 +2125,8 @@ class Path(Drawable):
         if not coords:
             coords = self.coords
         if not pressure:
-            pressure = self.pressure
+            pressure = self.pressure or [1] * len(coords)
+        
 
         lwd = self.pen.line_width
 
@@ -2228,6 +2317,20 @@ class Path(Drawable):
 
         if self.rotation != 0:
             cr.restore()
+
+    @classmethod
+    def from_polygon(cls, polygon):
+        return cls(polygon.coords, polygon.pen)
+
+    @classmethod
+    def from_object(cls, obj):
+        print("Path.from_object", obj)
+        if obj.coords and len(obj.coords) > 2 and obj.pen:
+            return cls(obj.coords, obj.pen)
+        else:
+            # issue a warning
+            print("Path.from_object: invalid object")
+        return obj
 
 
 class Circle(Drawable):
@@ -2468,7 +2571,7 @@ class WigletLineWidth(Wiglet):
 
 
 ## ---------------------------------------------------------------------
-class HelpDialog(Gtk.Dialog):
+class help_dialog(Gtk.Dialog):
     def __init__(self, parent):
         super().__init__(title="Help", transient_for=parent, flags=0)
         self.add_buttons(Gtk.STOCK_OK, Gtk.ResponseType.OK)
@@ -2531,9 +2634,6 @@ Ctrl-p: switch pens
 The state is saved in / loaded from `{savefile}` so you can continue drawing later.
 You might want to remove that file if something goes wrong.
         """
-
-
-
         label = Gtk.Label()
         label.set_markup(help_text)
         label.set_justify(Gtk.Justification.LEFT)
@@ -2544,6 +2644,157 @@ You might want to remove that file if something goes wrong.
         box.pack_start(scrolled_window, True, True, 0)  # Use pack_start with expand and fill
 
         self.show_all()
+
+## ---------------------------------------------------------------------
+
+def _dialog_add_image_formats(dialog):
+    formats = {
+        "All files": { "pattern": "*",      "mime_type": "application/octet-stream", "name": "all" },
+        "PNG files":  { "pattern": "*.png",  "mime_type": "image/png",       "name": "png" },
+        "JPEG files": { "pattern": "*.jpeg", "mime_type": "image/jpeg",      "name": "jpeg" },
+        "PDF files":  { "pattern": "*.pdf",  "mime_type": "application/pdf", "name": "pdf" }
+    }
+
+    for name, data in formats.items():
+        filter = Gtk.FileFilter()
+        filter.set_name(name)
+        filter.add_pattern(data["pattern"])
+        filter.add_mime_type(data["mime_type"])
+        dialog.add_filter(filter)
+
+## ---------------------------------------------------------------------
+
+def export_dialog(widget, parent = None):
+    """Show a file chooser dialog to select a file to save the drawing as
+    an image / pdf / svg."""
+    file_name, selected_filter = None, None
+
+    dialog = Gtk.FileChooserDialog(
+        title="Save As", parent=parent, action=Gtk.FileChooserAction.SAVE)
+    dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                       Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
+    dialog.set_modal(True)
+
+    current_directory = os.getcwd()
+    dialog.set_current_folder(current_directory)
+
+    _dialog_add_image_formats(dialog)
+
+    # Show the dialog
+    response = dialog.run()
+    if response == Gtk.ResponseType.OK:
+        file_name = dialog.get_filename()
+        selected_filter = dialog.get_filter().get_name()
+        selected_filter = formats[selected_filter]["name"]
+        print(f"Save file as: {file_name}, Format: {selected_filter}")
+
+    dialog.destroy()
+    return file_name, selected_filter
+
+def import_image_dialog(widget, parent = None):
+    """Show a file chooser dialog to select an image file."""
+    dialog = Gtk.FileChooserDialog(
+        title="Select an Image",
+        parent=parent,
+        action=Gtk.FileChooserAction.OPEN,
+        buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+    )
+    dialog.set_modal(True)
+    current_directory = os.getcwd()
+    dialog.set_current_folder(current_directory)
+
+    # Filter to only show image files
+    file_filter = Gtk.FileFilter()
+    file_filter.set_name("Image files")
+    file_filter.add_mime_type("image/jpeg")
+    file_filter.add_mime_type("image/png")
+    file_filter.add_mime_type("image/tiff")
+    dialog.add_filter(file_filter)
+
+    # Show the dialog and wait for the user response
+    response = dialog.run()
+
+    pixbuf = None
+    image_path = None
+    if response == Gtk.ResponseType.OK:
+        image_path = dialog.get_filename()
+    elif response == Gtk.ResponseType.CANCEL:
+        print("No image selected")
+
+    # Clean up and destroy the dialog
+    dialog.destroy()
+    return image_path
+
+def open_drawing_dialog(parent):
+    """Show a file chooser dialog to select a .sdrw file."""
+    dialog = Gtk.FileChooserDialog(
+        title="Select an .sdrw file",
+        action=Gtk.FileChooserAction.OPEN,
+        parent=parent,
+        buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+    )
+    dialog.set_modal(True)
+    current_directory = os.getcwd()
+    dialog.set_current_folder(current_directory)
+
+    # Show the dialog and wait for the user response
+    response = dialog.run()
+
+    image_path = None
+    if response == Gtk.ResponseType.OK:
+        image_path = dialog.get_filename()
+    elif response == Gtk.ResponseType.CANCEL:
+        print("No image selected")
+
+    # Clean up and destroy the dialog
+    dialog.destroy()
+    return image_path
+
+def FontChooser(pen, parent = None):
+
+    # check that pen is an instance of Pen
+    if not isinstance(pen, Pen):
+        raise ValueError("Pen is not defined or not of class Pen")
+
+    font_dialog = Gtk.FontChooserDialog(title="Select a Font", parent=parent)
+    #font_dialog.set_preview_text("Zażółć gęślą jaźń")
+    font_dialog.set_preview_text("Sphinx of black quartz, judge my vow.")
+    
+    # You can set the initial font for the dialog
+    font_dialog.set_font(pen.font_family + " " + 
+                         pen.font_style + " " +
+                         str(pen.font_weight) + " " +
+                         str(pen.font_size))
+    
+    response = font_dialog.run()
+
+    font_description = None
+
+    if response == Gtk.ResponseType.OK:
+        font_description = font_dialog.get_font_desc()
+
+    font_dialog.destroy()
+    return font_description
+
+
+def ColorChooser(parent = None):
+    """Select a color for drawing."""
+    # Create a new color chooser dialog
+    color_chooser = Gtk.ColorChooserDialog("Select Current Foreground Color", parent = parent)
+
+    # Show the dialog
+    response = color_chooser.run()
+    color = None
+
+    # Check if the user clicked the OK button
+    if response == Gtk.ResponseType.OK:
+        color = color_chooser.get_rgba()
+        #self.set_color((color.red, color.green, color.blue))
+
+    # Don't forget to destroy the dialog
+    color_chooser.destroy()
+    return color
+
 
 
 ## ---------------------------------------------------------------------
@@ -2774,6 +3025,20 @@ class GraphicsObjectManager:
         """Return the list of objects."""
         return self._objects
 
+    def transmute(self, objects, mode):
+        """
+        Transmute the object to the given mode.
+
+        This is a dangerous operation, because we are replacing the objects
+        and we need to make sure that the old objects are removed from the
+        list of objects, selections etc.
+
+        Args:
+            objects (list): The list of objects.
+            mode (str): The mode to transmute to.
+        """
+        self._history.append(TransmuteCommand(objects, self._objects, mode))
+
     def set_objects(self, objects):
         """Set the list of objects."""
         ## no undo
@@ -2952,6 +3217,76 @@ class GraphicsObjectManager:
 
 
 
+def export_image(width, height, filename, draw_func, file_format = "all"):
+    """Export the drawing to a file."""
+    # Create a Cairo surface of the same size as the window content
+
+    if file_format == "all":
+        # get the format from the file name
+        _, file_format = path.splitext(filename)
+        file_format = file_format[1:]
+        # lower case
+        file_format = file_format.lower()
+        # jpg -> jpeg
+        if file_format == "jpg":
+            file_format = "jpeg"
+        # check
+        if file_format not in [ "png", "jpeg", "pdf", "svg" ]:
+            raise ValueError("Unrecognized file extension")
+        print("export_image: guessing format from file name:", file_format)
+
+    if file_format == "png":
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+    elif file_format == "svg":
+        surface = cairo.SVGSurface(filename, width, height)
+    elif file_format == "pdf":
+        surface = cairo.PDFSurface(filename, width, height)
+    else:
+        raise ValueError("Invalid file format: " + file_format)
+
+    cr = cairo.Context(surface)
+    cr.set_source_rgba(1, 1, 1)
+    cr.paint()
+    draw_func(cr)
+
+    # Save the surface to the file
+    if file_format == "png":
+        surface.write_to_png(filename)
+    elif file_format in [ "svg", "pdf" ]:
+        surface.finish()
+
+def save_file_as_sdrw(filename, config, objects):
+    """Save the objects to a file in native format."""
+    state = { 'config': config, 'objects': objects }
+    try:
+        with open(filename, 'wb') as f:
+            #yaml.dump(state, f)
+            pickle.dump(state, f)
+        print("Saved drawing to", filename)
+        return True
+    except Exception as e:
+        print("Error saving file:", e)
+        return False
+
+def read_file_as_sdrw(filename):
+    """Read the objects from a file in native format."""
+    if not path.exists(filename):
+        print("No saved drawing found at", filename)
+        return None, None
+
+    config, objects = None, None
+
+    try:
+        with open(filename, "rb") as file:
+            state = pickle.load(file)
+            objects = [ Drawable.from_dict(d) for d in state['objects'] ] or [ ]
+            config = state['config']
+    except Exception as e:
+        print("Error reading file:", e)
+        return None, None
+    return config, objects
+
+
 # ---------------------------------------------------------------------
 # defaults
 
@@ -2980,9 +3315,10 @@ class TransparentWindow(Gtk.Window):
     """Main app window. Holds all information and everything that exists.
        One window to rule them all."""
 
-    def __init__(self):
+    def __init__(self, savefile = None):
         super(TransparentWindow, self).__init__()
 
+        self.savefile            = savefile
         self.init_ui()
     
     def init_ui(self):
@@ -3115,6 +3451,9 @@ class TransparentWindow(Gtk.Window):
             hover    = obj == self.hover and self.mode == "move"
             selected = self.gom.selection.contains(obj) and self.mode == "move"
             obj.draw(cr, hover=hover, selected=selected, outline = self.outline)
+    #   if self.current_object:
+    #       print("drawing current object:", self.current_object, "mode:", self.mode)
+    #       self.current_object.draw(cr)
 
         # If changing line width, draw a preview of the new line width
       
@@ -3273,6 +3612,7 @@ class TransparentWindow(Gtk.Window):
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         obj = self.current_object
+
         if obj and obj.type in [ "polygon", "path" ]:
             print("finishing path / polygon")
             obj.path_append(event.x, event.y, 0)
@@ -3280,6 +3620,12 @@ class TransparentWindow(Gtk.Window):
             if len(obj.coords) < 3:
                 obj = None
             self.queue_draw()
+
+        if obj:
+            # remove objects that are too small
+            bb = obj.bbox()
+            if bb and obj.type in [ "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
+                obj = None
 
         if obj:
             if obj != self.selection_tool:
@@ -3310,7 +3656,6 @@ class TransparentWindow(Gtk.Window):
         # if the user clicked to create a text, we are not really done yet
         if self.current_object and self.current_object.type != "text":
             print("there is a current object: ", self.current_object)
-            # self.selection = DrawableGroup([ self.current_object ])
             self.gom.selection.clear()
             self.current_object = None
             self.queue_draw()
@@ -3326,6 +3671,8 @@ class TransparentWindow(Gtk.Window):
                 # then remove
                 self.gom.command_append([ self.resizeobj, RemoveCommand([ obj ], self.gom.objects()) ])
                 self.selection.clear()
+            else:
+                self.gom.command_append([ self.resizeobj ])
             self.resizeobj    = None
             self.cursor.revert()
             self.queue_draw()
@@ -3419,7 +3766,6 @@ class TransparentWindow(Gtk.Window):
 
     def object_create_copy(self, obj, bb = None):
         """Copy the given object into a new object."""
-        # XXX cannot be undone
         new_obj = copy.deepcopy(obj.to_dict())
         new_obj = Drawable.from_dict(new_obj)
 
@@ -3508,6 +3854,16 @@ class TransparentWindow(Gtk.Window):
         """Set the font."""
         self.pen.font_set_from_description(font_description)
         self.gom.selection_font_set(font_description)
+        if self.current_object and self.current_object.type == "text":
+            self.current_object.pen.font_set_from_description(font_description)
+
+    def transmute(self, mode):
+        """Change the selected object(s) to a polygon."""
+        print("transmuting to", mode)
+        sel = self.gom.selected_objects()
+        # note to self: sel is a list, not the selection
+        if sel:
+            self.gom.transmute(sel, mode)
 
 #   def smoothen(self):
 #       """Smoothen the selected object."""
@@ -3542,8 +3898,11 @@ class TransparentWindow(Gtk.Window):
             'q':                    {'action': self.exit},
             'Ctrl-q':               {'action': self.exit},
             'l':                    {'action': self.clear},
-            'f':                    {'action': self.gom.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
+            # XXX something is rotten here
+            #'f':                    {'action': self.gom.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
             'o':                    {'action': self.outline_toggle, 'modes': ["box", "circle", "draw", "move"]},
+            'Alt-p':                {'action': self.transmute, 'args': [ "polygon" ], 'modes': ["draw", "polygon", "move"]},
+            'Alt-P':                {'action': self.transmute, 'args': [ "draw" ], 'modes': ["draw", "polygon", "move"]},
 
             'Up':                   {'action': self.gom.move_selection, 'args': [0, -10],  'modes': ["move"]},
             'Shift-Up':             {'action': self.gom.move_selection, 'args': [0, -1],   'modes': ["move"]},
@@ -3650,6 +4009,7 @@ class TransparentWindow(Gtk.Window):
         # handle single keystroke shortcuts
             self.handle_shortcuts(keyfull)
 
+        self.queue_draw()
         return True
 
     def select_color(self):
@@ -3666,119 +4026,38 @@ class TransparentWindow(Gtk.Window):
 
     def show_help_dialog(self):
         """Show the help dialog."""
-        dialog = HelpDialog(self)
+        dialog = help_dialog(self)
         response = dialog.run()
         dialog.destroy()
 
     def export_drawing(self):
         """Save the drawing to a file."""
         # Choose where to save the file
-        dialog = Gtk.FileChooserDialog("Save as", self, Gtk.FileChooserAction.SAVE,
-            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_SAVE, Gtk.ResponseType.OK))
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            filename = dialog.get_filename()
-            # Ensure the filename has the correct extension
-            if not filename.endswith('.svg'):
-                filename += '.svg'
-            #self.export_to_png(filename)
-            self.export(filename, "svg")
-        dialog.destroy()
-
-    def export(self, filename, file_format):
-        """Export the drawing to a file."""
-        # Create a Cairo surface of the same size as the window content
+        #    self.export(filename, "svg")
+        file_name, file_format = export_dialog(self)
         width, height = self.get_size()
-        if file_format == "png":
-            surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
-        elif file_format == "svg":
-            surface = cairo.SVGSurface(filename, width, height)
-        else:
-            raise ValueError("Invalid file format")
-
-        cr = cairo.Context(surface)
-        cr.set_source_rgba(1, 1, 1)
-        cr.paint()
-        self.draw(cr)
-
-        # Save the surface to the file
-        if file_format == "png":
-            surface.write_to_png(filename)
-        elif file_format == "svg":
-            surface.finish()
-
+        export_image(width, height, file_name, self.draw, file_format)
 
     def select_image_and_create_pixbuf(self):
-        # Create a file chooser dialog
-        dialog = Gtk.FileChooserDialog(
-            title="Select an Image",
-            action=Gtk.FileChooserAction.OPEN,
-            buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
-        )
+        """Select an image file and create a pixbuf from it."""
 
-        # Filter to only show image files
-        file_filter = Gtk.FileFilter()
-        file_filter.set_name("Image files")
-        file_filter.add_mime_type("image/jpeg")
-        file_filter.add_mime_type("image/png")
-        file_filter.add_mime_type("image/tiff")
-        dialog.add_filter(file_filter)
-
-        # Show the dialog and wait for the user response
-        response = dialog.run()
-
+        image_file = import_image_dialog(self)
         pixbuf = None
-        if response == Gtk.ResponseType.OK:
-            image_path = dialog.get_filename()
+
+        if image_file:
             try:
-                # Generate a GdkPixbuf from the selected image file
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file(image_path)
-                print(f"Loaded image: {image_path}")
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file(image_file)
+                print(f"Loaded image: {image_file}")
             except Exception as e:
                 print(f"Failed to load image: {e}")
-        elif response == Gtk.ResponseType.CANCEL:
-            print("No image selected")
 
-        # Clean up and destroy the dialog
-        dialog.destroy()
-
-        if pixbuf is not None:
-            pos = self.cursor.pos()
-            self.current_object = Image([ pos ], self.pen, pixbuf)
-            self.history.append(AddCommand(self.current_object, self.objects))
-            self.queue_draw()
+            if pixbuf is not None:
+                pos = self.cursor.pos()
+                img = Image([ pos ], self.pen, pixbuf)
+                self.gom.add_object(img)
+                self.queue_draw()
         
         return pixbuf
-
-    def open_drawing(self):
-        # Create a file chooser dialog
-        dialog = Gtk.FileChooserDialog(
-            title="Select an .sdrw file",
-            action=Gtk.FileChooserAction.OPEN,
-            buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
-        )
-
-        # Filter to only show image files
-        # file_filter = Gtk.FileFilter()
-        # file_filter.set_name("Image files")
-        # file_filter.add_mime_type("image/jpeg")
-        # file_filter.add_mime_type("image/png")
-        # file_filter.add_mime_type("image/tiff")
-        # dialog.add_filter(file_filter)
-
-        # Show the dialog and wait for the user response
-        response = dialog.run()
-
-        pixbuf = None
-        if response == Gtk.ResponseType.OK:
-            image_path = dialog.get_filename()
-            self.read_file(image_path)
-        elif response == Gtk.ResponseType.CANCEL:
-            print("No image selected")
-
-        # Clean up and destroy the dialog
-        dialog.destroy()
 
     def screenshot_finalize(self, bb):
         print("Taking screenshot now")
@@ -3820,6 +4099,11 @@ class TransparentWindow(Gtk.Window):
 
     def save_state(self): 
         """Save the current drawing state to a file."""
+        if not self.savefile:
+            print("No savefile set")
+            return
+
+        print("savefile:", self.savefile)
         config = {
                 'transparent': self.transparent,
                 'pen': self.pen.to_dict(),
@@ -3827,31 +4111,32 @@ class TransparentWindow(Gtk.Window):
         }
 
         objects = self.gom.export_objects()
+        save_file_as_sdrw(self.savefile, config, objects)
 
-        state = { 'config': config, 'objects': objects }
-        with open(savefile, 'wb') as f:
-            #yaml.dump(state, f)
-            pickle.dump(state, f)
-        print("Saved drawing to", savefile)
+    def open_drawing(self):
+        file_name = open_drawing_dialog(self)
+        if self.read_file(file_name):
+            print("Setting savefile to", file_name)
+            self.savefile = file_name
 
-    def read_file(self, filename):
+    def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
-        print("reading file", filename)
-        if not os.path.exists(filename):
-            print("No saved drawing found at", filename)
-            return
-        with open(filename, 'rb') as f:
-            state = pickle.load(f)
-            #state = yaml.load(f, Loader=yaml.FullLoader)
-        objects           = [ Drawable.from_dict(d) for d in state['objects'] ] or [ ]
-        self.gom.set_objects(objects)
-        self.transparent       = state['config']['transparent']
-        self.pen               = Pen.from_dict(state['config']['pen'])
-        self.pen2              = Pen.from_dict(state['config']['pen2'])
+        config, objects = read_file_as_sdrw(filename)
+
+        if objects:
+            self.gom.set_objects(objects)
+
+        if config and load_config:
+            self.transparent       = config['transparent']
+            self.pen               = Pen.from_dict(config['pen'])
+            self.pen2              = Pen.from_dict(config['pen2'])
+        if config and objects:
+            return True
+        return False
 
     def load_state(self):
         """Load the drawing state from a file."""
-        self.read_file(savefile)
+        self.read_file(self.savefile)
 
 
 ## ---------------------------------------------------------------------
@@ -3881,7 +4166,7 @@ if __name__ == "__main__":
 
 # ---------------------------------------------------------------------
 
-    win = TransparentWindow()
+    win = TransparentWindow(savefile = savefile)
     if files:
         win.read_file(files[0])
 
