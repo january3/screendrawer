@@ -647,7 +647,8 @@ class TransparentWindow(Gtk.Window):
         #    self.export(filename, "svg")
         file_name, file_format = export_dialog(self)
         width, height = self.get_size()
-        export_image(width, height, file_name, self.draw, file_format)
+        if file_name:
+            export_image(width, height, file_name, self.draw, file_format)
 
     def select_image_and_create_pixbuf(self):
         """Select an image file and create a pixbuf from it."""

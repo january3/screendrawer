@@ -112,13 +112,15 @@ def _dialog_add_image_formats(dialog):
 
 ## ---------------------------------------------------------------------
 
-def export_dialog(widget, parent = None):
+def export_dialog(parent):
     """Show a file chooser dialog to select a file to save the drawing as
     an image / pdf / svg."""
+    print("export_dialog")
     file_name, selected_filter = None, None
 
     dialog = Gtk.FileChooserDialog(
         title="Save As", parent=parent, action=Gtk.FileChooserAction.SAVE)
+
     dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                        Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
     dialog.set_modal(True)
@@ -139,7 +141,7 @@ def export_dialog(widget, parent = None):
     dialog.destroy()
     return file_name, selected_filter
 
-def import_image_dialog(widget, parent = None):
+def import_image_dialog(parent):
     """Show a file chooser dialog to select an image file."""
     dialog = Gtk.FileChooserDialog(
         title="Select an Image",
@@ -198,7 +200,7 @@ def open_drawing_dialog(parent):
     dialog.destroy()
     return image_path
 
-def FontChooser(pen, parent = None):
+def FontChooser(pen, parent):
 
     # check that pen is an instance of Pen
     if not isinstance(pen, Pen):
@@ -225,7 +227,7 @@ def FontChooser(pen, parent = None):
     return font_description
 
 
-def ColorChooser(parent = None):
+def ColorChooser(parent):
     """Select a color for drawing."""
     # Create a new color chooser dialog
     color_chooser = Gtk.ColorChooserDialog("Select Current Foreground Color", parent = parent)

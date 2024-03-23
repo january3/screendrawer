@@ -394,20 +394,6 @@ def draw_dot(cr, x, y, diameter):
     cr.arc(x, y, diameter / 2, 0, 2 * 3.14159)  # Draw a circle
     cr.fill()  # Fill the circle to make a dot
 
-def build_menu(menu_items):
-    menu = Gtk.Menu()
-    menu.set_name("myMenu")
-
-    for m in menu_items:
-        if "separator" in m:
-            menu_item = Gtk.SeparatorMenuItem()
-        else:
-            menu_item = Gtk.MenuItem(label=m["label"])
-            menu_item.connect("activate", m["callback"], m["data"])
-        menu.append(menu_item)
-    menu.show_all()
-    return menu
-
 
 
 
@@ -525,12 +511,13 @@ class TransmuteCommand(Command):
     However, we don't. Instead we just slap the old object back onto the stack.
     """
 
-    def __init__(self, objects, stack, new_type):
+    def __init__(self, objects, stack, new_type, selection_objects = None):
         super().__init__("transmute", objects)
         self._new_type = new_type
         self._old_objs = [ ]
         self._new_objs = [ ]
         self._stack    = stack
+        self._selection_objects = selection_objects
 
         for obj in self.obj:
             new_obj = DrawableFactory.transmute(obj, new_type)
@@ -547,6 +534,18 @@ class TransmuteCommand(Command):
             self._stack.remove(obj)
             self._stack.append(new_obj)
 
+        if self._selection_objects:
+            self.map_selection()
+
+    def map_selection(self):
+        obj_map = self.obj_map()
+        # XXX this should not change the order of the objects
+        self._selection_objects[:] = [ obj_map.get(obj, obj) for obj in self._selection_objects ]
+
+    def obj_map(self):
+        """Return a dictionary mapping old objects to new objects."""
+        return { self._old_objs[i]: self._new_objs[i] for i in range(len(self._old_objs)) }
+
     def undo(self):
         """replace all the new objects with the old ones in the stack"""
         if self._undone:
@@ -556,6 +555,8 @@ class TransmuteCommand(Command):
         for obj in self._old_objs:
             self._stack.append(obj)
         self._undone = True
+        if self._selection_objects:
+            self.map_selection()
 
     def redo(self):
         """put the new objects again on the stack and remove the old ones"""
@@ -566,6 +567,8 @@ class TransmuteCommand(Command):
         for obj in self._new_objs:
             self._stack.append(obj)
         self._undone = False
+        if self._selection_objects:
+            self.map_selection()
 
 class ZStackCommand(Command):
     """Simple class for handling z-stack operations."""
@@ -960,7 +963,7 @@ class Pen:
 
 class DrawableFactory:
     @classmethod
-    def create_drawable(cls, mode, manager, ev):
+    def create_drawable(cls, mode, pen, ev):
         print("create object of type", mode)
         shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
         pos = ev.pos()
@@ -968,10 +971,9 @@ class DrawableFactory:
         hover_obj  = ev.hover()
 
         ret_obj = None
-        pen = manager.pen
 
         if mode == "text" or (mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
-            manager.cursor.set("none")
+            #manager.cursor.set("none")
             ret_obj = Text([ pos ], pen = pen, content = "")
             ret_obj.move_caret("Home")
 
@@ -981,8 +983,8 @@ class DrawableFactory:
         elif mode == "box":
             ret_obj = Box([ pos, (pos[0], pos[1]) ], pen = pen)
 
-        elif mode == "polygon":
-            ret_obj = Polygon([ pos ], pen = pen)
+        elif mode == "shape":
+            ret_obj = Shape([ pos ], pen = pen)
 
         elif mode == "circle":
             ret_obj = Circle([ pos, (pos[0], pos[1]) ], pen = pen)
@@ -1013,9 +1015,9 @@ class DrawableFactory:
             obj = Path.from_object(obj)
         elif mode == "box":
             obj = Box.from_object(obj)
-        elif mode == "polygon":
-            print("calling Polygon.from_object")
-            obj = Polygon.from_object(obj)
+        elif mode == "shape":
+            print("calling Shape.from_object")
+            obj = Shape.from_object(obj)
         elif mode == "circle":
             obj = Circle.from_object(obj)
         else:
@@ -1187,7 +1189,8 @@ class Drawable:
     def from_dict(cls, d):
         type_map = {
             "path": Path,
-            "polygon": Polygon,
+            "polygon": Shape, #back compatibility
+            "shape": Shape,
             "circle": Circle,
             "box": Box,
             "image": Image,
@@ -1922,14 +1925,14 @@ class Text(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.5)
 
-class Polygon(Drawable):
-    """Class for polygons (closed paths with no outline)."""
+class Shape(Drawable):
+    """Class for shapes (closed paths with no outline)."""
     def __init__(self, coords, pen):
-        super().__init__("polygon", coords, pen)
+        super().__init__("shape", coords, pen)
         self.bb = None
 
     def finish(self):
-        print("finishing polygon")
+        print("finishing shape")
         self.coords, pressure = smooth_path(self.coords)
         #self.outline_recalculate_new()
 
@@ -2054,16 +2057,16 @@ class Polygon(Drawable):
 
     @classmethod
     def from_object(cls, obj):
-        print("Polygon.from_object", obj)
+        print("Shape.from_object", obj)
         if obj.coords and len(obj.coords) > 2 and obj.pen:
             return cls(obj.coords, obj.pen)
         else:
             # issue a warning
-            print("Polygon.from_object: invalid object")
+            print("Shape.from_object: invalid object")
         return obj
 
 class Path(Drawable):
-    """ Path is like polygon, but not closed and has an outline that depends on
+    """ Path is like shape, but not closed and has an outline that depends on
         line width and pressure."""
     def __init__(self, coords, pen, outline = None, pressure = None):
         super().__init__("path", coords, pen = pen)
@@ -2189,7 +2192,7 @@ class Path(Drawable):
 
     def path_append(self, x, y, pressure = 1):
         """Append a point to the path, calculating the outline of the
-           polygon around the path. Only used when path is created to 
+           shape around the path. Only used when path is created to 
            allow for a good preview. Later, the path is smoothed and recalculated."""
         coords = self.coords
         width  = self.pen.line_width * pressure
@@ -2317,10 +2320,6 @@ class Path(Drawable):
 
         if self.rotation != 0:
             cr.restore()
-
-    @classmethod
-    def from_polygon(cls, polygon):
-        return cls(polygon.coords, polygon.pen)
 
     @classmethod
     def from_object(cls, obj):
@@ -2573,6 +2572,7 @@ class WigletLineWidth(Wiglet):
 ## ---------------------------------------------------------------------
 class help_dialog(Gtk.Dialog):
     def __init__(self, parent):
+        print("parent:", parent)
         super().__init__(title="Help", transient_for=parent, flags=0)
         self.add_buttons(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
@@ -2611,28 +2611,42 @@ Moving object to left lower screen corner deletes it.
 <b>Drawing modes:</b> (simple key, when not editing a text)
 
 <b>d:</b> Draw mode (pencil)                 <b>m, |SPACE|:</b> Move mode (move objects around, copy and paste)
-<b>t:</b> Text mode (text entry)             <b>b:</b> Box mode  (draw a rectangle)
+<b>t:</b> Text mode (text entry)             <b>r:</b> rectangle mode  (draw a rectangle)
 <b>c:</b> Circle mode (draw an ellipse)      <b>e:</b> Eraser mode (delete objects with a click)
-<b>p:</b> Polygon mode (draw a polygon)      <b>i:</b> Color pIcker mode (pick a color from the screen)
+<b>s:</b> Shape mode (draw a filled shape)   <b>i:</b> Color p<b>I</b>cker mode (pick a color from the screen)
 
-<b>Works always:</b>                                                                  <b>Move mode only:</b>
-<b>With Ctrl:</b>              <b>Simple key (not when entering text)</b>                    <b>With Ctrl:</b>             <b>Simple key (not when entering text)</b>
-Ctrl-q: Quit            x, q: Exit                                             Ctrl-c: Copy content   Tab: Next object
-Ctrl-e: Export drawing  h, F1, ?: Show this help dialog                        Ctrl-v: Paste content  Shift-Tab: Previous object
-Ctrl-l: Clear drawing   l: Clear drawing                                       Ctrl-x: Cut content    Shift-letter: quick color selection e.g. Shift-r for red
-Ctrl-i: insert image                                                                                  |Del|: Delete selected object
-Ctrl-z: undo            |Esc|: Finish text input                                                      g, u: group, ungroup                           
-Ctrl-y: redo            |Enter|: New line (in text mode)                                 
-
-Ctrl-k: Select color                     f: fill with current color
-Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline
+<b>Works always:</b>                                                             <b>Move mode only:</b>
+<b>With Ctrl:</b>              <b>Simple key (not when entering text)</b>               <b>With Ctrl:</b>             <b>Simple key (not when entering text)</b>
+Ctrl-q: Quit            x, q: Exit                                        Ctrl-c: Copy content   Tab: Next object
+Ctrl-e: Export drawing  h, F1, ?: Show this help dialog                   Ctrl-v: Paste content  Shift-Tab: Previous object
+Ctrl-l: Clear drawing   l: Clear drawing                                  Ctrl-x: Cut content    Shift-letter: quick color selection e.g. 
+                                                                                                 Shift-r for red
+Ctrl-i: insert image                                                                             |Del|: Delete selected object(s)
+Ctrl-z: undo            |Esc|: Finish text input                                                 g, u: group, ungroup                           
+Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up, Alt-Down: Move object up, down
+                                                                          Alt-PgUp, Alt-PgDown: Move object to front, back
+Ctrl-k: Select color                     f: fill with current color       Alt-s: convert drawing(s) to shape(s)
+Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline                Alt-d: convert shape(s) to drawing(s)
 Ctrl-b: Cycle background transparency
-Ctrl-p: switch pens
+Ctrl-p: toggle between two pens
+Ctrl-Shift-f: screenshot: for a screenshot, you need at least one rectangle
+object (r mode) in the drawing which serves as the selection area. The
+screenshot will be pasted into the drawing.
+
+
+<b>Saving / importing:</b>
+Ctrl-i: Import image from a file (jpeg, png)
+Ctrl-o: Open a drawing from a file (.sdrw, that is the "native format") -
+        note that the subsequent modifications will be saved to that file only
+Ctrl-e: Export drawing to a file (png, jpeg, pdf)
+
+When you copy a selection or individual objects, you can paste them into
+other programs as a PNG image.
 
 </span>
 
-The state is saved in / loaded from `{savefile}` so you can continue drawing later.
-You might want to remove that file if something goes wrong.
+The state is saved in / loaded from `{parent.savefile}` so you can continue drawing later. 
+An autosave happens every minute or so.
         """
         label = Gtk.Label()
         label.set_markup(help_text)
@@ -2935,7 +2949,8 @@ class CursorManager:
             "eraser":      Gdk.Cursor.new_from_name(window.get_display(), "not-allowed"),
             "pencil":      Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "picker":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
-            "polygon":     Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
+            "colorpicker": Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
+            "shape":       Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "draw":        Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "crosshair":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             "circle":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
@@ -3037,7 +3052,20 @@ class GraphicsObjectManager:
             objects (list): The list of objects.
             mode (str): The mode to transmute to.
         """
-        self._history.append(TransmuteCommand(objects, self._objects, mode))
+        self._history.append(TransmuteCommand(objects, self._objects, mode, self.selection.objects))
+        # XXX the problem is that we need to remove the old objects from the
+        # selection as well. However, it turns out to be more complicated than
+
+    def transmute_selection(self, mode):
+        """
+        Transmute the selected objects to the given mode.
+
+        Args:
+            mode ( str ): The mode to transmute to.
+        """
+        if self.selection.is_empty():
+            return
+        self.transmute(self.selection.objects, mode)
 
     def set_objects(self, objects):
         """Set the list of objects."""
@@ -3121,8 +3149,8 @@ class GraphicsObjectManager:
         for obj in self.selection.objects:
             if obj.type == "group":
                 print("Ungrouping", obj)
-                self.objects.extend(obj.objects)
-                self.objects.remove(obj)
+                self._objects.extend(obj.objects)
+                self._objects.remove(obj)
         return
 
     def select_reverse(self):
@@ -3213,7 +3241,7 @@ class GraphicsObjectManager:
         """move the selected objects long the z-axis."""
         if self.selection.is_empty():
             return
-        self.history.append(ZStackCommand(self.selection.objects, self._objects, operation))
+        self._history.append(ZStackCommand(self.selection.objects, self._objects, operation))
 
 
 
@@ -3286,6 +3314,450 @@ def read_file_as_sdrw(filename):
         return None, None
     return config, objects
 
+# the design of the app is as follows: the EventManager class is a singleton
+# that manages the events and actions of the app. The actions are defined in
+# the actions_dictionary method. 
+#
+# So the EM is a know-it-all class, and the others (GOM, App) are just
+# listeners to the EM. The EM is the one that knows what to do when an event
+# happens.
+
+
+COLORS = {
+        "black": (0, 0, 0),
+        "white": (1, 1, 1),
+        "red": (.7, 0, 0),
+        "green": (0, .7, 0),
+        "blue": (0, 0, .5),
+        "yellow": (1, 1, 0),
+        "cyan": (0, 1, 1),
+        "magenta": (1, 0, 1),
+        "purple": (0.5, 0, 0.5),
+        "grey": (0.5, 0.5, 0.5)
+}
+
+
+class EventManager:
+    """
+    The EventManager class is a singleton that manages the events and actions
+    of the app. The actions are defined in the make_actions_dictionary method.
+    """
+    # singleton pattern
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        # singleton pattern
+        if not cls._instance:
+            cls._instance = super(EventManager, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, gom, app):
+        # singleton pattern
+        if not hasattr(self, '_initialized'):
+            self._initialized = True
+            self.__gom = gom
+            self.__app = app
+            self.make_actions_dictionary(gom, app)
+            self.make_default_keybindings()
+
+    def dispatch_action(self, action_name, **kwargs):
+        """
+        Dispatches an action by name.
+        """
+        print("dispatch_action", action_name)
+        if not action_name in self.__actions:
+            print(f"action {action_name} not found in actions")
+            return
+
+        action = self.__actions[action_name]['action']
+        if not callable(action):
+            raise ValueError(f"Action is not callable: {action_name}")
+        try:
+            if 'args' in self.__actions[action_name]:
+                args = self.__actions[action_name]['args']
+                action(*args)
+            else:
+                action(**kwargs)
+        except Exception as e:
+            print(f"Error while dispatching action {action_name}: {e}")
+
+    def dispatch_key_event(self, key_event, mode):
+        """
+        Dispatches an action by key event.
+        """
+        print("dispatch_key_event", key_event, mode)
+
+        if not key_event in self.__keybindings:
+            print(f"key_event {key_event} not found in keybindings")
+            return
+
+        action_name = self.__keybindings[key_event]
+
+        if not action_name in self.__actions:
+            print(f"action {action_name} not found in actions")
+            return
+
+        # check whether action allowed in the current mode
+        if 'modes' in self.__actions[action_name]:
+            if not mode in self.__actions[action_name]['modes']:
+                print("action not allowed in this mode")
+                return
+
+        print("dispatching action", action_name)
+        self.dispatch_action(action_name)
+
+    def on_key_press(self, widget, event):
+        """
+        This method is called when a key is pressed.
+        """
+
+        gom, app = self.__gom, self.__app
+
+        keyname = Gdk.keyval_name(event.keyval)
+        char    = chr(Gdk.keyval_to_unicode(event.keyval))
+        ctrl    = event.state & Gdk.ModifierType.CONTROL_MASK
+        shift   = event.state & Gdk.ModifierType.SHIFT_MASK
+        alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
+        print("keyname", keyname, "char", char, "ctrl", ctrl, "shift", shift, "alt_l", alt_l)
+
+        mode = app.get_mode()
+
+        keyfull = keyname
+
+        if char.isupper():
+            keyfull = keyname.lower()
+        if shift:
+            keyfull = "Shift-" + keyfull
+        if ctrl:
+            keyfull = "Ctrl-" + keyfull
+        if alt_l:
+            keyfull = "Alt-" + keyfull
+        print("keyfull", keyfull)
+
+        # first, check whether there is a current object being worked on
+        # and whether this object is a text object. In that case, we only
+        # call the ctrl keybindings and pass the rest to the text object.
+        if app.current_object and app.current_object.type == "text" and not(ctrl or keyname == "Escape"):
+            print("updating text input")
+            app.current_object.update_by_key(keyname, char)
+            app.queue_draw()
+            return
+
+        # otherwise, we dispatch the key event
+        self.dispatch_key_event(keyfull, mode)
+
+        # XXX this probably should be somewhere else
+        app.queue_draw()
+
+
+    def make_actions_dictionary(self, gom, app):
+        """
+        This dictionary maps key events to actions.
+        """
+        self.__actions = {
+            'mode_draw':             {'action': app.set_mode, 'args': ["draw"]},
+            'mode_box':              {'action': app.set_mode, 'args': ["box"]},
+            'mode_circle':           {'action': app.set_mode, 'args': ["circle"]},
+            'mode_move':             {'action': app.set_mode, 'args': ["move"]},
+            'mode_text':             {'action': app.set_mode, 'args': ["text"]},
+            'mode_select':           {'action': app.set_mode, 'args': ["select"]},
+            'mode_eraser':           {'action': app.set_mode, 'args': ["eraser"]},
+            'mode_shape':            {'action': app.set_mode, 'args': ["shape"]},
+            'mode_colorpicker':      {'action': app.set_mode, 'args': ["colorpicker"]},
+
+            'finish_text_input':     {'action': app.finish_text_input},
+
+            'show_help_dialog':      {'action': app.show_help_dialog},
+            'app_exit':              {'action': app.exit},
+
+            'clear_page':            {'action': app.clear},
+            'cycle_bg_transparency': {'action': app.cycle_background},
+            'toggle_outline':        {'action': app.outline_toggle},
+
+            'selection_fill':        {'action': gom.selection_fill},
+            'transmute_to_shape':    {'action': gom.transmute_selection, 'args': [ "shape" ]},
+            'transmute_to_draw':     {'action': gom.transmute_selection, 'args': [ "draw" ]},
+            'move_up_10':            {'action': gom.move_selection, 'args': [0, -10],   'modes': ["move"]},
+            'move_up_1':             {'action': gom.move_selection, 'args': [0, -1],    'modes': ["move"]},
+            'move_up_100':           {'action': gom.move_selection, 'args': [0, -100],  'modes': ["move"]},
+            'move_down_10':          {'action': gom.move_selection, 'args': [0, 10],    'modes': ["move"]},
+            'move_down_1':           {'action': gom.move_selection, 'args': [0, 1],     'modes': ["move"]},
+            'move_down_100':         {'action': gom.move_selection, 'args': [0, 100],   'modes': ["move"]},
+            'move_left_10':          {'action': gom.move_selection, 'args': [-10, 0],   'modes': ["move"]},
+            'move_left_1':           {'action': gom.move_selection, 'args': [-1, 0],    'modes': ["move"]},
+            'move_left_100':         {'action': gom.move_selection, 'args': [-100, 0],  'modes': ["move"]},
+            'move_right_10':         {'action': gom.move_selection, 'args': [10, 0],    'modes': ["move"]},
+            'move_right_1':          {'action': gom.move_selection, 'args': [1, 0],     'modes': ["move"]},
+            'move_right_100':        {'action': gom.move_selection, 'args': [100, 0],   'modes': ["move"]},
+
+            # XXX something is rotten here
+            #'f':                    {'action': self.gom.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
+
+            'rotate_selection_ccw_10': {'action': gom.rotate_selection, 'args': [10],  'modes': ["move"]},
+            'rotate_selection_ccw_1':  {'action': gom.rotate_selection, 'args': [1],   'modes': ["move"]},
+            'rotate_selection_ccw_90': {'action': gom.rotate_selection, 'args': [90],  'modes': ["move"]},
+            'rotate_selection_cw_10':  {'action': gom.rotate_selection, 'args': [-10], 'modes': ["move"]},
+            'rotate_selection_cw_1':   {'action': gom.rotate_selection, 'args': [-1],  'modes': ["move"]},
+            'rotate_selection_cw_90':  {'action': gom.rotate_selection, 'args': [-90], 'modes': ["move"]},
+
+            'zmove_selection_top':    {'action': gom.selection_zmove, 'args': [ "top" ],    'modes': ["move"]},
+            'zmove_selection_bottom': {'action': gom.selection_zmove, 'args': [ "bottom" ], 'modes': ["move"]},
+            'zmove_selection_raise':  {'action': gom.selection_zmove, 'args': [ "raise" ],  'modes': ["move"]},
+            'zmove_selection_lower':  {'action': gom.selection_zmove, 'args': [ "lower" ],  'modes': ["move"]},
+
+            'set_color_white':       {'action': app.set_color, 'args': [COLORS["white"]]},
+            'set_color_black':       {'action': app.set_color, 'args': [COLORS["black"]]},
+            'set_color_red':         {'action': app.set_color, 'args': [COLORS["red"]]},
+            'set_color_green':       {'action': app.set_color, 'args': [COLORS["green"]]},
+            'set_color_blue':        {'action': app.set_color, 'args': [COLORS["blue"]]},
+            'set_color_yellow':      {'action': app.set_color, 'args': [COLORS["yellow"]]},
+            'set_color_cyan':        {'action': app.set_color, 'args': [COLORS["cyan"]]},
+            'set_color_magenta':     {'action': app.set_color, 'args': [COLORS["magenta"]]},
+            'set_color_purple':      {'action': app.set_color, 'args': [COLORS["purple"]]},
+            'set_color_grey':        {'action': app.set_color, 'args': [COLORS["grey"]]},
+
+            # dialogs
+            "export_drawing":        {'action': app.export_drawing},
+            "select_color":          {'action': app.select_color},
+            "select_font":           {'action': app.select_font},
+            "import_image":          {'action': app.select_image_and_create_pixbuf},
+            "toggle_pens":           {'action': app.switch_pens},
+            "open_drawing":          {'action': app.open_drawing},
+
+            # selections and moving objects
+            'select_next_object':     {'action': gom.select_next_object,     'modes': ["move"]},
+            'select_previous_object': {'action': gom.select_previous_object, 'modes': ["move"]},
+            'select_all':             {'action': gom.select_all},
+            'select_reverse':         {'action': gom.select_reverse},
+            'selection_group':        {'action': gom.selection_group,   'modes': ["move"]},
+            'selection_ungroup':      {'action': gom.selection_ungroup, 'modes': ["move"]},
+            'selection_delete':       {'action': gom.selection_delete,  'modes': ["move"]},
+            'redo':                   {'action': gom.redo},
+            'undo':                   {'action': gom.undo},
+
+#            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
+            'copy_content':          {'action': app.copy_content,        'modes': ["move"]},
+            'cut_content':           {'action': app.cut_content,         'modes': ["move"]},
+            'paste_content':         {'action': app.paste_content},
+            'screenshot':            {'action': app.screenshot},
+
+            'stroke_increase':       {'action': app.stroke_increase},
+            'stroke_decrease':       {'action': app.stroke_decrease},
+        }
+
+    def get_keybindings(self):
+        """
+        Returns the keybindings dictionary.
+        """
+        return self.__keybindings
+
+    def make_default_keybindings(self):
+        """
+        This dictionary maps key events to actions.
+        """
+        self.__keybindings = {
+            'm':                    "mode_move",
+            'b':                    "mode_box",
+            'c':                    "mode_circle",
+            'd':                    "mode_draw",
+            't':                    "mode_text",
+            'e':                    "mode_eraser",
+            's':                    "mode_shape",
+            'i':                    "mode_colorpicker",
+            'space':                "mode_move",
+
+            'h':                    "show_help_dialog",
+            'F1':                   "show_help_dialog",
+            'question':             "show_help_dialog",
+            'Shift-question':       "show_help_dialog",
+            'Escape':               "finish_text_input",
+            'Ctrl-l':               "clear_page",
+            'Ctrl-b':               "cycle_bg_transparency",
+            'x':                    "app_exit",
+            'q':                    "app_exit",
+            'Ctrl-q':               "app_exit",
+            'l':                    "clear_page",
+            'o':                    "toggle_outline",
+            'Alt-s':                "transmute_to_shape",
+            'Alt-d':                "transmute_to_draw",
+            'f':                    "selection_fill",
+
+            'Up':                   "move_up_10",
+            'Shift-Up':             "move_up_1",
+            'Ctrl-Up':              "move_up_100",
+            'Down':                 "move_down_10",
+            'Shift-Down':           "move_down_1",
+            'Ctrl-Down':            "move_down_100",
+            'Left':                 "move_left_10",
+            'Shift-Left':           "move_left_1",
+            'Ctrl-Left':            "move_left_100",
+            'Right':                "move_right_10",
+            'Shift-Right':          "move_right_1",
+            'Ctrl-Right':           "move_right_100",
+            'Page_Up':              "rotate_selection_ccw_10",
+            'Shift-Page_Up':        "rotate_selection_ccw_1",
+            'Ctrl-Page_Up':         "rotate_selection_ccw_90",
+            'Page_Down':            "rotate_selection_cw_10",
+            'Shift-Page_Down':      "rotate_selection_cw_1",
+            'Ctrl-Page_Down':       "rotate_selection_cw_90",
+
+            'Alt-Page_Up':          "zmove_selection_top",
+            'Alt-Page_Down':        "zmove_selection_bottom",
+            'Alt-Up':               "zmove_selection_raise",
+            'Alt-Down':             "zmove_selection_lower",
+
+            'Shift-w':              "set_color_white",
+            'Shift-b':              "set_color_black",
+            'Shift-r':              "set_color_red",
+            'Shift-g':              "set_color_green",
+            'Shift-l':              "set_color_blue",
+            'Shift-e':              "set_color_grey",
+            'Shift-y':              "set_color_yellow",
+            'Shift-p':              "set_color_purple",
+
+            'Ctrl-e':               "export_drawing",
+            'Ctrl-k':               "select_color",
+            'Ctrl-f':               "select_font",
+            'Ctrl-i':               "import_image",
+            'Ctrl-p':               "toggle_pens",
+            'Ctrl-o':               "open_drawing",
+
+            'Tab':                  "select_next_object",
+            'Shift-ISO_Left_Tab':   "select_previous_object",
+            'g':                    "selection_group",
+            'u':                    "selection_ungroup",
+            'Delete':               "selection_delete",
+
+            'Ctrl-a':               "select_all",
+            'Ctrl-r':               "select_reverse",
+            'Ctrl-y':               "redo",
+            'Ctrl-z':               "undo",
+            'Ctrl-c':               "copy_content",
+            'Ctrl-x':               "cut_content",
+            'Ctrl-v':               "paste_content",
+            'Ctrl-Shift-f':         "screenshot",
+            'Ctrl-plus':            "stroke_increase",
+            'Ctrl-minus':           "stroke_decrease",
+        }
+
+
+
+class MenuMaker:
+    """A class holding methods to create menus. Singleton."""
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(MenuMaker, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, gom, em, app):
+        if not hasattr(self, '_initialized'):
+            self._initialized = True
+            self.__gom = gom # GraphicObjectManager
+            self.__app = app # App
+            self.__em  = em  # EventManager
+            self.__context_menu = None
+            self.__object_menu = None
+
+    def build_menu(self, menu_items):
+        menu = Gtk.Menu()
+        menu.set_name("myMenu")
+
+        for m in menu_items:
+            if "separator" in m:
+                menu_item = Gtk.SeparatorMenuItem()
+            else:
+                menu_item = Gtk.MenuItem(label=m["label"])
+                menu_item.connect("activate", m["callback"], m["action"])
+            menu.append(menu_item)
+        menu.show_all()
+        return menu
+
+    def on_menu_item_activated(self, widget, action):
+        print("Menu item activated:", action)
+
+        self.__em.dispatch_action(action)
+        self.__app.queue_draw()
+
+
+    def context_menu(self):
+        # general menu for everything
+        ## build only once
+        if self.__context_menu:
+            return self.__context_menu
+
+        menu_items = [
+                { "label": "Move         [m]",          "callback": self.on_menu_item_activated, "action": "mode_move" },
+                { "label": "Pencil       [d]",          "callback": self.on_menu_item_activated, "action": "mode_draw" },
+                { "label": "Shape        [s]",          "callback": self.on_menu_item_activated, "action": "mode_shape" },
+                { "label": "Text         [t]",          "callback": self.on_menu_item_activated, "action": "mode_text" },
+                { "label": "Rectangle    [r]",          "callback": self.on_menu_item_activated, "action": "mode_box" },
+                { "label": "Circle       [c]",          "callback": self.on_menu_item_activated, "action": "mode_circle" },
+                { "label": "Eraser       [e]",          "callback": self.on_menu_item_activated, "action": "mode_eraser" },
+                { "label": "Color picker [i]",          "callback": self.on_menu_item_activated, "action": "mode_colorpicker" },
+                { "separator": True },
+                { "label": "Select all    (Ctrl-a)",    "callback": self.on_menu_item_activated, "action": "select_all" },
+                { "label": "Paste         (Ctrl-v)",    "callback": self.on_menu_item_activated, "action": "paste_content" },
+                { "label": "Clear drawing (Ctrl-l)",    "callback": self.on_menu_item_activated, "action": "clear_page" },
+                { "separator": True },
+                { "label": "Bg transparency (Ctrl-b)",  "callback": self.on_menu_item_activated, "action": "cycle_bg_transparency" },
+                { "label": "Tggl outline    (Ctrl-b)",  "callback": self.on_menu_item_activated, "action": "toggle_outline" },
+                { "separator": True },
+                { "label": "Color           (Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color" },
+                { "label": "Font            (Ctrl-f)",  "callback": self.on_menu_item_activated, "action": "select_font" },
+                { "separator": True },
+                { "label": "Open drawing    (Ctrl-o)",  "callback": self.on_menu_item_activated, "action": "open_drawing" },
+                { "label": "Image from file (Ctrl-i)",  "callback": self.on_menu_item_activated, "action": "import_image" },
+                { "label": "Screenshot      (Ctrl-Shift-f)",  "callback": self.on_menu_item_activated, "action": "screenshot" },
+                { "label": "Export drawing  (Ctrl-e)",  "callback": self.on_menu_item_activated, "action": "export_drawing" },
+                { "label": "Help            [F1]",      "callback": self.on_menu_item_activated, "action": "show_help_dialog" },
+                { "label": "Quit            (Ctrl-q)",  "callback": self.on_menu_item_activated, "action": "app_exit" },
+        ]
+
+        self.__context_menu = self.build_menu(menu_items)
+        return self.__context_menu
+
+    def object_menu(self, objects):
+        # when right-clicking on an object
+        menu_items = [
+                { "label": "Copy (Ctrl-c)",        "callback": self.on_menu_item_activated, "action": "copy_content" },
+                { "label": "Cut (Ctrl-x)",         "callback": self.on_menu_item_activated, "action": "cut_content" },
+                { "separator": True },
+                { "label": "Delete (|Del|)",       "callback": self.on_menu_item_activated, "action": "selection_delete" },
+                { "label": "Group (g)",            "callback": self.on_menu_item_activated, "action": "selection_group" },
+                { "label": "Ungroup (u)",          "callback": self.on_menu_item_activated, "action": "selection_ungroup" },
+                { "separator": True },
+                { "label": "Move to top (Alt-Page_Up)", "callback": self.on_menu_item_activated, "action": "zmove_selection_top" },
+                { "label": "Raise (Alt-Up)",       "callback": self.on_menu_item_activated, "action": "zmove_selection_up" },
+                { "label": "Lower (Alt-Down)",     "callback": self.on_menu_item_activated, "action": "zmove_selection_down" },
+                { "label": "Move to bottom (Alt-Page_Down)", "callback": self.on_menu_item_activated, "action": "zmove_selection_bottom" },
+                { "separator": True },
+                { "label": "To shape   (Alt-s)",   "callback": self.on_menu_item_activated, "action": "transmute_to_shape" },
+                { "label": "To drawing (Alt-d)",   "callback": self.on_menu_item_activated, "action": "transmute_to_drawing" },
+                #{ "label": "Fill       (f)",       "callback": self.on_menu_item_activated, "action": "f" },
+                { "separator": True },
+                { "label": "Color (Ctrl-k)",       "callback": self.on_menu_item_activated, "action": "select_color" },
+                { "label": "Font (Ctrl-f)",        "callback": self.on_menu_item_activated, "action": "select_font" },
+                { "label": "Help [F1]",            "callback": self.on_menu_item_activated, "action": "show_help_dialog" },
+                { "label": "Quit (Ctrl-q)",        "callback": self.on_menu_item_activated, "action": "app_exit" },
+        ]
+
+        # if there is only one object, remove the group menu item
+        if len(objects) == 1:
+            print("only one object")
+            menu_items = [m for m in menu_items if not "action" in m or "selection_group" not in m["action"]]
+
+        group_found = [o for o in objects if o.type == "group"]
+        if not group_found:
+            print("no group found")
+            menu_items = [m for m in menu_items if not "action" in m or "selection_ungroup" not in m["action"]]
+
+        self.__object_menu = self.build_menu(menu_items)
+
+        return self.__object_menu
+
+
 
 # ---------------------------------------------------------------------
 # defaults
@@ -3304,7 +3776,7 @@ COLORS = {
         "grey": (0.5, 0.5, 0.5)
 }
 
-
+AUTOSAVE_INTERVAL = 30 * 1000 # 30 seconds
 
 
 
@@ -3327,21 +3799,23 @@ class TransparentWindow(Gtk.Window):
         self.connect("destroy", self.exit)
         self.set_default_size(800, 600)
 
+        # transparency
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
         if visual != None and screen.is_composited():
             self.set_visual(visual)
-
         self.set_app_paintable(True)
-        self.connect("draw", self.on_draw)
-        self.connect("key-press-event", self.on_key_press)
-        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
+
+        # autosave
+        GLib.timeout_add(AUTOSAVE_INTERVAL, self.autosave)
 
         # Drawing setup
         self.mode                = "draw"
         self.gom                 = GraphicsObjectManager(self)
+        self.em                  = EventManager(gom = self.gom, app = self)
         self.clipboard           = Clipboard()
         self.cursor              = CursorManager(self)
+        self.mm                  = MenuMaker(self.gom, self.em, self)
         self.hidden              = False
 
         self.current_object      = None
@@ -3361,62 +3835,19 @@ class TransparentWindow(Gtk.Window):
 
         self.objects = [ ]
         self.load_state()
+        self.modified = False # for autosave
 
+        # connecting events
+        self.connect("draw", self.on_draw)
+        self.connect("key-press-event", self.em.on_key_press)
+        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
         self.connect("button-press-event",   self.on_button_press)
         self.connect("button-release-event", self.on_button_release)
         self.connect("motion-notify-event",  self.on_motion_notify)
 
-        self.create_context_menu()
-        self.create_object_menu()
         self.set_keep_above(True)
         self.maximize()
 
-    def on_menu_item_activated(self, widget, data):
-        print("Menu item activated:", data)
-
-        self.handle_shortcuts(data)
-
-
-    def create_context_menu(self):
-        menu_items = [
-                { "label": "Move         [m]",        "callback": self.on_menu_item_activated, "data": "m" },
-                { "label": "Pencil       [d]",        "callback": self.on_menu_item_activated, "data": "d" },
-                { "label": "Polygon      [p]",        "callback": self.on_menu_item_activated, "data": "d" },
-                { "label": "Text         [t]",        "callback": self.on_menu_item_activated, "data": "t" },
-                { "label": "Box          [b]",        "callback": self.on_menu_item_activated, "data": "b" },
-                { "label": "Circle       [c]",        "callback": self.on_menu_item_activated, "data": "c" },
-                { "label": "Eraser       [e]",        "callback": self.on_menu_item_activated, "data": "e" },
-                { "label": "Color picker [i]",        "callback": self.on_menu_item_activated, "data": "i" },
-                { "separator": True },
-                { "label": "Select all    (Ctrl-a)",  "callback": self.on_menu_item_activated, "data": "Ctrl-a" },
-                { "label": "Paste         (Ctrl-v)",  "callback": self.on_menu_item_activated, "data": "Ctrl-v" },
-                { "label": "Clear drawing (Ctrl-l)",  "callback": self.on_menu_item_activated, "data": "Ctrl-l" },
-                { "separator": True },
-                { "label": "Color           (Ctrl-k)",  "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
-                { "label": "Image from file (Ctrl-i)",  "callback": self.on_menu_item_activated, "data": "Ctrl-i" },
-                { "label": "Export drawing  (Ctrl-e)",  "callback": self.on_menu_item_activated, "data": "Ctrl-e" },
-                { "label": "Font            (Ctrl-f)",  "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
-                { "label": "Help            [F1]",      "callback": self.on_menu_item_activated, "data": "h" },
-                { "label": "Quit            (Ctrl-q)",  "callback": self.on_menu_item_activated, "data": "x" },
-        ]
-
-        self.context_menu = build_menu(menu_items)
-
-    def create_object_menu(self):
-        menu_items = [
-                { "label": "Copy (Ctrl-c)",        "callback": self.on_menu_item_activated, "data": "Ctrl-c" },
-                { "label": "Cut (Ctrl-x)",         "callback": self.on_menu_item_activated, "data": "Ctrl-x" },
-                { "separator": True },
-                { "label": "Delete (|Del|)",       "callback": self.on_menu_item_activated, "data": "Delete" },
-                { "label": "Group (g)",            "callback": self.on_menu_item_activated, "data": "g" },
-                { "label": "Ungroup (u)",          "callback": self.on_menu_item_activated, "data": "u" },
-                { "separator": True },
-                { "label": "Color (Ctrl-k)",       "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
-                { "label": "Font (Ctrl-f)",        "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
-                { "label": "Help [F1]",            "callback": self.on_menu_item_activated, "data": "h" },
-                { "label": "Quit (Ctrl-q)",        "callback": self.on_menu_item_activated, "data": "x" },
-        ]
-        self.object_menu = build_menu(menu_items)
 
 
     def exit(self):
@@ -3477,10 +3908,10 @@ class TransparentWindow(Gtk.Window):
             if not self.gom.selection.contains(hover_obj):
                 self.gom.selection.set([ hover_obj ])
 
-            self.object_menu.popup(None, None, None, None, event.button, event.time)
-            self.queue_draw()
+            self.mm.object_menu(self.gom.selected_objects()).popup(None, None, None, None, event.button, event.time)
         else:
-            self.context_menu.popup(None, None, None, None, event.button, event.time)
+            self.mm.context_menu().popup(None, None, None, None, event.button, event.time)
+        self.queue_draw()
 
     # ---------------------------------------------------------------------
 
@@ -3532,14 +3963,24 @@ class TransparentWindow(Gtk.Window):
     def create_object(self, ev):
         """Create an object based on the current mode."""
         # not managed by GOM: first create, then decide whether to add to GOM
-        obj = DrawableFactory.create_drawable(self.mode, manager=self, ev=ev)
+        obj = DrawableFactory.create_drawable(self.mode, pen = self.pen, ev=ev)
         if obj:
             self.current_object = obj
+
+    def set_mode(self, mode):
+        """Set the mode."""
+        self.mode = mode
+        self.cursor.default(self.mode)
+
+    def get_mode(self):
+        """Get the current mode."""
+        return self.mode
 
     # XXX this code should be completely rewritten, cleaned up, refactored
     # and god knows what else. It's a mess.
     def on_button_press(self, widget, event):
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
+        self.modified = True # better safe than sorry
 
         ev = MouseEvent(event, self.gom.objects())
         shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
@@ -3580,7 +4021,7 @@ class TransparentWindow(Gtk.Window):
                 self.wiglet_active = WigletTransparency((event.x, event.y), self.pen)
             return True
 
-        if self.mode == "picker":
+        if self.mode == "colorpicker":
             #print("picker mode")
             color = get_color_under_cursor()
             self.set_color(color) 
@@ -3613,8 +4054,8 @@ class TransparentWindow(Gtk.Window):
         """Handle mouse button release events."""
         obj = self.current_object
 
-        if obj and obj.type in [ "polygon", "path" ]:
-            print("finishing path / polygon")
+        if obj and obj.type in [ "shape", "path" ]:
+            print("finishing path / shape")
             obj.path_append(event.x, event.y, 0)
             obj.finish()
             if len(obj.coords) < 3:
@@ -3858,7 +4299,7 @@ class TransparentWindow(Gtk.Window):
             self.current_object.pen.font_set_from_description(font_description)
 
     def transmute(self, mode):
-        """Change the selected object(s) to a polygon."""
+        """Change the selected object(s) to a shape."""
         print("transmuting to", mode)
         sel = self.gom.selected_objects()
         # note to self: sel is a list, not the selection
@@ -3875,142 +4316,6 @@ class TransparentWindow(Gtk.Window):
         """Switch between pens."""
         self.pen, self.pen2 = self.pen2, self.pen
         self.queue_draw()
-
-    def handle_shortcuts(self, keyname):
-        """Handle keyboard shortcuts."""
-        print(keyname)
-
-        # these are single keystroke mode modifiers
-        modes = { 'm': "move", 's': "move", 'space': "move", 
-                  'd': "draw", 't': "text", 'e': "eraser", 
-                  'i': "picker",
-                  'c': "circle", 'b': "box", 'p': "polygon" }
-
-        # these are single keystroke actions
-        actions = {
-            'h':                    {'action': self.show_help_dialog},
-            'F1':                   {'action': self.show_help_dialog},
-            'question':             {'action': self.show_help_dialog},
-            'Shift-question':       {'action': self.show_help_dialog},
-            'Ctrl-l':               {'action': self.clear},
-            'Ctrl-b':               {'action': self.cycle_background},
-            'x':                    {'action': self.exit},
-            'q':                    {'action': self.exit},
-            'Ctrl-q':               {'action': self.exit},
-            'l':                    {'action': self.clear},
-            # XXX something is rotten here
-            #'f':                    {'action': self.gom.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
-            'o':                    {'action': self.outline_toggle, 'modes': ["box", "circle", "draw", "move"]},
-            'Alt-p':                {'action': self.transmute, 'args': [ "polygon" ], 'modes': ["draw", "polygon", "move"]},
-            'Alt-P':                {'action': self.transmute, 'args': [ "draw" ], 'modes': ["draw", "polygon", "move"]},
-
-            'Up':                   {'action': self.gom.move_selection, 'args': [0, -10],  'modes': ["move"]},
-            'Shift-Up':             {'action': self.gom.move_selection, 'args': [0, -1],   'modes': ["move"]},
-            'Ctrl-Up':              {'action': self.gom.move_selection, 'args': [0, -100], 'modes': ["move"]},
-            'Down':                 {'action': self.gom.move_selection, 'args': [0, 10],   'modes': ["move"]},
-            'Shift-Down':           {'action': self.gom.move_selection, 'args': [0, 1],    'modes': ["move"]},
-            'Ctrl-Down':            {'action': self.gom.move_selection, 'args': [0, 100],  'modes': ["move"]},
-            'Left':                 {'action': self.gom.move_selection, 'args': [-10, 0],  'modes': ["move"]},
-            'Shift-Left':           {'action': self.gom.move_selection, 'args': [-1, 0],   'modes': ["move"]},
-            'Ctrl-Left':            {'action': self.gom.move_selection, 'args': [-100, 0], 'modes': ["move"]},
-            'Right':                {'action': self.gom.move_selection, 'args': [10, 0],   'modes': ["move"]},
-            'Shift-Right':          {'action': self.gom.move_selection, 'args': [1, 0],    'modes': ["move"]},
-            'Ctrl-Right':           {'action': self.gom.move_selection, 'args': [100, 0],  'modes': ["move"]},
-
-            'Page_Up':              {'action': self.gom.rotate_selection, 'args': [10],  'modes': ["move"]},
-            'Shift-Page_Up':        {'action': self.gom.rotate_selection, 'args': [1],   'modes': ["move"]},
-            'Ctrl-Page_Up':         {'action': self.gom.rotate_selection, 'args': [90],  'modes': ["move"]},
-            'Page_Down':            {'action': self.gom.rotate_selection, 'args': [-10], 'modes': ["move"]},
-            'Shift-Page_Down':      {'action': self.gom.rotate_selection, 'args': [-1],  'modes': ["move"]},
-            'Ctrl-Page_Down':       {'action': self.gom.rotate_selection, 'args': [-90], 'modes': ["move"]},
-
-            'Alt-Page_Up':          {'action': self.gom.selection_zmove, 'args': [ "top"    ], 'modes': ["move"]},
-            'Alt-Page_Down':        {'action': self.gom.selection_zmove, 'args': [ "bottom" ], 'modes': ["move"]},
-            'Alt-Up':               {'action': self.gom.selection_zmove, 'args': [ "raise"  ], 'modes': ["move"]},
-            'Alt-Down':             {'action': self.gom.selection_zmove, 'args': [ "lower"  ], 'modes': ["move"]},
-
-
-            'Shift-W':              {'action': self.set_color, 'args': [COLORS["white"]]},
-            'Shift-B':              {'action': self.set_color, 'args': [COLORS["black"]]},
-            'Shift-R':              {'action': self.set_color, 'args': [COLORS["red"]]},
-            'Shift-G':              {'action': self.set_color, 'args': [COLORS["green"]]},
-            'Shift-L':              {'action': self.set_color, 'args': [COLORS["blue"]]},
-            'Shift-E':              {'action': self.set_color, 'args': [COLORS["grey"]]},
-            'Shift-Y':              {'action': self.set_color, 'args': [COLORS["yellow"]]},
-            'Shift-P':              {'action': self.set_color, 'args': [COLORS["purple"]]},
-
-            # dialogs
-            'Ctrl-e':               {'action': self.export_drawing},
-            'Ctrl-k':               {'action': self.select_color},
-            'Ctrl-f':               {'action': self.select_font},
-            'Ctrl-i':               {'action': self.select_image_and_create_pixbuf},
-            'Ctrl-p':               {'action': self.switch_pens},
-            'Ctrl-o':               {'action': self.open_drawing},
-
-            # selections and moving objects
-            'Tab':                  {'action': self.gom.select_next_object, 'modes': ["move"]},
-            'Shift-ISO_Left_Tab':   {'action': self.gom.select_next_object, 'modes': ["move"]},
-            'g':                    {'action': self.gom.selection_group,    'modes': ["move"]},
-            'u':                    {'action': self.gom.selection_ungroup,  'modes': ["move"]},
-            'Delete':               {'action': self.gom.selection_delete,   'modes': ["move"]},
-            'Ctrl-a':               {'action': self.gom.select_all},
-            'Ctrl-r':               {'action': self.gom.select_reverse},
-            'Ctrl-y':               {'action': self.gom.redo},
-            'Ctrl-z':               {'action': self.gom.undo},
-#            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
-            'Ctrl-c':               {'action': self.copy_content,       'modes': ["move"]},
-            'Ctrl-x':               {'action': self.cut_content,        'modes': ["move"]},
-            'Ctrl-v':               {'action': self.paste_content},
-            'Ctrl-F':               {'action': self.screenshot},
-
-            'Ctrl-plus':            {'action': self.stroke_increase},
-            'Ctrl-minus':           {'action': self.stroke_decrease},
-        }
-
-        if keyname in modes:
-            self.mode = modes[keyname]
-            self.cursor.default(modes[keyname])
-        elif keyname in actions:
-            if not "modes" in actions[keyname] or self.mode in actions[keyname]["modes"]:
-                if "args" in actions[keyname]:
-                    actions[keyname]["action"](*actions[keyname]["args"])
-                else:
-                    actions[keyname]["action"]()
-        self.queue_draw()
-     
-    def on_key_press(self, widget, event):
-        """Handle keyboard events."""
-        keyname = Gdk.keyval_name(event.keyval)
-        char    = chr(Gdk.keyval_to_unicode(event.keyval))
-        ctrl    = event.state & Gdk.ModifierType.CONTROL_MASK
-        shift   = event.state & Gdk.ModifierType.SHIFT_MASK
-        alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
-
-        keyfull = keyname
-        if shift:
-            keyfull = "Shift-" + keyname
-        if ctrl:
-            keyfull = "Ctrl-" + keyname
-        if alt_l:
-            keyfull = "Alt-" + keyname
-
-        # End text input
-        if keyname == "Escape":
-            self.finish_text_input()
-
-        # Handle ctrl-keyboard shortcuts: priority
-        elif event.state & ctrl:
-            self.handle_shortcuts(keyfull)
-       
-        # Handle text input
-        elif self.current_object and self.current_object.type == "text":
-            self.update_text_input(keyname, char)
-        else:
-        # handle single keystroke shortcuts
-            self.handle_shortcuts(keyfull)
-
-        self.queue_draw()
-        return True
 
     def select_color(self):
         """Select a color for drawing."""
@@ -4075,7 +4380,7 @@ class TransparentWindow(Gtk.Window):
     def find_screenshot_box(self):
         if self.current_object and self.current_object.type == "box":
             return self.current_object
-        if self.gom.selection.n() == 1 and self.gom.selection.objects()[0].type == "box":
+        if self.gom.selection.n() == 1 and self.gom.selected_objects()[0].type == "box":
             return self.gom.selection.objects()[0]
 
         for obj in self.gom.objects()[::-1]:
@@ -4096,6 +4401,18 @@ class TransparentWindow(Gtk.Window):
         while Gtk.events_pending():
             Gtk.main_iteration_do(False)
         GLib.timeout_add(100, self.screenshot_finalize, bb)
+
+    def autosave(self):
+        # XXX: not implemented, tracking modifications of state
+        if not self.modified:
+           return
+
+        if self.current_object: # not while drawing!
+            return
+
+        print("Autosaving")
+        self.save_state()
+        self.modified = False
 
     def save_state(self): 
         """Save the current drawing state to a file."""
@@ -4118,6 +4435,7 @@ class TransparentWindow(Gtk.Window):
         if self.read_file(file_name):
             print("Setting savefile to", file_name)
             self.savefile = file_name
+            self.modified = True
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
@@ -4131,6 +4449,7 @@ class TransparentWindow(Gtk.Window):
             self.pen               = Pen.from_dict(config['pen'])
             self.pen2              = Pen.from_dict(config['pen2'])
         if config and objects:
+            self.modified = True
             return True
         return False
 
