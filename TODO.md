@@ -27,22 +27,6 @@ To do (sorted by priority):
  * maybe an infinite drawing area? Scrollable like?
 
 Design issues:
- * the app main window code should be split into UIManager, DrawManager and
-   EventManager, which would communicate via callbacks.
-
-   OK, so I implemented the Graphical Object Manager aka GOM. It takes care
-   of the object list as well as the selection (because several
-   selection-related operations, like "next object" or "select all" require
-   access to the object list).
-
-   Next task is the EventManager, which should take care of the mouse
-   related events mostly (keyboard events seem to be quite a different
-   thing and the central hub I have with the satellite and GOM functions
-   seems to work well). However I am still not sure what parts should
-   belong to the EventManager and how the communication between the
-   managers should look like. Does the EM get access to GOM and calls GOM
-   methods? Or does GOM register itself with EM and EM calls GOM methods?
-   or what?
  * maybe I am doing it all wrong. Maybe I should define a transformation
    class and then record transformations for each object. This way, I
    would be able to undo transformations easily. This is a big design
@@ -67,6 +51,23 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * the app main window code should be split into UIManager, DrawManager and
+   EventManager, which would communicate via callbacks.
+
+   OK, so I implemented the Graphical Object Manager aka GOM. It takes care
+   of the object list as well as the selection (because several
+   selection-related operations, like "next object" or "select all" require
+   access to the object list).
+
+   Next task is the EventManager, which should take care of the mouse
+   related events mostly (keyboard events seem to be quite a different
+   thing and the central hub I have with the satellite and GOM functions
+   seems to work well). However I am still not sure what parts should
+   belong to the EventManager and how the communication between the
+   managers should look like. Does the EM get access to GOM and calls GOM
+   methods? Or does GOM register itself with EM and EM calls GOM methods?
+   or what? => EM is the boss and knows it all. It has access to GOM and
+   the app and knows which methods to associate with which events.
  * autosave
  * copy of an image does not work
  * move does not undo????

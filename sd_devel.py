@@ -62,6 +62,7 @@ from sd.clipboard import Clipboard  ###<placeholder sd/clipboard.py>
 from sd.cursor import CursorManager ###<placeholder sd/cursor.py>
 from sd.gom import GraphicsObjectManager ###<placeholder sd/gom.py>
 from sd.import_export import *      ###<placeholder sd/import_export.py>
+from sd.em import *                 ###<placeholder sd/em.py>
 
 # ---------------------------------------------------------------------
 # defaults
@@ -110,20 +111,13 @@ class TransparentWindow(Gtk.Window):
             self.set_visual(visual)
         self.set_app_paintable(True)
 
-        # connecting events
-        self.connect("draw", self.on_draw)
-        self.connect("key-press-event", self.on_key_press)
-        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
-        self.connect("button-press-event",   self.on_button_press)
-        self.connect("button-release-event", self.on_button_release)
-        self.connect("motion-notify-event",  self.on_motion_notify)
-
         # autosave
         GLib.timeout_add(AUTOSAVE_INTERVAL, self.autosave)
 
         # Drawing setup
         self.mode                = "draw"
         self.gom                 = GraphicsObjectManager(self)
+        self.em                  = EventManager(gom = self.gom, app = self)
         self.clipboard           = Clipboard()
         self.cursor              = CursorManager(self)
         self.hidden              = False
@@ -147,6 +141,15 @@ class TransparentWindow(Gtk.Window):
         self.load_state()
         self.modified = False # for autosave
 
+        # connecting events
+        self.connect("draw", self.on_draw)
+        self.connect("key-press-event", self.em.on_key_press)
+        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
+        self.connect("button-press-event",   self.on_button_press)
+        self.connect("button-release-event", self.on_button_release)
+        self.connect("motion-notify-event",  self.on_motion_notify)
+
+
         self.create_context_menu()
         self.create_object_menu()
         self.set_keep_above(True)
@@ -155,63 +158,63 @@ class TransparentWindow(Gtk.Window):
     def on_menu_item_activated(self, widget, data):
         print("Menu item activated:", data)
 
-        self.handle_shortcuts(data)
+        self.em.dispatch_action(data)
+        self.queue_draw()
 
 
     def create_context_menu(self):
         menu_items = [
-                { "label": "Move         [m]",          "callback": self.on_menu_item_activated, "data": "m" },
-                { "label": "Pencil       [d]",          "callback": self.on_menu_item_activated, "data": "d" },
-                { "label": "Polygon      [p]",          "callback": self.on_menu_item_activated, "data": "d" },
-                { "label": "Text         [t]",          "callback": self.on_menu_item_activated, "data": "t" },
-                { "label": "Rectangle    [r]",          "callback": self.on_menu_item_activated, "data": "r" },
-                { "label": "Circle       [c]",          "callback": self.on_menu_item_activated, "data": "c" },
-                { "label": "Eraser       [e]",          "callback": self.on_menu_item_activated, "data": "e" },
-                { "label": "Color picker [i]",          "callback": self.on_menu_item_activated, "data": "i" },
+                { "label": "Move         [m]",          "callback": self.on_menu_item_activated, "data": "mode_move" },
+                { "label": "Pencil       [d]",          "callback": self.on_menu_item_activated, "data": "mode_draw" },
+                { "label": "Polygon      [p]",          "callback": self.on_menu_item_activated, "data": "mode_polygon" },
+                { "label": "Text         [t]",          "callback": self.on_menu_item_activated, "data": "mode_text" },
+                { "label": "Rectangle    [r]",          "callback": self.on_menu_item_activated, "data": "mode_box" },
+                { "label": "Circle       [c]",          "callback": self.on_menu_item_activated, "data": "mode_circle" },
+                { "label": "Eraser       [e]",          "callback": self.on_menu_item_activated, "data": "mode_eraser" },
+                { "label": "Color picker [i]",          "callback": self.on_menu_item_activated, "data": "mode_colorpicker" },
                 { "separator": True },
-                { "label": "Select all    (Ctrl-a)",    "callback": self.on_menu_item_activated, "data": "Ctrl-a" },
-                { "label": "Paste         (Ctrl-v)",    "callback": self.on_menu_item_activated, "data": "Ctrl-v" },
-                { "label": "Clear drawing (Ctrl-l)",    "callback": self.on_menu_item_activated, "data": "Ctrl-l" },
+                { "label": "Select all    (Ctrl-a)",    "callback": self.on_menu_item_activated, "data": "select_all" },
+                { "label": "Paste         (Ctrl-v)",    "callback": self.on_menu_item_activated, "data": "paste_content" },
+                { "label": "Clear drawing (Ctrl-l)",    "callback": self.on_menu_item_activated, "data": "clear_page" },
                 { "separator": True },
-                { "label": "Bg transparency (Ctrl-b)",  "callback": self.on_menu_item_activated, "data": "Ctrl-b" },
-                { "label": "Tggl outline    (Ctrl-b)",  "callback": self.on_menu_item_activated, "data": "o" },
+                { "label": "Bg transparency (Ctrl-b)",  "callback": self.on_menu_item_activated, "data": "cycle_bg_transparency" },
+                { "label": "Tggl outline    (Ctrl-b)",  "callback": self.on_menu_item_activated, "data": "toggle_outline" },
                 { "separator": True },
-                { "label": "Color           (Ctrl-k)",  "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
-                { "label": "Color picker    (i)",       "callback": self.on_menu_item_activated, "data": "i" },
-                { "label": "Font            (Ctrl-f)",  "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
+                { "label": "Color           (Ctrl-k)",  "callback": self.on_menu_item_activated, "data": "select_color" },
+                { "label": "Font            (Ctrl-f)",  "callback": self.on_menu_item_activated, "data": "select_font" },
                 { "separator": True },
-                { "label": "Open drawing    (Ctrl-o)",  "callback": self.on_menu_item_activated, "data": "Ctrl-o" },
-                { "label": "Image from file (Ctrl-i)",  "callback": self.on_menu_item_activated, "data": "Ctrl-i" },
-                { "label": "Screenshot      (Ctrl-F)",  "callback": self.on_menu_item_activated, "data": "Ctrl-F" },
-                { "label": "Export drawing  (Ctrl-e)",  "callback": self.on_menu_item_activated, "data": "Ctrl-e" },
-                { "label": "Help            [F1]",      "callback": self.on_menu_item_activated, "data": "h" },
-                { "label": "Quit            (Ctrl-q)",  "callback": self.on_menu_item_activated, "data": "x" },
+                { "label": "Open drawing    (Ctrl-o)",  "callback": self.on_menu_item_activated, "data": "open_drawing" },
+                { "label": "Image from file (Ctrl-i)",  "callback": self.on_menu_item_activated, "data": "import_image" },
+                { "label": "Screenshot      (Ctrl-F)",  "callback": self.on_menu_item_activated, "data": "screenshot" },
+                { "label": "Export drawing  (Ctrl-e)",  "callback": self.on_menu_item_activated, "data": "export_drawing" },
+                { "label": "Help            [F1]",      "callback": self.on_menu_item_activated, "data": "show_help_dialog" },
+                { "label": "Quit            (Ctrl-q)",  "callback": self.on_menu_item_activated, "data": "app_exit" },
         ]
 
         self.context_menu = build_menu(menu_items)
 
     def create_object_menu(self):
         menu_items = [
-                { "label": "Copy (Ctrl-c)",        "callback": self.on_menu_item_activated, "data": "Ctrl-c" },
-                { "label": "Cut (Ctrl-x)",         "callback": self.on_menu_item_activated, "data": "Ctrl-x" },
+                { "label": "Copy (Ctrl-c)",        "callback": self.on_menu_item_activated, "data": "copy_content" },
+                { "label": "Cut (Ctrl-x)",         "callback": self.on_menu_item_activated, "data": "cut_content" },
                 { "separator": True },
-                { "label": "Delete (|Del|)",       "callback": self.on_menu_item_activated, "data": "Delete" },
-                { "label": "Group (g)",            "callback": self.on_menu_item_activated, "data": "g" },
-                { "label": "Ungroup (u)",          "callback": self.on_menu_item_activated, "data": "u" },
+                { "label": "Delete (|Del|)",       "callback": self.on_menu_item_activated, "data": "selection_delete" },
+                { "label": "Group (g)",            "callback": self.on_menu_item_activated, "data": "selection_group" },
+                { "label": "Ungroup (u)",          "callback": self.on_menu_item_activated, "data": "selection_ungroup" },
                 { "separator": True },
-                { "label": "Move to top (Alt-Page_Up)", "callback": self.on_menu_item_activated, "data": "Alt-Page_Up" },
-                { "label": "Raise (Alt-Up)",       "callback": self.on_menu_item_activated, "data": "Alt-Up" },
-                { "label": "Lower (Alt-Down)",     "callback": self.on_menu_item_activated, "data": "Alt-Down" },
-                { "label": "Move to bottom (Alt-Page_Down)", "callback": self.on_menu_item_activated, "data": "Alt-Page_Down" },
+                { "label": "Move to top (Alt-Page_Up)", "callback": self.on_menu_item_activated, "data": "zmove_selection_top" },
+                { "label": "Raise (Alt-Up)",       "callback": self.on_menu_item_activated, "data": "zmove_selection_up" },
+                { "label": "Lower (Alt-Down)",     "callback": self.on_menu_item_activated, "data": "zmvoe_selection_down" },
+                { "label": "Move to bottom (Alt-Page_Down)", "callback": self.on_menu_item_activated, "data": "zmove_selection_bottom" },
                 { "separator": True },
-                { "label": "To polygon (Alt-p)",   "callback": self.on_menu_item_activated, "data": "Alt-p" },
-                { "label": "To drawing (Alt-P)",   "callback": self.on_menu_item_activated, "data": "Alt-P" },
+                { "label": "To polygon (Alt-p)",   "callback": self.on_menu_item_activated, "data": "transmute_to_polygon" },
+                { "label": "To drawing (Alt-P)",   "callback": self.on_menu_item_activated, "data": "transmute_to_drawing" },
                 #{ "label": "Fill       (f)",       "callback": self.on_menu_item_activated, "data": "f" },
                 { "separator": True },
-                { "label": "Color (Ctrl-k)",       "callback": self.on_menu_item_activated, "data": "Ctrl-k" },
-                { "label": "Font (Ctrl-f)",        "callback": self.on_menu_item_activated, "data": "Ctrl-f" },
-                { "label": "Help [F1]",            "callback": self.on_menu_item_activated, "data": "h" },
-                { "label": "Quit (Ctrl-q)",        "callback": self.on_menu_item_activated, "data": "x" },
+                { "label": "Color (Ctrl-k)",       "callback": self.on_menu_item_activated, "data": "select_color" },
+                { "label": "Font (Ctrl-f)",        "callback": self.on_menu_item_activated, "data": "select_font" },
+                { "label": "Help [F1]",            "callback": self.on_menu_item_activated, "data": "show_help_dialog" },
+                { "label": "Quit (Ctrl-q)",        "callback": self.on_menu_item_activated, "data": "app_exit" },
                 
 
         ]
@@ -335,6 +338,15 @@ class TransparentWindow(Gtk.Window):
         if obj:
             self.current_object = obj
 
+    def set_mode(self, mode):
+        """Set the mode."""
+        self.mode = mode
+        self.cursor.default(self.mode)
+
+    def get_mode(self):
+        """Get the current mode."""
+        return self.mode
+
     # XXX this code should be completely rewritten, cleaned up, refactored
     # and god knows what else. It's a mess.
     def on_button_press(self, widget, event):
@@ -380,7 +392,7 @@ class TransparentWindow(Gtk.Window):
                 self.wiglet_active = WigletTransparency((event.x, event.y), self.pen)
             return True
 
-        if self.mode == "picker":
+        if self.mode == "colorpicker":
             #print("picker mode")
             color = get_color_under_cursor()
             self.set_color(color) 
@@ -675,143 +687,6 @@ class TransparentWindow(Gtk.Window):
         """Switch between pens."""
         self.pen, self.pen2 = self.pen2, self.pen
         self.queue_draw()
-
-    def handle_shortcuts(self, keyname):
-        """Handle keyboard shortcuts."""
-        print(keyname)
-        self.modified = True # better safe than sorry
-
-        # these are single keystroke mode modifiers
-        modes = { 'm': "move", 's': "move", 'space': "move", 
-                  'd': "draw", 't': "text", 'e': "eraser", 
-                  'i': "picker",
-                  'c': "circle", 'r': "box", 'p': "polygon" }
-
-        # these are single keystroke actions
-        actions = {
-            'h':                    {'action': self.show_help_dialog},
-            'F1':                   {'action': self.show_help_dialog},
-            'question':             {'action': self.show_help_dialog},
-            'Shift-question':       {'action': self.show_help_dialog},
-            'Ctrl-l':               {'action': self.clear},
-            'Ctrl-b':               {'action': self.cycle_background},
-            'x':                    {'action': self.exit},
-            'q':                    {'action': self.exit},
-            'Ctrl-q':               {'action': self.exit},
-            'l':                    {'action': self.clear},
-            # XXX something is rotten here
-            #'f':                    {'action': self.gom.selection_fill, 'modes': ["box", "circle", "draw", "move"]},
-            'o':                    {'action': self.outline_toggle, 'modes': ["box", "circle", "draw", "move"]},
-            'Alt-p':                {'action': self.gom.transmute_selection, 'args': [ "polygon" ], 'modes': ["draw", "polygon", "move"]},
-            'Alt-P':                {'action': self.gom.transmute_selection, 'args': [ "draw" ], 'modes': ["draw", "polygon", "move"]},
-
-            'Up':                   {'action': self.gom.move_selection, 'args': [0, -10],  'modes': ["move"]},
-            'Shift-Up':             {'action': self.gom.move_selection, 'args': [0, -1],   'modes': ["move"]},
-            'Ctrl-Up':              {'action': self.gom.move_selection, 'args': [0, -100], 'modes': ["move"]},
-            'Down':                 {'action': self.gom.move_selection, 'args': [0, 10],   'modes': ["move"]},
-            'Shift-Down':           {'action': self.gom.move_selection, 'args': [0, 1],    'modes': ["move"]},
-            'Ctrl-Down':            {'action': self.gom.move_selection, 'args': [0, 100],  'modes': ["move"]},
-            'Left':                 {'action': self.gom.move_selection, 'args': [-10, 0],  'modes': ["move"]},
-            'Shift-Left':           {'action': self.gom.move_selection, 'args': [-1, 0],   'modes': ["move"]},
-            'Ctrl-Left':            {'action': self.gom.move_selection, 'args': [-100, 0], 'modes': ["move"]},
-            'Right':                {'action': self.gom.move_selection, 'args': [10, 0],   'modes': ["move"]},
-            'Shift-Right':          {'action': self.gom.move_selection, 'args': [1, 0],    'modes': ["move"]},
-            'Ctrl-Right':           {'action': self.gom.move_selection, 'args': [100, 0],  'modes': ["move"]},
-
-            'Page_Up':              {'action': self.gom.rotate_selection, 'args': [10],  'modes': ["move"]},
-            'Shift-Page_Up':        {'action': self.gom.rotate_selection, 'args': [1],   'modes': ["move"]},
-            'Ctrl-Page_Up':         {'action': self.gom.rotate_selection, 'args': [90],  'modes': ["move"]},
-            'Page_Down':            {'action': self.gom.rotate_selection, 'args': [-10], 'modes': ["move"]},
-            'Shift-Page_Down':      {'action': self.gom.rotate_selection, 'args': [-1],  'modes': ["move"]},
-            'Ctrl-Page_Down':       {'action': self.gom.rotate_selection, 'args': [-90], 'modes': ["move"]},
-
-            'Alt-Page_Up':          {'action': self.gom.selection_zmove, 'args': [ "top"    ], 'modes': ["move"]},
-            'Alt-Page_Down':        {'action': self.gom.selection_zmove, 'args': [ "bottom" ], 'modes': ["move"]},
-            'Alt-Up':               {'action': self.gom.selection_zmove, 'args': [ "raise"  ], 'modes': ["move"]},
-            'Alt-Down':             {'action': self.gom.selection_zmove, 'args': [ "lower"  ], 'modes': ["move"]},
-
-
-            'Shift-W':              {'action': self.set_color, 'args': [COLORS["white"]]},
-            'Shift-B':              {'action': self.set_color, 'args': [COLORS["black"]]},
-            'Shift-R':              {'action': self.set_color, 'args': [COLORS["red"]]},
-            'Shift-G':              {'action': self.set_color, 'args': [COLORS["green"]]},
-            'Shift-L':              {'action': self.set_color, 'args': [COLORS["blue"]]},
-            'Shift-E':              {'action': self.set_color, 'args': [COLORS["grey"]]},
-            'Shift-Y':              {'action': self.set_color, 'args': [COLORS["yellow"]]},
-            'Shift-P':              {'action': self.set_color, 'args': [COLORS["purple"]]},
-
-            # dialogs
-            'Ctrl-e':               {'action': self.export_drawing},
-            'Ctrl-k':               {'action': self.select_color},
-            'Ctrl-f':               {'action': self.select_font},
-            'Ctrl-i':               {'action': self.select_image_and_create_pixbuf},
-            'Ctrl-p':               {'action': self.switch_pens},
-            'Ctrl-o':               {'action': self.open_drawing},
-
-            # selections and moving objects
-            'Tab':                  {'action': self.gom.select_next_object, 'modes': ["move"]},
-            'Shift-ISO_Left_Tab':   {'action': self.gom.select_next_object, 'modes': ["move"]},
-            'g':                    {'action': self.gom.selection_group,    'modes': ["move"]},
-            'u':                    {'action': self.gom.selection_ungroup,  'modes': ["move"]},
-            'Delete':               {'action': self.gom.selection_delete,   'modes': ["move"]},
-            'Ctrl-a':               {'action': self.gom.select_all},
-            'Ctrl-r':               {'action': self.gom.select_reverse},
-            'Ctrl-y':               {'action': self.gom.redo},
-            'Ctrl-z':               {'action': self.gom.undo},
-#            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
-            'Ctrl-c':               {'action': self.copy_content,       'modes': ["move"]},
-            'Ctrl-x':               {'action': self.cut_content,        'modes': ["move"]},
-            'Ctrl-v':               {'action': self.paste_content},
-            'Ctrl-F':               {'action': self.screenshot},
-
-            'Ctrl-plus':            {'action': self.stroke_increase},
-            'Ctrl-minus':           {'action': self.stroke_decrease},
-        }
-
-        if keyname in modes:
-            self.mode = modes[keyname]
-            self.cursor.default(modes[keyname])
-        elif keyname in actions:
-            if not "modes" in actions[keyname] or self.mode in actions[keyname]["modes"]:
-                if "args" in actions[keyname]:
-                    actions[keyname]["action"](*actions[keyname]["args"])
-                else:
-                    actions[keyname]["action"]()
-        self.queue_draw()
-     
-    def on_key_press(self, widget, event):
-        """Handle keyboard events."""
-        keyname = Gdk.keyval_name(event.keyval)
-        char    = chr(Gdk.keyval_to_unicode(event.keyval))
-        ctrl    = event.state & Gdk.ModifierType.CONTROL_MASK
-        shift   = event.state & Gdk.ModifierType.SHIFT_MASK
-        alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
-
-        keyfull = keyname
-        if shift:
-            keyfull = "Shift-" + keyname
-        if ctrl:
-            keyfull = "Ctrl-" + keyname
-        if alt_l:
-            keyfull = "Alt-" + keyname
-
-        # End text input
-        if keyname == "Escape":
-            self.finish_text_input()
-
-        # Handle ctrl-keyboard shortcuts: priority
-        elif event.state & ctrl:
-            self.handle_shortcuts(keyfull)
-       
-        # Handle text input
-        elif self.current_object and self.current_object.type == "text":
-            self.update_text_input(keyname, char)
-        else:
-        # handle single keystroke shortcuts
-            self.handle_shortcuts(keyfull)
-
-        self.queue_draw()
-        return True
 
     def select_color(self):
         """Select a color for drawing."""

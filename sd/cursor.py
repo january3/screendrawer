@@ -39,6 +39,7 @@ class CursorManager:
             "eraser":      Gdk.Cursor.new_from_name(window.get_display(), "not-allowed"),
             "pencil":      Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "picker":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
+            "colorpicker": Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             "polygon":     Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "draw":        Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "crosshair":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
