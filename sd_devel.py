@@ -684,7 +684,7 @@ class TransparentWindow(Gtk.Window):
         file_name, file_format = export_dialog(self)
 
         if file_name:
-            export_image(obj, file_name, self.draw, file_format,
+            export_image(obj, file_name, file_format,
                          bg = self.bg_color, bbox = bbox)
 
     def select_image_and_create_pixbuf(self):
@@ -768,6 +768,7 @@ class TransparentWindow(Gtk.Window):
         config = {
                 'bg_color':    self.bg_color,
                 'transparent': self.transparent,
+                'bbox':        (0, 0, *self.get_size()),
                 'pen':         self.pen.to_dict(),
                 'pen2':        self.pen2.to_dict()
         }
@@ -822,9 +823,26 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Drawing on the screen")
     parser.add_argument("-l", "--loadfile", help="Load drawing from file")
+    parser.add_argument("-c", "--convert", help="Convert screendrawer file to given format (png, pdf, svg) and exit\n      (use -o to specify output file, otherwise a default name is used)")
+    parser.add_argument("-o", "--output", help="Output file for conversion")
     parser.add_argument("files", nargs="*")
-
     args     = parser.parse_args()
+
+    if args.convert:
+        if not args.convert in [ "png", "pdf", "svg" ]:
+            print("Invalid conversion format")
+            exit(1)
+        output = None
+        if args.output:
+            output = args.output
+
+        if not args.files:
+            print("No input file provided")
+            exit(1)
+        convert_file(args.files[0], output, args.convert)
+        exit(0)
+
+
     if args.files:
         savefile = args.files[0]
     else:

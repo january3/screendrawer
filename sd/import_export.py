@@ -1,11 +1,47 @@
 import cairo # <remove>
 from os import path # <remove>
 import pickle # <remove>
-from sd.drawable import Drawable # <remove>
+from sd.drawable import Drawable, DrawableGroup # <remove>
 
-def export_image(objects, filename, draw_func, file_format = "all", bg = (1, 1, 1), bbox = None):
+def guess_file_format(filename):
+    _, file_format = path.splitext(filename)
+    file_format = file_format[1:]
+    # lower case
+    file_format = file_format.lower()
+    # jpg -> jpeg
+    if file_format == "jpg":
+        file_format = "jpeg"
+    # check
+    if file_format not in [ "png", "jpeg", "pdf", "svg" ]:
+        raise ValueError("Unrecognized file extension")
+    return file_format
+
+def convert_file(input_file, output_file, file_format = "all"):
+    config, objects = read_file_as_sdrw(input_file)
+    print("read drawing from", input_file, "with", len(objects), "objects")
+    objects = DrawableGroup(objects)
+    bbox = config.get("bbox", None) or objects.bbox()
+    bg = config.get("bg_color", (1, 1, 1))
+
+    if file_format == "all":
+        if output_file is None:
+            raise ValueError("No output file format provided")
+        file_format = guess_file_format(output_file)
+    else:
+        if output_file is None:
+            # create a file name with the same name but different extension
+            output_file = path.splitext(input_file)[0] + "." + file_format
+
+    export_image(objects, output_file, file_format, bg = bg, bbox = bbox)
+
+
+def export_image(objects, filename, file_format = "all", bg = (1, 1, 1), bbox = None):
     """Export the drawing to a file."""
-    # Create a Cairo surface of the same size as the window content
+
+    # if filename is None, we send the output to stdout
+    if filename is None:
+        print("export_image: no filename provided")
+        return
 
     if file_format == "all":
         # get the format from the file name
@@ -28,6 +64,7 @@ def export_image(objects, filename, draw_func, file_format = "all", bg = (1, 1, 
     width, height = int(bbox[2]), int(bbox[3])
 
 
+    # Create a Cairo surface of the same size as the bbox
     if file_format == "png":
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
     elif file_format == "svg":

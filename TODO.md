@@ -1,14 +1,16 @@
 To do (sorted by priority):
 
 
+ * zoom in and out. I think the time is ripe for it
+ * paning the draw area
  * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
    to the corresponding pen
+ * wiglets for color / pen / line width. They should be drawinggroup
+   objects knowing how to draw themselves and how to react to mouse
  * Help should be actually a new screendrawer window with written on it!
  * how should the color picker and the color selection dialog colaborate?
  * think hard how I want the color setting / pen thing to work
  * implement undo for fonts as well
- * implement command line conversion between sdrw and (png, svg, pdf, ...)
-   -> this will require detaching the drawing from the window!
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
  * add "pages" or "layers" or "frames" or "slides" or "whatever" to the
    drawing. This would allow to switch between different drawings.
@@ -49,6 +51,8 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * implement command line conversion between sdrw and (png, svg, pdf, ...)
+   -> this will require detaching the drawing from the window!
  * save selection as...
  * implement "copy pen" or "set with pen" thingy. Also, 
  * changing bg color from current pen?
