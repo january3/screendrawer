@@ -25,13 +25,25 @@ COLORS = {
 class EventManager:
     """
     The EventManager class is a singleton that manages the events and actions
-    of the app. The actions are defined in the actions_dictionary method.
+    of the app. The actions are defined in the make_actions_dictionary method.
     """
+    # singleton pattern
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        # singleton pattern
+        if not cls._instance:
+            cls._instance = super(EventManager, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, gom, app):
-        self.__gom = gom
-        self.__app = app
-        self.make_actions_dictionary(gom, app)
-        self.make_default_keybindings()
+        # singleton pattern
+        if not hasattr(self, '_initialized'):
+            self._initialized = True
+            self.__gom = gom
+            self.__app = app
+            self.make_actions_dictionary(gom, app)
+            self.make_default_keybindings()
 
     def dispatch_action(self, action_name, **kwargs):
         """
@@ -206,6 +218,11 @@ class EventManager:
             'stroke_decrease':       {'action': app.stroke_decrease},
         }
 
+    def get_keybindings(self):
+        """
+        Returns the keybindings dictionary.
+        """
+        return self.__keybindings
 
     def make_default_keybindings(self):
         """
