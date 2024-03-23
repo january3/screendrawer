@@ -57,7 +57,9 @@ class GraphicsObjectManager:
             objects (list): The list of objects.
             mode (str): The mode to transmute to.
         """
-        self._history.append(TransmuteCommand(objects, self._objects, mode))
+        self._history.append(TransmuteCommand(objects, self._objects, mode, self.selection.objects))
+        # XXX the problem is that we need to remove the old objects from the
+        # selection as well. However, it turns out to be more complicated than
 
     def transmute_selection(self, mode):
         """

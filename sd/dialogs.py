@@ -47,7 +47,7 @@ Moving object to left lower screen corner deletes it.
 <b>d:</b> Draw mode (pencil)                 <b>m, |SPACE|:</b> Move mode (move objects around, copy and paste)
 <b>t:</b> Text mode (text entry)             <b>r:</b> rectangle mode  (draw a rectangle)
 <b>c:</b> Circle mode (draw an ellipse)      <b>e:</b> Eraser mode (delete objects with a click)
-<b>p:</b> Polygon mode (draw a polygon)      <b>i:</b> Color p<b>I</b>cker mode (pick a color from the screen)
+<b>s:</b> Shape mode (draw a filled shape)   <b>i:</b> Color p<b>I</b>cker mode (pick a color from the screen)
 
 <b>Works always:</b>                                                             <b>Move mode only:</b>
 <b>With Ctrl:</b>              <b>Simple key (not when entering text)</b>               <b>With Ctrl:</b>             <b>Simple key (not when entering text)</b>
@@ -59,8 +59,8 @@ Ctrl-i: insert image                                                            
 Ctrl-z: undo            |Esc|: Finish text input                                                 g, u: group, ungroup                           
 Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up, Alt-Down: Move object up, down
                                                                           Alt-PgUp, Alt-PgDown: Move object to front, back
-Ctrl-k: Select color                     f: fill with current color       Alt-p: convert drawing(s) to polygon(s)
-Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline                Alt-Shift-p: convert polygon(s) to drawing(s)
+Ctrl-k: Select color                     f: fill with current color       Alt-s: convert drawing(s) to shape(s)
+Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline                Alt-d: convert shape(s) to drawing(s)
 Ctrl-b: Cycle background transparency
 Ctrl-p: toggle between two pens
 Ctrl-Shift-f: screenshot: for a screenshot, you need at least one rectangle

@@ -146,7 +146,7 @@ class EventManager:
             'mode_text':             {'action': app.set_mode, 'args': ["text"]},
             'mode_select':           {'action': app.set_mode, 'args': ["select"]},
             'mode_eraser':           {'action': app.set_mode, 'args': ["eraser"]},
-            'mode_polygon':          {'action': app.set_mode, 'args': ["polygon"]},
+            'mode_shape':            {'action': app.set_mode, 'args': ["shape"]},
             'mode_colorpicker':      {'action': app.set_mode, 'args': ["colorpicker"]},
 
             'finish_text_input':     {'action': app.finish_text_input},
@@ -159,7 +159,7 @@ class EventManager:
             'toggle_outline':        {'action': app.outline_toggle},
 
             'selection_fill':        {'action': gom.selection_fill},
-            'transmute_to_polygon':  {'action': gom.transmute_selection, 'args': [ "polygon" ]},
+            'transmute_to_shape':    {'action': gom.transmute_selection, 'args': [ "shape" ]},
             'transmute_to_draw':     {'action': gom.transmute_selection, 'args': [ "draw" ]},
             'move_up_10':            {'action': gom.move_selection, 'args': [0, -10],   'modes': ["move"]},
             'move_up_1':             {'action': gom.move_selection, 'args': [0, -1],    'modes': ["move"]},
@@ -245,9 +245,8 @@ class EventManager:
             'c':                    "mode_circle",
             'd':                    "mode_draw",
             't':                    "mode_text",
-            's':                    "mode_select",
             'e':                    "mode_eraser",
-            'p':                    "mode_polygon",
+            's':                    "mode_shape",
             'i':                    "mode_colorpicker",
             'space':                "mode_move",
 
@@ -263,8 +262,8 @@ class EventManager:
             'Ctrl-q':               "app_exit",
             'l':                    "clear_page",
             'o':                    "toggle_outline",
-            'Alt-p':                "transmute_to_polygon",
-            'Alt-Shift-p':          "transmute_to_draw",
+            'Alt-s':                "transmute_to_shape",
+            'Alt-d':                "transmute_to_draw",
             'f':                    "selection_fill",
 
             'Up':                   "move_up_10",

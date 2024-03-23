@@ -360,8 +360,8 @@ class TransparentWindow(Gtk.Window):
         """Handle mouse button release events."""
         obj = self.current_object
 
-        if obj and obj.type in [ "polygon", "path" ]:
-            print("finishing path / polygon")
+        if obj and obj.type in [ "shape", "path" ]:
+            print("finishing path / shape")
             obj.path_append(event.x, event.y, 0)
             obj.finish()
             if len(obj.coords) < 3:
@@ -605,7 +605,7 @@ class TransparentWindow(Gtk.Window):
             self.current_object.pen.font_set_from_description(font_description)
 
     def transmute(self, mode):
-        """Change the selected object(s) to a polygon."""
+        """Change the selected object(s) to a shape."""
         print("transmuting to", mode)
         sel = self.gom.selected_objects()
         # note to self: sel is a list, not the selection

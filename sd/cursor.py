@@ -40,7 +40,7 @@ class CursorManager:
             "pencil":      Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "picker":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             "colorpicker": Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
-            "polygon":     Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
+            "shape":       Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "draw":        Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "crosshair":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             "circle":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),

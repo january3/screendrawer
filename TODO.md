@@ -1,11 +1,13 @@
 To do (sorted by priority):
 
 
+ * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
+   to the corresponding pen
+ * implement a way to change the color of the background
  * save selection as...
  * Help should be actually a new screendrawer window with written on it!
  * implement "copy pen" or "set with pen" thingy. Also, how should the
    color picker and the color selection dialog colaborate?
- * add a method to change the color of the background
  * think hard how I want the color setting / pen thing to work
  * implement undo for fonts as well
  * implement command line conversion between sdrw and (png, svg, pdf, ...)

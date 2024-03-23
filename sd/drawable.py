@@ -32,8 +32,8 @@ class DrawableFactory:
         elif mode == "box":
             ret_obj = Box([ pos, (pos[0], pos[1]) ], pen = pen)
 
-        elif mode == "polygon":
-            ret_obj = Polygon([ pos ], pen = pen)
+        elif mode == "shape":
+            ret_obj = Shape([ pos ], pen = pen)
 
         elif mode == "circle":
             ret_obj = Circle([ pos, (pos[0], pos[1]) ], pen = pen)
@@ -64,9 +64,9 @@ class DrawableFactory:
             obj = Path.from_object(obj)
         elif mode == "box":
             obj = Box.from_object(obj)
-        elif mode == "polygon":
-            print("calling Polygon.from_object")
-            obj = Polygon.from_object(obj)
+        elif mode == "shape":
+            print("calling Shape.from_object")
+            obj = Shape.from_object(obj)
         elif mode == "circle":
             obj = Circle.from_object(obj)
         else:
@@ -238,7 +238,8 @@ class Drawable:
     def from_dict(cls, d):
         type_map = {
             "path": Path,
-            "polygon": Polygon,
+            "polygon": Shape, #back compatibility
+            "shape": Shape,
             "circle": Circle,
             "box": Box,
             "image": Image,
@@ -973,14 +974,14 @@ class Text(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.5)
 
-class Polygon(Drawable):
-    """Class for polygons (closed paths with no outline)."""
+class Shape(Drawable):
+    """Class for shapes (closed paths with no outline)."""
     def __init__(self, coords, pen):
-        super().__init__("polygon", coords, pen)
+        super().__init__("shape", coords, pen)
         self.bb = None
 
     def finish(self):
-        print("finishing polygon")
+        print("finishing shape")
         self.coords, pressure = smooth_path(self.coords)
         #self.outline_recalculate_new()
 
@@ -1105,16 +1106,16 @@ class Polygon(Drawable):
 
     @classmethod
     def from_object(cls, obj):
-        print("Polygon.from_object", obj)
+        print("Shape.from_object", obj)
         if obj.coords and len(obj.coords) > 2 and obj.pen:
             return cls(obj.coords, obj.pen)
         else:
             # issue a warning
-            print("Polygon.from_object: invalid object")
+            print("Shape.from_object: invalid object")
         return obj
 
 class Path(Drawable):
-    """ Path is like polygon, but not closed and has an outline that depends on
+    """ Path is like shape, but not closed and has an outline that depends on
         line width and pressure."""
     def __init__(self, coords, pen, outline = None, pressure = None):
         super().__init__("path", coords, pen = pen)
@@ -1240,7 +1241,7 @@ class Path(Drawable):
 
     def path_append(self, x, y, pressure = 1):
         """Append a point to the path, calculating the outline of the
-           polygon around the path. Only used when path is created to 
+           shape around the path. Only used when path is created to 
            allow for a good preview. Later, the path is smoothed and recalculated."""
         coords = self.coords
         width  = self.pen.line_width * pressure
@@ -1368,10 +1369,6 @@ class Path(Drawable):
 
         if self.rotation != 0:
             cr.restore()
-
-    @classmethod
-    def from_polygon(cls, polygon):
-        return cls(polygon.coords, polygon.pen)
 
     @classmethod
     def from_object(cls, obj):

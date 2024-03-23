@@ -115,12 +115,13 @@ class TransmuteCommand(Command):
     However, we don't. Instead we just slap the old object back onto the stack.
     """
 
-    def __init__(self, objects, stack, new_type):
+    def __init__(self, objects, stack, new_type, selection_objects = None):
         super().__init__("transmute", objects)
         self._new_type = new_type
         self._old_objs = [ ]
         self._new_objs = [ ]
         self._stack    = stack
+        self._selection_objects = selection_objects
 
         for obj in self.obj:
             new_obj = DrawableFactory.transmute(obj, new_type)
@@ -137,6 +138,18 @@ class TransmuteCommand(Command):
             self._stack.remove(obj)
             self._stack.append(new_obj)
 
+        if self._selection_objects:
+            self.map_selection()
+
+    def map_selection(self):
+        obj_map = self.obj_map()
+        # XXX this should not change the order of the objects
+        self._selection_objects[:] = [ obj_map.get(obj, obj) for obj in self._selection_objects ]
+
+    def obj_map(self):
+        """Return a dictionary mapping old objects to new objects."""
+        return { self._old_objs[i]: self._new_objs[i] for i in range(len(self._old_objs)) }
+
     def undo(self):
         """replace all the new objects with the old ones in the stack"""
         if self._undone:
@@ -146,6 +159,8 @@ class TransmuteCommand(Command):
         for obj in self._old_objs:
             self._stack.append(obj)
         self._undone = True
+        if self._selection_objects:
+            self.map_selection()
 
     def redo(self):
         """put the new objects again on the stack and remove the old ones"""
@@ -156,6 +171,8 @@ class TransmuteCommand(Command):
         for obj in self._new_objs:
             self._stack.append(obj)
         self._undone = False
+        if self._selection_objects:
+            self.map_selection()
 
 class ZStackCommand(Command):
     """Simple class for handling z-stack operations."""
