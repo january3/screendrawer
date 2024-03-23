@@ -51,6 +51,8 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * when converting via command line, it should be possible to specify a
+   border around the actual drawing (so not all screen is exported)
  * implement command line conversion between sdrw and (png, svg, pdf, ...)
    -> this will require detaching the drawing from the window!
  * save selection as...

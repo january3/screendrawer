@@ -826,6 +826,7 @@ if __name__ == "__main__":
             epilog=f"Alternative use: {argv[0]} file.sdrw file.[png, pdf, svg]")
     parser.add_argument("-l", "--loadfile", help="Load drawing from file")
     parser.add_argument("-c", "--convert", help="Convert screendrawer file to given format (png, pdf, svg) and exit\n      (use -o to specify output file, otherwise a default name is used)")
+    parser.add_argument("-b", "--border", help="Border width for conversion", type=int)
     parser.add_argument("-o", "--output", help="Output file for conversion")
     parser.add_argument("files", nargs="*")
     args     = parser.parse_args()
@@ -841,7 +842,7 @@ if __name__ == "__main__":
         if not args.files:
             print("No input file provided")
             exit(1)
-        convert_file(args.files[0], output, args.convert)
+        convert_file(args.files[0], output, args.convert, border = args.border)
         exit(0)
 
     if args.files:
@@ -849,7 +850,7 @@ if __name__ == "__main__":
             print("Too many files provided")
             exit(1)
         elif len(args.files) == 2:
-            convert_file(args.files[0], args.files[1])
+            convert_file(args.files[0], args.files[1], border = args.border)
             exit(0)
         else:
             savefile = args.files[0]

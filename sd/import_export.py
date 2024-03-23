@@ -16,11 +16,16 @@ def guess_file_format(filename):
         raise ValueError("Unrecognized file extension")
     return file_format
 
-def convert_file(input_file, output_file, file_format = "all"):
+def convert_file(input_file, output_file, file_format = "all", border = None):
     config, objects = read_file_as_sdrw(input_file)
     print("read drawing from", input_file, "with", len(objects), "objects")
     objects = DrawableGroup(objects)
+
     bbox = config.get("bbox", None) or objects.bbox()
+    if border:
+        bbox = objects.bbox()
+        bbox = (bbox[0] - border, bbox[1] - border, bbox[2] + border, bbox[3] + border)
+
     bg = config.get("bg_color", (1, 1, 1))
 
     if file_format == "all":
