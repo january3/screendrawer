@@ -5,8 +5,7 @@ To do (sorted by priority):
    to the corresponding pen
  * save selection as...
  * Help should be actually a new screendrawer window with written on it!
- * implement "copy pen" or "set with pen" thingy. Also, how should the
-   color picker and the color selection dialog colaborate?
+ * how should the color picker and the color selection dialog colaborate?
  * think hard how I want the color setting / pen thing to work
  * implement undo for fonts as well
  * implement command line conversion between sdrw and (png, svg, pdf, ...)
@@ -32,6 +31,7 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * 
  * the undo is, I think, still buggy. 
  * undo remove object places the object in the wrong position in stack - at
    the end of the stack, instead of the exact position that it was located.
@@ -50,6 +50,8 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * implement "copy pen" or "set with pen" thingy. Also, 
+ * changing bg color from current pen?
  * implement a way to change the color of the background
  * export image should use the background color
  * bug in exporting image - regression

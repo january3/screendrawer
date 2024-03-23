@@ -39,6 +39,32 @@ class CommandGroup(Command):
             cmd.redo()
         self._undone = False
         
+class SetLWCommand(Command):
+    """set line width command"""
+    # XXX: what happens if an object is added to group after the command,
+    # but before the undo? well, bad things happen
+    # XXX: more importantly: this does not work with groups
+    def __init__(self, objects, line_width):
+        super().__init__("set_lw", objects.get_primitive())
+        self._line_width = line_width
+        self._undo_line_width = { obj: obj.pen.line_width for obj in self.obj }
+
+        for obj in self.obj:
+            obj.line_width_set(line_width)
+
+    def undo(self):
+        for obj in self.obj:
+            if obj in self._undo_color:
+                obj.line_width_set(self._undo_color[obj])
+        self._undone = True
+
+    def redo(self):
+        if not self._undone:
+            return
+        for obj in self.obj:
+            obj.line_width_set(self._color)
+        self._undone = False
+
 class SetColorCommand(Command):
     """Simple class for handling color changes."""
     # XXX: what happens if an object is added to group after the command,

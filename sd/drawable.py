@@ -164,9 +164,17 @@ class Drawable:
         """Fill the object with a color."""
         self.pen.fill_set(color)
 
+    def line_width_set(self, lw):
+        """Set the color of the object."""
+        self.pen.line_width_set(lw)
+
     def color_set(self, color):
         """Set the color of the object."""
         self.pen.color_set(color)
+
+    def pen_set(self, pen):
+        """Set the pen of the object."""
+        self.pen = pen.copy()
 
     def font_set(self, size, family, weight, style):
         """Set the font of the object."""
@@ -1171,6 +1179,10 @@ class Path(Drawable):
             return
         print("smoothening path")
         self.coords, self.pressure = smooth_path(self.coords, self.pressure, 1)
+        self.outline_recalculate_new()
+
+    def set_pen(self, pen):
+        self.pen = pen
         self.outline_recalculate_new()
 
     def outline_recalculate_new(self, coords = None, pressure = None):

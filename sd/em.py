@@ -229,6 +229,9 @@ class EventManager:
             'redo':                   {'action': gom.redo},
             'undo':                   {'action': gom.undo},
 
+            'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
+            'apply_pen_to_bg':        {'action': app.apply_pen_to_bg,        'modes': ["move"]},
+
 #            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
             'copy_content':          {'action': app.copy_content,        'modes': ["move"]},
             'cut_content':           {'action': app.cut_content,         'modes': ["move"]},
@@ -310,7 +313,7 @@ class EventManager:
             'Shift-p':              "set_color_purple",
 
             'Ctrl-e':               "export_drawing",
-            'Ctrl-s':               "save_drawing_as",
+            'Ctrl-Shift-s':         "save_drawing_as",
             'Ctrl-k':               "select_color",
             'Ctrl-Shift-k':         "select_color_bg",
             'Ctrl-f':               "select_font",
@@ -323,6 +326,9 @@ class EventManager:
             'g':                    "selection_group",
             'u':                    "selection_ungroup",
             'Delete':               "selection_delete",
+
+            'Alt-p':                "apply_pen_to_selection",
+            'Alt-Shift-p':          "apply_pen_to_bg",
 
             'Ctrl-a':               "select_all",
             'Ctrl-r':               "select_reverse",

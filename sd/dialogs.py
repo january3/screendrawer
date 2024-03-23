@@ -68,6 +68,7 @@ Ctrl-z: undo            |Esc|: Finish text input                                
 Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up, Alt-Down: Move object up, down
                                                                           Alt-PgUp, Alt-PgDown: Move object to front, back
 Ctrl-k: Select color                     f: fill with current color       Alt-s: convert drawing(s) to shape(s)
+Ctrl-Shift-k: Select bg color
 Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline                Alt-d: convert shape(s) to drawing(s)
 Ctrl-b: Cycle background transparency
 Ctrl-p: toggle between two pens
@@ -81,6 +82,8 @@ Ctrl-i: Import image from a file (jpeg, png)
 Ctrl-o: Open a drawing from a file (.sdrw, that is the "native format") -
         note that the subsequent modifications will be saved to that file only
 Ctrl-e: Export drawing to a file (png, jpeg, pdf)
+Ctrl-Shift-s: "Save as" - save drawing to a file (.sdrw, that is the "native format") - note
+        that the subsequent modifications will be saved to that file only
 
 When you copy a selection or individual objects, you can paste them into
 other programs as a PNG image.

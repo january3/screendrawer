@@ -200,6 +200,15 @@ class GraphicsObjectManager:
         for obj in self.selection.objects:
             obj.pen.font_set_from_description(font_description)
 
+    def selection_apply_pen(self):
+        pen = self.__app.pen
+        """Apply the pen to the selected objects."""
+        if not self.selection.is_empty():
+            # self._history.append(SetColorCommand(self.selection, pen.color))
+            # self._history.append(SetLWCommand(self.selection, pen.color))
+            for obj in self.selection.objects:
+                obj.set_pen(pen)
+
     def do(self, command):
         """Do a command."""
         self._history.append(command)

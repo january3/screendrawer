@@ -55,6 +55,9 @@ class Pen:
     def color_set(self, color):
         self.color = color
 
+    def line_width_set(self, line_width):
+        self.line_width = lw
+
     def font_set_from_description(self, font_description):
         self.font_family = font_description.get_family()
         self.font_size   = font_description.get_size() / Pango.SCALE
