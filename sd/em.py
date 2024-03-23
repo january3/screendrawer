@@ -6,6 +6,8 @@
 # listeners to the EM. The EM is the one that knows what to do when an event
 # happens.
 
+import traceback # <remove>
+from sys import exc_info # <remove>
 from gi.repository import Gdk, Gtk # <remove>
 
 COLORS = {
@@ -64,6 +66,11 @@ class EventManager:
             else:
                 action(**kwargs)
         except Exception as e:
+            exc_type, exc_value, exc_traceback = exc_info()
+            print("Exception type: ", exc_type)
+            print("Exception value:", exc_value)
+            print("Traceback:")
+            traceback.print_tb(exc_traceback)
             print(f"Error while dispatching action {action_name}: {e}")
 
     def dispatch_key_event(self, key_event, mode):

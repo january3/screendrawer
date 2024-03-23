@@ -51,6 +51,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * "save as" dialog
  * selection all should switch to move mode
  * regression: text can't be entered
  * TransmuteCommand handles exchanging objects in the selection

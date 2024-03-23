@@ -3,6 +3,14 @@ import os # <remove>
 from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib # <remove>
 from .pen import Pen # <remove>
 
+FORMATS = {
+    "All files": { "pattern": "*",      "mime_type": "application/octet-stream", "name": "all" },
+    "PNG files":  { "pattern": "*.png",  "mime_type": "image/png",       "name": "png" },
+    "JPEG files": { "pattern": "*.jpeg", "mime_type": "image/jpeg",      "name": "jpeg" },
+    "PDF files":  { "pattern": "*.pdf",  "mime_type": "application/pdf", "name": "pdf" }
+}
+
+
 ## ---------------------------------------------------------------------
 class help_dialog(Gtk.Dialog):
     def __init__(self, parent):
@@ -96,14 +104,7 @@ An autosave happens every minute or so.
 ## ---------------------------------------------------------------------
 
 def _dialog_add_image_formats(dialog):
-    formats = {
-        "All files": { "pattern": "*",      "mime_type": "application/octet-stream", "name": "all" },
-        "PNG files":  { "pattern": "*.png",  "mime_type": "image/png",       "name": "png" },
-        "JPEG files": { "pattern": "*.jpeg", "mime_type": "image/jpeg",      "name": "jpeg" },
-        "PDF files":  { "pattern": "*.pdf",  "mime_type": "application/pdf", "name": "pdf" }
-    }
-
-    for name, data in formats.items():
+    for name, data in FORMATS.items():
         filter = Gtk.FileFilter()
         filter.set_name(name)
         filter.add_pattern(data["pattern"])
@@ -135,7 +136,7 @@ def export_dialog(parent):
     if response == Gtk.ResponseType.OK:
         file_name = dialog.get_filename()
         selected_filter = dialog.get_filter().get_name()
-        selected_filter = formats[selected_filter]["name"]
+        selected_filter = FORMATS[selected_filter]["name"]
         print(f"Save file as: {file_name}, Format: {selected_filter}")
 
     dialog.destroy()

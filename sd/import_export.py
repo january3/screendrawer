@@ -3,7 +3,7 @@ from os import path # <remove>
 import pickle # <remove>
 from sd.drawable import Drawable # <remove>
 
-def export_image(width, height, filename, draw_func, file_format = "all"):
+def export_image(width, height, filename, draw_func, file_format = "all", bg = (1, 1, 1)):
     """Export the drawing to a file."""
     # Create a Cairo surface of the same size as the window content
 
@@ -31,7 +31,7 @@ def export_image(width, height, filename, draw_func, file_format = "all"):
         raise ValueError("Invalid file format: " + file_format)
 
     cr = cairo.Context(surface)
-    cr.set_source_rgba(1, 1, 1)
+    cr.set_source_rgba(*bg)
     cr.paint()
     draw_func(cr)
 

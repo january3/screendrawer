@@ -27,6 +27,8 @@ import gi
 import copy
 import yaml
 import pickle
+import traceback
+from sys import exc_info
 gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
@@ -134,6 +136,8 @@ class TransparentWindow(Gtk.Window):
         self.pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
         self.pen2 = Pen(line_width = 40, color = (1, 1, 0),   font_size = 24, transparency = .2)
         self.transparent = 0
+        self.bg_color    = (.8, .75, .65)
+
         self.outline     = False
 
         # distance for selecting objects
@@ -168,7 +172,7 @@ class TransparentWindow(Gtk.Window):
             print("I am hidden!")
             return True
 
-        cr.set_source_rgba(.8, .75, .65, self.transparent)
+        cr.set_source_rgba(*self.bg_color, self.transparent)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
@@ -657,7 +661,8 @@ class TransparentWindow(Gtk.Window):
         file_name, file_format = export_dialog(self)
         width, height = self.get_size()
         if file_name:
-            export_image(width, height, file_name, self.draw, file_format)
+            export_image(width, height, file_name, self.draw, file_format,
+                         bg = self.bg_color)
 
     def select_image_and_create_pixbuf(self):
         """Select an image file and create a pixbuf from it."""
@@ -738,9 +743,10 @@ class TransparentWindow(Gtk.Window):
 
         print("savefile:", self.savefile)
         config = {
+                'bg_color':    self.bg_color,
                 'transparent': self.transparent,
-                'pen': self.pen.to_dict(),
-                'pen2': self.pen2.to_dict()
+                'pen':         self.pen.to_dict(),
+                'pen2':        self.pen2.to_dict()
         }
 
         objects = self.gom.export_objects()
@@ -761,7 +767,8 @@ class TransparentWindow(Gtk.Window):
             self.gom.set_objects(objects)
 
         if config and load_config:
-            self.transparent       = config['transparent']
+            self.bg_color          = config.get('bg_color') or (.8, .75, .65)
+            self.transparent       = config.get('transparent') or 0
             self.pen               = Pen.from_dict(config['pen'])
             self.pen2              = Pen.from_dict(config['pen2'])
         if config and objects:
