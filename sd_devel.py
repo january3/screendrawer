@@ -28,7 +28,7 @@ import copy
 import yaml
 import pickle
 import traceback
-from sys import exc_info
+from sys import exc_info, argv 
 gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
@@ -821,7 +821,9 @@ if __name__ == "__main__":
 
 # ---------------------------------------------------------------------
 
-    parser = argparse.ArgumentParser(description="Drawing on the screen")
+    parser = argparse.ArgumentParser(
+            description="Drawing on the screen",
+            epilog=f"Alternative use: {argv[0]} file.sdrw file.[png, pdf, svg]")
     parser.add_argument("-l", "--loadfile", help="Load drawing from file")
     parser.add_argument("-c", "--convert", help="Convert screendrawer file to given format (png, pdf, svg) and exit\n      (use -o to specify output file, otherwise a default name is used)")
     parser.add_argument("-o", "--output", help="Output file for conversion")
@@ -842,9 +844,15 @@ if __name__ == "__main__":
         convert_file(args.files[0], output, args.convert)
         exit(0)
 
-
     if args.files:
-        savefile = args.files[0]
+        if len(args.files) > 2:
+            print("Too many files provided")
+            exit(1)
+        elif len(args.files) == 2:
+            convert_file(args.files[0], args.files[1])
+            exit(0)
+        else:
+            savefile = args.files[0]
     else:
         savefile = get_default_savefile(app_name, app_author)
     print("Save file is:", savefile)
