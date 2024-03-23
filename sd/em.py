@@ -124,7 +124,8 @@ class EventManager:
         # call the ctrl keybindings and pass the rest to the text object.
         if app.current_object and app.current_object.type == "text" and not(ctrl or keyname == "Escape"):
             print("updating text input")
-            app.current_object.update_text_input(keyname, char)
+            app.current_object.update_by_key(keyname, char)
+            app.queue_draw()
             return
 
         # otherwise, we dispatch the key event

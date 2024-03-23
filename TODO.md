@@ -53,6 +53,8 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * regression: text can't be entered
+ * TransmuteCommand handles exchanging objects in the selection
  * the app main window code should be split into UIManager, DrawManager and
    EventManager, which would communicate via callbacks.
 
