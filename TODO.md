@@ -29,10 +29,8 @@ To do (sorted by priority):
  * maybe an infinite drawing area? Scrollable like?
 
 Design issues:
- * maybe I am doing it all wrong. Maybe I should define a transformation
-   class and then record transformations for each object. This way, I
-   would be able to undo transformations easily. This is a big design
-   issue.
+ * should the EM also take care of pre- and post-dispatch actions? Like
+   switching to a ceratain mode after or before certain commands
 
 Bugs:
  * the undo is, I think, still buggy. 
@@ -53,6 +51,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * selection all should switch to move mode
  * regression: text can't be entered
  * TransmuteCommand handles exchanging objects in the selection
  * the app main window code should be split into UIManager, DrawManager and
@@ -180,6 +179,11 @@ Rejected ideas:
    I implemented it, but it doesn't work correctly; there seems to be a bug
    either with Gnome or Gtk. However, if you move the cursor to the other
    monitor and then start sd it opens there, so it is not a big problem.
+ * maybe I am doing it all wrong. Maybe I should define a transformation
+   class and then record transformations for each object. This way, I
+   would be able to undo transformations easily. This is a big design
+   issue.
+
 
 
 

@@ -203,6 +203,7 @@ class EventManager:
 
             # dialogs
             "export_drawing":        {'action': app.export_drawing},
+            "save_drawing_as":       {'action': app.save_drawing_as},
             "select_color":          {'action': app.select_color},
             "select_font":           {'action': app.select_font},
             "import_image":          {'action': app.select_image_and_create_pixbuf},
@@ -301,6 +302,7 @@ class EventManager:
             'Shift-p':              "set_color_purple",
 
             'Ctrl-e':               "export_drawing",
+            'Ctrl-s':               "save_drawing_as",
             'Ctrl-k':               "select_color",
             'Ctrl-f':               "select_font",
             'Ctrl-i':               "import_image",

@@ -641,6 +641,15 @@ class TransparentWindow(Gtk.Window):
         response = dialog.run()
         dialog.destroy()
 
+    def save_drawing_as(self):
+        """Save the drawing to a file."""
+        print("opening save file dialog")
+        file = save_dialog(self)
+        if file:
+            self.savefile = file
+            print("setting savefile to", file)
+            self.save_state()
+
     def export_drawing(self):
         """Save the drawing to a file."""
         # Choose where to save the file
@@ -782,19 +791,21 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------
 
     parser = argparse.ArgumentParser(description="Drawing on the screen")
-    parser.add_argument("-s", "--savefile", help="File for automatic save upon exit")
+    parser.add_argument("-l", "--loadfile", help="Load drawing from file")
     parser.add_argument("files", nargs="*")
 
     args     = parser.parse_args()
-    savefile = args.savefile or get_default_savefile(app_name, app_author)
-    files    = args.files
+    if args.files:
+        savefile = args.files[0]
+    else:
+        savefile = get_default_savefile(app_name, app_author)
     print("Save file is:", savefile)
 
 # ---------------------------------------------------------------------
 
     win = TransparentWindow(savefile = savefile)
-    if files:
-        win.read_file(files[0])
+    if args.loadfile:
+        win.read_file(args.loadfile)
 
     css = b"""
     #myMenu {

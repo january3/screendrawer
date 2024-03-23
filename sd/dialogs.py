@@ -119,7 +119,7 @@ def export_dialog(parent):
     file_name, selected_filter = None, None
 
     dialog = Gtk.FileChooserDialog(
-        title="Save As", parent=parent, action=Gtk.FileChooserAction.SAVE)
+        title="Export As", parent=parent, action=Gtk.FileChooserAction.SAVE)
 
     dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                        Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
@@ -140,6 +140,36 @@ def export_dialog(parent):
 
     dialog.destroy()
     return file_name, selected_filter
+
+
+def save_dialog(parent):
+    """Show a file chooser dialog to set the savefile."""
+    print("export_dialog")
+    file_name, selected_filter = None, None
+
+    dialog = Gtk.FileChooserDialog(
+        title="Save As", parent=parent, action=Gtk.FileChooserAction.SAVE)
+
+    dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                       Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
+    dialog.set_modal(True)
+
+    current_directory = os.getcwd()
+    dialog.set_current_folder(current_directory)
+
+    #_dialog_add_image_formats(dialog)
+
+    # Show the dialog
+    response = dialog.run()
+    if response == Gtk.ResponseType.OK:
+        file_name = dialog.get_filename()
+       #selected_filter = dialog.get_filter().get_name()
+       #selected_filter = formats[selected_filter]["name"]
+       #print(f"Save file as: {file_name}, Format: {selected_filter}")
+
+    dialog.destroy()
+    return file_name
+
 
 def import_image_dialog(parent):
     """Show a file chooser dialog to select an image file."""
