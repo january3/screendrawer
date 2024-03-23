@@ -667,12 +667,25 @@ class TransparentWindow(Gtk.Window):
         """Save the drawing to a file."""
         # Choose where to save the file
         #    self.export(filename, "svg")
-        obj = self.gom.objects() or self.objects
+        bbox = None
+        if self.gom.selected_objects():
+            # only export the selected objects
+            obj = self.gom.selected_objects()
+        else:
+            # set bbox so we export the whole screen
+            obj = self.gom.objects()
+            bbox = (0, 0, *self.get_size())
+
+        if not obj:
+            print("Nothing to draw")
+            return
+
+        obj = DrawableGroup(obj)
         file_name, file_format = export_dialog(self)
-        width, height = self.get_size()
+
         if file_name:
-            export_image(width, height, file_name, self.draw, file_format,
-                         bg = self.bg_color)
+            export_image(obj, file_name, self.draw, file_format,
+                         bg = self.bg_color, bbox = bbox)
 
     def select_image_and_create_pixbuf(self):
         """Select an image file and create a pixbuf from it."""

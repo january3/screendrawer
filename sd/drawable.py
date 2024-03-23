@@ -1293,7 +1293,7 @@ class Path(Drawable):
         if self.resizing:
             return self.resizing["bbox"]
         if not self.bb:
-            self.bb = path_bbox(self.coords)
+            self.bb = path_bbox(self.outline or self.coords)
         return self.bb
 
     def resize_end(self):
@@ -1304,7 +1304,7 @@ class Path(Drawable):
         pressure   = self.pressure
         self.outline_recalculate_new(coords=new_coords, pressure=pressure)
         self.resizing  = None
-        self.bb = path_bbox(self.coords)
+        self.bb = path_bbox(self.outline or self.coords)
 
     def draw_outline(self, cr):
         """draws each segment separately and makes a dot at each coord."""
@@ -1326,7 +1326,7 @@ class Path(Drawable):
             return
 
         if bbox:
-            old_bbox = path_bbox(self.coords)
+            old_bbox = path_bbox(self.outline or self.coords)
             coords = transform_coords(self.coords, old_bbox, bbox)
         else:
             coords = self.coords

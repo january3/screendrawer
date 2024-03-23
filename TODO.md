@@ -3,7 +3,6 @@ To do (sorted by priority):
 
  * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
    to the corresponding pen
- * save selection as...
  * Help should be actually a new screendrawer window with written on it!
  * how should the color picker and the color selection dialog colaborate?
  * think hard how I want the color setting / pen thing to work
@@ -50,6 +49,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * save selection as...
  * implement "copy pen" or "set with pen" thingy. Also, 
  * changing bg color from current pen?
  * implement a way to change the color of the background

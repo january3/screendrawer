@@ -3,7 +3,7 @@ from os import path # <remove>
 import pickle # <remove>
 from sd.drawable import Drawable # <remove>
 
-def export_image(width, height, filename, draw_func, file_format = "all", bg = (1, 1, 1)):
+def export_image(objects, filename, draw_func, file_format = "all", bg = (1, 1, 1), bbox = None):
     """Export the drawing to a file."""
     # Create a Cairo surface of the same size as the window content
 
@@ -21,6 +21,13 @@ def export_image(width, height, filename, draw_func, file_format = "all", bg = (
             raise ValueError("Unrecognized file extension")
         print("export_image: guessing format from file name:", file_format)
 
+    if bbox is None:
+        bbox = objects.bbox()
+    print("Bounding box:", bbox)
+    # to integers
+    width, height = int(bbox[2]), int(bbox[3])
+
+
     if file_format == "png":
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
     elif file_format == "svg":
@@ -31,9 +38,12 @@ def export_image(width, height, filename, draw_func, file_format = "all", bg = (
         raise ValueError("Invalid file format: " + file_format)
 
     cr = cairo.Context(surface)
+    # translate to the top left corner of the bounding box
+    cr.translate(-bbox[0], -bbox[1])
+
     cr.set_source_rgba(*bg)
     cr.paint()
-    draw_func(cr)
+    objects.draw(cr)
 
     # Save the surface to the file
     if file_format == "png":

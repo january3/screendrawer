@@ -81,7 +81,7 @@ screenshot will be pasted into the drawing.
 Ctrl-i: Import image from a file (jpeg, png)
 Ctrl-o: Open a drawing from a file (.sdrw, that is the "native format") -
         note that the subsequent modifications will be saved to that file only
-Ctrl-e: Export drawing to a file (png, jpeg, pdf)
+Ctrl-e: Export selection or whole drawing to a file (png, jpeg, pdf)
 Ctrl-Shift-s: "Save as" - save drawing to a file (.sdrw, that is the "native format") - note
         that the subsequent modifications will be saved to that file only
 
