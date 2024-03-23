@@ -699,10 +699,11 @@ class TransparentWindow(Gtk.Window):
         obj = self.find_screenshot_box()
         if not obj:
             print("no suitable box found")
-            return
-
-        bb = obj.bbox()
-        print("bbox is", bb)
+            # use the whole screen
+            bb = (0, 0, *self.get_size())
+        else:
+            bb = obj.bbox()
+            print("bbox is", bb)
         self.hidden = True
         self.queue_draw()
         while Gtk.events_pending():
@@ -710,7 +711,6 @@ class TransparentWindow(Gtk.Window):
         GLib.timeout_add(100, self.screenshot_finalize, bb)
 
     def autosave(self):
-        # XXX: not implemented, tracking modifications of state
         if not self.modified:
            return
 
