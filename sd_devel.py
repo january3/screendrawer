@@ -143,7 +143,6 @@ class TransparentWindow(Gtk.Window):
         # distance for selecting objects
         self.max_dist   = 15
 
-        self.objects = [ ]
         self.load_state()
         self.modified = False # for autosave
 
@@ -668,6 +667,7 @@ class TransparentWindow(Gtk.Window):
         """Save the drawing to a file."""
         # Choose where to save the file
         #    self.export(filename, "svg")
+        obj = self.gom.objects() or self.objects
         file_name, file_format = export_dialog(self)
         width, height = self.get_size()
         if file_name:
