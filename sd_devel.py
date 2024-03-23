@@ -52,17 +52,18 @@ from os import path
 # the files are directly, physically inserted in order to get one big fat 
 # Python script that can just be copied.
 
-from sd.utils import *              ###<placeholder sd/utils.py>
-from sd.commands import *           ###<placeholder sd/commands.py>
-from sd.pen import Pen              ###<placeholder sd/pen.py>
-from sd.drawable import *           ###<placeholder sd/drawable.py>
-from sd.events import *             ###<placeholder sd/events.py>
-from sd.dialogs import *   ###<placeholder sd/dialogs.py>
-from sd.clipboard import Clipboard  ###<placeholder sd/clipboard.py>
-from sd.cursor import CursorManager ###<placeholder sd/cursor.py>
+from sd.utils import *                   ###<placeholder sd/utils.py>
+from sd.commands import *                ###<placeholder sd/commands.py>
+from sd.pen import Pen                   ###<placeholder sd/pen.py>
+from sd.drawable import *                ###<placeholder sd/drawable.py>
+from sd.events import *                  ###<placeholder sd/events.py>
+from sd.dialogs import *                 ###<placeholder sd/dialogs.py>
+from sd.clipboard import Clipboard       ###<placeholder sd/clipboard.py>
+from sd.cursor import CursorManager      ###<placeholder sd/cursor.py>
 from sd.gom import GraphicsObjectManager ###<placeholder sd/gom.py>
-from sd.import_export import *      ###<placeholder sd/import_export.py>
-from sd.em import *                 ###<placeholder sd/em.py>
+from sd.import_export import *           ###<placeholder sd/import_export.py>
+from sd.em import *                      ###<placeholder sd/em.py>
+from sd.menus import *                   ###<placeholder sd/menus.py>
 
 # ---------------------------------------------------------------------
 # defaults
@@ -120,6 +121,7 @@ class TransparentWindow(Gtk.Window):
         self.em                  = EventManager(gom = self.gom, app = self)
         self.clipboard           = Clipboard()
         self.cursor              = CursorManager(self)
+        self.mm                  = MenuMaker(self.gom, self.em, self)
         self.hidden              = False
 
         self.current_object      = None
@@ -149,76 +151,9 @@ class TransparentWindow(Gtk.Window):
         self.connect("button-release-event", self.on_button_release)
         self.connect("motion-notify-event",  self.on_motion_notify)
 
-
-        self.create_context_menu()
-        self.create_object_menu()
         self.set_keep_above(True)
         self.maximize()
 
-    def on_menu_item_activated(self, widget, data):
-        print("Menu item activated:", data)
-
-        self.em.dispatch_action(data)
-        self.queue_draw()
-
-
-    def create_context_menu(self):
-        menu_items = [
-                { "label": "Move         [m]",          "callback": self.on_menu_item_activated, "data": "mode_move" },
-                { "label": "Pencil       [d]",          "callback": self.on_menu_item_activated, "data": "mode_draw" },
-                { "label": "Polygon      [p]",          "callback": self.on_menu_item_activated, "data": "mode_polygon" },
-                { "label": "Text         [t]",          "callback": self.on_menu_item_activated, "data": "mode_text" },
-                { "label": "Rectangle    [r]",          "callback": self.on_menu_item_activated, "data": "mode_box" },
-                { "label": "Circle       [c]",          "callback": self.on_menu_item_activated, "data": "mode_circle" },
-                { "label": "Eraser       [e]",          "callback": self.on_menu_item_activated, "data": "mode_eraser" },
-                { "label": "Color picker [i]",          "callback": self.on_menu_item_activated, "data": "mode_colorpicker" },
-                { "separator": True },
-                { "label": "Select all    (Ctrl-a)",    "callback": self.on_menu_item_activated, "data": "select_all" },
-                { "label": "Paste         (Ctrl-v)",    "callback": self.on_menu_item_activated, "data": "paste_content" },
-                { "label": "Clear drawing (Ctrl-l)",    "callback": self.on_menu_item_activated, "data": "clear_page" },
-                { "separator": True },
-                { "label": "Bg transparency (Ctrl-b)",  "callback": self.on_menu_item_activated, "data": "cycle_bg_transparency" },
-                { "label": "Tggl outline    (Ctrl-b)",  "callback": self.on_menu_item_activated, "data": "toggle_outline" },
-                { "separator": True },
-                { "label": "Color           (Ctrl-k)",  "callback": self.on_menu_item_activated, "data": "select_color" },
-                { "label": "Font            (Ctrl-f)",  "callback": self.on_menu_item_activated, "data": "select_font" },
-                { "separator": True },
-                { "label": "Open drawing    (Ctrl-o)",  "callback": self.on_menu_item_activated, "data": "open_drawing" },
-                { "label": "Image from file (Ctrl-i)",  "callback": self.on_menu_item_activated, "data": "import_image" },
-                { "label": "Screenshot      (Ctrl-F)",  "callback": self.on_menu_item_activated, "data": "screenshot" },
-                { "label": "Export drawing  (Ctrl-e)",  "callback": self.on_menu_item_activated, "data": "export_drawing" },
-                { "label": "Help            [F1]",      "callback": self.on_menu_item_activated, "data": "show_help_dialog" },
-                { "label": "Quit            (Ctrl-q)",  "callback": self.on_menu_item_activated, "data": "app_exit" },
-        ]
-
-        self.context_menu = build_menu(menu_items)
-
-    def create_object_menu(self):
-        menu_items = [
-                { "label": "Copy (Ctrl-c)",        "callback": self.on_menu_item_activated, "data": "copy_content" },
-                { "label": "Cut (Ctrl-x)",         "callback": self.on_menu_item_activated, "data": "cut_content" },
-                { "separator": True },
-                { "label": "Delete (|Del|)",       "callback": self.on_menu_item_activated, "data": "selection_delete" },
-                { "label": "Group (g)",            "callback": self.on_menu_item_activated, "data": "selection_group" },
-                { "label": "Ungroup (u)",          "callback": self.on_menu_item_activated, "data": "selection_ungroup" },
-                { "separator": True },
-                { "label": "Move to top (Alt-Page_Up)", "callback": self.on_menu_item_activated, "data": "zmove_selection_top" },
-                { "label": "Raise (Alt-Up)",       "callback": self.on_menu_item_activated, "data": "zmove_selection_up" },
-                { "label": "Lower (Alt-Down)",     "callback": self.on_menu_item_activated, "data": "zmvoe_selection_down" },
-                { "label": "Move to bottom (Alt-Page_Down)", "callback": self.on_menu_item_activated, "data": "zmove_selection_bottom" },
-                { "separator": True },
-                { "label": "To polygon (Alt-p)",   "callback": self.on_menu_item_activated, "data": "transmute_to_polygon" },
-                { "label": "To drawing (Alt-P)",   "callback": self.on_menu_item_activated, "data": "transmute_to_drawing" },
-                #{ "label": "Fill       (f)",       "callback": self.on_menu_item_activated, "data": "f" },
-                { "separator": True },
-                { "label": "Color (Ctrl-k)",       "callback": self.on_menu_item_activated, "data": "select_color" },
-                { "label": "Font (Ctrl-f)",        "callback": self.on_menu_item_activated, "data": "select_font" },
-                { "label": "Help [F1]",            "callback": self.on_menu_item_activated, "data": "show_help_dialog" },
-                { "label": "Quit (Ctrl-q)",        "callback": self.on_menu_item_activated, "data": "app_exit" },
-                
-
-        ]
-        self.object_menu = build_menu(menu_items)
 
 
     def exit(self):
@@ -279,10 +214,10 @@ class TransparentWindow(Gtk.Window):
             if not self.gom.selection.contains(hover_obj):
                 self.gom.selection.set([ hover_obj ])
 
-            self.object_menu.popup(None, None, None, None, event.button, event.time)
-            self.queue_draw()
+            self.mm.object_menu(self.gom.selected_objects()).popup(None, None, None, None, event.button, event.time)
         else:
-            self.context_menu.popup(None, None, None, None, event.button, event.time)
+            self.mm.context_menu().popup(None, None, None, None, event.button, event.time)
+        self.queue_draw()
 
     # ---------------------------------------------------------------------
 

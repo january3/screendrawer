@@ -50,15 +50,21 @@ class EventManager:
         Dispatches an action by name.
         """
         print("dispatch_action", action_name)
-        if action_name in self.__actions:
-            action = self.__actions[action_name]['action']
-            if not callable(action):
-                raise ValueError(f"Action is not callable: {action_name}")
+        if not action_name in self.__actions:
+            print(f"action {action_name} not found in actions")
+            return
+
+        action = self.__actions[action_name]['action']
+        if not callable(action):
+            raise ValueError(f"Action is not callable: {action_name}")
+        try:
             if 'args' in self.__actions[action_name]:
                 args = self.__actions[action_name]['args']
                 action(*args)
             else:
                 action(**kwargs)
+        except Exception as e:
+            print(f"Error while dispatching action {action_name}: {e}")
 
     def dispatch_key_event(self, key_event, mode):
         """

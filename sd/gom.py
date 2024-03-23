@@ -152,8 +152,8 @@ class GraphicsObjectManager:
         for obj in self.selection.objects:
             if obj.type == "group":
                 print("Ungrouping", obj)
-                self.objects.extend(obj.objects)
-                self.objects.remove(obj)
+                self._objects.extend(obj.objects)
+                self._objects.remove(obj)
         return
 
     def select_reverse(self):

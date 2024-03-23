@@ -361,19 +361,5 @@ def draw_dot(cr, x, y, diameter):
     cr.arc(x, y, diameter / 2, 0, 2 * 3.14159)  # Draw a circle
     cr.fill()  # Fill the circle to make a dot
 
-def build_menu(menu_items):
-    menu = Gtk.Menu()
-    menu.set_name("myMenu")
-
-    for m in menu_items:
-        if "separator" in m:
-            menu_item = Gtk.SeparatorMenuItem()
-        else:
-            menu_item = Gtk.MenuItem(label=m["label"])
-            menu_item.connect("activate", m["callback"], m["data"])
-        menu.append(menu_item)
-    menu.show_all()
-    return menu
-
 
 
