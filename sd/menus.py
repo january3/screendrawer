@@ -63,6 +63,7 @@ class MenuMaker:
                 { "label": "Tggl outline    (Ctrl-b)",  "callback": self.on_menu_item_activated, "action": "toggle_outline" },
                 { "separator": True },
                 { "label": "Color           (Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color" },
+                { "label": "Bg Color        (Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color_bg" },
                 { "label": "Font            (Ctrl-f)",  "callback": self.on_menu_item_activated, "action": "select_font" },
                 { "separator": True },
                 { "label": "Open drawing    (Ctrl-o)",  "callback": self.on_menu_item_activated, "action": "open_drawing" },

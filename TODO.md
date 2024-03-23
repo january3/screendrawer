@@ -3,7 +3,6 @@ To do (sorted by priority):
 
  * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
    to the corresponding pen
- * implement a way to change the color of the background
  * save selection as...
  * Help should be actually a new screendrawer window with written on it!
  * implement "copy pen" or "set with pen" thingy. Also, how should the
@@ -51,6 +50,9 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * implement a way to change the color of the background
+ * export image should use the background color
+ * bug in exporting image - regression
  * "save as" dialog
  * selection all should switch to move mode
  * regression: text can't be entered

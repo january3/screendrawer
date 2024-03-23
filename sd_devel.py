@@ -627,6 +627,12 @@ class TransparentWindow(Gtk.Window):
         self.pen, self.pen2 = self.pen2, self.pen
         self.queue_draw()
 
+    def select_color_bg(self):
+        """Select a color for the background."""
+        color = ColorChooser(self)
+        if color:
+            self.bg_color = (color.red, color.green, color.blue)
+
     def select_color(self):
         """Select a color for drawing."""
         color = ColorChooser(self)
