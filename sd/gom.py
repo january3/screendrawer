@@ -24,11 +24,12 @@ class GraphicsObjectManager:
         _selection_tool (SelectionTool): The selection tool.
     """
 
-    def __init__(self, window):
+    def __init__(self, app):
         # public attr
         self.clipboard = Clipboard()
 
         # private attr
+        self.__app = app
         self._objects    = []
         self._history    = []
         self._redo_stack = []
@@ -161,6 +162,7 @@ class GraphicsObjectManager:
     def select_reverse(self):
         """Reverse the selection."""
         self.selection.reverse()
+        self.__app.set_mode("move")
 
     def select_all(self):
         """Select all objects."""
@@ -168,6 +170,7 @@ class GraphicsObjectManager:
             return
 
         self.selection.all()
+        self.__app.set_mode("move")
 
     def selection_delete(self):
         """Delete selected objects."""
