@@ -103,16 +103,21 @@ class EventManager:
         ctrl    = event.state & Gdk.ModifierType.CONTROL_MASK
         shift   = event.state & Gdk.ModifierType.SHIFT_MASK
         alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
+        print("keyname", keyname, "char", char, "ctrl", ctrl, "shift", shift, "alt_l", alt_l)
 
         mode = app.get_mode()
 
         keyfull = keyname
+
+        if char.isupper():
+            keyfull = keyname.lower()
         if shift:
-            keyfull = "Shift-" + keyname
+            keyfull = "Shift-" + keyfull
         if ctrl:
-            keyfull = "Ctrl-" + keyname
+            keyfull = "Ctrl-" + keyfull
         if alt_l:
-            keyfull = "Alt-" + keyname
+            keyfull = "Alt-" + keyfull
+        print("keyfull", keyfull)
 
         # first, check whether there is a current object being worked on
         # and whether this object is a text object. In that case, we only
@@ -259,8 +264,9 @@ class EventManager:
             'l':                    "clear_page",
             'o':                    "toggle_outline",
             'Alt-p':                "transmute_to_polygon",
-            'Alt-P':                "transmute_to_draw",
+            'Alt-Shift-p':          "transmute_to_draw",
             'f':                    "selection_fill",
+
             'Up':                   "move_up_10",
             'Shift-Up':             "move_up_1",
             'Ctrl-Up':              "move_up_100",
@@ -279,29 +285,34 @@ class EventManager:
             'Page_Down':            "rotate_selection_cw_10",
             'Shift-Page_Down':      "rotate_selection_cw_1",
             'Ctrl-Page_Down':       "rotate_selection_cw_90",
+
             'Alt-Page_Up':          "zmove_selection_top",
             'Alt-Page_Down':        "zmove_selection_bottom",
             'Alt-Up':               "zmove_selection_raise",
             'Alt-Down':             "zmove_selection_lower",
-            'Shift-W':              "set_color_white",
-            'Shift-B':              "set_color_black",
-            'Shift-R':              "set_color_red",
-            'Shift-G':              "set_color_green",
-            'Shift-L':              "set_color_blue",
-            'Shift-E':              "set_color_grey",
-            'Shift-Y':              "set_color_yellow",
-            'Shift-P':              "set_color_purple",
+
+            'Shift-w':              "set_color_white",
+            'Shift-b':              "set_color_black",
+            'Shift-r':              "set_color_red",
+            'Shift-g':              "set_color_green",
+            'Shift-l':              "set_color_blue",
+            'Shift-e':              "set_color_grey",
+            'Shift-y':              "set_color_yellow",
+            'Shift-p':              "set_color_purple",
+
             'Ctrl-e':               "export_drawing",
             'Ctrl-k':               "select_color",
             'Ctrl-f':               "select_font",
             'Ctrl-i':               "import_image",
             'Ctrl-p':               "toggle_pens",
             'Ctrl-o':               "open_drawing",
+
             'Tab':                  "select_next_object",
             'Shift-ISO_Left_Tab':   "select_previous_object",
             'g':                    "selection_group",
             'u':                    "selection_ungroup",
             'Delete':               "selection_delete",
+
             'Ctrl-a':               "select_all",
             'Ctrl-r':               "select_reverse",
             'Ctrl-y':               "redo",
@@ -309,7 +320,7 @@ class EventManager:
             'Ctrl-c':               "copy_content",
             'Ctrl-x':               "cut_content",
             'Ctrl-v':               "paste_content",
-            'Ctrl-F':               "screenshot",
+            'Ctrl-Shift-f':         "screenshot",
             'Ctrl-plus':            "stroke_increase",
             'Ctrl-minus':           "stroke_decrease",
         }
