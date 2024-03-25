@@ -31,6 +31,7 @@ class DrawManager:
         self.__resizeobj = None
         self.__selection_tool = None
         self.__current_object = None
+        self.__paning = None
 
         # drawing parameters
         self.__hidden = False
@@ -38,6 +39,7 @@ class DrawManager:
         self.__transparent = transparent
         self.__outline = False
         self.__modified = False
+        self.__translate = None
 
         # defaults for drawing
         self.__pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
@@ -98,6 +100,10 @@ class DrawManager:
             print("I am hidden!")
             return True
 
+        cr.save()
+        if self.__translate:
+            cr.translate(*self.__translate)
+
         cr.set_source_rgba(*self.__bg_color, self.__transparent)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
@@ -109,6 +115,8 @@ class DrawManager:
 
         if self.__wiglet_active:
             self.__wiglet_active.draw(cr)
+
+        cr.restore()
         return True
 
     def draw(self, cr):
@@ -124,16 +132,14 @@ class DrawManager:
 
         # If changing line width, draw a preview of the new line width
       
-    def clear(self):
-        """Clear the drawing."""
-        self.__gom.selection.clear()
-        self.__resizeobj      = None
-        self.__current_object = None
-        self.__gom.remove_all()
-        self.__app.queue_draw()
-
     # ---------------------------------------------------------------------
     #                              Event handlers
+
+    def on_pan(self, gesture, direction, offset):
+        print(f"Panning: Direction: {direction}, Offset: {offset}")
+
+    def on_zoom(self, gesture, scale):
+        print(f"Zooming: Scale: {scale}")
 
     def on_right_click(self, event, hover_obj):
         """Handle right click events - context menus."""
@@ -215,12 +221,12 @@ class DrawManager:
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
         self.__modified = True # better safe than sorry
 
-        ev = MouseEvent(event, self.__gom.objects())
-        shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
+        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+        shift, ctrl, alt, pressure = ev.shift(), ev.ctrl(), ev.alt(), ev.pressure()
         hover_obj = ev.hover()
 
         # double click on a text object: start editing
-        if event.button == 1 and ev.double() and hover_obj and hover_obj.type == "text" and self.__mode in ["draw", "text", "move"]:
+        if event.button == 1 and (ev.double() or self.__mode == "text") and hover_obj and hover_obj.type == "text" and self.__mode in ["draw", "text", "move"]:
             # put the cursor in the last line, end of the text
             # this should be a Command event
             hover_obj.move_caret("End")
@@ -234,8 +240,6 @@ class DrawManager:
             if  self.__current_object.type == "text":
                 print("click, but text input active - finishing it first")
                 self.finish_text_input()
-            else:
-                print("click, but text input active - ignoring it; object=", self.__current_object)
             return True
 
         # right click: open context menu
@@ -246,8 +250,12 @@ class DrawManager:
         if event.button != 1:
             return True
 
+        if alt:
+            self.__paning = (event.x, event.y)
+            return True
+
         # Start changing line width: single click with ctrl pressed
-        if ctrl and event.button == 1 and self.__mode == "draw": 
+        if ctrl and self.__mode == "draw": 
             if not shift: 
                 self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__pen)
             else:
@@ -286,10 +294,15 @@ class DrawManager:
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         obj = self.__current_object
+        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+
+        if self.__paning:
+            self.__paning = None
+            return True
 
         if obj and obj.type in [ "shape", "path" ]:
             print("finishing path / shape")
-            obj.path_append(event.x, event.y, 0)
+            obj.path_append(ev.x, ev.y, 0)
             obj.finish()
             if len(obj.coords) < 3:
                 obj = None
@@ -356,12 +369,21 @@ class DrawManager:
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
 
-        ev = MouseEvent(event, self.__gom.objects())
+        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
         x, y = ev.pos()
         self.__cursor.update_pos(x, y)
 
         if self.__wiglet_active:
             self.__wiglet_active.event_update(x, y)
+            self.__app.queue_draw()
+            return True
+
+        if self.__paning:
+            if not self.__translate:
+                self.__translate = (0, 0)
+            dx, dy = event.x - self.__paning[0], event.y - self.__paning[1]
+            self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
+            self.__paning = (event.x, event.y)
             self.__app.queue_draw()
             return True
 
@@ -433,7 +455,7 @@ class DrawManager:
     def stroke_change(self, direction):
         """Modify the line width or text size."""
         print("Changing stroke", direction)
-        cobj = self.__current_object()
+        cobj = self.__current_object
         if cobj and cobj.type == "text":
             print("Changing text size")
             cobj.stroke_change(direction)
@@ -472,5 +494,13 @@ class DrawManager:
     def apply_pen_to_bg(self):
         """Apply the pen to the background."""
         self.__bg_color = self.__pen.color
+
+    def clear(self):
+        """Clear the drawing."""
+        self.__gom.selection.clear()
+        self.__resizeobj      = None
+        self.__current_object = None
+        self.__gom.remove_all()
+        self.__app.queue_draw()
 
 

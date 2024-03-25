@@ -177,8 +177,10 @@ class GraphicsObjectManager:
         """Select the next object."""
         self.selection.next()
 
-    def selection_fill(self, color):
+    def selection_fill(self):
         """Fill the selected object."""
+        # XXX gom should not call dm directly
+        color = self.__app.dm.pen().color
         for obj in self.selection.objects:
             obj.fill(color)
 

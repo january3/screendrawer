@@ -135,6 +135,17 @@ class TransparentWindow(Gtk.Window):
         self.load_state()
 
         # connecting events
+
+       #XXX doesn't work
+       #self.gesture_pan = Gtk.GesturePan.new(self, orientation=Gtk.Orientation.VERTICAL)
+       #self.gesture_pan.connect('pan', self.dm.on_pan)
+       #self.gesture_pan.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+
+       ## Gesture for zoom
+       #self.gesture_zoom = Gtk.GestureZoom.new(self)
+       #self.gesture_zoom.connect('begin', self.dm.on_zoom)
+       #self.gesture_zoom.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+
         self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
 
         self.connect("key-press-event",      self.em.on_key_press)

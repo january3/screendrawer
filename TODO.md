@@ -7,6 +7,7 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
  * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
    to the corresponding pen
+ * unit tests. this is becoming pressing but will be a lot of work
  * wiglets for color / pen / line width. They should be drawinggroup
    objects knowing how to draw themselves and how to react to mouse
  * Help should be actually a new screendrawer window with written on it!
@@ -53,6 +54,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * Drawing Manager
  * when converting via command line, it should be possible to specify a
    border around the actual drawing (so not all screen is exported)
  * implement command line conversion between sdrw and (png, svg, pdf, ...)
