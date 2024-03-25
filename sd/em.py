@@ -38,13 +38,14 @@ class EventManager:
             cls._instance = super(EventManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, gom, app):
+    def __init__(self, gom, app, dm):
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
             self.__gom = gom
             self.__app = app
-            self.make_actions_dictionary(gom, app)
+            self.__dm  = dm
+            self.make_actions_dictionary(gom, app, dm)
             self.make_default_keybindings()
 
     def dispatch_action(self, action_name, **kwargs):
@@ -103,7 +104,7 @@ class EventManager:
         This method is called when a key is pressed.
         """
 
-        gom, app = self.__gom, self.__app
+        gom, dm, app = self.__gom, self.__dm, self.__app
 
         keyname = Gdk.keyval_name(event.keyval)
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
@@ -112,7 +113,7 @@ class EventManager:
         alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
         print("keyname", keyname, "char", char, "ctrl", ctrl, "shift", shift, "alt_l", alt_l)
 
-        mode = app.get_mode()
+        mode = dm.mode()
 
         keyfull = keyname
 
@@ -129,9 +130,10 @@ class EventManager:
         # first, check whether there is a current object being worked on
         # and whether this object is a text object. In that case, we only
         # call the ctrl keybindings and pass the rest to the text object.
-        if app.current_object and app.current_object.type == "text" and not(ctrl or keyname == "Escape"):
+        cobj = dm.current_object()
+        if cobj and cobj.type == "text" and not(ctrl or keyname == "Escape"):
             print("updating text input")
-            app.current_object.update_by_key(keyname, char)
+            cobj.update_by_key(keyname, char)
             app.queue_draw()
             return
 
@@ -142,27 +144,27 @@ class EventManager:
         app.queue_draw()
 
 
-    def make_actions_dictionary(self, gom, app):
+    def make_actions_dictionary(self, gom, app, dm):
         """
         This dictionary maps key events to actions.
         """
         self.__actions = {
-            'mode_draw':             {'action': app.set_mode, 'args': ["draw"]},
-            'mode_box':              {'action': app.set_mode, 'args': ["box"]},
-            'mode_circle':           {'action': app.set_mode, 'args': ["circle"]},
-            'mode_move':             {'action': app.set_mode, 'args': ["move"]},
-            'mode_text':             {'action': app.set_mode, 'args': ["text"]},
-            'mode_select':           {'action': app.set_mode, 'args': ["select"]},
-            'mode_eraser':           {'action': app.set_mode, 'args': ["eraser"]},
-            'mode_shape':            {'action': app.set_mode, 'args': ["shape"]},
-            'mode_colorpicker':      {'action': app.set_mode, 'args': ["colorpicker"]},
+            'mode_draw':             {'action': dm.mode, 'args': ["draw"]},
+            'mode_box':              {'action': dm.mode, 'args': ["box"]},
+            'mode_circle':           {'action': dm.mode, 'args': ["circle"]},
+            'mode_move':             {'action': dm.mode, 'args': ["move"]},
+            'mode_text':             {'action': dm.mode, 'args': ["text"]},
+            'mode_select':           {'action': dm.mode, 'args': ["select"]},
+            'mode_eraser':           {'action': dm.mode, 'args': ["eraser"]},
+            'mode_shape':            {'action': dm.mode, 'args': ["shape"]},
+            'mode_colorpicker':      {'action': dm.mode, 'args': ["colorpicker"]},
 
-            'finish_text_input':     {'action': app.finish_text_input},
+            'finish_text_input':     {'action': dm.finish_text_input},
 
             'show_help_dialog':      {'action': app.show_help_dialog},
             'app_exit':              {'action': app.exit},
 
-            'clear_page':            {'action': app.clear},
+            'clear_page':            {'action': dm.clear},
             'cycle_bg_transparency': {'action': app.cycle_background},
             'toggle_outline':        {'action': app.outline_toggle},
 

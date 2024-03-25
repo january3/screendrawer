@@ -14,8 +14,6 @@ class GraphicsObjectManager:
         _objects (list): The list of objects.
         _history_stack (list): The list of commands in the history.
         _hidden (bool): True if the objects are hidden.
-        _current_object (Drawable): The current object.
-        _wiglet_active (Drawable): The active wiglet.
         _resizeobj (Drawable): The object being resized.
         _mode (str): The current mode.
         _cursor (CursorManager): The cursor manager.
@@ -36,8 +34,6 @@ class GraphicsObjectManager:
         self.selection = SelectionObject(self._objects)
 
         self._hidden = False
-        self._current_object = None
-        self._wiglet_active = None
         self._resizeobj = None
         self._hover = None
         self._selection_tool = None
@@ -162,7 +158,7 @@ class GraphicsObjectManager:
     def select_reverse(self):
         """Reverse the selection."""
         self.selection.reverse()
-        self.__app.set_mode("move")
+        self.__app.dm.mode("move")
 
     def select_all(self):
         """Select all objects."""
@@ -170,7 +166,7 @@ class GraphicsObjectManager:
             return
 
         self.selection.all()
-        self.__app.set_mode("move")
+        self.__app.dm.mode("move")
 
     def selection_delete(self):
         """Delete selected objects."""

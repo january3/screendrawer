@@ -66,6 +66,7 @@ from sd.gom import GraphicsObjectManager ###<placeholder sd/gom.py>
 from sd.import_export import *           ###<placeholder sd/import_export.py>
 from sd.em import *                      ###<placeholder sd/em.py>
 from sd.menus import *                   ###<placeholder sd/menus.py>
+from sd.dm import *                      ###<placeholder sd/dm.py>
 
 # ---------------------------------------------------------------------
 # defaults
@@ -117,28 +118,19 @@ class TransparentWindow(Gtk.Window):
         # autosave
         GLib.timeout_add(AUTOSAVE_INTERVAL, self.autosave)
 
-        # Drawing setup
-        self.mode                = "draw"
-        self.gom                 = GraphicsObjectManager(self)
-        self.em                  = EventManager(gom = self.gom, app = self)
-        self.clipboard           = Clipboard()
-        self.cursor              = CursorManager(self)
-        self.mm                  = MenuMaker(self.gom, self.em, self)
-        self.hidden              = False
-
-        self.current_object      = None
-        self.wiglet_active       = None
-        self.resizeobj           = None
-        self.hover               = None
-        self.selection_tool      = None
-
         # defaults for drawing
         self.pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
         self.pen2 = Pen(line_width = 40, color = (1, 1, 0),   font_size = 24, transparency = .2)
         self.transparent = 0
-        self.bg_color    = (.8, .75, .65)
 
-        self.outline     = False
+        # Drawing setup
+        self.gom                 = GraphicsObjectManager(self)
+        self.dm                  = DrawManager(gom = self.gom,  app = self)
+        self.em                  = EventManager(gom = self.gom, app = self, dm = self.dm)
+        self.clipboard           = Clipboard()
+        self.cursor              = CursorManager(self)
+        self.mm                  = MenuMaker(self.gom, self.em, self)
+        self.hidden              = False
 
         # distance for selecting objects
         self.max_dist   = 15
@@ -147,12 +139,12 @@ class TransparentWindow(Gtk.Window):
         self.modified = False # for autosave
 
         # connecting events
-        self.connect("draw", self.on_draw)
+        self.connect("draw", self.dm.on_draw)
         self.connect("key-press-event", self.em.on_key_press)
         self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
-        self.connect("button-press-event",   self.on_button_press)
-        self.connect("button-release-event", self.on_button_release)
-        self.connect("motion-notify-event",  self.on_motion_notify)
+        self.connect("button-press-event",   self.dm.on_button_press)
+        self.connect("button-release-event", self.dm.on_button_release)
+        self.connect("motion-notify-event",  self.dm.on_motion_notify)
 
         self.set_keep_above(True)
         self.maximize()
@@ -165,335 +157,7 @@ class TransparentWindow(Gtk.Window):
         self.save_state()
         Gtk.main_quit()
 
-    def on_draw(self, widget, cr):
-        """Handle draw events."""
-        if self.hidden:
-            print("I am hidden!")
-            return True
-
-        cr.set_source_rgba(*self.bg_color, self.transparent)
-        cr.set_operator(cairo.OPERATOR_SOURCE)
-        cr.paint()
-        cr.set_operator(cairo.OPERATOR_OVER)
-        self.draw(cr)
-
-        if self.current_object:
-            self.current_object.draw(cr)
-
-        if self.wiglet_active:
-            self.wiglet_active.draw(cr)
-        return True
-
-    def draw(self, cr):
-        """Draw the objects in the given context. Used also by export functions."""
-
-        for obj in self.gom.objects():
-            hover    = obj == self.hover and self.mode == "move"
-            selected = self.gom.selection.contains(obj) and self.mode == "move"
-            obj.draw(cr, hover=hover, selected=selected, outline = self.outline)
-    #   if self.current_object:
-    #       print("drawing current object:", self.current_object, "mode:", self.mode)
-    #       self.current_object.draw(cr)
-
-        # If changing line width, draw a preview of the new line width
-      
-    def clear(self):
-        """Clear the drawing."""
-        self.gom.selection.clear()
-        self.resizeobj      = None
-        self.current_object = None
-        self.gom.remove_all()
-        self.queue_draw()
-
     # ---------------------------------------------------------------------
-    #                              Event handlers
-
-    def on_right_click(self, event, hover_obj):
-        """Handle right click events - context menus."""
-        if hover_obj:
-            self.mode = "move"
-            self.cursor.default(self.mode)
-
-            if not self.gom.selection.contains(hover_obj):
-                self.gom.selection.set([ hover_obj ])
-
-            self.mm.object_menu(self.gom.selected_objects()).popup(None, None, None, None, event.button, event.time)
-        else:
-            self.mm.context_menu().popup(None, None, None, None, event.button, event.time)
-        self.queue_draw()
-
-    # ---------------------------------------------------------------------
-
-    def move_resize_rotate(self, ev):
-        """Process events for moving, resizing and rotating objects."""
-        corner_obj = ev.corner()
-        hover_obj  = ev.hover()
-        pos = ev.pos()
-        shift, ctrl = ev.shift(), ev.ctrl()
-
-        if corner_obj[0] and corner_obj[0].bbox():
-            print("starting resize")
-            obj    = corner_obj[0]
-            corner = corner_obj[1]
-            print("ctrl:", ctrl, "shift:", shift)
-            # XXX this code here is one of the reasons why rotating or resizing the
-            # whole selection does not work. The other reason is that the
-            # selection object itself is not considered when detecting
-            # hover or corner objects.
-            if ctrl and shift:
-                self.resizeobj = RotateCommand(obj, origin = pos, corner = corner)
-            else:
-                self.resizeobj = ResizeCommand(obj, origin = pos, corner = corner, proportional = ctrl)
-            self.gom.selection.set([ obj ])
-            # XXX - this should happen through GOM and upon mouse release 
-            # self.history.append(self.resizeobj)
-            self.cursor.set(corner)
-        elif hover_obj:
-            if ev.shift():
-                # add if not present, remove if present
-                print("adding object", hover_obj)
-                self.gom.selection.add(hover_obj)
-            if not self.gom.selection.contains(hover_obj):
-                print("object not in selection, setting it", hover_obj)
-                self.gom.selection.set([ hover_obj ])
-            self.resizeobj = MoveCommand(self.gom.selection, pos)
-            # XXX - this should happen through GOM and upon mouse release 
-            # self.history.append(self.resizeobj)
-            self.cursor.set("grabbing")
-        else:
-            self.gom.selection.clear()
-            self.resizeobj   = None
-            print("starting selection tool")
-            self.selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
-            self.current_object = self.selection_tool
-            self.queue_draw()
-        return True
-
-    def create_object(self, ev):
-        """Create an object based on the current mode."""
-        # not managed by GOM: first create, then decide whether to add to GOM
-        obj = DrawableFactory.create_drawable(self.mode, pen = self.pen, ev=ev)
-        if obj:
-            self.current_object = obj
-
-    def set_mode(self, mode):
-        """Set the mode."""
-        self.mode = mode
-        self.cursor.default(self.mode)
-
-    def get_mode(self):
-        """Get the current mode."""
-        return self.mode
-
-    # XXX this code should be completely rewritten, cleaned up, refactored
-    # and god knows what else. It's a mess.
-    def on_button_press(self, widget, event):
-        print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
-        self.modified = True # better safe than sorry
-
-        ev = MouseEvent(event, self.gom.objects())
-        shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
-        hover_obj = ev.hover()
-
-        # double click on a text object: start editing
-        if event.button == 1 and ev.double() and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text", "move"]:
-            # put the cursor in the last line, end of the text
-            # this should be a Command event
-            hover_obj.move_caret("End")
-            self.current_object = hover_obj
-            self.queue_draw()
-            self.cursor.set("none")
-            return True
-
-        # Ignore clicks when text input is active
-        if self.current_object:
-            if  self.current_object.type == "text":
-                print("click, but text input active - finishing it first")
-                self.finish_text_input()
-            else:
-                print("click, but text input active - ignoring it; object=", self.current_object)
-            return True
-
-        # right click: open context menu
-        if event.button == 3 and not shift:
-            self.on_right_click(event, hover_obj)
-            return True
-
-        if event.button != 1:
-            return True
-
-        # Start changing line width: single click with ctrl pressed
-        if ctrl and event.button == 1 and self.mode == "draw": 
-            if not shift: 
-                self.wiglet_active = WigletLineWidth((event.x, event.y), self.pen)
-            else:
-                self.wiglet_active = WigletTransparency((event.x, event.y), self.pen)
-            return True
-
-        if self.mode == "colorpicker":
-            #print("picker mode")
-            color = get_color_under_cursor()
-            self.set_color(color) 
-            color_hex = rgb_to_hex(color)
-            self.clipboard.set_text(color_hex)
-            return True
-
-        elif self.mode == "move":
-            return self.move_resize_rotate(ev)
-
-        # erasing an object, if an object is underneath the cursor
-        elif self.mode == "eraser" and hover_obj: 
-                ## XXX -> GOM 
-                # self.history.append(RemoveCommand([ hover_obj ], self.objects))
-                self.gom.remove_objects([ hover_obj ], clear_selection = True)
-                self.resizeobj   = None
-                self.cursor.revert()
-
-        # simple click: create modus
-        else:
-            self.create_object(ev)
-
-        self.queue_draw()
-
-        return True
-
-    # Event handlers
-    # XXX same comment as above
-    def on_button_release(self, widget, event):
-        """Handle mouse button release events."""
-        obj = self.current_object
-
-        if obj and obj.type in [ "shape", "path" ]:
-            print("finishing path / shape")
-            obj.path_append(event.x, event.y, 0)
-            obj.finish()
-            if len(obj.coords) < 3:
-                obj = None
-            self.queue_draw()
-
-        if obj:
-            # remove objects that are too small
-            bb = obj.bbox()
-            if bb and obj.type in [ "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
-                obj = None
-
-        if obj:
-            if obj != self.selection_tool:
-                self.gom.add_object(obj)
-            else:
-                self.current_object = None
-
-        if self.wiglet_active:
-            self.wiglet_active.event_finish()
-            self.wiglet_active = None
-            self.queue_draw()
-            return True
-
-        # if selection tool is active, finish it
-        if self.selection_tool:
-            print("finishing selection tool")
-            #self.objects.remove(self.selection_tool)
-            #bb = self.selection_tool.bbox()
-            objects = self.selection_tool.objects_in_selection(self.gom.objects())
-            if len(objects) > 0:
-                self.gom.selection.set(objects)
-            else:
-                self.gom.selection.clear()
-            self.selection_tool = None
-            self.queue_draw()
-            return True
-
-        # if the user clicked to create a text, we are not really done yet
-        if self.current_object and self.current_object.type != "text":
-            print("there is a current object: ", self.current_object)
-            self.gom.selection.clear()
-            self.current_object = None
-            self.queue_draw()
-            return True
-
-        if self.resizeobj:
-            # If the user was dragging a selected object and the drag ends
-            # in the lower left corner, delete the object
-            self.resizeobj.event_finish()
-            obj = self.resizeobj.obj
-            if self.resizeobj.command_type == "move" and  event.x < 10 and event.y > self.get_size()[1] - 10:
-                # command group because these are two commands: first move,
-                # then remove
-                self.gom.command_append([ self.resizeobj, RemoveCommand([ obj ], self.gom.objects()) ])
-                self.selection.clear()
-            else:
-                self.gom.command_append([ self.resizeobj ])
-            self.resizeobj    = None
-            self.cursor.revert()
-            self.queue_draw()
-        return True
-
-
-    def on_motion_notify(self, widget, event):
-        """Handle mouse motion events."""
-
-        ev = MouseEvent(event, self.gom.objects())
-        x, y = ev.pos()
-        self.cursor.update_pos(x, y)
-
-        if self.wiglet_active:
-            self.wiglet_active.event_update(x, y)
-            self.queue_draw()
-            return True
-
-        obj = self.current_object or self.selection_tool
-
-        if obj:
-            obj.update(x, y, ev.pressure())
-            self.queue_draw()
-        elif self.resizeobj:
-            self.resizeobj.event_update(x, y)
-            self.queue_draw()
-        elif self.mode == "move":
-            object_underneath = ev.hover()
-            prev_hover = self.hover
-
-            if object_underneath:
-                if object_underneath.type == "text":
-                    self.cursor.set("text")
-                else:
-                    self.cursor.set("moving")
-                self.hover = object_underneath
-            else:
-                self.cursor.revert()
-                self.hover = None
-
-            corner_obj = ev.corner()
-
-            if corner_obj[0] and corner_obj[0].bbox():
-                self.cursor.set(corner_obj[1])
-                self.hover = corner_obj[0]
-                self.queue_draw()
-
-            if prev_hover != self.hover:
-                self.queue_draw()
-
-        # stop event propagation
-        return True
-
-    # ---------------------------------------------------------------------
-
-    def finish_text_input(self):
-        """Clean up current text and finish text input."""
-        print("finishing text input")
-        if self.current_object and self.current_object.type == "text":
-            self.current_object.caret_pos = None
-            if self.current_object.strlen() == 0:
-                self.gom.kill_object(self.current_object)
-            self.current_object = None
-        self.cursor.revert()
-
-    def update_text_input(self, keyname, char):
-        """Update the current text input."""
-        cur  = self.current_object
-        if not cur:
-            raise ValueError("No current object")
-        cur.update_by_key(keyname, char)
 
     def cycle_background(self):
         """Cycle through background transparency."""
@@ -587,9 +251,9 @@ class TransparentWindow(Gtk.Window):
                 obj.stroke_change(direction)
 
         # without a selected object, change the default pen, but only if in the correct mode
-        if self.mode == "draw":
+        if self.dm.mode() == "draw":
             self.pen.line_width = max(1, self.pen.line_width + direction)
-        elif self.mode == "text":
+        elif self.dm.mode() == "text":
             self.pen.font_size = max(1, self.pen.font_size + direction)
 
     def outline_toggle(self):
@@ -883,7 +547,7 @@ if __name__ == "__main__":
 
     win.show_all()
     win.present()
-    win.cursor.set(win.mode)
+    win.cursor.set(win.dm.mode())
     win.stick()
 
     Gtk.main()
