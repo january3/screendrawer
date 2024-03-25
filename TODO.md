@@ -1,8 +1,10 @@
 To do (sorted by priority):
 
 
- * zoom in and out. I think the time is ripe for it
  * paning the draw area
+ * zoom in and out. I think the time is ripe for it 
+ * brushes. (1) brush that generates short diagonal thin strokes (2) brush
+   that creates a Gary Larson-like hatching (3) brush that creates a
  * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
    to the corresponding pen
  * wiglets for color / pen / line width. They should be drawinggroup
@@ -180,9 +182,14 @@ Done:
  * copy and paste groups and paths
  * grouping
 
+Parked ideas:
+ * import SVG: that would be a nice thing, but it is a lot of work. Also,
+   to do it properly it would require specialized libraries.
+
 Rejected ideas:
  * turn it into a Gnome plugin (who 一体 needs that?)
- * eraser should allow a selection like with selection tool (really?)
+ * eraser should allow a selection like with selection tool (really? what
+   for? why not select in select mode and press del?)
  * add laserpointer mode? (why?)
  * loading from SVG (come on. this is already a waste of time)
  * shortcut or menu item for decorating / unmaximizing the window (so it

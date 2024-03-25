@@ -115,7 +115,7 @@ approach:
  * package `sd` contains most of the code - classes, utils etc.
  * The file `sd_devel.py` is a single file that imports the `sd` package and
    runs the main loop. It is used for development.
- * the file `make.py` compiles the package into a single script called
+ * the Python script `make.py` compiles the package into a single script called
    `sd.py` 
 
 

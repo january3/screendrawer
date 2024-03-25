@@ -20,6 +20,7 @@ class MouseEvent:
         self._corner = None
         self._shift  = (event.state & Gdk.ModifierType.SHIFT_MASK) != 0
         self._ctrl   = (event.state & Gdk.ModifierType.CONTROL_MASK) != 0
+        self._alt    = (event.state & Gdk.ModifierType.MOD1_MASK) != 0
         self._double = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
         self._pressure = event.get_axis(Gdk.AxisUse.PRESSURE)
         if self._pressure is None:  # note that 0 is perfectly valid
@@ -44,6 +45,9 @@ class MouseEvent:
 
     def ctrl(self):
         return self._ctrl
+
+    def alt(self):
+        return self._alt
 
     def double(self):
         return self._double

@@ -60,7 +60,7 @@ class MenuMaker:
                 { "label": "Clear drawing (Ctrl-l)",    "callback": self.on_menu_item_activated, "action": "clear_page" },
                 { "separator": True },
                 { "label": "Bg transparency (Ctrl-b)",  "callback": self.on_menu_item_activated, "action": "cycle_bg_transparency" },
-                { "label": "Tggl outline    (Ctrl-b)",  "callback": self.on_menu_item_activated, "action": "toggle_outline" },
+                { "label": "Tggl outline         [o]",  "callback": self.on_menu_item_activated, "action": "toggle_outline" },
                 { "separator": True },
                 { "label": "Color           (Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color" },
                 { "label": "Bg Color        (Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color_bg" },

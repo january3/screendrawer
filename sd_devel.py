@@ -820,6 +820,8 @@ if __name__ == "__main__":
 
 
 # ---------------------------------------------------------------------
+# Parsing command line
+# ---------------------------------------------------------------------
 
     parser = argparse.ArgumentParser(
             description="Drawing on the screen",
