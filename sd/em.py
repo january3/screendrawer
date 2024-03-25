@@ -161,12 +161,12 @@ class EventManager:
 
             'finish_text_input':     {'action': dm.finish_text_input},
 
+            'clear_page':            {'action': dm.clear},
+            'cycle_bg_transparency': {'action': dm.cycle_background},
+            'toggle_outline':        {'action': dm.outline_toggle},
+
             'show_help_dialog':      {'action': app.show_help_dialog},
             'app_exit':              {'action': app.exit},
-
-            'clear_page':            {'action': dm.clear},
-            'cycle_bg_transparency': {'action': app.cycle_background},
-            'toggle_outline':        {'action': app.outline_toggle},
 
             'selection_fill':        {'action': gom.selection_fill},
             'transmute_to_shape':    {'action': gom.transmute_selection, 'args': [ "shape" ]},
@@ -199,16 +199,17 @@ class EventManager:
             'zmove_selection_raise':  {'action': gom.selection_zmove, 'args': [ "raise" ],  'modes': ["move"]},
             'zmove_selection_lower':  {'action': gom.selection_zmove, 'args': [ "lower" ],  'modes': ["move"]},
 
-            'set_color_white':       {'action': app.set_color, 'args': [COLORS["white"]]},
-            'set_color_black':       {'action': app.set_color, 'args': [COLORS["black"]]},
-            'set_color_red':         {'action': app.set_color, 'args': [COLORS["red"]]},
-            'set_color_green':       {'action': app.set_color, 'args': [COLORS["green"]]},
-            'set_color_blue':        {'action': app.set_color, 'args': [COLORS["blue"]]},
-            'set_color_yellow':      {'action': app.set_color, 'args': [COLORS["yellow"]]},
-            'set_color_cyan':        {'action': app.set_color, 'args': [COLORS["cyan"]]},
-            'set_color_magenta':     {'action': app.set_color, 'args': [COLORS["magenta"]]},
-            'set_color_purple':      {'action': app.set_color, 'args': [COLORS["purple"]]},
-            'set_color_grey':        {'action': app.set_color, 'args': [COLORS["grey"]]},
+            'set_color_white':       {'action': dm.set_color, 'args': [COLORS["white"]]},
+            'set_color_black':       {'action': dm.set_color, 'args': [COLORS["black"]]},
+            'set_color_red':         {'action': dm.set_color, 'args': [COLORS["red"]]},
+            'set_color_green':       {'action': dm.set_color, 'args': [COLORS["green"]]},
+            'set_color_blue':        {'action': dm.set_color, 'args': [COLORS["blue"]]},
+            'set_color_yellow':      {'action': dm.set_color, 'args': [COLORS["yellow"]]},
+            'set_color_cyan':        {'action': dm.set_color, 'args': [COLORS["cyan"]]},
+            'set_color_magenta':     {'action': dm.set_color, 'args': [COLORS["magenta"]]},
+            'set_color_purple':      {'action': dm.set_color, 'args': [COLORS["purple"]]},
+            'set_color_grey':        {'action': dm.set_color, 'args': [COLORS["grey"]]},
+
 
             # dialogs
             "export_drawing":        {'action': app.export_drawing},
@@ -217,7 +218,6 @@ class EventManager:
             "select_color_bg":       {'action': app.select_color_bg},
             "select_font":           {'action': app.select_font},
             "import_image":          {'action': app.select_image_and_create_pixbuf},
-            "toggle_pens":           {'action': app.switch_pens},
             "open_drawing":          {'action': app.open_drawing},
 
             # selections and moving objects
@@ -232,7 +232,8 @@ class EventManager:
             'undo':                   {'action': gom.undo},
 
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
-            'apply_pen_to_bg':        {'action': app.apply_pen_to_bg,        'modes': ["move"]},
+            'apply_pen_to_bg':        {'action': dm.apply_pen_to_bg,        'modes': ["move"]},
+            'toggle_pens':            {'action': dm.switch_pens},
 
 #            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
             'copy_content':          {'action': app.copy_content,        'modes': ["move"]},
@@ -240,8 +241,8 @@ class EventManager:
             'paste_content':         {'action': app.paste_content},
             'screenshot':            {'action': app.screenshot},
 
-            'stroke_increase':       {'action': app.stroke_increase},
-            'stroke_decrease':       {'action': app.stroke_decrease},
+            'stroke_increase':       {'action': dm.stroke_increase},
+            'stroke_decrease':       {'action': dm.stroke_decrease},
         }
 
     def get_keybindings(self):

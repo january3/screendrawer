@@ -1,9 +1,10 @@
 import cairo # <remove>
-from sd.drawable import DrawableFactory, SelectionTool           # <remove>
-from sd.commands import MoveCommand, ResizeCommand, RotateCommand # <remove>
-from sd.events import MouseEvent # <remove>
-from sd.utils import get_color_under_cursor, rgb_to_hex          # <remove>
-from sd.wiglets import * # <remove>
+from sd.drawable import DrawableFactory, SelectionTool             # <remove>
+from sd.commands import MoveCommand, ResizeCommand, RotateCommand  # <remove>
+from sd.events   import MouseEvent                                 # <remove>
+from sd.utils    import get_color_under_cursor, rgb_to_hex         # <remove>
+from sd.wiglets  import *                                          # <remove>
+from sd.pen      import Pen                                        # <remove>
 
 
 
@@ -16,11 +17,12 @@ class DrawManager:
 
     DrawManager must be aware of GOM, because GOM holds all the objects
     """
-    def __init__(self, gom, app, bg_color = (.8, .75, .65), transparent = 0.0):
+    def __init__(self, gom, app, cursor, bg_color = (.8, .75, .65), transparent = 0.0):
         self.__current_object = None
         self.__pos = None
         self.__gom = gom
         self.__app = app
+        self.__cursor = cursor
         self.__mode = "draw"
 
         # objects that indicate the state of the drawing area
@@ -37,6 +39,27 @@ class DrawManager:
         self.__outline = False
         self.__modified = False
 
+        # defaults for drawing
+        self.__pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
+        self.__pen2 = Pen(line_width = 40, color = (1, 1, 0),   font_size = 24, transparency = .2)
+
+    def pen_set(self, pen, alternate = False):
+        """Set the pen."""
+        if alternate:
+            self.__pen2 = pen
+        else:
+            self.__pen = pen
+
+    def pen(self, alternate = False):
+        """Get the pen."""
+        return self.__pen2 if alternate else self.__pen
+
+    def hide(self, value = None):
+        """Hide or show the drawing."""
+        if not value is None:
+            self.__hidden = value
+        return self.__hidden
+
     def hide_toggle(self):
         """Toggle the visibility of the drawing."""
         self.__hidden = not self.__hidden
@@ -50,7 +73,24 @@ class DrawManager:
         """Get or set the mode."""
         if mode:
             self.__mode = mode
+            self.__cursor.default(self.__mode)
         return self.__mode
+
+    def modified(self, value = None):
+        """Get or set the modified flag."""
+        if value is not None:
+            self.__modified = value
+        return self.__modified
+
+    def bg_color(self, color=None):
+        if color:
+            self.__bg_color = color
+        return self.__bg_color
+
+    def transparent(self, value=None):
+        if value:
+            self.__transparent = value
+        return self.__transparent
 
     def on_draw(self, widget, cr):
         """Handle draw events."""
@@ -99,7 +139,7 @@ class DrawManager:
         """Handle right click events - context menus."""
         if hover_obj:
             self.__mode = "move"
-            self.__app.cursor.default(self.__mode)
+            self.__cursor.default(self.__mode)
 
             if not self.__gom.selection.contains(hover_obj):
                 self.__gom.selection.set([ hover_obj ])
@@ -135,7 +175,7 @@ class DrawManager:
             self.__gom.selection.set([ obj ])
             # XXX - this should happen through GOM and upon mouse release 
             # self.history.append(self.__resizeobj)
-            self.__app.cursor.set(corner)
+            self.__cursor.set(corner)
         elif hover_obj:
             if ev.shift():
                 # add if not present, remove if present
@@ -147,7 +187,7 @@ class DrawManager:
             self.__resizeobj = MoveCommand(self.__gom.selection, pos)
             # XXX - this should happen through GOM and upon mouse release 
             # self.history.append(self.__resizeobj)
-            self.__app.cursor.set("grabbing")
+            self.__cursor.set("grabbing")
         else:
             self.__gom.selection.clear()
             self.__resizeobj   = None
@@ -161,7 +201,7 @@ class DrawManager:
     def create_object(self, ev):
         """Create an object based on the current mode."""
         # not managed by GOM: first create, then decide whether to add to GOM
-        obj = DrawableFactory.create_drawable(self.__mode, pen = self.__app.pen, ev=ev)
+        obj = DrawableFactory.create_drawable(self.__mode, pen = self.__pen, ev=ev)
         if obj:
             self.__current_object = obj
 
@@ -186,7 +226,7 @@ class DrawManager:
             hover_obj.move_caret("End")
             self.__current_object = hover_obj
             self.__app.queue_draw()
-            self.__app.cursor.set("none")
+            self.__cursor.set("none")
             return True
 
         # Ignore clicks when text input is active
@@ -209,15 +249,15 @@ class DrawManager:
         # Start changing line width: single click with ctrl pressed
         if ctrl and event.button == 1 and self.__mode == "draw": 
             if not shift: 
-                self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__app.pen)
+                self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__pen)
             else:
-                self.__wiglet_active = WigletTransparency((event.x, event.y), self.__app.pen)
+                self.__wiglet_active = WigletTransparency((event.x, event.y), self.__pen)
             return True
 
         if self.__mode == "colorpicker":
             #print("picker mode")
             color = get_color_under_cursor()
-            self.__app.set_color(color) 
+            self.set_color(color) 
             color_hex = rgb_to_hex(color)
             self.__app.clipboard.set_text(color_hex)
             return True
@@ -231,7 +271,7 @@ class DrawManager:
                 # self.history.append(RemoveCommand([ hover_obj ], self.objects))
                 self.__gom.remove_objects([ hover_obj ], clear_selection = True)
                 self.__resizeobj   = None
-                self.__app.cursor.revert()
+                self.__cursor.revert()
 
         # simple click: create modus
         else:
@@ -308,7 +348,7 @@ class DrawManager:
             else:
                 self.__gom.command_append([ self.__resizeobj ])
             self.__resizeobj    = None
-            self.__app.cursor.revert()
+            self.__cursor.revert()
             self.__app.queue_draw()
         return True
 
@@ -318,7 +358,7 @@ class DrawManager:
 
         ev = MouseEvent(event, self.__gom.objects())
         x, y = ev.pos()
-        self.__app.cursor.update_pos(x, y)
+        self.__cursor.update_pos(x, y)
 
         if self.__wiglet_active:
             self.__wiglet_active.event_update(x, y)
@@ -339,18 +379,18 @@ class DrawManager:
 
             if object_underneath:
                 if object_underneath.type == "text":
-                    self.__app.cursor.set("text")
+                    self.__cursor.set("text")
                 else:
-                    self.__app.cursor.set("moving")
+                    self.__cursor.set("moving")
                 self.__hover = object_underneath
             else:
-                self.__app.cursor.revert()
+                self.__cursor.revert()
                 self.__hover = None
 
             corner_obj = ev.corner()
 
             if corner_obj[0] and corner_obj[0].bbox():
-                self.__app.cursor.set(corner_obj[1])
+                self.__cursor.set(corner_obj[1])
                 self.__hover = corner_obj[0]
                 self.__app.queue_draw()
 
@@ -369,6 +409,68 @@ class DrawManager:
             if self.__current_object.strlen() == 0:
                 self.__gom.kill_object(self.__current_object)
             self.__current_object = None
-        self.__app.cursor.revert()
+        self.__cursor.revert()
+    # ---------------------------------------------------------------------
+
+    def cycle_background(self):
+        """Cycle through background transparency."""
+        self.__transparent = {1: 0, 0: 0.5, 0.5: 1}[self.__transparent]
+
+    def outline_toggle(self):
+        """Toggle outline mode."""
+        self.__outline = not self.__outline
+
+    # ---------------------------------------------------------------------
+
+    def stroke_increase(self):
+        """Increase whatever is selected."""
+        self.stroke_change(1)
+
+    def stroke_decrease(self):
+        """Decrease whatever is selected."""
+        self.stroke_change(-1)
+
+    def stroke_change(self, direction):
+        """Modify the line width or text size."""
+        print("Changing stroke", direction)
+        cobj = self.__current_object()
+        if cobj and cobj.type == "text":
+            print("Changing text size")
+            cobj.stroke_change(direction)
+            self.__pen.font_size = cobj.pen.font_size
+        else: 
+            for obj in self.__gom.selected_objects():
+                obj.stroke_change(direction)
+
+        # without a selected object, change the default pen, but only if in the correct mode
+        if self.__mode == "draw":
+            self.__pen.line_width = max(1, self.__pen.line_width + direction)
+        elif self.__mode == "text":
+            self.__pen.font_size = max(1, self.__pen.font_size + direction)
+
+    def set_color(self, color):
+        self.__pen.color_set(color)
+        self.__gom.selection_color_set(color)
+
+    def set_font(self, font_description):
+        """Set the font."""
+        self.__pen.font_set_from_description(font_description)
+        self.__gom.selection_font_set(font_description)
+        if self.__current_object and self.__current_object.type == "text":
+            self.__current_object.pen.font_set_from_description(font_description)
+
+#   def smoothen(self):
+#       """Smoothen the selected object."""
+#       if self.selection.n() > 0:
+#           for obj in self.selection.objects:
+#               obj.smoothen()
+
+    def switch_pens(self):
+        """Switch between pens."""
+        self.__pen, self.__pen2 = self.__pen2, self.__pen
+
+    def apply_pen_to_bg(self):
+        """Apply the pen to the background."""
+        self.__bg_color = self.__pen.color
 
 

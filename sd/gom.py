@@ -16,7 +16,6 @@ class GraphicsObjectManager:
         _hidden (bool): True if the objects are hidden.
         _resizeobj (Drawable): The object being resized.
         _mode (str): The current mode.
-        _cursor (CursorManager): The cursor manager.
         _hover (Drawable): The object being hovered over.
         _clipboard (Clipboard): The clipboard.
         _selection_tool (SelectionTool): The selection tool.
@@ -197,7 +196,7 @@ class GraphicsObjectManager:
             obj.pen.font_set_from_description(font_description)
 
     def selection_apply_pen(self):
-        pen = self.__app.pen
+        pen = self.__app.dm.pen()
         """Apply the pen to the selected objects."""
         if not self.selection.is_empty():
             # self._history.append(SetColorCommand(self.selection, pen.color))

@@ -22,7 +22,6 @@ class DrawableFactory:
         ret_obj = None
 
         if mode == "text" or (mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
-            #manager.cursor.set("none")
             ret_obj = Text([ pos ], pen = pen, content = "")
             ret_obj.move_caret("Home")
 

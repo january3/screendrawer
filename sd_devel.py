@@ -66,7 +66,9 @@ from sd.gom import GraphicsObjectManager ###<placeholder sd/gom.py>
 from sd.import_export import *           ###<placeholder sd/import_export.py>
 from sd.em import *                      ###<placeholder sd/em.py>
 from sd.menus import *                   ###<placeholder sd/menus.py>
+###<placeholder sd/wiglets.py>
 from sd.dm import *                      ###<placeholder sd/dm.py>
+
 
 # ---------------------------------------------------------------------
 # defaults
@@ -118,38 +120,31 @@ class TransparentWindow(Gtk.Window):
         # autosave
         GLib.timeout_add(AUTOSAVE_INTERVAL, self.autosave)
 
-        # defaults for drawing
-        self.pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
-        self.pen2 = Pen(line_width = 40, color = (1, 1, 0),   font_size = 24, transparency = .2)
-        self.transparent = 0
-
         # Drawing setup
-        self.gom                 = GraphicsObjectManager(self)
-        self.dm                  = DrawManager(gom = self.gom,  app = self)
-        self.em                  = EventManager(gom = self.gom, app = self, dm = self.dm)
         self.clipboard           = Clipboard()
+        self.gom                 = GraphicsObjectManager(self)
         self.cursor              = CursorManager(self)
+        self.dm                  = DrawManager(gom = self.gom,  app = self, cursor = self.cursor)
+        self.em                  = EventManager(gom = self.gom, app = self, dm = self.dm)
         self.mm                  = MenuMaker(self.gom, self.em, self)
-        self.hidden              = False
 
         # distance for selecting objects
         self.max_dist   = 15
 
+        # load the drawing from the savefile
         self.load_state()
-        self.modified = False # for autosave
 
         # connecting events
-        self.connect("draw", self.dm.on_draw)
-        self.connect("key-press-event", self.em.on_key_press)
         self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
+
+        self.connect("key-press-event",      self.em.on_key_press)
+        self.connect("draw",                 self.dm.on_draw)
         self.connect("button-press-event",   self.dm.on_button_press)
         self.connect("button-release-event", self.dm.on_button_release)
         self.connect("motion-notify-event",  self.dm.on_motion_notify)
 
         self.set_keep_above(True)
         self.maximize()
-
-
 
     def exit(self):
         ## close the savefile_f
@@ -159,23 +154,20 @@ class TransparentWindow(Gtk.Window):
 
     # ---------------------------------------------------------------------
 
-    def cycle_background(self):
-        """Cycle through background transparency."""
-        self.transparent = {1: 0, 0: 0.5, 0.5: 1}[self.transparent]
-
     def paste_text(self, clip_text):
         """Enter some text in the current object or create a new object."""
 
-        if self.current_object and self.current_object.type == "text":
-            self.current_object.add_text(clip_text.strip())
+        cobj = self.dm.current_object()
+        if cobj and cobj.type == "text":
+            cobj.add_text(clip_text.strip())
         else:
             new_text = Text([ self.cursor.pos() ], 
-                            pen = self.pen, content=clip_text.strip())
+                            pen = self.dm.pen(), content=clip_text.strip())
             self.gom.add_object(new_text)
 
     def paste_image(self, clip_img):
         """Create an image object from a pixbuf image."""
-        obj = Image([ self.cursor.pos() ], self.pen, clip_img)
+        obj = Image([ self.cursor.pos() ], self.dm.pen(), clip_img)
         self.gom.add_object(obj)
 
     def object_create_copy(self, obj, bb = None):
@@ -231,86 +223,23 @@ class TransparentWindow(Gtk.Window):
         """Cut content to clipboard."""
         self.copy_content(True)
    
-    def stroke_increase(self):
-        """Increase whatever is selected."""
-        self.stroke_change(1)
-
-    def stroke_decrease(self):
-        """Decrease whatever is selected."""
-        self.stroke_change(-1)
-
-    def stroke_change(self, direction):
-        """Modify the line width or text size."""
-        print("Changing stroke", direction)
-        if self.current_object and self.current_object.type == "text":
-            print("Changing text size")
-            self.current_object.stroke_change(direction)
-            self.pen.font_size = self.current_object.pen.font_size
-        else: 
-            for obj in self.gom.selected_objects():
-                obj.stroke_change(direction)
-
-        # without a selected object, change the default pen, but only if in the correct mode
-        if self.dm.mode() == "draw":
-            self.pen.line_width = max(1, self.pen.line_width + direction)
-        elif self.dm.mode() == "text":
-            self.pen.font_size = max(1, self.pen.font_size + direction)
-
-    def outline_toggle(self):
-        """Toggle outline mode."""
-        self.outline = not self.outline
-
-    def set_color(self, color):
-        self.pen.color_set(color)
-        self.gom.selection_color_set(color)
-
-    def set_font(self, font_description):
-        """Set the font."""
-        self.pen.font_set_from_description(font_description)
-        self.gom.selection_font_set(font_description)
-        if self.current_object and self.current_object.type == "text":
-            self.current_object.pen.font_set_from_description(font_description)
-
-    def transmute(self, mode):
-        """Change the selected object(s) to a shape."""
-        print("transmuting to", mode)
-        sel = self.gom.selected_objects()
-        # note to self: sel is a list, not the selection
-        if sel:
-            self.gom.transmute(sel, mode)
-
-#   def smoothen(self):
-#       """Smoothen the selected object."""
-#       if self.selection.n() > 0:
-#           for obj in self.selection.objects:
-#               obj.smoothen()
-
-    def switch_pens(self):
-        """Switch between pens."""
-        self.pen, self.pen2 = self.pen2, self.pen
-        self.queue_draw()
-
-    def apply_pen_to_bg(self):
-        """Apply the pen to the background."""
-        self.bg_color = self.pen.color
-
     def select_color_bg(self):
         """Select a color for the background."""
         color = ColorChooser(self)
         if color:
-            self.bg_color = (color.red, color.green, color.blue)
+            self.dm.bg_color((color.red, color.green, color.blue))
 
     def select_color(self):
         """Select a color for drawing."""
         color = ColorChooser(self)
         if color:
-            self.set_color((color.red, color.green, color.blue))
+            self.dm.set_color((color.red, color.green, color.blue))
 
     def select_font(self):
-        font_description = FontChooser(self.pen, self)
+        font_description = FontChooser(self.dm.pen(), self)
 
         if font_description:
-            self.set_font(font_description)
+            self.dm.set_font(font_description)
 
     def show_help_dialog(self):
         """Show the help dialog."""
@@ -366,7 +295,7 @@ class TransparentWindow(Gtk.Window):
 
             if pixbuf is not None:
                 pos = self.cursor.pos()
-                img = Image([ pos ], self.pen, pixbuf)
+                img = Image([ pos ], self.dm.pen(), pixbuf)
                 self.gom.add_object(img)
                 self.queue_draw()
         
@@ -375,22 +304,23 @@ class TransparentWindow(Gtk.Window):
     def screenshot_finalize(self, bb):
         print("Taking screenshot now")
         pixbuf, filename = get_screenshot(self, bb[0] - 3, bb[1] - 3, bb[0] + bb[2] + 6, bb[1] + bb[3] + 6)
-        self.hidden = False
+        self.dm.hide(False)
         self.queue_draw()
 
         # Create the image and copy the file name to clipboard
         if pixbuf is not None:
-            img = Image([ (bb[0], bb[1]) ], self.pen, pixbuf)
+            img = Image([ (bb[0], bb[1]) ], self.dm.pen(), pixbuf)
             self.gom.add_object(img)
             self.queue_draw()
             self.clipboard.set_text(filename)
 
     def find_screenshot_box(self):
-        if self.current_object and self.current_object.type == "box":
-            return self.current_object
-        if self.gom.selection.n() == 1 and self.gom.selected_objects()[0].type == "box":
-            return self.gom.selection.objects()[0]
-
+        cobj = self.dm.current_object()
+        if cobj and cobj.type == "box":
+            return cobj
+        for obj in self.gom.selected_objects():
+            if obj.type == "box":
+                return obj
         for obj in self.gom.objects()[::-1]:
             if obj.type == "box":
                 return obj
@@ -405,22 +335,23 @@ class TransparentWindow(Gtk.Window):
         else:
             bb = obj.bbox()
             print("bbox is", bb)
-        self.hidden = True
+        #self.hidden = True
+        self.dm.hide(True)
         self.queue_draw()
         while Gtk.events_pending():
             Gtk.main_iteration_do(False)
         GLib.timeout_add(100, self.screenshot_finalize, bb)
 
     def autosave(self):
-        if not self.modified:
+        if not self.dm.modified():
            return
 
-        if self.current_object: # not while drawing!
+        if self.dm.current_object(): # not while drawing!
             return
 
         print("Autosaving")
         self.save_state()
-        self.modified = False
+        self.dm.modified(False)
 
     def save_state(self): 
         """Save the current drawing state to a file."""
@@ -430,11 +361,11 @@ class TransparentWindow(Gtk.Window):
 
         print("savefile:", self.savefile)
         config = {
-                'bg_color':    self.bg_color,
-                'transparent': self.transparent,
+                'bg_color':    self.dm.bg_color(),
+                'transparent': self.dm.transparent(),
                 'bbox':        (0, 0, *self.get_size()),
-                'pen':         self.pen.to_dict(),
-                'pen2':        self.pen2.to_dict()
+                'pen':         self.dm.pen().to_dict(),
+                'pen2':        self.dm.pen(alternate = True).to_dict()
         }
 
         objects = self.gom.export_objects()
@@ -445,7 +376,7 @@ class TransparentWindow(Gtk.Window):
         if self.read_file(file_name):
             print("Setting savefile to", file_name)
             self.savefile = file_name
-            self.modified = True
+            self.dm.modified(True)
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
@@ -455,12 +386,12 @@ class TransparentWindow(Gtk.Window):
             self.gom.set_objects(objects)
 
         if config and load_config:
-            self.bg_color          = config.get('bg_color') or (.8, .75, .65)
-            self.transparent       = config.get('transparent') or 0
-            self.pen               = Pen.from_dict(config['pen'])
-            self.pen2              = Pen.from_dict(config['pen2'])
-        if config and objects:
-            self.modified = True
+            self.dm.bg_color(config.get('bg_color') or (.8, .75, .65))
+            self.dm.transparent(config.get('transparent') or 0)
+            self.dm.pen_set(Pen.from_dict(config['pen']))
+            self.dm.pen_set(Pen.from_dict(config['pen2']), alternate = True)
+        if config or objects:
+            self.dm.modified(True)
             return True
         return False
 

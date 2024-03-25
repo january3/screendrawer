@@ -1,4 +1,5 @@
 from .pen import Pen               # <remove>
+from .utils import draw_dot         # <remove>
 
 ## ---------------------------------------------------------------------
 class Wiglet:
