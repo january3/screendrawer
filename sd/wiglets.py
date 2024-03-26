@@ -98,7 +98,7 @@ class WigletLineWidth(Wiglet):
 ## ---------------------------------------------------------------------
 class WigletToolSelector(Wiglet):
     """Wiglet for selecting the tool."""
-    def __init__(self, coords = (150, 0), width = 800, height = 30, func_mode = None):
+    def __init__(self, coords = (50, 0), width = 1000, height = 30, func_mode = None):
         super().__init__("tool_selector", coords)
 
         self.__width, self.__height = width, height
