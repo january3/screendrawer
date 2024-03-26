@@ -1,5 +1,6 @@
-from gi.repository import Gdk # <remove>
-from sd.utils import base64_to_pixbuf # <remove>
+from gi.repository import Gdk         # <remove>
+from .utils import base64_to_pixbuf # <remove>
+from .icons import Icons            # <remove>
 
 ## ---------------------------------------------------------------------
 
@@ -32,9 +33,8 @@ class CursorManager:
     def _make_cursors(self, window):
         """Create cursors for different modes."""
 
-
-        pipette = ICONS["pipette"]
-        pipette = base64_to_pixbuf(pipette)
+        icons = Icons()
+        colorpicker = icons.get("colorpicker")
 
         self._cursors = {
             "hand":        Gdk.Cursor.new_from_name(window.get_display(), "hand1"),
@@ -42,11 +42,12 @@ class CursorManager:
             "grabbing":    Gdk.Cursor.new_from_name(window.get_display(), "grabbing"),
             "moving":      Gdk.Cursor.new_from_name(window.get_display(), "grab"),
             "text":        Gdk.Cursor.new_from_name(window.get_display(), "text"),
-            "eraser":      Gdk.Cursor.new_from_name(window.get_display(), "not-allowed"),
+            #"eraser":      Gdk.Cursor.new_from_name(window.get_display(), "not-allowed"),
+            "eraser":      Gdk.Cursor.new_from_pixbuf(window.get_display(), icons.get("eraser"), 2, 23),
             "pencil":      Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "picker":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             #"colorpicker": Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
-            "colorpicker": Gdk.Cursor.new_from_pixbuf(window.get_display(), pipette, 1, 26),
+            "colorpicker": Gdk.Cursor.new_from_pixbuf(window.get_display(), colorpicker, 1, 26),
             "shape":       Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "draw":        Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "crosshair":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
@@ -80,7 +81,6 @@ class CursorManager:
         """Revert to the default cursor."""
         if self._current_cursor == self._default_cursor:
             return
-        print("reverting cursor")
         self._window.get_window().set_cursor(self._cursors[self._default_cursor])
         self._current_cursor = self._default_cursor
 

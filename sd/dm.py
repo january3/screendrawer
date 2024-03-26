@@ -120,7 +120,6 @@ class DrawManager:
         if self.__translate:
             cr.translate(*self.__translate)
 
-        print("BG color: ", self.__bg_color)
         cr.set_source_rgba(*self.__bg_color, self.__transparent)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()

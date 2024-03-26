@@ -3,6 +3,8 @@ from .utils import draw_dot, is_click_in_bbox  # <remove>
 import cairo                                   # <remove>
 
 import colorsys                                # <remove>
+from .icons import Icons                       # <remove>
+from gi.repository import Gdk                  # <remove>
 
 def adjust_color_brightness(rgb, factor):
     """
@@ -12,13 +14,12 @@ def adjust_color_brightness(rgb, factor):
     :return: Adjusted color as an (r, g, b) tuple in the range [0, 1]
     """
     # Convert RGB to HLS
-    print("rgb:", rgb)
     h, l, s = colorsys.rgb_to_hls(*rgb)
+    #print("r,g,b:", *rgb, "h, l, s:", h, l, s)
     
     # Adjust lightness
     l = max(min(l * factor, 1), 0)  # Ensure lightness stays within [0, 1]
     newrgb = colorsys.hls_to_rgb(h, l, s)
-    print("newrgb:", newrgb)
     
     # Convert back to RGB
     return newrgb
@@ -98,17 +99,25 @@ class WigletLineWidth(Wiglet):
 ## ---------------------------------------------------------------------
 class WigletToolSelector(Wiglet):
     """Wiglet for selecting the tool."""
-    def __init__(self, coords = (50, 0), width = 1000, height = 30, func_mode = None):
+    def __init__(self, coords = (50, 0), width = 1000, height = 35, func_mode = None):
         super().__init__("tool_selector", coords)
 
         self.__width, self.__height = width, height
         self.__bbox = (coords[0], coords[1], width, height)
         self.__modes = [ "move", "draw", "shape", "box", "circle", "text", "eraser", "colorpicker" ]
         self.__modes_dict = { "move": "Move", "draw": "Draw", "shape": "Shape", "box": "Rectangle", 
-                              "circle": "Circle", "text": "Text", "eraser": "Eraser", "colorpicker": "Color Picker" }
+                              "circle": "Circle", "text": "Text", "eraser": "Eraser", "colorpicker": "Col.Pick" }
 
         self.recalculate()
         self.__mode_func = func_mode
+        self.__icons = { }
+
+        self._init_icons()
+
+    def _init_icons(self):
+        icons = Icons()
+        self.__icons = { mode: icons.get(mode) for mode in self.__modes }
+        print("icons:", self.__icons)
 
     def recalculate(self):
 
@@ -116,7 +125,6 @@ class WigletToolSelector(Wiglet):
         self.__dw   = self.__width / len(self.__modes) 
 
     def draw(self, cr):
-        print("drawing tool selector")
         cr.set_source_rgb(0.5, 0.5, 0.5)
         cr.rectangle(*self.__bbox)
         cr.fill()
@@ -124,7 +132,6 @@ class WigletToolSelector(Wiglet):
         cur_mode = None
         if self.__mode_func and callable(self.__mode_func):
             cur_mode = self.__mode_func()
-        print("current mode:", cur_mode)
 
         for i, mode in enumerate(self.__modes):
             label = self.__modes_dict[mode]
@@ -144,9 +151,17 @@ class WigletToolSelector(Wiglet):
             cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
             cr.set_font_size(14)
             x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents(label)
-            cr.move_to(self.__bbox[0] + i * self.__dw + (self.__dw - t_width) / 2 - x_bearing, 
-                       self.__bbox[1] + (self.__height - t_height) / 2 - y_bearing)
+            icon = self.__icons.get(mode)
+            if icon:
+                iw = icon.get_width()
+                x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width - iw) / 2 - x_bearing + iw
+            else:
+                x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width) / 2 - x_bearing
+            cr.move_to(x0, self.__bbox[1] + (self.__height - t_height) / 2 - y_bearing)
             cr.show_text(label)
+            if self.__icons.get(mode):
+                Gdk.cairo_set_source_pixbuf(cr, self.__icons[mode], self.__bbox[0] + i * self.__dw + 5, self.__bbox[1] + 5)
+                cr.paint()
 
 
     def on_click(self, x, y, ev):
@@ -185,9 +200,6 @@ class WigletColorSelector(Wiglet):
         self.__func_bg    = func_bg
         self.recalculate()
 
-        for color, ypos in self.__colors_hpos.items():
-            print("color:", color, "ypos:", ypos)
-
     def recalculate(self):
         self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
         self.__color_dh = (self.__height - self.__dh) / len(self.__colors)
@@ -208,8 +220,6 @@ class WigletColorSelector(Wiglet):
             bg = self.__func_bg()
         if self.__func_color and callable(self.__func_color):
             fg = self.__func_color()
-
-        print("current fg/bg:", fg, bg)
 
         cr.set_source_rgb(*bg)
         cr.rectangle(self.__bbox[0] + 4, self.__bbox[1] + 9, self.__width - 5, 23)
@@ -233,10 +243,8 @@ class WigletColorSelector(Wiglet):
 
         dy = y - self.__bbox[1]
         # which color is at this position?
-        print("dy:", dy)
         sel_color = None
         for color, ypos in self.__colors_hpos.items():
-            print("color:", color, "ypos:", ypos)
             if ypos <= dy <= ypos + self.__color_dh:
                 print("selected color:", color)
                 sel_color = color
@@ -275,18 +283,24 @@ class WigletColorSelector(Wiglet):
                      (0.0, 0.7, 0.5),
                      (0.0, 1.0, 0.0),
                      (1.0, 1.0, 0.0),
-                     (1.0, 0.7, 0.0),
+                     (1.0, 0.6, 0.0),
                      (0.776, 0.612, 0.427),
                      (1.0, 0.3, 0.0),
                      (1.0, 0.0, 0.0)]
 
+       #colors = [ ]
+
+       #for i in range(1, 21):
+       #    h = i/20
+       #    rgb = colorsys.hls_to_rgb(h, 0.5, 1)
+       #    print("h=", h, "rgb:", *rgb)
+       #    colors.append(rgb)
+
         newc = [ ]
         for i in range(11):
-            print(i/10)
-
             newc.append((i/10, i/10, i/10))
+
         for c in colors:
-            print("color:", c)
             lighter = adjust_color_brightness(c, 1.5)
             for dd in range(30, 180, 15): #
                 d = dd / 100
