@@ -34,25 +34,25 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * 
+ * when drawing very slow the line looks like shit.
  * the undo is, I think, still buggy. 
  * undo remove object places the object in the wrong position in stack - at
    the end of the stack, instead of the exact position that it was located.
    Thus, after the undo operation, the stack is not the same as before the
    operation. This may be a big problem with subsequent undos that actually
    consider the stack order.
- * When exporting, no background is produced
  * rotating the whole selection does not work (b/c the way selection
    behaves)
  * when creating boxes, sometimes tiny itsy bitsy boxes are created
  * when text is rotated, the algorithm for checking for hover objects does
    not consider the enlarged bounding box
- * bounding boxes of objects that were reversed during resize are incorrect
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
    should be mostly outside of the bb
 
 Done:
+ * bounding boxes of objects that were reversed during resize are incorrect
+ * When exporting, no background is produced
  * wiglet for color 
  * paning the draw area
  * Drawing Manager

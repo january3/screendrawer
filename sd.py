@@ -27,6 +27,9 @@ import gi
 import copy
 import yaml
 import pickle
+import traceback
+import colorsys
+from sys import exc_info, argv 
 gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
@@ -45,6 +48,10 @@ import argparse
 import pyautogui
 from PIL import ImageGrab
 from os import path
+
+ICONS = { "pipette": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAYAAABvCO8sAAADJUlEQVRIx7XWS2xVVRQG4O/c20LpxTYNLSaAVagVtYoDG1DQ+IgaFYOmIeJME4hKfIImDBgYlRgiJDghPsAoQdGRGsMAUQgywOADRPFBYiiVKpZauZDS2+c9ThZJY4DUXrpGO+vss/691v7/vRZjZ2V4AZ3owBe4oWyMwKrwMboxBw24Be9nxgCsBtvQFVk2YBpm40CpgNdieIxqfIYfMA8VqAx/FZpLAVyGD/ARHkEWH+JTLEBr+I5iJi7G9lIA78eL6MMVWI5BPIry8PcG8I3hW50tAXA2noiANZiLS+K+vow9x9GEWXgJO5MSACfiLTTGPe5Dc2TSjp7wz4vsN5fKxvtwOoJvx/dYjwHsx++hvabhP422pC1BlsEo5UnMiOCvY1KUcyUOlJrZ9UGGAu4a5r85WPs2FmITPg85jNquipO347qzfF8UGlyNO0MSd48WbGqAdWD6OfbMxF78hV/jHutHAzYeh7HqPAGWxXO2LrixFltGA1aPtgA7356uuMOS7OF48VfBxDd7irn1+cHcyz89N2zPlVG6nSNh/fmEvzjKshA7Kl/55UhSNn5aUjM1I8kmuo7c3r3i8hTvhQZb0D+SJnk2W4kHsQY7JqzY9XVmcmO9oYFEX0HxVEdv4dXbnsLV+CrYWRxpV/6vPR2amjN+6eZLs/WzjxmXqy2ePPa3npN1aX+3/k2PH0zzf9bhGywZKdjZXppn8QBaqjamUyRlewwNTsrUzShLKi/KpT15/VueaRs6vLc9NLZ4JGU8V4ZLoox3TNiYXjN06o+tErWZKU3S013SwimFdfccTztb9wVJlv+fzM7YmX7YjMdwb9U76axMX35bsf1gXaZuhuLx36SdrXpfm9+bdrZ+gkNRieJoaH+GpWvxbfWGdO9Q34n9xUO7q4rlE5Ik1SGbre19Y1FP2t21Jrr2k6WOcpVYIMm0DOTbssWjP1ZDUpE7ZLC/vLBufoWBwi5MxvOlCjuJjj0dksZb85mKcd9lG27KpSfaywd2b+iTppfh3ZBKeiHGun+GrX+OA+yJ9dIxmVqzDXNPBM3X4qGYS5rj0b6g9i9UTPumQhFEOwAAAABJRU5ErkJggg==",
+        }
+
 
 # ---------------------------------------------------------------------
 # These are various classes and utilities for the sd.py script. In the
@@ -348,6 +355,11 @@ def is_click_close_to_path(click_x, click_y, path, threshold):
             return True
     return False
 
+def is_click_in_bbox(click_x, click_y, bbox):
+    """Check if a click is inside a bounding box."""
+    x, y, w, h = bbox
+    return x <= click_x <= x + w and y <= click_y <= y + h
+
 def is_click_in_bbox_corner(click_x, click_y, bbox, threshold):
     """Check if a click is in the corner of a bounding box."""
     x, y, w, h = bbox
@@ -394,7 +406,15 @@ def draw_dot(cr, x, y, diameter):
     cr.arc(x, y, diameter / 2, 0, 2 * 3.14159)  # Draw a circle
     cr.fill()  # Fill the circle to make a dot
 
-
+def base64_to_pixbuf(image_base64):
+    """Convert a base64 image to a pixbuf."""
+    image_binary = base64.b64decode(image_base64)
+    image_io = BytesIO(image_binary)
+    loader = GdkPixbuf.PixbufLoader.new_with_type('png')  # Specify the image format if known
+    loader.write(image_io.getvalue())
+    loader.close()  # Finalize the loader
+    image = loader.get_pixbuf()  # Get the loaded GdkPixbuf
+    return image
 
 
 ## ---------------------------------------------------------------------
@@ -435,6 +455,32 @@ class CommandGroup(Command):
             cmd.redo()
         self._undone = False
         
+class SetLWCommand(Command):
+    """set line width command"""
+    # XXX: what happens if an object is added to group after the command,
+    # but before the undo? well, bad things happen
+    # XXX: more importantly: this does not work with groups
+    def __init__(self, objects, line_width):
+        super().__init__("set_lw", objects.get_primitive())
+        self._line_width = line_width
+        self._undo_line_width = { obj: obj.pen.line_width for obj in self.obj }
+
+        for obj in self.obj:
+            obj.line_width_set(line_width)
+
+    def undo(self):
+        for obj in self.obj:
+            if obj in self._undo_color:
+                obj.line_width_set(self._undo_color[obj])
+        self._undone = True
+
+    def redo(self):
+        if not self._undone:
+            return
+        for obj in self.obj:
+            obj.line_width_set(self._color)
+        self._undone = False
+
 class SetColorCommand(Command):
     """Simple class for handling color changes."""
     # XXX: what happens if an object is added to group after the command,
@@ -910,6 +956,9 @@ class Pen:
     def color_set(self, color):
         self.color = color
 
+    def line_width_set(self, line_width):
+        self.line_width = lw
+
     def font_set_from_description(self, font_description):
         self.font_family = font_description.get_family()
         self.font_size   = font_description.get_size() / Pango.SCALE
@@ -973,7 +1022,6 @@ class DrawableFactory:
         ret_obj = None
 
         if mode == "text" or (mode == "draw" and shift and not ctrl and not corner_obj[0] and not hover_obj):
-            #manager.cursor.set("none")
             ret_obj = Text([ pos ], pen = pen, content = "")
             ret_obj.move_caret("Home")
 
@@ -1115,9 +1163,17 @@ class Drawable:
         """Fill the object with a color."""
         self.pen.fill_set(color)
 
+    def line_width_set(self, lw):
+        """Set the color of the object."""
+        self.pen.line_width_set(lw)
+
     def color_set(self, color):
         """Set the color of the object."""
         self.pen.color_set(color)
+
+    def pen_set(self, pen):
+        """Set the pen of the object."""
+        self.pen = pen.copy()
 
     def font_set(self, size, family, weight, style):
         """Set the font of the object."""
@@ -1501,7 +1557,7 @@ class Image(Drawable):
 
         if image_base64:
             self.image_base64 = image_base64
-            image = self.decode_base64(image_base64)
+            image = base64_to_pixbuf(image_base64)
         else:
             self.image_base64 = None
 
@@ -1607,19 +1663,6 @@ class Image(Drawable):
         x, y, width, height = bb
         if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
             return True
-
-    def decode_base64(self, image_base64):
-        image_binary = base64.b64decode(image_base64)
-
-        # Step 2: Wrap the binary data in a BytesIO object
-        image_io = BytesIO(image_binary)
-
-        # Step 3: Load the image data into a GdkPixbuf
-        loader = GdkPixbuf.PixbufLoader.new_with_type('png')  # Specify the image format if known
-        loader.write(image_io.getvalue())
-        loader.close()  # Finalize the loader
-        image = loader.get_pixbuf()  # Get the loaded GdkPixbuf
-        return image
 
     def encode_base64(self):
         buffer = BytesIO()
@@ -2124,6 +2167,10 @@ class Path(Drawable):
         self.coords, self.pressure = smooth_path(self.coords, self.pressure, 1)
         self.outline_recalculate_new()
 
+    def set_pen(self, pen):
+        self.pen = pen
+        self.outline_recalculate_new()
+
     def outline_recalculate_new(self, coords = None, pressure = None):
         if not coords:
             coords = self.coords
@@ -2232,7 +2279,7 @@ class Path(Drawable):
         if self.resizing:
             return self.resizing["bbox"]
         if not self.bb:
-            self.bb = path_bbox(self.coords)
+            self.bb = path_bbox(self.outline or self.coords)
         return self.bb
 
     def resize_end(self):
@@ -2243,7 +2290,7 @@ class Path(Drawable):
         pressure   = self.pressure
         self.outline_recalculate_new(coords=new_coords, pressure=pressure)
         self.resizing  = None
-        self.bb = path_bbox(self.coords)
+        self.bb = path_bbox(self.outline or self.coords)
 
     def draw_outline(self, cr):
         """draws each segment separately and makes a dot at each coord."""
@@ -2265,7 +2312,7 @@ class Path(Drawable):
             return
 
         if bbox:
-            old_bbox = path_bbox(self.coords)
+            old_bbox = path_bbox(self.outline or self.coords)
             coords = transform_coords(self.coords, old_bbox, bbox)
         else:
             coords = self.coords
@@ -2457,116 +2504,62 @@ class MouseEvent:
     One advantage of using it: the computationaly intensive stuff is
     computed only once and only if it is needed.
     """
-    def __init__(self, event, objects):
+    def __init__(self, event, objects, translate = None):
         self.event   = event
         self.objects = objects
-        self._pos    = (event.x, event.y)
-        self._hover  = None
-        self._corner = None
-        self._shift  = (event.state & Gdk.ModifierType.SHIFT_MASK) != 0
-        self._ctrl   = (event.state & Gdk.ModifierType.CONTROL_MASK) != 0
-        self._double = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
-        self._pressure = event.get_axis(Gdk.AxisUse.PRESSURE)
-        if self._pressure is None:  # note that 0 is perfectly valid
-            self._pressure = 1
+        self.__hover  = None
+        self.__corner = None
+        self.__shift  = (event.state & Gdk.ModifierType.SHIFT_MASK) != 0
+        self.__ctrl   = (event.state & Gdk.ModifierType.CONTROL_MASK) != 0
+        self.__alt    = (event.state & Gdk.ModifierType.MOD1_MASK) != 0
+        self.__double = event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS
+        self.__pressure = event.get_axis(Gdk.AxisUse.PRESSURE)
+        if self.__pressure is None:  # note that 0 is perfectly valid
+            self.__pressure = 1
+        self.x = event.x
+        self.y = event.y
+
+        if translate:
+            self.x, self.y = self.x - translate[0], self.y - translate[1]
+        self.__pos    = (self.x, self.y)
 
 
     def hover(self):
-        if not self._hover:
-            self._hover = find_obj_close_to_click(self._pos[0], self._pos[1], self.objects, 20)
-        return self._hover
+        if not self.__hover:
+            self.__hover = find_obj_close_to_click(self.__pos[0], self.__pos[1], self.objects, 20)
+        return self.__hover
 
     def corner(self):
-        if not self._corner:
-            self._corner = find_corners_next_to_click(self._pos[0], self._pos[1], self.objects, 20)
-        return self._corner
+        if not self.__corner:
+            self.__corner = find_corners_next_to_click(self.__pos[0], self.__pos[1], self.objects, 20)
+        return self.__corner
 
     def pos(self):
-        return self._pos
+        return self.__pos
 
     def shift(self):
-        return self._shift
+        return self.__shift
 
     def ctrl(self):
-        return self._ctrl
+        return self.__ctrl
+
+    def alt(self):
+        return self.__alt
 
     def double(self):
-        return self._double
+        return self.__double
 
     def pressure(self):
-        return self._pressure
+        return self.__pressure
 
 
-## ---------------------------------------------------------------------
-class Wiglet:
-    """drawable dialog-like objects on the canvas"""
-    def __init__(self, type, coords):
-        self.wiglet_type   = type
-        self.coords = coords
 
-    def draw(self, cr):
-        raise NotImplementedError("draw method not implemented")
-
-    def event_update(self, x, y):
-        raise NotImplementedError("event_update method not implemented")
-
-    def event_finish(self):
-        raise NotImplementedError("event_finish method not implemented")
-
-class WigletTransparency(Wiglet):
-    """Wiglet for changing the transparency."""
-    def __init__(self, coords, pen):
-        super().__init__("transparency", coords)
-
-        if not pen or not isinstance(pen, Pen):
-            raise ValueError("Pen is not defined or not of class Pen")
-
-        self.pen      = pen
-        self._last_pt = coords[0]
-        self._initial_transparency = pen.transparency
-        print("initial transparency:", self._initial_transparency)
-
-    def draw(self, cr):
-        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
-        draw_dot(cr, *self.coords, 50)
-
-    def event_update(self, x, y):
-        dx = x - self.coords[0]
-        #print("changing transparency", dx)
-        ## we want to change the transparency by 0.1 for every 20 pixels
-        self.pen.transparency = max(0, min(1, self._initial_transparency + dx/500))
-        #print("new transparency:", self.pen.transparency)
-
-    def event_finish(self):
-        pass
-
-class WigletLineWidth(Wiglet):
-    """Wiglet for changing the line width."""
-    """directly operates on the pen of the object"""
-    def __init__(self, coords, pen):
-        super().__init__("line_width", coords)
-
-        if not pen or not isinstance(pen, Pen):
-            raise ValueError("Pen is not defined or not of class Pen")
-        self.pen      = pen
-        self._last_pt = coords[0]
-        self._initial_width = pen.line_width
-
-    def draw(self, cr):
-        cr.set_source_rgb(*self.pen.color)
-        draw_dot(cr, *self.coords, self.pen.line_width)
-
-    def event_update(self, x, y):
-        dx = x - self.coords[0]
-        print("changing line width", dx)
-        self.pen.line_width = max(1, min(60, self._initial_width + dx/20))
-        return True
-
-    def event_finish(self):
-        pass
-
-## ---------------------------------------------------------------------
-
+FORMATS = {
+    "All files": { "pattern": "*",      "mime_type": "application/octet-stream", "name": "all" },
+    "PNG files":  { "pattern": "*.png",  "mime_type": "image/png",       "name": "png" },
+    "JPEG files": { "pattern": "*.jpeg", "mime_type": "image/jpeg",      "name": "jpeg" },
+    "PDF files":  { "pattern": "*.pdf",  "mime_type": "application/pdf", "name": "pdf" }
+}
 
 
 ## ---------------------------------------------------------------------
@@ -2626,6 +2619,7 @@ Ctrl-z: undo            |Esc|: Finish text input                                
 Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up, Alt-Down: Move object up, down
                                                                           Alt-PgUp, Alt-PgDown: Move object to front, back
 Ctrl-k: Select color                     f: fill with current color       Alt-s: convert drawing(s) to shape(s)
+Ctrl-Shift-k: Select bg color
 Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline                Alt-d: convert shape(s) to drawing(s)
 Ctrl-b: Cycle background transparency
 Ctrl-p: toggle between two pens
@@ -2638,7 +2632,9 @@ screenshot will be pasted into the drawing.
 Ctrl-i: Import image from a file (jpeg, png)
 Ctrl-o: Open a drawing from a file (.sdrw, that is the "native format") -
         note that the subsequent modifications will be saved to that file only
-Ctrl-e: Export drawing to a file (png, jpeg, pdf)
+Ctrl-e: Export selection or whole drawing to a file (png, jpeg, pdf)
+Ctrl-Shift-s: "Save as" - save drawing to a file (.sdrw, that is the "native format") - note
+        that the subsequent modifications will be saved to that file only
 
 When you copy a selection or individual objects, you can paste them into
 other programs as a PNG image.
@@ -2662,14 +2658,7 @@ An autosave happens every minute or so.
 ## ---------------------------------------------------------------------
 
 def _dialog_add_image_formats(dialog):
-    formats = {
-        "All files": { "pattern": "*",      "mime_type": "application/octet-stream", "name": "all" },
-        "PNG files":  { "pattern": "*.png",  "mime_type": "image/png",       "name": "png" },
-        "JPEG files": { "pattern": "*.jpeg", "mime_type": "image/jpeg",      "name": "jpeg" },
-        "PDF files":  { "pattern": "*.pdf",  "mime_type": "application/pdf", "name": "pdf" }
-    }
-
-    for name, data in formats.items():
+    for name, data in FORMATS.items():
         filter = Gtk.FileFilter()
         filter.set_name(name)
         filter.add_pattern(data["pattern"])
@@ -2678,13 +2667,15 @@ def _dialog_add_image_formats(dialog):
 
 ## ---------------------------------------------------------------------
 
-def export_dialog(widget, parent = None):
+def export_dialog(parent):
     """Show a file chooser dialog to select a file to save the drawing as
     an image / pdf / svg."""
+    print("export_dialog")
     file_name, selected_filter = None, None
 
     dialog = Gtk.FileChooserDialog(
-        title="Save As", parent=parent, action=Gtk.FileChooserAction.SAVE)
+        title="Export As", parent=parent, action=Gtk.FileChooserAction.SAVE)
+
     dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                        Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
     dialog.set_modal(True)
@@ -2699,13 +2690,43 @@ def export_dialog(widget, parent = None):
     if response == Gtk.ResponseType.OK:
         file_name = dialog.get_filename()
         selected_filter = dialog.get_filter().get_name()
-        selected_filter = formats[selected_filter]["name"]
+        selected_filter = FORMATS[selected_filter]["name"]
         print(f"Save file as: {file_name}, Format: {selected_filter}")
 
     dialog.destroy()
     return file_name, selected_filter
 
-def import_image_dialog(widget, parent = None):
+
+def save_dialog(parent):
+    """Show a file chooser dialog to set the savefile."""
+    print("export_dialog")
+    file_name, selected_filter = None, None
+
+    dialog = Gtk.FileChooserDialog(
+        title="Save As", parent=parent, action=Gtk.FileChooserAction.SAVE)
+
+    dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                       Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
+    dialog.set_modal(True)
+
+    current_directory = os.getcwd()
+    dialog.set_current_folder(current_directory)
+
+    #_dialog_add_image_formats(dialog)
+
+    # Show the dialog
+    response = dialog.run()
+    if response == Gtk.ResponseType.OK:
+        file_name = dialog.get_filename()
+       #selected_filter = dialog.get_filter().get_name()
+       #selected_filter = formats[selected_filter]["name"]
+       #print(f"Save file as: {file_name}, Format: {selected_filter}")
+
+    dialog.destroy()
+    return file_name
+
+
+def import_image_dialog(parent):
     """Show a file chooser dialog to select an image file."""
     dialog = Gtk.FileChooserDialog(
         title="Select an Image",
@@ -2764,7 +2785,7 @@ def open_drawing_dialog(parent):
     dialog.destroy()
     return image_path
 
-def FontChooser(pen, parent = None):
+def FontChooser(pen, parent):
 
     # check that pen is an instance of Pen
     if not isinstance(pen, Pen):
@@ -2791,7 +2812,7 @@ def FontChooser(pen, parent = None):
     return font_description
 
 
-def ColorChooser(parent = None):
+def ColorChooser(parent):
     """Select a color for drawing."""
     # Create a new color chooser dialog
     color_chooser = Gtk.ColorChooserDialog("Select Current Foreground Color", parent = parent)
@@ -2940,16 +2961,22 @@ class CursorManager:
 
     def _make_cursors(self, window):
         """Create cursors for different modes."""
+
+        icons = Icons()
+        colorpicker = icons.get("colorpicker")
+
         self._cursors = {
             "hand":        Gdk.Cursor.new_from_name(window.get_display(), "hand1"),
             "move":        Gdk.Cursor.new_from_name(window.get_display(), "hand2"),
             "grabbing":    Gdk.Cursor.new_from_name(window.get_display(), "grabbing"),
             "moving":      Gdk.Cursor.new_from_name(window.get_display(), "grab"),
             "text":        Gdk.Cursor.new_from_name(window.get_display(), "text"),
-            "eraser":      Gdk.Cursor.new_from_name(window.get_display(), "not-allowed"),
+            #"eraser":      Gdk.Cursor.new_from_name(window.get_display(), "not-allowed"),
+            "eraser":      Gdk.Cursor.new_from_pixbuf(window.get_display(), icons.get("eraser"), 2, 23),
             "pencil":      Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "picker":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
-            "colorpicker": Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
+            #"colorpicker": Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
+            "colorpicker": Gdk.Cursor.new_from_pixbuf(window.get_display(), colorpicker, 1, 26),
             "shape":       Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "draw":        Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "crosshair":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
@@ -2983,7 +3010,6 @@ class CursorManager:
         """Revert to the default cursor."""
         if self._current_cursor == self._default_cursor:
             return
-        print("reverting cursor")
         self._window.get_window().set_cursor(self._cursors[self._default_cursor])
         self._current_cursor = self._default_cursor
 
@@ -3009,29 +3035,25 @@ class GraphicsObjectManager:
         _objects (list): The list of objects.
         _history_stack (list): The list of commands in the history.
         _hidden (bool): True if the objects are hidden.
-        _current_object (Drawable): The current object.
-        _wiglet_active (Drawable): The active wiglet.
         _resizeobj (Drawable): The object being resized.
         _mode (str): The current mode.
-        _cursor (CursorManager): The cursor manager.
         _hover (Drawable): The object being hovered over.
         _clipboard (Clipboard): The clipboard.
         _selection_tool (SelectionTool): The selection tool.
     """
 
-    def __init__(self, window):
+    def __init__(self, app):
         # public attr
         self.clipboard = Clipboard()
 
         # private attr
+        self.__app = app
         self._objects    = []
         self._history    = []
         self._redo_stack = []
         self.selection = SelectionObject(self._objects)
 
         self._hidden = False
-        self._current_object = None
-        self._wiglet_active = None
         self._resizeobj = None
         self._hover = None
         self._selection_tool = None
@@ -3156,6 +3178,7 @@ class GraphicsObjectManager:
     def select_reverse(self):
         """Reverse the selection."""
         self.selection.reverse()
+        self.__app.dm.mode("move")
 
     def select_all(self):
         """Select all objects."""
@@ -3163,6 +3186,7 @@ class GraphicsObjectManager:
             return
 
         self.selection.all()
+        self.__app.dm.mode("move")
 
     def selection_delete(self):
         """Delete selected objects."""
@@ -3174,8 +3198,10 @@ class GraphicsObjectManager:
         """Select the next object."""
         self.selection.next()
 
-    def selection_fill(self, color):
+    def selection_fill(self):
         """Fill the selected object."""
+        # XXX gom should not call dm directly
+        color = self.__app.dm.pen().color
         for obj in self.selection.objects:
             obj.fill(color)
 
@@ -3191,6 +3217,15 @@ class GraphicsObjectManager:
     def selection_font_set(self, font_description):
         for obj in self.selection.objects:
             obj.pen.font_set_from_description(font_description)
+
+    def selection_apply_pen(self):
+        pen = self.__app.dm.pen()
+        """Apply the pen to the selected objects."""
+        if not self.selection.is_empty():
+            # self._history.append(SetColorCommand(self.selection, pen.color))
+            # self._history.append(SetLWCommand(self.selection, pen.color))
+            for obj in self.selection.objects:
+                obj.set_pen(pen)
 
     def do(self, command):
         """Do a command."""
@@ -3245,9 +3280,51 @@ class GraphicsObjectManager:
 
 
 
-def export_image(width, height, filename, draw_func, file_format = "all"):
+def guess_file_format(filename):
+    _, file_format = path.splitext(filename)
+    file_format = file_format[1:]
+    # lower case
+    file_format = file_format.lower()
+    # jpg -> jpeg
+    if file_format == "jpg":
+        file_format = "jpeg"
+    # check
+    if file_format not in [ "png", "jpeg", "pdf", "svg" ]:
+        raise ValueError("Unrecognized file extension")
+    return file_format
+
+def convert_file(input_file, output_file, file_format = "all", border = None):
+    config, objects = read_file_as_sdrw(input_file)
+    print("read drawing from", input_file, "with", len(objects), "objects")
+    objects = DrawableGroup(objects)
+
+    bbox = config.get("bbox", None) or objects.bbox()
+    if border:
+        bbox = objects.bbox()
+        bbox = (bbox[0] - border, bbox[1] - border, bbox[2] + border, bbox[3] + border)
+
+    bg           = config.get("bg_color", (1, 1, 1))
+    transparency = config.get("transparent", 1.0)
+
+    if file_format == "all":
+        if output_file is None:
+            raise ValueError("No output file format provided")
+        file_format = guess_file_format(output_file)
+    else:
+        if output_file is None:
+            # create a file name with the same name but different extension
+            output_file = path.splitext(input_file)[0] + "." + file_format
+
+    export_image(objects, output_file, file_format, bg = bg, bbox = bbox, transparency = trasnparency)
+
+
+def export_image(objects, filename, file_format = "all", bg = (1, 1, 1), bbox = None, transparency = 1.0):
     """Export the drawing to a file."""
-    # Create a Cairo surface of the same size as the window content
+
+    # if filename is None, we send the output to stdout
+    if filename is None:
+        print("export_image: no filename provided")
+        return
 
     if file_format == "all":
         # get the format from the file name
@@ -3263,6 +3340,14 @@ def export_image(width, height, filename, draw_func, file_format = "all"):
             raise ValueError("Unrecognized file extension")
         print("export_image: guessing format from file name:", file_format)
 
+    if bbox is None:
+        bbox = objects.bbox()
+    print("Bounding box:", bbox)
+    # to integers
+    width, height = int(bbox[2]), int(bbox[3])
+
+
+    # Create a Cairo surface of the same size as the bbox
     if file_format == "png":
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
     elif file_format == "svg":
@@ -3273,9 +3358,12 @@ def export_image(width, height, filename, draw_func, file_format = "all"):
         raise ValueError("Invalid file format: " + file_format)
 
     cr = cairo.Context(surface)
-    cr.set_source_rgba(1, 1, 1)
+    # translate to the top left corner of the bounding box
+    cr.translate(-bbox[0], -bbox[1])
+
+    cr.set_source_rgba(*bg, transparency)
     cr.paint()
-    draw_func(cr)
+    objects.draw(cr)
 
     # Save the surface to the file
     if file_format == "png":
@@ -3351,13 +3439,14 @@ class EventManager:
             cls._instance = super(EventManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, gom, app):
+    def __init__(self, gom, app, dm):
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
             self.__gom = gom
             self.__app = app
-            self.make_actions_dictionary(gom, app)
+            self.__dm  = dm
+            self.make_actions_dictionary(gom, app, dm)
             self.make_default_keybindings()
 
     def dispatch_action(self, action_name, **kwargs):
@@ -3379,6 +3468,11 @@ class EventManager:
             else:
                 action(**kwargs)
         except Exception as e:
+            exc_type, exc_value, exc_traceback = exc_info()
+            print("Exception type: ", exc_type)
+            print("Exception value:", exc_value)
+            print("Traceback:")
+            traceback.print_tb(exc_traceback)
             print(f"Error while dispatching action {action_name}: {e}")
 
     def dispatch_key_event(self, key_event, mode):
@@ -3411,7 +3505,7 @@ class EventManager:
         This method is called when a key is pressed.
         """
 
-        gom, app = self.__gom, self.__app
+        gom, dm, app = self.__gom, self.__dm, self.__app
 
         keyname = Gdk.keyval_name(event.keyval)
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
@@ -3420,7 +3514,7 @@ class EventManager:
         alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
         print("keyname", keyname, "char", char, "ctrl", ctrl, "shift", shift, "alt_l", alt_l)
 
-        mode = app.get_mode()
+        mode = dm.mode()
 
         keyfull = keyname
 
@@ -3437,9 +3531,10 @@ class EventManager:
         # first, check whether there is a current object being worked on
         # and whether this object is a text object. In that case, we only
         # call the ctrl keybindings and pass the rest to the text object.
-        if app.current_object and app.current_object.type == "text" and not(ctrl or keyname == "Escape"):
+        cobj = dm.current_object()
+        if cobj and cobj.type == "text" and not(ctrl or keyname == "Escape"):
             print("updating text input")
-            app.current_object.update_by_key(keyname, char)
+            cobj.update_by_key(keyname, char)
             app.queue_draw()
             return
 
@@ -3450,29 +3545,30 @@ class EventManager:
         app.queue_draw()
 
 
-    def make_actions_dictionary(self, gom, app):
+    def make_actions_dictionary(self, gom, app, dm):
         """
         This dictionary maps key events to actions.
         """
         self.__actions = {
-            'mode_draw':             {'action': app.set_mode, 'args': ["draw"]},
-            'mode_box':              {'action': app.set_mode, 'args': ["box"]},
-            'mode_circle':           {'action': app.set_mode, 'args': ["circle"]},
-            'mode_move':             {'action': app.set_mode, 'args': ["move"]},
-            'mode_text':             {'action': app.set_mode, 'args': ["text"]},
-            'mode_select':           {'action': app.set_mode, 'args': ["select"]},
-            'mode_eraser':           {'action': app.set_mode, 'args': ["eraser"]},
-            'mode_shape':            {'action': app.set_mode, 'args': ["shape"]},
-            'mode_colorpicker':      {'action': app.set_mode, 'args': ["colorpicker"]},
+            'mode_draw':             {'action': dm.mode, 'args': ["draw"]},
+            'mode_box':              {'action': dm.mode, 'args': ["box"]},
+            'mode_circle':           {'action': dm.mode, 'args': ["circle"]},
+            'mode_move':             {'action': dm.mode, 'args': ["move"]},
+            'mode_text':             {'action': dm.mode, 'args': ["text"]},
+            'mode_select':           {'action': dm.mode, 'args': ["select"]},
+            'mode_eraser':           {'action': dm.mode, 'args': ["eraser"]},
+            'mode_shape':            {'action': dm.mode, 'args': ["shape"]},
+            'mode_colorpicker':      {'action': dm.mode, 'args': ["colorpicker"]},
 
-            'finish_text_input':     {'action': app.finish_text_input},
+            'finish_text_input':     {'action': dm.finish_text_input},
+
+            'clear_page':            {'action': dm.clear},
+            'cycle_bg_transparency': {'action': dm.cycle_background},
+            'toggle_outline':        {'action': dm.outline_toggle},
+            'toggle_wiglets':        {'action': dm.toggle_wiglets},
 
             'show_help_dialog':      {'action': app.show_help_dialog},
             'app_exit':              {'action': app.exit},
-
-            'clear_page':            {'action': app.clear},
-            'cycle_bg_transparency': {'action': app.cycle_background},
-            'toggle_outline':        {'action': app.outline_toggle},
 
             'selection_fill':        {'action': gom.selection_fill},
             'transmute_to_shape':    {'action': gom.transmute_selection, 'args': [ "shape" ]},
@@ -3505,23 +3601,25 @@ class EventManager:
             'zmove_selection_raise':  {'action': gom.selection_zmove, 'args': [ "raise" ],  'modes': ["move"]},
             'zmove_selection_lower':  {'action': gom.selection_zmove, 'args': [ "lower" ],  'modes': ["move"]},
 
-            'set_color_white':       {'action': app.set_color, 'args': [COLORS["white"]]},
-            'set_color_black':       {'action': app.set_color, 'args': [COLORS["black"]]},
-            'set_color_red':         {'action': app.set_color, 'args': [COLORS["red"]]},
-            'set_color_green':       {'action': app.set_color, 'args': [COLORS["green"]]},
-            'set_color_blue':        {'action': app.set_color, 'args': [COLORS["blue"]]},
-            'set_color_yellow':      {'action': app.set_color, 'args': [COLORS["yellow"]]},
-            'set_color_cyan':        {'action': app.set_color, 'args': [COLORS["cyan"]]},
-            'set_color_magenta':     {'action': app.set_color, 'args': [COLORS["magenta"]]},
-            'set_color_purple':      {'action': app.set_color, 'args': [COLORS["purple"]]},
-            'set_color_grey':        {'action': app.set_color, 'args': [COLORS["grey"]]},
+            'set_color_white':       {'action': dm.set_color, 'args': [COLORS["white"]]},
+            'set_color_black':       {'action': dm.set_color, 'args': [COLORS["black"]]},
+            'set_color_red':         {'action': dm.set_color, 'args': [COLORS["red"]]},
+            'set_color_green':       {'action': dm.set_color, 'args': [COLORS["green"]]},
+            'set_color_blue':        {'action': dm.set_color, 'args': [COLORS["blue"]]},
+            'set_color_yellow':      {'action': dm.set_color, 'args': [COLORS["yellow"]]},
+            'set_color_cyan':        {'action': dm.set_color, 'args': [COLORS["cyan"]]},
+            'set_color_magenta':     {'action': dm.set_color, 'args': [COLORS["magenta"]]},
+            'set_color_purple':      {'action': dm.set_color, 'args': [COLORS["purple"]]},
+            'set_color_grey':        {'action': dm.set_color, 'args': [COLORS["grey"]]},
+
 
             # dialogs
             "export_drawing":        {'action': app.export_drawing},
+            "save_drawing_as":       {'action': app.save_drawing_as},
             "select_color":          {'action': app.select_color},
+            "select_color_bg":       {'action': app.select_color_bg},
             "select_font":           {'action': app.select_font},
             "import_image":          {'action': app.select_image_and_create_pixbuf},
-            "toggle_pens":           {'action': app.switch_pens},
             "open_drawing":          {'action': app.open_drawing},
 
             # selections and moving objects
@@ -3535,14 +3633,18 @@ class EventManager:
             'redo':                   {'action': gom.redo},
             'undo':                   {'action': gom.undo},
 
+            'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
+            'apply_pen_to_bg':        {'action': dm.apply_pen_to_bg,        'modes': ["move"]},
+            'toggle_pens':            {'action': dm.switch_pens},
+
 #            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
             'copy_content':          {'action': app.copy_content,        'modes': ["move"]},
             'cut_content':           {'action': app.cut_content,         'modes': ["move"]},
             'paste_content':         {'action': app.paste_content},
             'screenshot':            {'action': app.screenshot},
 
-            'stroke_increase':       {'action': app.stroke_increase},
-            'stroke_decrease':       {'action': app.stroke_decrease},
+            'stroke_increase':       {'action': dm.stroke_increase},
+            'stroke_decrease':       {'action': dm.stroke_decrease},
         }
 
     def get_keybindings(self):
@@ -3578,6 +3680,7 @@ class EventManager:
             'Ctrl-q':               "app_exit",
             'l':                    "clear_page",
             'o':                    "toggle_outline",
+            'w':                    "toggle_wiglets",
             'Alt-s':                "transmute_to_shape",
             'Alt-d':                "transmute_to_draw",
             'f':                    "selection_fill",
@@ -3616,17 +3719,23 @@ class EventManager:
             'Shift-p':              "set_color_purple",
 
             'Ctrl-e':               "export_drawing",
+            'Ctrl-Shift-s':         "save_drawing_as",
             'Ctrl-k':               "select_color",
+            'Ctrl-Shift-k':         "select_color_bg",
             'Ctrl-f':               "select_font",
             'Ctrl-i':               "import_image",
             'Ctrl-p':               "toggle_pens",
             'Ctrl-o':               "open_drawing",
+
 
             'Tab':                  "select_next_object",
             'Shift-ISO_Left_Tab':   "select_previous_object",
             'g':                    "selection_group",
             'u':                    "selection_ungroup",
             'Delete':               "selection_delete",
+
+            'Alt-p':                "apply_pen_to_selection",
+            'Alt-Shift-p':          "apply_pen_to_bg",
 
             'Ctrl-a':               "select_all",
             'Ctrl-r':               "select_reverse",
@@ -3702,15 +3811,17 @@ class MenuMaker:
                 { "label": "Clear drawing (Ctrl-l)",    "callback": self.on_menu_item_activated, "action": "clear_page" },
                 { "separator": True },
                 { "label": "Bg transparency (Ctrl-b)",  "callback": self.on_menu_item_activated, "action": "cycle_bg_transparency" },
-                { "label": "Tggl outline    (Ctrl-b)",  "callback": self.on_menu_item_activated, "action": "toggle_outline" },
+                { "label": "Tggl outline         [o]",  "callback": self.on_menu_item_activated, "action": "toggle_outline" },
                 { "separator": True },
                 { "label": "Color           (Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color" },
+                { "label": "Bg Color        (Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color_bg" },
                 { "label": "Font            (Ctrl-f)",  "callback": self.on_menu_item_activated, "action": "select_font" },
                 { "separator": True },
                 { "label": "Open drawing    (Ctrl-o)",  "callback": self.on_menu_item_activated, "action": "open_drawing" },
                 { "label": "Image from file (Ctrl-i)",  "callback": self.on_menu_item_activated, "action": "import_image" },
                 { "label": "Screenshot      (Ctrl-Shift-f)",  "callback": self.on_menu_item_activated, "action": "screenshot" },
-                { "label": "Export drawing  (Ctrl-e)",  "callback": self.on_menu_item_activated, "action": "export_drawing" },
+                { "label": "Save as         (Ctrl-s)",  "callback": self.on_menu_item_activated, "action": "save_drawing_as" },
+                { "label": "Export          (Ctrl-e)",  "callback": self.on_menu_item_activated, "action": "export_drawing" },
                 { "label": "Help            [F1]",      "callback": self.on_menu_item_activated, "action": "show_help_dialog" },
                 { "label": "Quit            (Ctrl-q)",  "callback": self.on_menu_item_activated, "action": "app_exit" },
         ]
@@ -3727,6 +3838,7 @@ class MenuMaker:
                 { "label": "Delete (|Del|)",       "callback": self.on_menu_item_activated, "action": "selection_delete" },
                 { "label": "Group (g)",            "callback": self.on_menu_item_activated, "action": "selection_group" },
                 { "label": "Ungroup (u)",          "callback": self.on_menu_item_activated, "action": "selection_ungroup" },
+                { "label": "Export (Ctrl-e)",      "callback": self.on_menu_item_activated, "action": "export_drawing" },
                 { "separator": True },
                 { "label": "Move to top (Alt-Page_Up)", "callback": self.on_menu_item_activated, "action": "zmove_selection_top" },
                 { "label": "Raise (Alt-Up)",       "callback": self.on_menu_item_activated, "action": "zmove_selection_up" },
@@ -3756,6 +3868,907 @@ class MenuMaker:
         self.__object_menu = self.build_menu(menu_items)
 
         return self.__object_menu
+
+
+
+
+def adjust_color_brightness(rgb, factor):
+    """
+    Adjust the color brightness.
+    :param rgb: A tuple of (r, g, b) in the range [0, 1]
+    :param factor: Factor by which to adjust the brightness (>1 to make lighter, <1 to make darker)
+    :return: Adjusted color as an (r, g, b) tuple in the range [0, 1]
+    """
+    # Convert RGB to HLS
+    h, l, s = colorsys.rgb_to_hls(*rgb)
+    #print("r,g,b:", *rgb, "h, l, s:", h, l, s)
+    
+    # Adjust lightness
+    l = max(min(l * factor, 1), 0)  # Ensure lightness stays within [0, 1]
+    newrgb = colorsys.hls_to_rgb(h, l, s)
+    
+    # Convert back to RGB
+    return newrgb
+
+
+## ---------------------------------------------------------------------
+class Wiglet:
+    """drawable dialog-like objects on the canvas"""
+    def __init__(self, type, coords):
+        self.wiglet_type   = type
+        self.coords = coords
+
+    def update_size(self, width, height):
+        raise NotImplementedError("update size method not implemented")
+
+    def draw(self, cr):
+        raise NotImplementedError("draw method not implemented")
+
+    def event_update(self, x, y):
+        raise NotImplementedError("event_update method not implemented")
+
+    def event_finish(self):
+        raise NotImplementedError("event_finish method not implemented")
+
+class WigletTransparency(Wiglet):
+    """Wiglet for changing the transparency."""
+    def __init__(self, coords, pen):
+        super().__init__("transparency", coords)
+
+        if not pen or not isinstance(pen, Pen):
+            raise ValueError("Pen is not defined or not of class Pen")
+
+        self.pen      = pen
+        self._last_pt = coords[0]
+        self._initial_transparency = pen.transparency
+        print("initial transparency:", self._initial_transparency)
+
+    def draw(self, cr):
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+        draw_dot(cr, *self.coords, 50)
+
+    def event_update(self, x, y):
+        dx = x - self.coords[0]
+        #print("changing transparency", dx)
+        ## we want to change the transparency by 0.1 for every 20 pixels
+        self.pen.transparency = max(0, min(1, self._initial_transparency + dx/500))
+        #print("new transparency:", self.pen.transparency)
+
+    def event_finish(self):
+        pass
+
+class WigletLineWidth(Wiglet):
+    """Wiglet for changing the line width."""
+    """directly operates on the pen of the object"""
+    def __init__(self, coords, pen):
+        super().__init__("line_width", coords)
+
+        if not pen or not isinstance(pen, Pen):
+            raise ValueError("Pen is not defined or not of class Pen")
+        self.pen      = pen
+        self._last_pt = coords[0]
+        self._initial_width = pen.line_width
+
+    def draw(self, cr):
+        cr.set_source_rgb(*self.pen.color)
+        draw_dot(cr, *self.coords, self.pen.line_width)
+
+    def event_update(self, x, y):
+        dx = x - self.coords[0]
+        print("changing line width", dx)
+        self.pen.line_width = max(1, min(60, self._initial_width + dx/20))
+        return True
+
+    def event_finish(self):
+        pass
+
+## ---------------------------------------------------------------------
+class WigletToolSelector(Wiglet):
+    """Wiglet for selecting the tool."""
+    def __init__(self, coords = (50, 0), width = 1000, height = 35, func_mode = None):
+        super().__init__("tool_selector", coords)
+
+        self.__width, self.__height = width, height
+        self.__bbox = (coords[0], coords[1], width, height)
+        self.__modes = [ "move", "draw", "shape", "box", "circle", "text", "eraser", "colorpicker" ]
+        self.__modes_dict = { "move": "Move", "draw": "Draw", "shape": "Shape", "box": "Rectangle", 
+                              "circle": "Circle", "text": "Text", "eraser": "Eraser", "colorpicker": "Col.Pick" }
+
+        self.recalculate()
+        self.__mode_func = func_mode
+        self.__icons = { }
+
+        self._init_icons()
+
+    def _init_icons(self):
+        icons = Icons()
+        self.__icons = { mode: icons.get(mode) for mode in self.__modes }
+        print("icons:", self.__icons)
+
+    def recalculate(self):
+
+        self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
+        self.__dw   = self.__width / len(self.__modes) 
+
+    def draw(self, cr):
+        cr.set_source_rgb(0.5, 0.5, 0.5)
+        cr.rectangle(*self.__bbox)
+        cr.fill()
+
+        cur_mode = None
+        if self.__mode_func and callable(self.__mode_func):
+            cur_mode = self.__mode_func()
+
+        for i, mode in enumerate(self.__modes):
+            label = self.__modes_dict[mode]
+            # white rectangle
+            if mode == cur_mode:
+                cr.set_source_rgb(0, 0, 0)
+            else:   
+                cr.set_source_rgb(1, 1, 1)
+            cr.rectangle(self.__bbox[0] + 1 + i * self.__dw, self.__bbox[1] + 1, self.__dw - 2, self.__height - 2)
+            cr.fill()
+            # black text
+            if mode == cur_mode:
+                cr.set_source_rgb(1, 1, 1)
+            else:
+                cr.set_source_rgb(0, 0, 0)
+            # select small font
+            cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+            cr.set_font_size(14)
+            x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents(label)
+            icon = self.__icons.get(mode)
+            if icon:
+                iw = icon.get_width()
+                x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width - iw) / 2 - x_bearing + iw
+            else:
+                x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width) / 2 - x_bearing
+            cr.move_to(x0, self.__bbox[1] + (self.__height - t_height) / 2 - y_bearing)
+            cr.show_text(label)
+            if self.__icons.get(mode):
+                Gdk.cairo_set_source_pixbuf(cr, self.__icons[mode], self.__bbox[0] + i * self.__dw + 5, self.__bbox[1] + 5)
+                cr.paint()
+
+
+    def on_click(self, x, y, ev):
+
+        if not is_click_in_bbox(x, y, self.__bbox):
+            return False
+
+        # which mode is at this position?
+        print("clicked inside the bbox")
+        dx = x - self.__bbox[0]
+        print("dx:", dx)
+        sel_mode = None
+        i = int(dx / self.__dw)
+        sel_mode = self.__modes[i]
+        print("selected mode:", sel_mode)
+        if self.__mode_func and callable(self.__mode_func):
+            self.__mode_func(sel_mode)
+
+
+        return True
+
+    def update_size(self, width, height):
+        pass
+
+class WigletColorSelector(Wiglet):
+    """Wiglet for selecting the color."""
+    def __init__(self, coords = (0, 0), width = 15, height = 500, func_color = None, func_bg = None):
+        super().__init__("color_selector", coords)
+        print("height:", height)
+
+        self.__width, self.__height = width, height
+        self.__bbox = (coords[0], coords[1], width, height)
+        self.__colors = self.generate_colors()
+        self.__dh = 25
+        self.__func_color = func_color
+        self.__func_bg    = func_bg
+        self.recalculate()
+
+    def recalculate(self):
+        self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
+        self.__color_dh = (self.__height - self.__dh) / len(self.__colors)
+        self.__colors_hpos = { color : self.__dh + i * self.__color_dh for i, color in enumerate(self.__colors) }
+
+    def update_size(self, width, height):
+        _, self.__height = width, height
+        self.recalculate()
+
+    def draw(self, cr):
+        # draw grey rectangle around my bbox
+        cr.set_source_rgb(0.5, 0.5, 0.5)
+        cr.rectangle(*self.__bbox)
+        cr.fill()
+
+        bg, fg = (0, 0, 0), (1, 1, 1)
+        if self.__func_bg and callable(self.__func_bg):
+            bg = self.__func_bg()
+        if self.__func_color and callable(self.__func_color):
+            fg = self.__func_color()
+
+        cr.set_source_rgb(*bg)
+        cr.rectangle(self.__bbox[0] + 4, self.__bbox[1] + 9, self.__width - 5, 23)
+        cr.fill()
+        cr.set_source_rgb(*fg)
+        cr.rectangle(self.__bbox[0] + 1, self.__bbox[1] + 1, self.__width - 5, 14)
+        cr.fill()
+
+        # draw the colors
+        dh = 25
+        h = (self.__height - dh)/ len(self.__colors)
+        for i, color in enumerate(self.__colors):
+            cr.set_source_rgb(*color)
+            cr.rectangle(self.__bbox[0] + 1, self.__colors_hpos[color], self.__width - 2, h)
+            cr.fill()
+
+    def on_click(self, x, y, ev):
+        if not is_click_in_bbox(x, y, self.__bbox):
+            return False
+        print("clicked inside the bbox")
+
+        dy = y - self.__bbox[1]
+        # which color is at this position?
+        sel_color = None
+        for color, ypos in self.__colors_hpos.items():
+            if ypos <= dy <= ypos + self.__color_dh:
+                print("selected color:", color)
+                sel_color = color
+        if ev.shift():
+            print("setting bg to color", sel_color)
+            if sel_color and self.__func_bg and callable(self.__func_bg):
+                self.__func_bg(sel_color)
+        else:
+            print("setting fg to color", sel_color)
+            if sel_color and self.__func_color and callable(self.__func_color):
+                self.__func_color(sel_color)
+        return True
+
+
+    def event_update(self, x, y):
+        dx = x - self.coords[0]
+        print("changing color", dx)
+        ## we want to change the transparency by 0.1 for every 20 pixels
+        self.pen.color = (self.pen.color[0] + dx/1000, self.pen.color[1], self.pen.color[2])
+        print("new color:", self.pen.color)
+
+    def event_finish(self):
+        pass
+
+
+    def generate_colors(self):
+        """
+        Generate a rainbow of 24 colors.
+        """
+
+        # list of 24 colors forming a rainbow
+        colors = [  #(0.88, 0.0, 0.83),
+                     (0.29, 0.0, 0.51),
+                     (0.0, 0.0, 1.0),
+                     (0.0, 0.6, 1.0),
+                     (0.0, 0.7, 0.5),
+                     (0.0, 1.0, 0.0),
+                     (1.0, 1.0, 0.0),
+                     (1.0, 0.6, 0.0),
+                     (0.776, 0.612, 0.427),
+                     (1.0, 0.3, 0.0),
+                     (1.0, 0.0, 0.0)]
+
+       #colors = [ ]
+
+       #for i in range(1, 21):
+       #    h = i/20
+       #    rgb = colorsys.hls_to_rgb(h, 0.5, 1)
+       #    print("h=", h, "rgb:", *rgb)
+       #    colors.append(rgb)
+
+        newc = [ ]
+        for i in range(11):
+            newc.append((i/10, i/10, i/10))
+
+        for c in colors:
+            lighter = adjust_color_brightness(c, 1.5)
+            for dd in range(30, 180, 15): #
+                d = dd / 100
+                newc.append(adjust_color_brightness(c, d))
+
+        return newc
+
+
+
+class DrawManager:
+    """
+    DrawManager is a class that manages the drawing canvas.
+    It holds information about the state, the mouse events, the position of
+    the cursor, whether there is a current object being generated, whether
+    a resize operation is in progress, whether the view is paned or zoomed etc.
+
+    DrawManager must be aware of GOM, because GOM holds all the objects
+    """
+    def __init__(self, gom, app, cursor, bg_color = (.8, .75, .65), transparent = 0.0):
+        self.__current_object = None
+        self.__pos = None
+        self.__gom = gom
+        self.__app = app
+        self.__cursor = cursor
+        self.__mode = "draw"
+
+        # objects that indicate the state of the drawing area
+        self.__hover = None
+        self.__wiglet_active = None
+        self.__resizeobj = None
+        self.__selection_tool = None
+        self.__current_object = None
+        self.__paning = None
+        self.__show_wiglets = True
+        self.__wiglets = [ WigletColorSelector(height = app.get_size()[1], 
+                                               func_color = self.set_color,
+                                               func_bg = self.bg_color),
+                           WigletToolSelector(func_mode = self.mode) ]
+
+        # drawing parameters
+        self.__hidden = False
+        self.__bg_color = bg_color
+        self.__transparent = transparent
+        self.__outline = False
+        self.__modified = False
+        self.__translate = None
+
+        # defaults for drawing
+        self.__pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
+        self.__pen2 = Pen(line_width = 40, color = (1, 1, 0),   font_size = 24, transparency = .2)
+
+    def toggle_wiglets(self):
+        """Toggle the wiglets."""
+        self.__show_wiglets = not self.__show_wiglets
+
+    def show_wiglets(self, value = None):
+        """Show or hide the wiglets."""
+        if value is not None:
+            self.__show_wiglets = value
+        return self.__show_wiglets
+
+    def pen_set(self, pen, alternate = False):
+        """Set the pen."""
+        if alternate:
+            self.__pen2 = pen
+        else:
+            self.__pen = pen
+
+    def pen(self, alternate = False):
+        """Get the pen."""
+        return self.__pen2 if alternate else self.__pen
+
+    def hide(self, value = None):
+        """Hide or show the drawing."""
+        if not value is None:
+            self.__hidden = value
+        return self.__hidden
+
+    def hide_toggle(self):
+        """Toggle the visibility of the drawing."""
+        self.__hidden = not self.__hidden
+        ##self.app.queue_draw()
+
+    def current_object(self):
+        """Get the current object."""
+        return self.__current_object
+
+    def mode(self, mode = None):
+        """Get or set the mode."""
+        if mode:
+            self.__mode = mode
+            self.__cursor.default(self.__mode)
+        return self.__mode
+
+    def modified(self, value = None):
+        """Get or set the modified flag."""
+        if value is not None:
+            self.__modified = value
+        return self.__modified
+
+    def bg_color(self, color=None):
+        if color:
+            self.__bg_color = color
+        return self.__bg_color
+
+    def transparent(self, value=None):
+        if value:
+            self.__transparent = value
+        return self.__transparent
+
+    def on_draw(self, widget, cr):
+        """Handle draw events."""
+        if self.__hidden:
+            print("I am hidden!")
+            return True
+
+        cr.save()
+        if self.__translate:
+            cr.translate(*self.__translate)
+
+        cr.set_source_rgba(*self.__bg_color, self.__transparent)
+        cr.set_operator(cairo.OPERATOR_SOURCE)
+        cr.paint()
+        cr.set_operator(cairo.OPERATOR_OVER)
+        self.draw(cr)
+
+        if self.__current_object:
+            self.__current_object.draw(cr)
+
+        cr.restore()
+
+        if self.__show_wiglets:
+            for w in self.__wiglets:
+                w.update_size(*self.__app.get_size())
+                w.draw(cr)
+ 
+        if self.__wiglet_active:
+            self.__wiglet_active.draw(cr)
+
+        return True
+
+    def draw(self, cr):
+        """Draw the objects in the given context. Used also by export functions."""
+
+        for obj in self.__gom.objects():
+            hover    = obj == self.__hover and self.__mode == "move"
+            selected = self.__gom.selection.contains(obj) and self.__mode == "move"
+            obj.draw(cr, hover=hover, selected=selected, outline = self.__outline)
+    #   if self.current_object:
+    #       print("drawing current object:", self.current_object, "mode:", self.mode)
+    #       self.current_object.draw(cr)
+
+        # If changing line width, draw a preview of the new line width
+
+     
+    # ---------------------------------------------------------------------
+    #                              Event handlers
+
+    def on_pan(self, gesture, direction, offset):
+        print(f"Panning: Direction: {direction}, Offset: {offset}")
+
+    def on_zoom(self, gesture, scale):
+        print(f"Zooming: Scale: {scale}")
+
+    def on_right_click(self, event, hover_obj):
+        """Handle right click events - context menus."""
+        if hover_obj:
+            self.__mode = "move"
+            self.__cursor.default(self.__mode)
+
+            if not self.__gom.selection.contains(hover_obj):
+                self.__gom.selection.set([ hover_obj ])
+
+            # XXX - this should happen directly?
+            self.__app.mm.object_menu(self.__gom.selected_objects()).popup(None, None, None, None, event.button, event.time)
+        else:
+            self.__app.mm.context_menu().popup(None, None, None, None, event.button, event.time)
+        self.__app.queue_draw()
+
+    # ---------------------------------------------------------------------
+
+    def move_resize_rotate(self, ev):
+        """Process events for moving, resizing and rotating objects."""
+        corner_obj = ev.corner()
+        hover_obj  = ev.hover()
+        pos = ev.pos()
+        shift, ctrl = ev.shift(), ev.ctrl()
+
+        if corner_obj[0] and corner_obj[0].bbox():
+            print("starting resize")
+            obj    = corner_obj[0]
+            corner = corner_obj[1]
+            print("ctrl:", ctrl, "shift:", shift)
+            # XXX this code here is one of the reasons why rotating or resizing the
+            # whole selection does not work. The other reason is that the
+            # selection object itself is not considered when detecting
+            # hover or corner objects.
+            if ctrl and shift:
+                self.__resizeobj = RotateCommand(obj, origin = pos, corner = corner)
+            else:
+                self.__resizeobj = ResizeCommand(obj, origin = pos, corner = corner, proportional = ctrl)
+            self.__gom.selection.set([ obj ])
+            # XXX - this should happen through GOM and upon mouse release 
+            # self.history.append(self.__resizeobj)
+            self.__cursor.set(corner)
+        elif hover_obj:
+            if ev.shift():
+                # add if not present, remove if present
+                print("adding object", hover_obj)
+                self.__gom.selection.add(hover_obj)
+            if not self.__gom.selection.contains(hover_obj):
+                print("object not in selection, setting it", hover_obj)
+                self.__gom.selection.set([ hover_obj ])
+            self.__resizeobj = MoveCommand(self.__gom.selection, pos)
+            # XXX - this should happen through GOM and upon mouse release 
+            # self.history.append(self.__resizeobj)
+            self.__cursor.set("grabbing")
+        else:
+            self.__gom.selection.clear()
+            self.__resizeobj   = None
+            print("starting selection tool")
+            self.__selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
+            self.__current_object = self.__selection_tool # XXX -> this is
+                                                          # a hack to force the draw function draw the selection tool
+            self.__app.queue_draw()
+        return True
+
+    def create_object(self, ev):
+        """Create an object based on the current mode."""
+        # not managed by GOM: first create, then decide whether to add to GOM
+        obj = DrawableFactory.create_drawable(self.__mode, pen = self.__pen, ev=ev)
+        if obj:
+            self.__current_object = obj
+
+    def get_mode(self):
+        """Get the current mode."""
+        return self.__mode
+
+    # XXX this code should be completely rewritten, cleaned up, refactored
+    # and god knows what else. It's a mess.
+    def on_button_press(self, widget, event):
+        print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
+        self.__modified = True # better safe than sorry
+        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+
+        # check whether any wiglet wants to process the event
+        # processing in the order reverse to the drawing order,
+        # so top wiglets are processed first
+        if self.__show_wiglets:
+            for w in self.__wiglets[::-1]:
+                if w.on_click(event.x, event.y, ev):
+                    self.__app.queue_draw()
+                    return True
+
+        shift, ctrl, alt, pressure = ev.shift(), ev.ctrl(), ev.alt(), ev.pressure()
+        hover_obj = ev.hover()
+
+        # double click on a text object: start editing
+        if event.button == 1 and (ev.double() or self.__mode == "text") and hover_obj and hover_obj.type == "text" and self.__mode in ["draw", "text", "move"]:
+            # put the cursor in the last line, end of the text
+            # this should be a Command event
+            hover_obj.move_caret("End")
+            self.__current_object = hover_obj
+            self.__app.queue_draw()
+            self.__cursor.set("none")
+            return True
+
+        # Ignore clicks when text input is active
+        if self.__current_object:
+            if  self.__current_object.type == "text":
+                print("click, but text input active - finishing it first")
+                self.finish_text_input()
+            return True
+
+        # right click: open context menu
+        if event.button == 3 and not shift:
+            self.on_right_click(event, hover_obj)
+            return True
+
+        if event.button != 1:
+            return True
+
+        if alt:
+            self.__paning = (event.x, event.y)
+            return True
+
+        # Start changing line width: single click with ctrl pressed
+        if ctrl and self.__mode == "draw": 
+            if not shift: 
+                self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__pen)
+            else:
+                self.__wiglet_active = WigletTransparency((event.x, event.y), self.__pen)
+            return True
+
+        if self.__mode == "colorpicker":
+            #print("picker mode")
+            color = get_color_under_cursor()
+            self.set_color(color) 
+            color_hex = rgb_to_hex(color)
+            self.__app.clipboard.set_text(color_hex)
+            self.__app.queue_draw()
+            return True
+
+        elif self.__mode == "move":
+            return self.move_resize_rotate(ev)
+
+        # erasing an object, if an object is underneath the cursor
+        elif self.__mode == "eraser":
+            if hover_obj: 
+                ## XXX -> GOM 
+                # self.history.append(RemoveCommand([ hover_obj ], self.objects))
+                self.__gom.remove_objects([ hover_obj ], clear_selection = True)
+                self.__resizeobj   = None
+                self.__cursor.revert()
+
+        # simple click: create modus
+        else:
+            self.create_object(ev)
+
+        self.__app.queue_draw()
+
+        return True
+
+    # Event handlers
+    # XXX same comment as above
+    def on_button_release(self, widget, event):
+        """Handle mouse button release events."""
+        obj = self.__current_object
+        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+
+        if self.__paning:
+            self.__paning = None
+            return True
+
+        if obj and obj.type in [ "shape", "path" ]:
+            print("finishing path / shape")
+            obj.path_append(ev.x, ev.y, 0)
+            obj.finish()
+            if len(obj.coords) < 3:
+                obj = None
+            self.__app.queue_draw()
+
+        if obj:
+            # remove objects that are too small
+            bb = obj.bbox()
+            if bb and obj.type in [ "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
+                obj = None
+
+        if obj:
+            if obj != self.__selection_tool:
+                self.__gom.add_object(obj)
+            else:
+                self.__current_object = None
+
+        if self.__wiglet_active:
+            self.__wiglet_active.event_finish()
+            self.__wiglet_active = None
+            self.__app.queue_draw()
+            return True
+
+        # if selection tool is active, finish it
+        if self.__selection_tool:
+            print("finishing selection tool")
+            #self.objects.remove(self.selection_tool)
+            #bb = self.selection_tool.bbox()
+            objects = self.__selection_tool.objects_in_selection(self.__gom.objects())
+            if len(objects) > 0:
+                self.__gom.selection.set(objects)
+            else:
+                self.__gom.selection.clear()
+            self.__selection_tool = None
+            self.__app.queue_draw()
+            return True
+
+        # if the user clicked to create a text, we are not really done yet
+        if self.__current_object and self.__current_object.type != "text":
+            print("there is a current object: ", self.__current_object)
+            self.__gom.selection.clear()
+            self.__current_object = None
+            self.__app.queue_draw()
+            return True
+
+        if self.__resizeobj:
+            # If the user was dragging a selected object and the drag ends
+            # in the lower left corner, delete the object
+            self.__resizeobj.event_finish()
+            obj = self.__resizeobj.obj
+            if self.__resizeobj.command_type == "move" and  event.x < 10 and event.y > self.get_size()[1] - 10:
+                # command group because these are two commands: first move,
+                # then remove
+                self.__gom.command_append([ self.__resizeobj, RemoveCommand([ obj ], self.__gom.objects()) ])
+                self.__selection.clear()
+            else:
+                self.__gom.command_append([ self.__resizeobj ])
+            self.__resizeobj    = None
+            self.__cursor.revert()
+            self.__app.queue_draw()
+        return True
+
+    def on_motion_paning(self, event):
+        """Handle on motion update when paning"""
+        if not self.__translate:
+            self.__translate = (0, 0)
+        dx, dy = event.x - self.__paning[0], event.y - self.__paning[1]
+        self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
+        self.__paning = (event.x, event.y)
+        self.__app.queue_draw()
+        return True
+
+    def on_motion_wiglet(self, x, y):
+        """Handle on motion update when a wiglet is active."""
+        if self.__wiglet_active:
+            self.__wiglet_active.event_update(x, y)
+            self.__app.queue_draw()
+        return True
+
+    def on_motion_notify(self, widget, event):
+        """Handle mouse motion events."""
+
+        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+        x, y = ev.pos()
+        self.__cursor.update_pos(x, y)
+
+        if self.__wiglet_active:
+            return self.on_motion_wiglet(x, y)
+
+        # we are paning
+        if self.__paning:
+            return self.on_motion_paning(event)
+
+        obj = self.__current_object or self.__selection_tool
+
+        if obj:
+            obj.update(x, y, ev.pressure())
+            self.__app.queue_draw()
+        elif self.__resizeobj:
+            self.__resizeobj.event_update(x, y)
+            self.__app.queue_draw()
+        elif self.__mode == "move":
+            object_underneath = ev.hover()
+            prev_hover = self.__hover
+
+            if object_underneath:
+                if object_underneath.type == "text":
+                    self.__cursor.set("text")
+                else:
+                    self.__cursor.set("moving")
+                self.__hover = object_underneath
+            else:
+                self.__cursor.revert()
+                self.__hover = None
+
+            corner_obj = ev.corner()
+
+            if corner_obj[0] and corner_obj[0].bbox():
+                self.__cursor.set(corner_obj[1])
+                self.__hover = corner_obj[0]
+                self.__app.queue_draw()
+
+            if prev_hover != self.__hover:
+                self.__app.queue_draw()
+
+        # stop event propagation
+        return True
+
+    # ---------------------------------------------------------------------
+    def finish_text_input(self):
+        """Clean up current text and finish text input."""
+        print("finishing text input")
+        if self.__current_object and self.__current_object.type == "text":
+            self.__current_object.caret_pos = None
+            if self.__current_object.strlen() == 0:
+                self.__gom.kill_object(self.__current_object)
+            self.__current_object = None
+        self.__cursor.revert()
+    # ---------------------------------------------------------------------
+
+    def cycle_background(self):
+        """Cycle through background transparency."""
+        self.__transparent = {1: 0, 0: 0.5, 0.5: 1}[self.__transparent]
+
+    def outline_toggle(self):
+        """Toggle outline mode."""
+        self.__outline = not self.__outline
+
+    # ---------------------------------------------------------------------
+
+    def stroke_increase(self):
+        """Increase whatever is selected."""
+        self.stroke_change(1)
+
+    def stroke_decrease(self):
+        """Decrease whatever is selected."""
+        self.stroke_change(-1)
+
+    def stroke_change(self, direction):
+        """Modify the line width or text size."""
+        print("Changing stroke", direction)
+        cobj = self.__current_object
+        if cobj and cobj.type == "text":
+            print("Changing text size")
+            cobj.stroke_change(direction)
+            self.__pen.font_size = cobj.pen.font_size
+        else: 
+            for obj in self.__gom.selected_objects():
+                obj.stroke_change(direction)
+
+        # without a selected object, change the default pen, but only if in the correct mode
+        if self.__mode == "draw":
+            self.__pen.line_width = max(1, self.__pen.line_width + direction)
+        elif self.__mode == "text":
+            self.__pen.font_size = max(1, self.__pen.font_size + direction)
+
+    def set_color(self, color = None):
+        if color is None:
+            return self.__pen.color
+        self.__pen.color_set(color)
+        self.__gom.selection_color_set(color)
+        return color
+
+    def set_font(self, font_description):
+        """Set the font."""
+        self.__pen.font_set_from_description(font_description)
+        self.__gom.selection_font_set(font_description)
+        if self.__current_object and self.__current_object.type == "text":
+            self.__current_object.pen.font_set_from_description(font_description)
+
+#   def smoothen(self):
+#       """Smoothen the selected object."""
+#       if self.selection.n() > 0:
+#           for obj in self.selection.objects:
+#               obj.smoothen()
+
+    def switch_pens(self):
+        """Switch between pens."""
+        self.__pen, self.__pen2 = self.__pen2, self.__pen
+
+    def apply_pen_to_bg(self):
+        """Apply the pen to the background."""
+        self.__bg_color = self.__pen.color
+
+    def clear(self):
+        """Clear the drawing."""
+        self.__gom.selection.clear()
+        self.__resizeobj      = None
+        self.__current_object = None
+        self.__gom.remove_all()
+        self.__app.queue_draw()
+
+
+## singleton class for serving icon pixbufs
+
+import os
+import sys
+import gi
+from sd.utils import base64_to_pixbuf
+gi.require_version('Gtk', '3.0')
+
+
+class Icons:
+    """
+    Singleton class for serving
+    icon pixbufs.
+    """
+    __new_instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls.__new_instance is None:
+            print("creating new instance of Icons")
+            cls.__new_instance = super(Icons, cls).__new__(cls)
+        else:
+            print("returning existing instance of Icons")
+        return cls.__new_instance
+
+    def __init__(self):
+        print("initializing Icons")
+        self._icons = {}
+        self._load_icons()
+
+    def get(self, name):
+        print("getting icon", name)
+        if name not in self._icons:
+            print("icon not found")
+            return None
+        return self._icons.get(name)
+
+    def _load_icons(self):
+        """
+        Load all icons from stored base64 strings.
+        """
+
+        icons = { "colorpicker": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAYAAABvCO8sAAADOElEQVRIx7WWS2xUZRTHf+feaWemAy1KR4SSAVpLRYwu5BFAwyNAAkTUSsKSYFRggaSSwMaNSowRCW4MGDCGSGBHwLggIZCGBVgFTHiTGErpaG3r0GlT5tm5h81pcq0tdjrtWZ57vu93z+P+7xEmyFRVh/pEZElgomAicgHoB5qAOmC5ql52Jgh2GUgAAYPNBBYBOKVc7Dcf7DfgOrAMCAEVQBVQOWagXfyxiNwSkTMistV8Z4GfgI1AK+AC7UADMK2kDIG3gE+BLDBXRPYAA8CHQJn5MwZeYr6SgLeB/UAOmAU0WibPA78AeaAL2A2EVLVGRERKHI6TQL29+DVggWUSB1LmX6aq1YOsUnr4ppV1uk3kQuCSr18LgEl+GNbUscDeBU5Zz5YCvUAtMB84BEwFulR1bSlVHFSP12wY0sBa3+M3gJPA98Am4BhwbjjFKQY2zwYhDrw6TNhm+wa/BNYA7WMC2qEag3UCc0YIbQBagL+Bu8DDooF2IAjcB/YBsRFCm4CExbvA18CJooAWHAPaDDaSxXwwhkpeMbAtpvj7ACZ9l/Ii3yYHIp/f2u0LfdFXuv+dennK6L9vZdkEnK/44s4DCQRnyjM1DuIKiQer+ve+oMBxU5Ggqc5TLTAC7BPgI5Ou8+G9zb86z9XHKOSFbBqvrzOT/mrlTuAlg7mAN5rKBYaB7QLWA4uDO36c5cYWdVAeqfZ6O/4h1RvVXD+5Y9tvavKvqKo2iEhotLB/KY3BmoC3gcbKozoDCVyiMDDVidYGpGJyRFNJcid2tRXut8RVdaWIlI+mjP/J0GAfAO8Bq8NH9eVC358/I1Q7M+ajjxNouo/0wXVd2t16TVXfKaaMfvOL9zZgfeUP+oqTTZ714jejTrQWr+sPtLuVzDcbMtrdetpgMhYYgFh2B4ArVUe0pZDt+d27d7HSKwuLKJ24bnXm8OaU9if2q+pnJYmxb2g2Ik5jPtnmeu03qgAkFLnHQK4sfXBDiHy62WDhUpcssRVgDoDUr0g6ofKrbt3rEe2Jl+UvHsmiOltVp4uIA+h4AB8Bz/rWhjDQAUxR1Xm2wArjZaqqbt3SnsFfyRAdDI733voEBNCxhX6tyV4AAAAASUVORK5CYII=",
+                 "box": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAaCAMAAACTisy7AAACdlBMVEW+gFX///8AAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////7//////v3///////////////////////////////////////////////////////7///////////////////////////////////////+0tLRwcXByc3FxcnB/gH7s7et0dHQAAAANABoPAB0NABwjEDHCrtDy6Pl1dnULABdVAJZeAKVdAKRdAKVfAqZqC7K1hdkMABlcAKJlALJoB7NqCrRnBrFhAKtjAK9hAK+vfNZbAKFmA7Lbw+3ZwOzcxO+agaweAjRTAJJjALGwfNdnBLLRs+f///+rrq0DAQhMAIevfNjPsef/+/b/1pj/zID/zYH/z4PXpVmEUBBrE4phALOvY5n/z4H/zYP/3q3/+O3/rjX/mwf/nQn/nAn/ngr7mRWIJItfALWvTGD/nwf/mwX/vlz/rzj/nQr/ng34lxWHJItgALWvTGH/oAv/v17Qsef/+e7Fptzy9PLx6t/8rTVcAKFkAa9BJFgwNC5BOy7cjRH/ogr/oQr6mRKIJIp0dXMKABdkAK86AGgmAEYzBEmiSlG+W1O9WlO9W1K5Vld4FZtgALTCw8GDc5BmCaxiAK9jALBiALKuS2Lu4fiMQcSALr6BL7+BLruBIJqBHZJ/G5S+W1L9/P717/r07fr07vv05un0o0H0khb0kxj0kxn5mBP/sDj/nwz/rjb/nAf/mwb//Pb/2J7/z4j/0In/z4f/4LGPZS+MAAAAAXRSTlMAQObYZgAAATVJREFUKM9jYMALODi50AA3QpLPytoGGdja2XPAJQUdHJ2ckYCLq5u7EFzSw9PL2wcBfP38A0QQkoFBwSGhMBAWHhEZhSwZHRMQGwcB8QmJSckposiSqWnpMJCRmZWcLcUpLSMjC5PMSc/Nyy8AgsKi4pLSsvKKioJKeYRkVXVNLRDU1Tc0NjW31Na2tikiSbZ3dIJBV3dPb19nZ10/FSQnpE/ELTlp8pSpOCSnTZ8xc9bsOXPBYN58ZMkFC6MXLV6ydNnyFSCwctXqNQhJ5bXr1m/YuDG5FAY2rdkMl1RV27J12/btO3bugoHde+CSDBp79+3ff+DgocNHoODosU64JIOmlpa2zsTj9SdgoBNJEgzggQAFqJInT3Ugg9NtSJJnzp47jwwuXNRHSBoaoQEpY/xJGgDtYfX0n9HvoQAAAABJRU5ErkJggg==",
+                 "move":"iVBORw0KGgoAAAANSUhEUgAAABwAAAAZCAYAAAAiwE4nAAAFKUlEQVRIx82WfWyV5RnGf8973p6ecvr9QVtKi622sdDSxiGooFCUDzdHYgzOZRMTY/xgLINsSkwUzdRADMZkC8YxNH5MplUajMygVqAM6BCC8Qs0tlAp3dmhHNrz0fac03Peyz/s6QrSQmJcdv/1PHnu57ne676u+84L/+MwAJL0gx4xxlxqrh2Px1PJL6Y+YCQmATYgoB/oBM6O7BNAEDgFHJSkSwU1khSLxQL/bD1YEDyUTTKcjjAgGI4mcRLCSjPklXnIK/NguQzGBRnZdjJvqieSX57R7c1P+wL4xaWwtgHe3fmPgt//+imui6zh8pI+CopOgwy2PYzLlSSZtDkZzGcomolkkCySjscld25OztS8nPLG3Lor5uZSWJkxUHplVn9mofuV8VjbAGm2u7/f6ckNE2B6XYez/I5XLclgjDBGSIZ43E089h17xzHEY+mcOVPAya4KOturad46nVgix7vs8Rrv0oeqbxhXQ4AZ02cECktzckOdvUSjGQnLctLG6mmM8GQM4ckYGr0Yi3qIxdMpLg0wMFDA8eNR3PmTmDYrByAwEWB2ZWVlqKSsmP7OUwSDNe5Ewsa2E+dm6r/VkQxvb7+NvXsWEhyO0KfTFDcEuOuJmcO1CyfvApaNp6FljAkD1NRU08dx/uMvJBzKAaMJ2kBMmdKD2x0npCCNd6fz6Pbl3TfcMmsVsGQix1qpRUNDAyFO4e+38ftLJgQEmHd9G/ev/BMLaodIfjCDfRsG8o619t54sb62U4v6uplhV1Y0KxAO4esp58q6Ty/aUzW1R5la3s2Rwz+hbWdT5hc7625vvLU8fN2Ksu0p0PPZjgJWVFT48oqzs4Lh05z2l4BjXbyLHYtJ3gjzFuyh8aqPOXTwana/sTjrWOv0O+f8qtw3+47S77VHCnBSVVXVYMmUyYQ6/AQC00gmbFyu5DlGMZZzjnlGzSRDZlaIpkWtzGz4lL175rNnY1Pp0fer1y5cddmxEbbZxphwikYUYEpZKYMECIczGR5OG9Vx965F/P21u+g7WwCWc2G2MuBYFBT1cuvyt1j5m40Mfb2P7Y9+Vdv/76gDPCsp2xqpswDy8/MZZohY3E0y6QLL4ZuuSna881N27LqWl164j+6uSjDO+KaSASMkMRDNpqapgMxCtwXcDFSeI1Sm10ucMIND6cRjHjq+rOVvL9+DzzVAm1nPzqNxNv15NR++/zMi4ezv2J4PbEQk7KX5jdsobGhk2bpqbLcFsBU4Zo/NraiYRoRt9IYMe9sW0t4+C1NVyoOv1jK5pYPXXthMT+AaTr5+M4cPzWF+UysNjUfI8EZGTSbH4oP3FtEbuYaVT9aQVeQB6AZeN8bEx5hCam8/ECvKLdXPWa/7TIs2Lm3TyQ5fUtKmaDT63LaWbYMLFsxXoatKV3OvVrhe1DO1G/TZmnlKbsmRXvLqwD2LtTq3Wbuf69JIJCT97vull+Tz+Trq6+t1FSu0tuo9dR3uC0p6RGPC7/cf+cvm5zV79hwVmRrNY40eyHhZby65X5+snqu1hVvU/IejSsSd1JUWSZkXAkyTpHWPrdOc+vna1fJRQtKD50+NkUce7unp+XrD0+tVWXG5pjFXt7NJv3Vv1TM37VfkbDwF9rmkGeP2sSQNDg6q90yvkk5ix3gjagzhPx5oP3BqydLFyucy/bLqSXX+K5A680m6acLBIal4bPkuNmhSeSdOnGj+65bNw/v37xur26of7U9sBOShEVZJSVsvqNuPAJqKIv5f4lttCtvxW3g8aQAAAABJRU5ErkJggg==",
+                 "text":"iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAQAAADFASenAAACtklEQVQ4y42US2iTWRiGn5M//RuTXmK1l4xVK0gRb2hxiooywwiKNwQXdlEVQUUUEaSIIIK3zUCHKY6goqAuRzfKaMWFFUXd1GEQaqFQ8JK0SUNsQo1JTW3yuqi1Nhc7z/blPec73/d+xwAE8fGMo5RymjjjbKaYvbTioZ9a8vIK8e63dExx5ZBcIJTHY+AtXsq9xKrCPLVGDWTIZBwOBxqqXrm6w/W5ZCghqrKMDijFhlhLMlL9flns04dAZE14Z0VDoi/sTjb853o8VPTRzWi+QoPISI2i3TFfkpw3bR28JElswn9SkgjkuBxQAnOhp4/j6d5fDAhIAz6jdlo7gOFZ7nxGC0bB1aIuY5LfSSGM0V+Jw5DJmByjEyzog/DN5VmqH7BMWuAOZfIZw6SxjLhDXY7cR78RjjwDccJcCvMTUcQIMV4DCcqBDHVjbyxMBOGhoqhGC5lHJ4tlT/fiGm9OYWbyELuEkZbHEmrSrnPV0VIbAmOlFsbPovn0bhvs+NX/cs3zuws6T7QOH0uVmFjujZMb+y++3uVb/aes1D9lbV1P7scT1zrBk33+H0ARknXL1v6LUhX7GAt6TdJ7RZI826UebmXnSNhIbKAbzbvPCslGnEXyfZxxRapBksrYMj6OcQZJ6WDb+ntppzAbl666fSSluLEBRwYDv2MMwL3sUqPkbuMnLiDVxmdelW5wniD9ud2IMp0Qn7+FuAI3KVxIlbJeDDQCBIs1UssUBBlFTmlZrzNkqTK6sP3AOekdU/KWZqTNz1lfW+8+PaNjbZME3VMbB5HaHlU2T7z4/NedmSJyRcCAJ/IC6hvLzixpgN3AnIntKISAYpsy8B56syf9M/Twv4igadKKPyVpyd/rHkhdk/exEG4Cw7PZ4Vt3PfS6es7Dpskfyw8IcJmXE6FABL9TvwD2d2QO1hAt8wAAAABJRU5ErkJggg==",
+                 "eraser":"iVBORw0KGgoAAAANSUhEUgAAABwAAAAaCAYAAACkVDyJAAAFj0lEQVRIx62Wa1CUVRzGn3PevS+wCywXXdmFdVPMuClU462UFEUJrzGNqTM0jFPQ2DSmH5ypkWo0bZokGx0LY6ycIacMAnWUBtAmLxiChHKTqwqoqMCy7L67+/770GqIkKidj+cyv/M85/wvDE8xiIhGW2OMsZHmZU8DYyx1tlzw5E4z9wtygXraelS+Xb0KhcvDj927zHCw7ClgC/w14nebk9vDN8y/1qtSSL4DDsFx5oqf36lGXWacee71qnafA8PB7Mlgy2LDDbb8bStbJqcl3CDGIYKgBABwAhjo9zr9rfmfRcPhYi0AdhIVHWKMMdnjw5ZPnGa+m/fx8pbJi6J7AGLsPgwAJAZwYjf65G6PW8784Rdsh337Y1vqtTFx3czOvPeSOmZHh9kAGsEgTrh8TYuthWbDVIrpj0OMphOdmhi25TUiItnYYa/uTo27+fPWpa06c9AgILFB74XbACgAmMCJrt9Wiht/jFC0dphrliHKIIPMFIYwuOBKG5NCL6zSFOBI2rayReWF9QNoAWAEcAnAi+CEM4066Z2DE90tLZbBJMwNVUAxDoCjC129NaixPhLohTUqBOnsb5uquTXE/iYk5gHgADDJez4ZnGTHa/zx1vdWp617UnsiZobroNMDQBvabpWi1OOCWAYgRvYIWM0zIfZzlR/+6fRRuzNATPJCgoa+2V8dPtInB2dyn+7I1jl4TiWHXA0AfehDBSoCXXDmEBVvHvWX/gNL2fdy5N1Vh7NqXT5qTxzoocxBYGCDTgGfFkzmPp2JjkiEBEmQgggEF1yoQpV4B7e3ERVn34tDPspv3PiCpW/1/vR6f73WPQ30QLwOAKgHYAcj5J8z4Gh1yF09fCQCBQKABInO47y7AQ0FREXZQ7MNH0HZ5yq5+/0tS9o9EcGD9SD0DdlSDmALgAFw0pZe0uOjQotodEXWaqB2E4hz8O4udN1qRKNNosJVw1MbH5ZBIgG8YfARlXFmmxycnGAkDNkfAoZ0MIoprgqwv/ttPIJuzkU8YqcD8GNgHa1o3VqK0itO+knPWYpyuIPCPZggMCVR81qNVhs+wTTlSOt1J7t+S5iuU0uOAF93OwRygGGCy82xvdh054v8l3wn9i6QWWAWOLhMgiRWo/rcKZyc46LDCYylRAFFnQ9VkX/VsQ0mk2lnTs4uZ2rq0saGphudG7J2W2ovVBvUrL9kaujdukWxNhw4HWo+02BYlIzFulAEayRI8MCDSlRKF3GxU6JCI2MpBqCoZ8Sy5YXNZ4zl7tmzx3/9+vW9AL4GEDM4KCb8cbpu/OVLHcKZsw3iLwWlfQP9zoEYPH8hAfEJAMo5eHwzmieVoazDRYfDRquDD7wh53yXUqnUNzQ03Kyvr9cAWA5AUKsVNYnzoo9nZS2uyv0mU/HKPKVBjnZ7NKJjGNivHPyYA47AJjT1jgV2H2i1Wi2ZmZl+FRUVloULF6rS0tJ0BQUFJlEU1QCMoigGHzlSDLv9zqBWpTL1oTccQJId9t1XcbWuhb7UMTZFGEteZkREERERTWvWrGHjx48Pr66u5iUlJVebmpqcGo3mbHJy8hXOeWZ6enrgrFkz7Tt2HHbvyz4p6KEX7LDvb6Ov3h6LsuF9yb4ZM2bYc3JyKDc3l/bu3Xs7Kyur1mg0NgMYyMjIcNhsNjcRieXlF3sE2RIbkFz6Xz3NaEPGGGNERCqV6gOZTPZ6QkLCFKPR6B8VFeVvsVi68/Ly+IoVK5RarRYOh0M4ejTf1+NuPEhUt+6xlA0twPegjLGw2traVQEBAau1Wu10q9Xa3N/fL544ceJZq9UqZmdnGw8dOlRGZH8i2Ij2em0aB2CTt9b1CILQrNPpagD88CQ2PhT4o/WbjLF4AEsBxAK4TURrn1YZe5xG9/+w8W8l9atrgG4MXQAAAABJRU5ErkJggg==",
+                 "circle":"iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAYAAABvCO8sAAAEqElEQVRIx8WWWWxVVRSGv33OHdrblk400FKwKTMyyZQYxYggEFGJyoMx0YBiYhAeMFETSdQHNGpiDIk4oJEHEzFAMBgkBgICKkRFi2KZhNILtpSWTtzeofees38fbkOYLpHBuN7W3jn7y17r//c6cB0hyeW/DlnrSpquS2OBZAtuPUw2X9Lrsn6nOo9Ip7ZKrT9LXqJX0jpJ1bfwZp6RtEKZhKcDb0tfDpfWlkifV0m7npF6TkvSBskWX8+5Ts4d494DeoFDH7jUvQnxJnDzINMDx7+An16CdPdjYBbdNFBSEHiOtt/KqF8NNg3Vc2H2Jhi7DNwwRL+BE+sN8OxNl1bSRMm2au9y6dOwtH6M1FFvJR1UOpbQtgXZ9c3TpeQ5K+npmy3pvcSbKmjeCRioeQRKxzQCiwgW7mTkQggUQuchOLffALNvGNjntffoqIee0xAqhuo5ANuMMfuBjVRMtRQPBa8HWvYC3ClpsaQ5kkZKCl/PDbOq6zwIXgIKqqFkuAV29+3vI69/K2UTQBba/8BLJodkUnaN9bUZ2AmkJM2XVejywwNXAZYDzZxvqEI+FN0GodJu4Gjf/miME6J4BDgu3SdOsP7j3XR39TNF/YPh26aUVI17YACDxvZbh2GtrF41jmm/FrAEmy4geTabRSrBDZcCZyXNAN6P1sXLTq/3uHt4AKW6aNgTpaV9IAbxy4Ymdqxq4L5ltfkzl9UuCRW4EVktNY6J5yppBJsJkolnBRMqvrjUK88cjg367Klfqdsax8olGPLIy8/g4OBiMBg6m5N8teIwW1Yexff0JIYnrtVDF8lBXt8DcKEIs3xP07595zjRP7surBsjHMde+mZgsFZ8t/okx3adc4GFkopzATMYx8cJAsqavs8q7Y2JwOHtrRgMgYCHMcJag+9fOUQMEI9lOLC5Jdt3qM0FjOEE0wT7ZbPeDkAtwNBYay+JrgwGQ6SgB+NYMukQvekwBl3VBu3RBH5G+UBZLmAnTrCUSGU2izeBlyoCCsOFAYJ5LiDKy9vB9emJF5JM5Oc0eqQ0iBMwGSCnaDqyEhmR7VMsCqm2PKC2ojbiD76jGJc0gwb9DUa0n6sglcq/6g0DjsPomRUYwyng5FWBxpgYsIbycRAqgkQzdBx0AcKFgaZZy4dTMypBdXUUrEO0sYaMH7wCZhHj5w1gwsMDATYZY85e6y39npLRln7DIBOH6BaQ3wnUj51b4S16o5uysjaSsQhHDo1CWXkhhI9wXMOk+ZU8vmockZLgD8BH1zJ+FpjXv4Eh84bRXgent8KZPaVUzbjLSTU7VeGNEEjTk5mGO3AiZQmwniVcGKBydBGTF1Qx6dFK8ouDe4DnjTHNF6s314h6i/MNL7N9AXQdhrLxMGoxNO/IzsJAPpr+CcnSh+hpS+JlLHlFAYoqwl4wz2kE1gEfGmPOXG6XXMBa4GsaNt7OvuWQasuKSD44IRi7FCa/1o0TWgO8eNnnNcaY6I0M4gdl/TNq3CxtuV9aN0zaNFX6/V0pHeuV9IrS580t/nPTHEk/qrcrpe6/pESLJ+mYpCWyfuh6zzP/EloOTAEGA53A/hsq2f8R/wC95leyPYReegAAAABJRU5ErkJggg==",
+                 "shape":"iVBORw0KGgoAAAANSUhEUgAAABkAAAAcCAYAAACUJBTQAAAFb0lEQVRIx62VW2xU5RbHf2vvmenM0CmdWlo6XEppBUUqImgo5ByVEOEBRF9UDAovXhBjjCbknCcviU9eIlFiUHMSjXjUqMFLVBCNRQUVMEALVqBjLS2X0pmh7dw6M/tbPsxMKdNiSPSffMneX75v/ff6r7X+Gy4TqmrpBcRVNaqqO1X1DlW1+LswRu1C8KiTNZoazGp22CkSRlV1k6qWXeq+XGYWCpzv+Ka/cvfWLvq7kpRP8nDNrTW03DsNf9CdATaIyP/+Fsnet3p4/4k2BvqHEUABG2H+7XWsebmZ4FTf58AdIpIpvW9dDkG0O3X2280HSfQnsbCwEOzC9+3ffoodz51AlRAwYbwY1qhgs/ViiKoqZrjf2/1q7drV/2XtujepnBhDRwkgQOfeKIlIxhQSHANXgcAHdBhH6Tk8SN/xeHLhnVMMsIfj2xb7w8/ir08xrT4MwP+3rSOXc40EySQdyqs914vI+b/KJAhw5Ms+Nq/Yy2trDvifmtdqune1LqbtecilwdigwqKWH5jbfAgHeyRIRa0vV5S2AHs8EgU4/l2EWF8KNUrv4ZjV+8FmSHaBFI6p4PGmWXnbdmZMD6MIgs28m9MWx7YOcfiFDH0/9gO5gjoX5AKiAMbRtCBeRQhWxmiobwdT0oDGon5GmA0bN3P0yFyMullQ02mxpzOAyUH59GoWPO3QeFdSVX0ikpZRhQ8Ag/fLxzsM1qIpdd0TN/3nWcorBkHH6XRRsExeAyMXRFEHvDWw5OVh6leViYiMdJeIDImIvK6rlwenVtzdtDjYhe0GMfmAY3pbwLHztRo9CWJD6gz88WlZqVyMIhNV1dSp8Err4E0vxX77ocltp5hQHkcsM35W4824ZWtx2F2XOuYLzfxs0Hl+4/tb9mzp/aWHude2s3TZTqprzoKxLpYNk5csL0wWT0U/vsnbgQ1jbKXgUbx+z4FVhz45bW55pHHpsd2Rx4/tjYqFMOvKDu5b/wZ1od58RqIkExMYkvmDtf7vKy76yvVxRERGSFS1CojseO7Evp/e6Zl1rjPhH044iIWtjlpaKInBYs7VbTzw0CsEJg4wNFDJO2+v48TJJaZhcV344VX/biolAHCpahCI7H6ti8+e+e2GZDyLIHkTNKVKK12/NxKJVBMIxvj5xxb27VsE5KzYRyebNu54l5sebBi6EwKqWll0AAuIxnpSzq6XwiTjWawCwYiECAYLRfC4h5nbfIja2jNgLOLxAAYLCndSCcPB944GTrfuBIgV5XcB9LYP2ec6E1glzq8Ifl+C+dcfYEZDmFCoh6nTTuLzJ0GFJf9q5cyZOtra5pHLupk543dW3/4BNZ0noK8mwbxNW4pOa3758JRsvWs/xtGLCCoCA9yz9k0WLNyHuLL5YhdXobMyaS/d3fWk0z6mTuumsiqS7zQ1MGVZhuWfeFyAeCa4EFtgFIlBaL6unYU3/JTfcOwSa3UDgqcsRdPsjnwrG2tUe1sQbfcUa5KcPKuc4BQvTuF3YFAmTvLSsqYK7DGjDrYvi2ag5cU2QkuHMQK5os1qYTngrR5x4f3VM/2sevIqJjeW4/baVIV8maWPNn591YrZGdQ9dppNMr85a10zyz8tY87D56m6FjyV4K7IL38I5jxUUFV1GfAVQKQryblwIudk9ZVrltc8RrrvFD1fB8nFXRzZ4mbgeHGquxGdzvo45HN1ON/xBqmzi/K/YFU8lcIV1zUANxaH8WrgaIksZSDDI69frIDTrSCuC4Y5auiK7VqCgIjErYIp/ipjYGWKTwB4J4Fx8lZuDBjdVmqs4yD+lwY5Bs2PK3aZEP8DXOUQnDPIPwlVDamqqpPNamZQNZsYuIQ84+JPZVirv1LpTsoAAAAASUVORK5CYII=",
+                 "draw":"iVBORw0KGgoAAAANSUhEUgAAABwAAAAaCAYAAACkVDyJAAAFAUlEQVRIx92WWWxUZRTHf9+9t8y0nel02s6UQmkZ28rSBbugCEUIi4IokWAUMS4oD8aYiDwQouEB9YEXDIkmJJAIQRNME8FEgQASVmVrrRTaQgtCO3SGdjrTZdpZeufO50OhQC1Y0Sf/yffy3XPO/5x7vrPA/x1ipEsppXyokhDiUQm1B5K5D9TiOT6ZQF0iER9ICaY0SeaMS3/n0MOc0u4hsgBB2o400rxrCm1HSweJ4iCUO1KCzppiQl4PBW/WErzmItiSQTRgxogqqOYIic4OrK7Ld5waTixuk2UBHmo2GjTvUulvAyUBUvLAOQNsBQaKpnDzsMB7HJQxYLJDtAti4UGnkCDE4LcEK6Q8BtnPVlO2oeJeUk1KaQI8nF0HDVtVpAG2SZC/Mkrui+ewT50NqAB0nB3UiusQbocxtkHDpjRQTaD3QcgLoXbwVUP3lQr0/moppbxDqgERWvcHafrGCsDE5ZLiD8/iqJgBzAagp6GaM2sq8J4ERQXikJAC0zcFyJpTR4KlE0UzMAacRHwuuurH07hdpbMG2n8t+2sO3futRAPgKIfS9TuwF74zlNtw1z7/oa+XtBwdoMO3DN1IxmoJkD/JTXZZ7JSwTFg6ZC0BMKdD6uRXSU4VNOzUMTlVoOouYbClF191CqoZxla230tWt69jf92e5sX1PxYS6JyJLjUkAgWw27pYEM2ZPv8T3u73RyKB1vDUPv9Aph42khRNLLA4ym+mT5rfkJZF1VBKACGllBx7awN6SKHgdQ8TX9ru/r3ni192tq6qrvLYA94oIEiyKKSON6NpBsE2Pz3dSSTZxlDygnOgxxtVA+6QGumNYegSRRUk2jTs2Ynx7Gkp7Su2FGfdebFieKE3n/Tv3ftx47KmU37iCDLsnVTM9VC8ekV3ZklOp3mg0XV+0xa1audioroJiSSORCDQhEDRBHEDYvE4cSQqAkduMovW5dfPfd9VKIYX/dbl5zi/x4PZBNOfPMPC+T+QPefpXubuSAG48F21UfVRrdp+yznUpibPy6DouUxSs80DpmRNj0UNzd8SNrXWdnPlmJ+AN8y4x618fmX+fYUvq6vaGusPdkzRFJXn19pZPO0QargVrK+5gcK6n279tnt9V1nHLSdWm0ZMl0RDMUqWjI0sXJtnBsbcPkOo+d5z7vDma1GhIIDK+1pb0wl/QV+/Tm6RnWfey0O9kAh9QE+9K3Byt3//p6llHS0DZDjCvLK5iCPburl8ykfnjZAYqatIKbXy5eP08uXjhu6UewVC3bp3bK7levEix/WUCWM7cFYCkvj1g0mHPzuZ3nw+SmKiZOn69L6KN4owWzQkklg0rj6gn8bEMAxFGO030ld/W+6/T6Pwg3b0QKb7RBNnTs8EFGatyqFy7RMWgLgRB8TdVvtPpoXZogWGjysppaRyO1eOnaa37xYZOWYq33XVAqUAAXcYBUFqllkfafKMBGU0I8bdZMZAMmGajZwyWynAz1uueX1X+0myJJBTZvOONsJR/Qw9EhsUVoUEOLHtRu2RL//IisYM8mel4XrKfvyRB/BIyMy3SAUhGo/4xMaSo3TeCJX2BwdIz0piwZo8n9VhWjXaLWBUEZa/PO6qqyyN/qDOjYvdRIIxXKV2Vn5VEi5a5HSM1s4Dd5qR1o6bF3tbLx1oz4n0xkjPTYpPnpfR4MhLLgIShBCx/5TwQYvVv1mm/r/4E+uvH1a7XvVXAAAAAElFTkSuQmCC",
+                 }
+        self._icons = { name: base64_to_pixbuf(data) for name, data in icons.items() }
+
 
 
 
@@ -3797,7 +4810,10 @@ class TransparentWindow(Gtk.Window):
         self.set_title("Transparent Drawing Window")
         self.set_decorated(False)
         self.connect("destroy", self.exit)
-        self.set_default_size(800, 600)
+        self.set_default_size(800, 800)
+        self.set_keep_above(True)
+        self.maximize()
+
 
         # transparency
         screen = self.get_screen()
@@ -3810,45 +4826,38 @@ class TransparentWindow(Gtk.Window):
         GLib.timeout_add(AUTOSAVE_INTERVAL, self.autosave)
 
         # Drawing setup
-        self.mode                = "draw"
-        self.gom                 = GraphicsObjectManager(self)
-        self.em                  = EventManager(gom = self.gom, app = self)
         self.clipboard           = Clipboard()
+        self.gom                 = GraphicsObjectManager(self)
         self.cursor              = CursorManager(self)
+        self.dm                  = DrawManager(gom = self.gom,  app = self, cursor = self.cursor)
+        self.em                  = EventManager(gom = self.gom, app = self, dm = self.dm)
         self.mm                  = MenuMaker(self.gom, self.em, self)
-        self.hidden              = False
-
-        self.current_object      = None
-        self.wiglet_active       = None
-        self.resizeobj           = None
-        self.hover               = None
-        self.selection_tool      = None
-
-        # defaults for drawing
-        self.pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
-        self.pen2 = Pen(line_width = 40, color = (1, 1, 0),   font_size = 24, transparency = .2)
-        self.transparent = 0
-        self.outline     = False
 
         # distance for selecting objects
         self.max_dist   = 15
 
-        self.objects = [ ]
+        # load the drawing from the savefile
         self.load_state()
-        self.modified = False # for autosave
 
         # connecting events
-        self.connect("draw", self.on_draw)
-        self.connect("key-press-event", self.em.on_key_press)
-        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
-        self.connect("button-press-event",   self.on_button_press)
-        self.connect("button-release-event", self.on_button_release)
-        self.connect("motion-notify-event",  self.on_motion_notify)
 
-        self.set_keep_above(True)
-        self.maximize()
+       #XXX doesn't work
+       #self.gesture_pan = Gtk.GesturePan.new(self, orientation=Gtk.Orientation.VERTICAL)
+       #self.gesture_pan.connect('pan', self.dm.on_pan)
+       #self.gesture_pan.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
 
+       ## Gesture for zoom
+       #self.gesture_zoom = Gtk.GestureZoom.new(self)
+       #self.gesture_zoom.connect('begin', self.dm.on_zoom)
+       #self.gesture_zoom.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
 
+        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.TOUCH_MASK)
+
+        self.connect("key-press-event",      self.em.on_key_press)
+        self.connect("draw",                 self.dm.on_draw)
+        self.connect("button-press-event",   self.dm.on_button_press)
+        self.connect("button-release-event", self.dm.on_button_release)
+        self.connect("motion-notify-event",  self.dm.on_motion_notify)
 
     def exit(self):
         ## close the savefile_f
@@ -3856,353 +4865,22 @@ class TransparentWindow(Gtk.Window):
         self.save_state()
         Gtk.main_quit()
 
-    def on_draw(self, widget, cr):
-        """Handle draw events."""
-        if self.hidden:
-            print("I am hidden!")
-            return True
-
-        cr.set_source_rgba(.8, .75, .65, self.transparent)
-        cr.set_operator(cairo.OPERATOR_SOURCE)
-        cr.paint()
-        cr.set_operator(cairo.OPERATOR_OVER)
-        self.draw(cr)
-
-        if self.current_object:
-            self.current_object.draw(cr)
-
-        if self.wiglet_active:
-            self.wiglet_active.draw(cr)
-        return True
-
-    def draw(self, cr):
-        """Draw the objects in the given context. Used also by export functions."""
-
-        for obj in self.gom.objects():
-            hover    = obj == self.hover and self.mode == "move"
-            selected = self.gom.selection.contains(obj) and self.mode == "move"
-            obj.draw(cr, hover=hover, selected=selected, outline = self.outline)
-    #   if self.current_object:
-    #       print("drawing current object:", self.current_object, "mode:", self.mode)
-    #       self.current_object.draw(cr)
-
-        # If changing line width, draw a preview of the new line width
-      
-    def clear(self):
-        """Clear the drawing."""
-        self.gom.selection.clear()
-        self.resizeobj      = None
-        self.current_object = None
-        self.gom.remove_all()
-        self.queue_draw()
-
     # ---------------------------------------------------------------------
-    #                              Event handlers
-
-    def on_right_click(self, event, hover_obj):
-        """Handle right click events - context menus."""
-        if hover_obj:
-            self.mode = "move"
-            self.cursor.default(self.mode)
-
-            if not self.gom.selection.contains(hover_obj):
-                self.gom.selection.set([ hover_obj ])
-
-            self.mm.object_menu(self.gom.selected_objects()).popup(None, None, None, None, event.button, event.time)
-        else:
-            self.mm.context_menu().popup(None, None, None, None, event.button, event.time)
-        self.queue_draw()
-
-    # ---------------------------------------------------------------------
-
-    def move_resize_rotate(self, ev):
-        """Process events for moving, resizing and rotating objects."""
-        corner_obj = ev.corner()
-        hover_obj  = ev.hover()
-        pos = ev.pos()
-        shift, ctrl = ev.shift(), ev.ctrl()
-
-        if corner_obj[0] and corner_obj[0].bbox():
-            print("starting resize")
-            obj    = corner_obj[0]
-            corner = corner_obj[1]
-            print("ctrl:", ctrl, "shift:", shift)
-            # XXX this code here is one of the reasons why rotating or resizing the
-            # whole selection does not work. The other reason is that the
-            # selection object itself is not considered when detecting
-            # hover or corner objects.
-            if ctrl and shift:
-                self.resizeobj = RotateCommand(obj, origin = pos, corner = corner)
-            else:
-                self.resizeobj = ResizeCommand(obj, origin = pos, corner = corner, proportional = ctrl)
-            self.gom.selection.set([ obj ])
-            # XXX - this should happen through GOM and upon mouse release 
-            # self.history.append(self.resizeobj)
-            self.cursor.set(corner)
-        elif hover_obj:
-            if ev.shift():
-                # add if not present, remove if present
-                print("adding object", hover_obj)
-                self.gom.selection.add(hover_obj)
-            if not self.gom.selection.contains(hover_obj):
-                print("object not in selection, setting it", hover_obj)
-                self.gom.selection.set([ hover_obj ])
-            self.resizeobj = MoveCommand(self.gom.selection, pos)
-            # XXX - this should happen through GOM and upon mouse release 
-            # self.history.append(self.resizeobj)
-            self.cursor.set("grabbing")
-        else:
-            self.gom.selection.clear()
-            self.resizeobj   = None
-            print("starting selection tool")
-            self.selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
-            self.current_object = self.selection_tool
-            self.queue_draw()
-        return True
-
-    def create_object(self, ev):
-        """Create an object based on the current mode."""
-        # not managed by GOM: first create, then decide whether to add to GOM
-        obj = DrawableFactory.create_drawable(self.mode, pen = self.pen, ev=ev)
-        if obj:
-            self.current_object = obj
-
-    def set_mode(self, mode):
-        """Set the mode."""
-        self.mode = mode
-        self.cursor.default(self.mode)
-
-    def get_mode(self):
-        """Get the current mode."""
-        return self.mode
-
-    # XXX this code should be completely rewritten, cleaned up, refactored
-    # and god knows what else. It's a mess.
-    def on_button_press(self, widget, event):
-        print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
-        self.modified = True # better safe than sorry
-
-        ev = MouseEvent(event, self.gom.objects())
-        shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
-        hover_obj = ev.hover()
-
-        # double click on a text object: start editing
-        if event.button == 1 and ev.double() and hover_obj and hover_obj.type == "text" and self.mode in ["draw", "text", "move"]:
-            # put the cursor in the last line, end of the text
-            # this should be a Command event
-            hover_obj.move_caret("End")
-            self.current_object = hover_obj
-            self.queue_draw()
-            self.cursor.set("none")
-            return True
-
-        # Ignore clicks when text input is active
-        if self.current_object:
-            if  self.current_object.type == "text":
-                print("click, but text input active - finishing it first")
-                self.finish_text_input()
-            else:
-                print("click, but text input active - ignoring it; object=", self.current_object)
-            return True
-
-        # right click: open context menu
-        if event.button == 3 and not shift:
-            self.on_right_click(event, hover_obj)
-            return True
-
-        if event.button != 1:
-            return True
-
-        # Start changing line width: single click with ctrl pressed
-        if ctrl and event.button == 1 and self.mode == "draw": 
-            if not shift: 
-                self.wiglet_active = WigletLineWidth((event.x, event.y), self.pen)
-            else:
-                self.wiglet_active = WigletTransparency((event.x, event.y), self.pen)
-            return True
-
-        if self.mode == "colorpicker":
-            #print("picker mode")
-            color = get_color_under_cursor()
-            self.set_color(color) 
-            color_hex = rgb_to_hex(color)
-            self.clipboard.set_text(color_hex)
-            return True
-
-        elif self.mode == "move":
-            return self.move_resize_rotate(ev)
-
-        # erasing an object, if an object is underneath the cursor
-        elif self.mode == "eraser" and hover_obj: 
-                ## XXX -> GOM 
-                # self.history.append(RemoveCommand([ hover_obj ], self.objects))
-                self.gom.remove_objects([ hover_obj ], clear_selection = True)
-                self.resizeobj   = None
-                self.cursor.revert()
-
-        # simple click: create modus
-        else:
-            self.create_object(ev)
-
-        self.queue_draw()
-
-        return True
-
-    # Event handlers
-    # XXX same comment as above
-    def on_button_release(self, widget, event):
-        """Handle mouse button release events."""
-        obj = self.current_object
-
-        if obj and obj.type in [ "shape", "path" ]:
-            print("finishing path / shape")
-            obj.path_append(event.x, event.y, 0)
-            obj.finish()
-            if len(obj.coords) < 3:
-                obj = None
-            self.queue_draw()
-
-        if obj:
-            # remove objects that are too small
-            bb = obj.bbox()
-            if bb and obj.type in [ "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
-                obj = None
-
-        if obj:
-            if obj != self.selection_tool:
-                self.gom.add_object(obj)
-            else:
-                self.current_object = None
-
-        if self.wiglet_active:
-            self.wiglet_active.event_finish()
-            self.wiglet_active = None
-            self.queue_draw()
-            return True
-
-        # if selection tool is active, finish it
-        if self.selection_tool:
-            print("finishing selection tool")
-            #self.objects.remove(self.selection_tool)
-            #bb = self.selection_tool.bbox()
-            objects = self.selection_tool.objects_in_selection(self.gom.objects())
-            if len(objects) > 0:
-                self.gom.selection.set(objects)
-            else:
-                self.gom.selection.clear()
-            self.selection_tool = None
-            self.queue_draw()
-            return True
-
-        # if the user clicked to create a text, we are not really done yet
-        if self.current_object and self.current_object.type != "text":
-            print("there is a current object: ", self.current_object)
-            self.gom.selection.clear()
-            self.current_object = None
-            self.queue_draw()
-            return True
-
-        if self.resizeobj:
-            # If the user was dragging a selected object and the drag ends
-            # in the lower left corner, delete the object
-            self.resizeobj.event_finish()
-            obj = self.resizeobj.obj
-            if self.resizeobj.command_type == "move" and  event.x < 10 and event.y > self.get_size()[1] - 10:
-                # command group because these are two commands: first move,
-                # then remove
-                self.gom.command_append([ self.resizeobj, RemoveCommand([ obj ], self.gom.objects()) ])
-                self.selection.clear()
-            else:
-                self.gom.command_append([ self.resizeobj ])
-            self.resizeobj    = None
-            self.cursor.revert()
-            self.queue_draw()
-        return True
-
-
-    def on_motion_notify(self, widget, event):
-        """Handle mouse motion events."""
-
-        ev = MouseEvent(event, self.gom.objects())
-        x, y = ev.pos()
-        self.cursor.update_pos(x, y)
-
-        if self.wiglet_active:
-            self.wiglet_active.event_update(x, y)
-            self.queue_draw()
-            return True
-
-        obj = self.current_object or self.selection_tool
-
-        if obj:
-            obj.update(x, y, ev.pressure())
-            self.queue_draw()
-        elif self.resizeobj:
-            self.resizeobj.event_update(x, y)
-            self.queue_draw()
-        elif self.mode == "move":
-            object_underneath = ev.hover()
-            prev_hover = self.hover
-
-            if object_underneath:
-                if object_underneath.type == "text":
-                    self.cursor.set("text")
-                else:
-                    self.cursor.set("moving")
-                self.hover = object_underneath
-            else:
-                self.cursor.revert()
-                self.hover = None
-
-            corner_obj = ev.corner()
-
-            if corner_obj[0] and corner_obj[0].bbox():
-                self.cursor.set(corner_obj[1])
-                self.hover = corner_obj[0]
-                self.queue_draw()
-
-            if prev_hover != self.hover:
-                self.queue_draw()
-
-        # stop event propagation
-        return True
-
-    # ---------------------------------------------------------------------
-
-    def finish_text_input(self):
-        """Clean up current text and finish text input."""
-        print("finishing text input")
-        if self.current_object and self.current_object.type == "text":
-            self.current_object.caret_pos = None
-            if self.current_object.strlen() == 0:
-                self.gom.kill_object(self.current_object)
-            self.current_object = None
-        self.cursor.revert()
-
-    def update_text_input(self, keyname, char):
-        """Update the current text input."""
-        cur  = self.current_object
-        if not cur:
-            raise ValueError("No current object")
-        cur.update_by_key(keyname, char)
-
-    def cycle_background(self):
-        """Cycle through background transparency."""
-        self.transparent = {1: 0, 0: 0.5, 0.5: 1}[self.transparent]
 
     def paste_text(self, clip_text):
         """Enter some text in the current object or create a new object."""
 
-        if self.current_object and self.current_object.type == "text":
-            self.current_object.add_text(clip_text.strip())
+        cobj = self.dm.current_object()
+        if cobj and cobj.type == "text":
+            cobj.add_text(clip_text.strip())
         else:
             new_text = Text([ self.cursor.pos() ], 
-                            pen = self.pen, content=clip_text.strip())
+                            pen = self.dm.pen(), content=clip_text.strip())
             self.gom.add_object(new_text)
 
     def paste_image(self, clip_img):
         """Create an image object from a pixbuf image."""
-        obj = Image([ self.cursor.pos() ], self.pen, clip_img)
+        obj = Image([ self.cursor.pos() ], self.dm.pen(), clip_img)
         self.gom.add_object(obj)
 
     def object_create_copy(self, obj, bb = None):
@@ -4258,76 +4936,23 @@ class TransparentWindow(Gtk.Window):
         """Cut content to clipboard."""
         self.copy_content(True)
    
-    def stroke_increase(self):
-        """Increase whatever is selected."""
-        self.stroke_change(1)
-
-    def stroke_decrease(self):
-        """Decrease whatever is selected."""
-        self.stroke_change(-1)
-
-    def stroke_change(self, direction):
-        """Modify the line width or text size."""
-        print("Changing stroke", direction)
-        if self.current_object and self.current_object.type == "text":
-            print("Changing text size")
-            self.current_object.stroke_change(direction)
-            self.pen.font_size = self.current_object.pen.font_size
-        else: 
-            for obj in self.gom.selected_objects():
-                obj.stroke_change(direction)
-
-        # without a selected object, change the default pen, but only if in the correct mode
-        if self.mode == "draw":
-            self.pen.line_width = max(1, self.pen.line_width + direction)
-        elif self.mode == "text":
-            self.pen.font_size = max(1, self.pen.font_size + direction)
-
-    def outline_toggle(self):
-        """Toggle outline mode."""
-        self.outline = not self.outline
-
-    def set_color(self, color):
-        self.pen.color_set(color)
-        self.gom.selection_color_set(color)
-
-    def set_font(self, font_description):
-        """Set the font."""
-        self.pen.font_set_from_description(font_description)
-        self.gom.selection_font_set(font_description)
-        if self.current_object and self.current_object.type == "text":
-            self.current_object.pen.font_set_from_description(font_description)
-
-    def transmute(self, mode):
-        """Change the selected object(s) to a shape."""
-        print("transmuting to", mode)
-        sel = self.gom.selected_objects()
-        # note to self: sel is a list, not the selection
-        if sel:
-            self.gom.transmute(sel, mode)
-
-#   def smoothen(self):
-#       """Smoothen the selected object."""
-#       if self.selection.n() > 0:
-#           for obj in self.selection.objects:
-#               obj.smoothen()
-
-    def switch_pens(self):
-        """Switch between pens."""
-        self.pen, self.pen2 = self.pen2, self.pen
-        self.queue_draw()
+    def select_color_bg(self):
+        """Select a color for the background."""
+        color = ColorChooser(self)
+        if color:
+            self.dm.bg_color((color.red, color.green, color.blue))
 
     def select_color(self):
         """Select a color for drawing."""
         color = ColorChooser(self)
         if color:
-            self.set_color((color.red, color.green, color.blue))
+            self.dm.set_color((color.red, color.green, color.blue))
 
     def select_font(self):
-        font_description = FontChooser(self.pen, self)
+        font_description = FontChooser(self.dm.pen(), self)
 
         if font_description:
-            self.set_font(font_description)
+            self.dm.set_font(font_description)
 
     def show_help_dialog(self):
         """Show the help dialog."""
@@ -4335,13 +4960,38 @@ class TransparentWindow(Gtk.Window):
         response = dialog.run()
         dialog.destroy()
 
+    def save_drawing_as(self):
+        """Save the drawing to a file."""
+        print("opening save file dialog")
+        file = save_dialog(self)
+        if file:
+            self.savefile = file
+            print("setting savefile to", file)
+            self.save_state()
+
     def export_drawing(self):
         """Save the drawing to a file."""
         # Choose where to save the file
         #    self.export(filename, "svg")
+        bbox = None
+        if self.gom.selected_objects():
+            # only export the selected objects
+            obj = self.gom.selected_objects()
+        else:
+            # set bbox so we export the whole screen
+            obj = self.gom.objects()
+            bbox = (0, 0, *self.get_size())
+
+        if not obj:
+            print("Nothing to draw")
+            return
+
+        obj = DrawableGroup(obj)
         file_name, file_format = export_dialog(self)
-        width, height = self.get_size()
-        export_image(width, height, file_name, self.draw, file_format)
+
+        if file_name:
+            export_image(obj, file_name, file_format,
+                         bg = self.dm.bg_color(), bbox = bbox, transparency = self.dm.transparent())
 
     def select_image_and_create_pixbuf(self):
         """Select an image file and create a pixbuf from it."""
@@ -4358,7 +5008,7 @@ class TransparentWindow(Gtk.Window):
 
             if pixbuf is not None:
                 pos = self.cursor.pos()
-                img = Image([ pos ], self.pen, pixbuf)
+                img = Image([ pos ], self.dm.pen(), pixbuf)
                 self.gom.add_object(img)
                 self.queue_draw()
         
@@ -4367,22 +5017,23 @@ class TransparentWindow(Gtk.Window):
     def screenshot_finalize(self, bb):
         print("Taking screenshot now")
         pixbuf, filename = get_screenshot(self, bb[0] - 3, bb[1] - 3, bb[0] + bb[2] + 6, bb[1] + bb[3] + 6)
-        self.hidden = False
+        self.dm.hide(False)
         self.queue_draw()
 
         # Create the image and copy the file name to clipboard
         if pixbuf is not None:
-            img = Image([ (bb[0], bb[1]) ], self.pen, pixbuf)
+            img = Image([ (bb[0], bb[1]) ], self.dm.pen(), pixbuf)
             self.gom.add_object(img)
             self.queue_draw()
             self.clipboard.set_text(filename)
 
     def find_screenshot_box(self):
-        if self.current_object and self.current_object.type == "box":
-            return self.current_object
-        if self.gom.selection.n() == 1 and self.gom.selected_objects()[0].type == "box":
-            return self.gom.selection.objects()[0]
-
+        cobj = self.dm.current_object()
+        if cobj and cobj.type == "box":
+            return cobj
+        for obj in self.gom.selected_objects():
+            if obj.type == "box":
+                return obj
         for obj in self.gom.objects()[::-1]:
             if obj.type == "box":
                 return obj
@@ -4392,27 +5043,28 @@ class TransparentWindow(Gtk.Window):
         obj = self.find_screenshot_box()
         if not obj:
             print("no suitable box found")
-            return
-
-        bb = obj.bbox()
-        print("bbox is", bb)
-        self.hidden = True
+            # use the whole screen
+            bb = (0, 0, *self.get_size())
+        else:
+            bb = obj.bbox()
+            print("bbox is", bb)
+        #self.hidden = True
+        self.dm.hide(True)
         self.queue_draw()
         while Gtk.events_pending():
             Gtk.main_iteration_do(False)
         GLib.timeout_add(100, self.screenshot_finalize, bb)
 
     def autosave(self):
-        # XXX: not implemented, tracking modifications of state
-        if not self.modified:
+        if not self.dm.modified():
            return
 
-        if self.current_object: # not while drawing!
+        if self.dm.current_object(): # not while drawing!
             return
 
         print("Autosaving")
         self.save_state()
-        self.modified = False
+        self.dm.modified(False)
 
     def save_state(self): 
         """Save the current drawing state to a file."""
@@ -4422,9 +5074,12 @@ class TransparentWindow(Gtk.Window):
 
         print("savefile:", self.savefile)
         config = {
-                'transparent': self.transparent,
-                'pen': self.pen.to_dict(),
-                'pen2': self.pen2.to_dict()
+                'bg_color':    self.dm.bg_color(),
+                'transparent': self.dm.transparent(),
+                'show_wiglets': self.dm.show_wiglets(),
+                'bbox':        (0, 0, *self.get_size()),
+                'pen':         self.dm.pen().to_dict(),
+                'pen2':        self.dm.pen(alternate = True).to_dict()
         }
 
         objects = self.gom.export_objects()
@@ -4435,7 +5090,7 @@ class TransparentWindow(Gtk.Window):
         if self.read_file(file_name):
             print("Setting savefile to", file_name)
             self.savefile = file_name
-            self.modified = True
+            self.dm.modified(True)
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
@@ -4445,11 +5100,16 @@ class TransparentWindow(Gtk.Window):
             self.gom.set_objects(objects)
 
         if config and load_config:
-            self.transparent       = config['transparent']
-            self.pen               = Pen.from_dict(config['pen'])
-            self.pen2              = Pen.from_dict(config['pen2'])
-        if config and objects:
-            self.modified = True
+            self.dm.bg_color(config.get('bg_color') or (.8, .75, .65))
+            self.dm.transparent(config.get('transparent') or 0)
+            show_wiglets = config.get('show_wiglets')
+            if show_wiglets is None:
+                show_wiglets = True
+            self.dm.show_wiglets(show_wiglets)
+            self.dm.pen_set(Pen.from_dict(config['pen']))
+            self.dm.pen_set(Pen.from_dict(config['pen2']), alternate = True)
+        if config or objects:
+            self.dm.modified(True)
             return True
         return False
 
@@ -4473,21 +5133,51 @@ if __name__ == "__main__":
 
 
 # ---------------------------------------------------------------------
+# Parsing command line
+# ---------------------------------------------------------------------
 
-    parser = argparse.ArgumentParser(description="Drawing on the screen")
-    parser.add_argument("-s", "--savefile", help="File for automatic save upon exit")
+    parser = argparse.ArgumentParser(
+            description="Drawing on the screen",
+            epilog=f"Alternative use: {argv[0]} file.sdrw file.[png, pdf, svg]")
+    parser.add_argument("-l", "--loadfile", help="Load drawing from file")
+    parser.add_argument("-c", "--convert", help="Convert screendrawer file to given format (png, pdf, svg) and exit\n      (use -o to specify output file, otherwise a default name is used)")
+    parser.add_argument("-b", "--border", help="Border width for conversion", type=int)
+    parser.add_argument("-o", "--output", help="Output file for conversion")
     parser.add_argument("files", nargs="*")
-
     args     = parser.parse_args()
-    savefile = args.savefile or get_default_savefile(app_name, app_author)
-    files    = args.files
+
+    if args.convert:
+        if not args.convert in [ "png", "pdf", "svg" ]:
+            print("Invalid conversion format")
+            exit(1)
+        output = None
+        if args.output:
+            output = args.output
+
+        if not args.files:
+            print("No input file provided")
+            exit(1)
+        convert_file(args.files[0], output, args.convert, border = args.border)
+        exit(0)
+
+    if args.files:
+        if len(args.files) > 2:
+            print("Too many files provided")
+            exit(1)
+        elif len(args.files) == 2:
+            convert_file(args.files[0], args.files[1], border = args.border)
+            exit(0)
+        else:
+            savefile = args.files[0]
+    else:
+        savefile = get_default_savefile(app_name, app_author)
     print("Save file is:", savefile)
 
 # ---------------------------------------------------------------------
 
     win = TransparentWindow(savefile = savefile)
-    if files:
-        win.read_file(files[0])
+    if args.loadfile:
+        win.read_file(args.loadfile)
 
     css = b"""
     #myMenu {
@@ -4506,7 +5196,7 @@ if __name__ == "__main__":
 
     win.show_all()
     win.present()
-    win.cursor.set(win.mode)
+    win.cursor.set(win.dm.mode())
     win.stick()
 
     Gtk.main()
