@@ -301,6 +301,7 @@ class DrawManager:
             self.set_color(color) 
             color_hex = rgb_to_hex(color)
             self.__app.clipboard.set_text(color_hex)
+            self.__app.queue_draw()
             return True
 
         elif self.__mode == "move":

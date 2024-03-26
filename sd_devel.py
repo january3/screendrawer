@@ -290,7 +290,7 @@ class TransparentWindow(Gtk.Window):
 
         if file_name:
             export_image(obj, file_name, file_format,
-                         bg = self.bg_color, bbox = bbox)
+                         bg = self.dm.bg_color(), bbox = bbox, transparency = self.dm.transparent())
 
     def select_image_and_create_pixbuf(self):
         """Select an image file and create a pixbuf from it."""

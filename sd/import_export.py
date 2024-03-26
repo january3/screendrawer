@@ -26,7 +26,8 @@ def convert_file(input_file, output_file, file_format = "all", border = None):
         bbox = objects.bbox()
         bbox = (bbox[0] - border, bbox[1] - border, bbox[2] + border, bbox[3] + border)
 
-    bg = config.get("bg_color", (1, 1, 1))
+    bg           = config.get("bg_color", (1, 1, 1))
+    transparency = config.get("transparent", 1.0)
 
     if file_format == "all":
         if output_file is None:
@@ -37,10 +38,10 @@ def convert_file(input_file, output_file, file_format = "all", border = None):
             # create a file name with the same name but different extension
             output_file = path.splitext(input_file)[0] + "." + file_format
 
-    export_image(objects, output_file, file_format, bg = bg, bbox = bbox)
+    export_image(objects, output_file, file_format, bg = bg, bbox = bbox, transparency = trasnparency)
 
 
-def export_image(objects, filename, file_format = "all", bg = (1, 1, 1), bbox = None):
+def export_image(objects, filename, file_format = "all", bg = (1, 1, 1), bbox = None, transparency = 1.0):
     """Export the drawing to a file."""
 
     # if filename is None, we send the output to stdout
@@ -83,7 +84,7 @@ def export_image(objects, filename, file_format = "all", bg = (1, 1, 1), bbox = 
     # translate to the top left corner of the bounding box
     cr.translate(-bbox[0], -bbox[1])
 
-    cr.set_source_rgba(*bg)
+    cr.set_source_rgba(*bg, transparency)
     cr.paint()
     objects.draw(cr)
 

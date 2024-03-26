@@ -11,6 +11,7 @@ import os                                                           #<remove>
 import time                                                         #<remove>           
 import math                                                         #<remove>           
 import base64                                                       #<remove>             
+from io import BytesIO                                              # <remove>
 import tempfile                                                     #<remove>               
 from io import BytesIO                                              #<remove>                      
                                                                     #<remove>
@@ -366,5 +367,13 @@ def draw_dot(cr, x, y, diameter):
     cr.arc(x, y, diameter / 2, 0, 2 * 3.14159)  # Draw a circle
     cr.fill()  # Fill the circle to make a dot
 
-
+def base64_to_pixbuf(image_base64):
+    """Convert a base64 image to a pixbuf."""
+    image_binary = base64.b64decode(image_base64)
+    image_io = BytesIO(image_binary)
+    loader = GdkPixbuf.PixbufLoader.new_with_type('png')  # Specify the image format if known
+    loader.write(image_io.getvalue())
+    loader.close()  # Finalize the loader
+    image = loader.get_pixbuf()  # Get the loaded GdkPixbuf
+    return image
 

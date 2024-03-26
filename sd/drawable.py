@@ -557,7 +557,7 @@ class Image(Drawable):
 
         if image_base64:
             self.image_base64 = image_base64
-            image = self.decode_base64(image_base64)
+            image = base64_to_pixbuf(image_base64)
         else:
             self.image_base64 = None
 
@@ -663,19 +663,6 @@ class Image(Drawable):
         x, y, width, height = bb
         if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
             return True
-
-    def decode_base64(self, image_base64):
-        image_binary = base64.b64decode(image_base64)
-
-        # Step 2: Wrap the binary data in a BytesIO object
-        image_io = BytesIO(image_binary)
-
-        # Step 3: Load the image data into a GdkPixbuf
-        loader = GdkPixbuf.PixbufLoader.new_with_type('png')  # Specify the image format if known
-        loader.write(image_io.getvalue())
-        loader.close()  # Finalize the loader
-        image = loader.get_pixbuf()  # Get the loaded GdkPixbuf
-        return image
 
     def encode_base64(self):
         buffer = BytesIO()
