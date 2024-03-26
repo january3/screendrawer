@@ -5,6 +5,7 @@ from sd.events   import MouseEvent                                 # <remove>
 from sd.utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 from sd.wiglets  import *                                          # <remove>
 from sd.pen      import Pen                                        # <remove>
+#from sd.cursor   import CursorManager                              # <remove>
 
 
 
@@ -32,6 +33,10 @@ class DrawManager:
         self.__selection_tool = None
         self.__current_object = None
         self.__paning = None
+        self.__show_wiglets = True
+        self.__wiglets = [ WigletColorSelector(height = app.get_size()[1], 
+                                               func_color = self.set_color,
+                                               func_bg = self.bg_color) ]
 
         # drawing parameters
         self.__hidden = False
@@ -44,6 +49,16 @@ class DrawManager:
         # defaults for drawing
         self.__pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
         self.__pen2 = Pen(line_width = 40, color = (1, 1, 0),   font_size = 24, transparency = .2)
+
+    def toggle_wiglets(self):
+        """Toggle the wiglets."""
+        self.__show_wiglets = not self.__show_wiglets
+
+    def show_wiglets(self, value = None):
+        """Show or hide the wiglets."""
+        if value is not None:
+            self.__show_wiglets = value
+        return self.__show_wiglets
 
     def pen_set(self, pen, alternate = False):
         """Set the pen."""
@@ -104,6 +119,7 @@ class DrawManager:
         if self.__translate:
             cr.translate(*self.__translate)
 
+        print("BG color: ", self.__bg_color)
         cr.set_source_rgba(*self.__bg_color, self.__transparent)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
@@ -113,10 +129,16 @@ class DrawManager:
         if self.__current_object:
             self.__current_object.draw(cr)
 
+        cr.restore()
+
+        if self.__show_wiglets:
+            for w in self.__wiglets:
+                w.update_size(*self.__app.get_size())
+                w.draw(cr)
+ 
         if self.__wiglet_active:
             self.__wiglet_active.draw(cr)
 
-        cr.restore()
         return True
 
     def draw(self, cr):
@@ -131,7 +153,8 @@ class DrawManager:
     #       self.current_object.draw(cr)
 
         # If changing line width, draw a preview of the new line width
-      
+
+     
     # ---------------------------------------------------------------------
     #                              Event handlers
 
@@ -220,8 +243,17 @@ class DrawManager:
     def on_button_press(self, widget, event):
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
         self.__modified = True # better safe than sorry
-
         ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+
+        # check whether any wiglet wants to process the event
+        # processing in the order reverse to the drawing order,
+        # so top wiglets are processed first
+        if self.__show_wiglets:
+            for w in self.__wiglets[::-1]:
+                if w.on_click(event.x, event.y, ev):
+                    self.__app.queue_draw()
+                    return True
+
         shift, ctrl, alt, pressure = ev.shift(), ev.ctrl(), ev.alt(), ev.pressure()
         hover_obj = ev.hover()
 
@@ -365,6 +397,22 @@ class DrawManager:
             self.__app.queue_draw()
         return True
 
+    def on_motion_paning(self, event):
+        """Handle on motion update when paning"""
+        if not self.__translate:
+            self.__translate = (0, 0)
+        dx, dy = event.x - self.__paning[0], event.y - self.__paning[1]
+        self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
+        self.__paning = (event.x, event.y)
+        self.__app.queue_draw()
+        return True
+
+    def on_motion_wiglet(self, x, y):
+        """Handle on motion update when a wiglet is active."""
+        if self.__wiglet_active:
+            self.__wiglet_active.event_update(x, y)
+            self.__app.queue_draw()
+        return True
 
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
@@ -374,18 +422,11 @@ class DrawManager:
         self.__cursor.update_pos(x, y)
 
         if self.__wiglet_active:
-            self.__wiglet_active.event_update(x, y)
-            self.__app.queue_draw()
-            return True
+            return self.on_motion_wiglet(x, y)
 
+        # we are paning
         if self.__paning:
-            if not self.__translate:
-                self.__translate = (0, 0)
-            dx, dy = event.x - self.__paning[0], event.y - self.__paning[1]
-            self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
-            self.__paning = (event.x, event.y)
-            self.__app.queue_draw()
-            return True
+            return self.on_motion_paning(event)
 
         obj = self.__current_object or self.__selection_tool
 
@@ -470,9 +511,12 @@ class DrawManager:
         elif self.__mode == "text":
             self.__pen.font_size = max(1, self.__pen.font_size + direction)
 
-    def set_color(self, color):
+    def set_color(self, color = None):
+        if color is None:
+            return self.__pen.color
         self.__pen.color_set(color)
         self.__gom.selection_color_set(color)
+        return color
 
     def set_font(self, font_description):
         """Set the font."""

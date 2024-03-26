@@ -28,6 +28,7 @@ import copy
 import yaml
 import pickle
 import traceback
+import colorsys
 from sys import exc_info, argv 
 gi.require_version('Gtk', '3.0')
 
@@ -108,7 +109,10 @@ class TransparentWindow(Gtk.Window):
         self.set_title("Transparent Drawing Window")
         self.set_decorated(False)
         self.connect("destroy", self.exit)
-        self.set_default_size(800, 600)
+        self.set_default_size(800, 800)
+        self.set_keep_above(True)
+        self.maximize()
+
 
         # transparency
         screen = self.get_screen()
@@ -146,16 +150,13 @@ class TransparentWindow(Gtk.Window):
        #self.gesture_zoom.connect('begin', self.dm.on_zoom)
        #self.gesture_zoom.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
 
-        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
+        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.TOUCH_MASK)
 
         self.connect("key-press-event",      self.em.on_key_press)
         self.connect("draw",                 self.dm.on_draw)
         self.connect("button-press-event",   self.dm.on_button_press)
         self.connect("button-release-event", self.dm.on_button_release)
         self.connect("motion-notify-event",  self.dm.on_motion_notify)
-
-        self.set_keep_above(True)
-        self.maximize()
 
     def exit(self):
         ## close the savefile_f

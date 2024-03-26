@@ -164,6 +164,7 @@ class EventManager:
             'clear_page':            {'action': dm.clear},
             'cycle_bg_transparency': {'action': dm.cycle_background},
             'toggle_outline':        {'action': dm.outline_toggle},
+            'toggle_wiglets':        {'action': dm.toggle_wiglets},
 
             'show_help_dialog':      {'action': app.show_help_dialog},
             'app_exit':              {'action': app.exit},
@@ -278,6 +279,7 @@ class EventManager:
             'Ctrl-q':               "app_exit",
             'l':                    "clear_page",
             'o':                    "toggle_outline",
+            'w':                    "toggle_wiglets",
             'Alt-s':                "transmute_to_shape",
             'Alt-d':                "transmute_to_draw",
             'f':                    "selection_fill",
@@ -323,6 +325,7 @@ class EventManager:
             'Ctrl-i':               "import_image",
             'Ctrl-p':               "toggle_pens",
             'Ctrl-o':               "open_drawing",
+
 
             'Tab':                  "select_next_object",
             'Shift-ISO_Left_Tab':   "select_previous_object",

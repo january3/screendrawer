@@ -1,14 +1,13 @@
 To do (sorted by priority):
 
 
- * paning the draw area
  * zoom in and out. I think the time is ripe for it 
  * brushes. (1) brush that generates short diagonal thin strokes (2) brush
    that creates a Gary Larson-like hatching (3) brush that creates a
  * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
    to the corresponding pen
  * unit tests. this is becoming pressing but will be a lot of work
- * wiglets for color / pen / line width. They should be drawinggroup
+ * wiglets for pen / line width / tool. They should be drawinggroup
    objects knowing how to draw themselves and how to react to mouse
  * Help should be actually a new screendrawer window with written on it!
  * how should the color picker and the color selection dialog colaborate?
@@ -54,6 +53,8 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * wiglet for color 
+ * paning the draw area
  * Drawing Manager
  * when converting via command line, it should be possible to specify a
    border around the actual drawing (so not all screen is exported)

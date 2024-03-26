@@ -315,6 +315,11 @@ def is_click_close_to_path(click_x, click_y, path, threshold):
             return True
     return False
 
+def is_click_in_bbox(click_x, click_y, bbox):
+    """Check if a click is inside a bounding box."""
+    x, y, w, h = bbox
+    return x <= click_x <= x + w and y <= click_y <= y + h
+
 def is_click_in_bbox_corner(click_x, click_y, bbox, threshold):
     """Check if a click is in the corner of a bounding box."""
     x, y, w, h = bbox
