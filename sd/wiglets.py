@@ -1,5 +1,6 @@
 from .pen import Pen                           # <remove>
 from .utils import draw_dot, is_click_in_bbox  # <remove>
+import cairo                                   # <remove>
 
 import colorsys                                # <remove>
 
@@ -95,11 +96,84 @@ class WigletLineWidth(Wiglet):
         pass
 
 ## ---------------------------------------------------------------------
+class WigletToolSelector(Wiglet):
+    """Wiglet for selecting the tool."""
+    def __init__(self, coords = (150, 0), width = 800, height = 30, func_mode = None):
+        super().__init__("tool_selector", coords)
 
+        self.__width, self.__height = width, height
+        self.__bbox = (coords[0], coords[1], width, height)
+        self.__modes = [ "move", "draw", "shape", "box", "circle", "text", "eraser", "colorpicker" ]
+        self.__modes_dict = { "move": "Move", "draw": "Draw", "shape": "Shape", "box": "Rectangle", 
+                              "circle": "Circle", "text": "Text", "eraser": "Eraser", "colorpicker": "Color Picker" }
+
+        self.recalculate()
+        self.__mode_func = func_mode
+
+    def recalculate(self):
+
+        self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
+        self.__dw   = self.__width / len(self.__modes) 
+
+    def draw(self, cr):
+        print("drawing tool selector")
+        cr.set_source_rgb(0.5, 0.5, 0.5)
+        cr.rectangle(*self.__bbox)
+        cr.fill()
+
+        cur_mode = None
+        if self.__mode_func and callable(self.__mode_func):
+            cur_mode = self.__mode_func()
+        print("current mode:", cur_mode)
+
+        for i, mode in enumerate(self.__modes):
+            label = self.__modes_dict[mode]
+            # white rectangle
+            if mode == cur_mode:
+                cr.set_source_rgb(0, 0, 0)
+            else:   
+                cr.set_source_rgb(1, 1, 1)
+            cr.rectangle(self.__bbox[0] + 1 + i * self.__dw, self.__bbox[1] + 1, self.__dw - 2, self.__height - 2)
+            cr.fill()
+            # black text
+            if mode == cur_mode:
+                cr.set_source_rgb(1, 1, 1)
+            else:
+                cr.set_source_rgb(0, 0, 0)
+            # select small font
+            cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+            cr.set_font_size(14)
+            x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents(label)
+            cr.move_to(self.__bbox[0] + i * self.__dw + (self.__dw - t_width) / 2 - x_bearing, 
+                       self.__bbox[1] + (self.__height - t_height) / 2 - y_bearing)
+            cr.show_text(label)
+
+
+    def on_click(self, x, y, ev):
+
+        if not is_click_in_bbox(x, y, self.__bbox):
+            return False
+
+        # which mode is at this position?
+        print("clicked inside the bbox")
+        dx = x - self.__bbox[0]
+        print("dx:", dx)
+        sel_mode = None
+        i = int(dx / self.__dw)
+        sel_mode = self.__modes[i]
+        print("selected mode:", sel_mode)
+        if self.__mode_func and callable(self.__mode_func):
+            self.__mode_func(sel_mode)
+
+
+        return True
+
+    def update_size(self, width, height):
+        pass
 
 class WigletColorSelector(Wiglet):
     """Wiglet for selecting the color."""
-    def __init__(self, coords = (0, 0), width = 30, height = 500, func_color = None, func_bg = None):
+    def __init__(self, coords = (0, 0), width = 15, height = 500, func_color = None, func_bg = None):
         super().__init__("color_selector", coords)
         print("height:", height)
 
@@ -136,6 +210,13 @@ class WigletColorSelector(Wiglet):
             fg = self.__func_color()
 
         print("current fg/bg:", fg, bg)
+
+        cr.set_source_rgb(*bg)
+        cr.rectangle(self.__bbox[0] + 4, self.__bbox[1] + 9, self.__width - 5, 23)
+        cr.fill()
+        cr.set_source_rgb(*fg)
+        cr.rectangle(self.__bbox[0] + 1, self.__bbox[1] + 1, self.__width - 5, 14)
+        cr.fill()
 
         # draw the colors
         dh = 25
@@ -187,14 +268,15 @@ class WigletColorSelector(Wiglet):
         """
 
         # list of 24 colors forming a rainbow
-        colors = [  (0.88, 0.0, 0.83),
+        colors = [  #(0.88, 0.0, 0.83),
                      (0.29, 0.0, 0.51),
                      (0.0, 0.0, 1.0),
                      (0.0, 0.6, 1.0),
-                     (0.0, 1.0, 0.4),
+                     (0.0, 0.7, 0.5),
                      (0.0, 1.0, 0.0),
                      (1.0, 1.0, 0.0),
                      (1.0, 0.7, 0.0),
+                     (0.776, 0.612, 0.427),
                      (1.0, 0.3, 0.0),
                      (1.0, 0.0, 0.0)]
 
@@ -206,8 +288,8 @@ class WigletColorSelector(Wiglet):
         for c in colors:
             print("color:", c)
             lighter = adjust_color_brightness(c, 1.5)
-            for dd in range(2, 20, 2): #
-                d = dd / 10
+            for dd in range(30, 180, 15): #
+                d = dd / 100
                 newc.append(adjust_color_brightness(c, d))
 
         return newc

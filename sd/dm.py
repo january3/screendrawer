@@ -36,7 +36,8 @@ class DrawManager:
         self.__show_wiglets = True
         self.__wiglets = [ WigletColorSelector(height = app.get_size()[1], 
                                                func_color = self.set_color,
-                                               func_bg = self.bg_color) ]
+                                               func_bg = self.bg_color),
+                           WigletToolSelector(func_mode = self.mode) ]
 
         # drawing parameters
         self.__hidden = False
@@ -306,7 +307,8 @@ class DrawManager:
             return self.move_resize_rotate(ev)
 
         # erasing an object, if an object is underneath the cursor
-        elif self.__mode == "eraser" and hover_obj: 
+        elif self.__mode == "eraser":
+            if hover_obj: 
                 ## XXX -> GOM 
                 # self.history.append(RemoveCommand([ hover_obj ], self.objects))
                 self.__gom.remove_objects([ hover_obj ], clear_selection = True)
