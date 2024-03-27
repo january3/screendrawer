@@ -3969,11 +3969,17 @@ class WigletToolSelector(Wiglet):
         super().__init__("tool_selector", coords)
 
         self.__width, self.__height = width, height
-        self.__bbox = (coords[0], coords[1], width, height)
+        self.__icons_only = True
+
+
+
         self.__modes = [ "move", "draw", "shape", "box", "circle", "text", "eraser", "colorpicker" ]
         self.__modes_dict = { "move": "Move", "draw": "Draw", "shape": "Shape", "box": "Rectangle", 
                               "circle": "Circle", "text": "Text", "eraser": "Eraser", "colorpicker": "Col.Pick" }
+        if self.__icons_only and width > len(self.__modes) * 35:
+            self.__width = len(self.__modes) * 35
 
+        self.__bbox = (coords[0], coords[1], self.__width, self.__height)
         self.recalculate()
         self.__mode_func = func_mode
         self.__icons = { }
@@ -4006,26 +4012,30 @@ class WigletToolSelector(Wiglet):
                 cr.set_source_rgb(0, 0, 0)
             else:   
                 cr.set_source_rgb(1, 1, 1)
+
             cr.rectangle(self.__bbox[0] + 1 + i * self.__dw, self.__bbox[1] + 1, self.__dw - 2, self.__height - 2)
             cr.fill()
             # black text
+
             if mode == cur_mode:
                 cr.set_source_rgb(1, 1, 1)
             else:
                 cr.set_source_rgb(0, 0, 0)
             # select small font
-            cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-            cr.set_font_size(14)
-            x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents(label)
+
             icon = self.__icons.get(mode)
+            if not self.__icons_only:
+                cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+                cr.set_font_size(14)
+                x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents(label)
+                if icon:
+                    iw = icon.get_width()
+                    x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width - iw) / 2 - x_bearing + iw
+                else:
+                    x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width) / 2 - x_bearing
+                cr.move_to(x0, self.__bbox[1] + (self.__height - t_height) / 2 - y_bearing)
+                cr.show_text(label)
             if icon:
-                iw = icon.get_width()
-                x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width - iw) / 2 - x_bearing + iw
-            else:
-                x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width) / 2 - x_bearing
-            cr.move_to(x0, self.__bbox[1] + (self.__height - t_height) / 2 - y_bearing)
-            cr.show_text(label)
-            if self.__icons.get(mode):
                 Gdk.cairo_set_source_pixbuf(cr, self.__icons[mode], self.__bbox[0] + i * self.__dw + 5, self.__bbox[1] + 5)
                 cr.paint()
 
@@ -4758,7 +4768,7 @@ class Icons:
         Load all icons from stored base64 strings.
         """
 
-        icons = { "colorpicker": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAYAAABvCO8sAAADOElEQVRIx7WWS2xUZRTHf+feaWemAy1KR4SSAVpLRYwu5BFAwyNAAkTUSsKSYFRggaSSwMaNSowRCW4MGDCGSGBHwLggIZCGBVgFTHiTGErpaG3r0GlT5tm5h81pcq0tdjrtWZ57vu93z+P+7xEmyFRVh/pEZElgomAicgHoB5qAOmC5ql52Jgh2GUgAAYPNBBYBOKVc7Dcf7DfgOrAMCAEVQBVQOWagXfyxiNwSkTMistV8Z4GfgI1AK+AC7UADMK2kDIG3gE+BLDBXRPYAA8CHQJn5MwZeYr6SgLeB/UAOmAU0WibPA78AeaAL2A2EVLVGRERKHI6TQL29+DVggWUSB1LmX6aq1YOsUnr4ppV1uk3kQuCSr18LgEl+GNbUscDeBU5Zz5YCvUAtMB84BEwFulR1bSlVHFSP12wY0sBa3+M3gJPA98Am4BhwbjjFKQY2zwYhDrw6TNhm+wa/BNYA7WMC2qEag3UCc0YIbQBagL+Bu8DDooF2IAjcB/YBsRFCm4CExbvA18CJooAWHAPaDDaSxXwwhkpeMbAtpvj7ACZ9l/Ii3yYHIp/f2u0LfdFXuv+dennK6L9vZdkEnK/44s4DCQRnyjM1DuIKiQer+ve+oMBxU5Ggqc5TLTAC7BPgI5Ou8+G9zb86z9XHKOSFbBqvrzOT/mrlTuAlg7mAN5rKBYaB7QLWA4uDO36c5cYWdVAeqfZ6O/4h1RvVXD+5Y9tvavKvqKo2iEhotLB/KY3BmoC3gcbKozoDCVyiMDDVidYGpGJyRFNJcid2tRXut8RVdaWIlI+mjP/J0GAfAO8Bq8NH9eVC358/I1Q7M+ajjxNouo/0wXVd2t16TVXfKaaMfvOL9zZgfeUP+oqTTZ714jejTrQWr+sPtLuVzDcbMtrdetpgMhYYgFh2B4ArVUe0pZDt+d27d7HSKwuLKJ24bnXm8OaU9if2q+pnJYmxb2g2Ik5jPtnmeu03qgAkFLnHQK4sfXBDiHy62WDhUpcssRVgDoDUr0g6ofKrbt3rEe2Jl+UvHsmiOltVp4uIA+h4AB8Bz/rWhjDQAUxR1Xm2wArjZaqqbt3SnsFfyRAdDI733voEBNCxhX6tyV4AAAAASUVORK5CYII=",
+        icons = { "colorpicker": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAYAAABvCO8sAAACm0lEQVRIx7XWT4hVVRgA8N+ZGRuFnkgoEhMTITbZJsEg7I8WVIsQ0UELFxGNk6KbmFYtEqIsApNW4mbmRRRJi+i1UrNCFyahhbkIF9ngFKMp40yMohX2tTkjt/G+8s17c+Bu7v3O/XG+e75zv2SWRkTE9HsppZUds4WllL7GZQxgCVZHxLGOWcKOYSyqlY1YC6lv8hC0NfPi4ihgx3EqY8UxHzqaWMUr2IyfUMv3DuBoVCtvlkxbDKkJ8Aj2YAPOYByrolpZc9Nm6Zv8AQsjoqutic/1I3bhT9yN3jrYW5gbEV0ppZSa3Bz7sDTvhe/xYFQrywvY53gkIhY2Y03V2Bpcwa/4Aidziv+KaiUwgi/L6nEmWC+uZ/BevJjRU9iBg9jfKmwFruEqni48fgz7MJQ30gc4NGM0T1yGCzmND5SEPZdX+Q6ewi8zAvOkroz9hnvqhPbgW5zHaYw0DOYJnfgZO9FdJ3QAYzm+He/i44bAHNyNsxmrN7oLmOlHXiPYC/nE3wn9ajF1FULvK6Su/f/em/6jqPtzWjbgq2kIGLTuCXyUT5HOfOo0BmbsNTyLT/B2GTa0YPtnMTF6f0T0pJTa8fetZK6tBHs519RDnds+/LQMe7/79RMxMbooY3NvFfsXmLEBrMfG+YNx1/N7K6dvwnreO3t95OSliHg0pXQb/mhk16cC9hL68GS/2pWy4KFFAxfi4vDRiFjfSBrrpXQrnqmHVe989VpcHK5lLM0Eg468ut040a82Xrqy2zdPxrmxXRHxRlO/mUKLsVZq61VSpoNzNv3u8tXDGZvXikZr+MYHXfr4xFRhz1m95TspfYPRXNSpFVjCJdxRaBvm4RwWRMSy3MC2BLtRDu1LHh6f+pVMOwc7W923/gMDooiVvplNJAAAAABJRU5ErkJggg==",
                  "box": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAaCAMAAACTisy7AAACdlBMVEW+gFX///8AAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////7//////v3///////////////////////////////////////////////////////7///////////////////////////////////////+0tLRwcXByc3FxcnB/gH7s7et0dHQAAAANABoPAB0NABwjEDHCrtDy6Pl1dnULABdVAJZeAKVdAKRdAKVfAqZqC7K1hdkMABlcAKJlALJoB7NqCrRnBrFhAKtjAK9hAK+vfNZbAKFmA7Lbw+3ZwOzcxO+agaweAjRTAJJjALGwfNdnBLLRs+f///+rrq0DAQhMAIevfNjPsef/+/b/1pj/zID/zYH/z4PXpVmEUBBrE4phALOvY5n/z4H/zYP/3q3/+O3/rjX/mwf/nQn/nAn/ngr7mRWIJItfALWvTGD/nwf/mwX/vlz/rzj/nQr/ng34lxWHJItgALWvTGH/oAv/v17Qsef/+e7Fptzy9PLx6t/8rTVcAKFkAa9BJFgwNC5BOy7cjRH/ogr/oQr6mRKIJIp0dXMKABdkAK86AGgmAEYzBEmiSlG+W1O9WlO9W1K5Vld4FZtgALTCw8GDc5BmCaxiAK9jALBiALKuS2Lu4fiMQcSALr6BL7+BLruBIJqBHZJ/G5S+W1L9/P717/r07fr07vv05un0o0H0khb0kxj0kxn5mBP/sDj/nwz/rjb/nAf/mwb//Pb/2J7/z4j/0In/z4f/4LGPZS+MAAAAAXRSTlMAQObYZgAAATVJREFUKM9jYMALODi50AA3QpLPytoGGdja2XPAJQUdHJ2ckYCLq5u7EFzSw9PL2wcBfP38A0QQkoFBwSGhMBAWHhEZhSwZHRMQGwcB8QmJSckposiSqWnpMJCRmZWcLcUpLSMjC5PMSc/Nyy8AgsKi4pLSsvKKioJKeYRkVXVNLRDU1Tc0NjW31Na2tikiSbZ3dIJBV3dPb19nZ10/FSQnpE/ELTlp8pSpOCSnTZ8xc9bsOXPBYN58ZMkFC6MXLV6ydNnyFSCwctXqNQhJ5bXr1m/YuDG5FAY2rdkMl1RV27J12/btO3bugoHde+CSDBp79+3ff+DgocNHoODosU64JIOmlpa2zsTj9SdgoBNJEgzggQAFqJInT3Ugg9NtSJJnzp47jwwuXNRHSBoaoQEpY/xJGgDtYfX0n9HvoQAAAABJRU5ErkJggg==",
                  "move":"iVBORw0KGgoAAAANSUhEUgAAABwAAAAZCAYAAAAiwE4nAAAFKUlEQVRIx82WfWyV5RnGf8973p6ecvr9QVtKi622sdDSxiGooFCUDzdHYgzOZRMTY/xgLINsSkwUzdRADMZkC8YxNH5MplUajMygVqAM6BCC8Qs0tlAp3dmhHNrz0fac03Peyz/s6QrSQmJcdv/1PHnu57ne676u+84L/+MwAJL0gx4xxlxqrh2Px1PJL6Y+YCQmATYgoB/oBM6O7BNAEDgFHJSkSwU1khSLxQL/bD1YEDyUTTKcjjAgGI4mcRLCSjPklXnIK/NguQzGBRnZdjJvqieSX57R7c1P+wL4xaWwtgHe3fmPgt//+imui6zh8pI+CopOgwy2PYzLlSSZtDkZzGcomolkkCySjscld25OztS8nPLG3Lor5uZSWJkxUHplVn9mofuV8VjbAGm2u7/f6ckNE2B6XYez/I5XLclgjDBGSIZ43E089h17xzHEY+mcOVPAya4KOturad46nVgix7vs8Rrv0oeqbxhXQ4AZ02cECktzckOdvUSjGQnLctLG6mmM8GQM4ckYGr0Yi3qIxdMpLg0wMFDA8eNR3PmTmDYrByAwEWB2ZWVlqKSsmP7OUwSDNe5Ewsa2E+dm6r/VkQxvb7+NvXsWEhyO0KfTFDcEuOuJmcO1CyfvApaNp6FljAkD1NRU08dx/uMvJBzKAaMJ2kBMmdKD2x0npCCNd6fz6Pbl3TfcMmsVsGQix1qpRUNDAyFO4e+38ftLJgQEmHd9G/ev/BMLaodIfjCDfRsG8o619t54sb62U4v6uplhV1Y0KxAO4esp58q6Ty/aUzW1R5la3s2Rwz+hbWdT5hc7625vvLU8fN2Ksu0p0PPZjgJWVFT48oqzs4Lh05z2l4BjXbyLHYtJ3gjzFuyh8aqPOXTwana/sTjrWOv0O+f8qtw3+47S77VHCnBSVVXVYMmUyYQ6/AQC00gmbFyu5DlGMZZzjnlGzSRDZlaIpkWtzGz4lL175rNnY1Pp0fer1y5cddmxEbbZxphwikYUYEpZKYMECIczGR5OG9Vx965F/P21u+g7WwCWc2G2MuBYFBT1cuvyt1j5m40Mfb2P7Y9+Vdv/76gDPCsp2xqpswDy8/MZZohY3E0y6QLL4ZuuSna881N27LqWl164j+6uSjDO+KaSASMkMRDNpqapgMxCtwXcDFSeI1Sm10ucMIND6cRjHjq+rOVvL9+DzzVAm1nPzqNxNv15NR++/zMi4ezv2J4PbEQk7KX5jdsobGhk2bpqbLcFsBU4Zo/NraiYRoRt9IYMe9sW0t4+C1NVyoOv1jK5pYPXXthMT+AaTr5+M4cPzWF+UysNjUfI8EZGTSbH4oP3FtEbuYaVT9aQVeQB6AZeN8bEx5hCam8/ECvKLdXPWa/7TIs2Lm3TyQ5fUtKmaDT63LaWbYMLFsxXoatKV3OvVrhe1DO1G/TZmnlKbsmRXvLqwD2LtTq3Wbuf69JIJCT97vull+Tz+Trq6+t1FSu0tuo9dR3uC0p6RGPC7/cf+cvm5zV79hwVmRrNY40eyHhZby65X5+snqu1hVvU/IejSsSd1JUWSZkXAkyTpHWPrdOc+vna1fJRQtKD50+NkUce7unp+XrD0+tVWXG5pjFXt7NJv3Vv1TM37VfkbDwF9rmkGeP2sSQNDg6q90yvkk5ix3gjagzhPx5oP3BqydLFyucy/bLqSXX+K5A680m6acLBIal4bPkuNmhSeSdOnGj+65bNw/v37xur26of7U9sBOShEVZJSVsvqNuPAJqKIv5f4lttCtvxW3g8aQAAAABJRU5ErkJggg==",
                  "text":"iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAQAAADFASenAAACtklEQVQ4y42US2iTWRiGn5M//RuTXmK1l4xVK0gRb2hxiooywwiKNwQXdlEVQUUUEaSIIIK3zUCHKY6goqAuRzfKaMWFFUXd1GEQaqFQ8JK0SUNsQo1JTW3yuqi1Nhc7z/blPec73/d+xwAE8fGMo5RymjjjbKaYvbTioZ9a8vIK8e63dExx5ZBcIJTHY+AtXsq9xKrCPLVGDWTIZBwOBxqqXrm6w/W5ZCghqrKMDijFhlhLMlL9flns04dAZE14Z0VDoi/sTjb853o8VPTRzWi+QoPISI2i3TFfkpw3bR28JElswn9SkgjkuBxQAnOhp4/j6d5fDAhIAz6jdlo7gOFZ7nxGC0bB1aIuY5LfSSGM0V+Jw5DJmByjEyzog/DN5VmqH7BMWuAOZfIZw6SxjLhDXY7cR78RjjwDccJcCvMTUcQIMV4DCcqBDHVjbyxMBOGhoqhGC5lHJ4tlT/fiGm9OYWbyELuEkZbHEmrSrnPV0VIbAmOlFsbPovn0bhvs+NX/cs3zuws6T7QOH0uVmFjujZMb+y++3uVb/aes1D9lbV1P7scT1zrBk33+H0ARknXL1v6LUhX7GAt6TdJ7RZI826UebmXnSNhIbKAbzbvPCslGnEXyfZxxRapBksrYMj6OcQZJ6WDb+ntppzAbl666fSSluLEBRwYDv2MMwL3sUqPkbuMnLiDVxmdelW5wniD9ud2IMp0Qn7+FuAI3KVxIlbJeDDQCBIs1UssUBBlFTmlZrzNkqTK6sP3AOekdU/KWZqTNz1lfW+8+PaNjbZME3VMbB5HaHlU2T7z4/NedmSJyRcCAJ/IC6hvLzixpgN3AnIntKISAYpsy8B56syf9M/Twv4igadKKPyVpyd/rHkhdk/exEG4Cw7PZ4Vt3PfS6es7Dpskfyw8IcJmXE6FABL9TvwD2d2QO1hAt8wAAAABJRU5ErkJggg==",

@@ -103,11 +103,17 @@ class WigletToolSelector(Wiglet):
         super().__init__("tool_selector", coords)
 
         self.__width, self.__height = width, height
-        self.__bbox = (coords[0], coords[1], width, height)
+        self.__icons_only = True
+
+
+
         self.__modes = [ "move", "draw", "shape", "box", "circle", "text", "eraser", "colorpicker" ]
         self.__modes_dict = { "move": "Move", "draw": "Draw", "shape": "Shape", "box": "Rectangle", 
                               "circle": "Circle", "text": "Text", "eraser": "Eraser", "colorpicker": "Col.Pick" }
+        if self.__icons_only and width > len(self.__modes) * 35:
+            self.__width = len(self.__modes) * 35
 
+        self.__bbox = (coords[0], coords[1], self.__width, self.__height)
         self.recalculate()
         self.__mode_func = func_mode
         self.__icons = { }
@@ -140,26 +146,30 @@ class WigletToolSelector(Wiglet):
                 cr.set_source_rgb(0, 0, 0)
             else:   
                 cr.set_source_rgb(1, 1, 1)
+
             cr.rectangle(self.__bbox[0] + 1 + i * self.__dw, self.__bbox[1] + 1, self.__dw - 2, self.__height - 2)
             cr.fill()
             # black text
+
             if mode == cur_mode:
                 cr.set_source_rgb(1, 1, 1)
             else:
                 cr.set_source_rgb(0, 0, 0)
             # select small font
-            cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-            cr.set_font_size(14)
-            x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents(label)
+
             icon = self.__icons.get(mode)
+            if not self.__icons_only:
+                cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+                cr.set_font_size(14)
+                x_bearing, y_bearing, t_width, t_height, x_advance, y_advance = cr.text_extents(label)
+                if icon:
+                    iw = icon.get_width()
+                    x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width - iw) / 2 - x_bearing + iw
+                else:
+                    x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width) / 2 - x_bearing
+                cr.move_to(x0, self.__bbox[1] + (self.__height - t_height) / 2 - y_bearing)
+                cr.show_text(label)
             if icon:
-                iw = icon.get_width()
-                x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width - iw) / 2 - x_bearing + iw
-            else:
-                x0 = self.__bbox[0] + i * self.__dw + (self.__dw - t_width) / 2 - x_bearing
-            cr.move_to(x0, self.__bbox[1] + (self.__height - t_height) / 2 - y_bearing)
-            cr.show_text(label)
-            if self.__icons.get(mode):
                 Gdk.cairo_set_source_pixbuf(cr, self.__icons[mode], self.__bbox[0] + i * self.__dw + 5, self.__bbox[1] + 5)
                 cr.paint()
 
