@@ -23,10 +23,34 @@ class GraphicsObjectManager:
         self.__app = app
         self.__page = Page()
        #self._objects    = []
-       #self._history    = []
-       #self._redo_stack = []
+        self.__history    = []
+        self.__redo_stack = []
        #self.selection = SelectionObject(self._objects)
 
+    def page(self):
+        """Return the current page."""
+        return self.__page
+
+    def number_of_pages(self):
+        """Return the total number of pages."""
+        p = self.__page
+        while p != p.prev():
+            p = p.prev()
+
+        n = 1
+        while p.next(create = False):
+            n += 1
+            p = p.next(create = False)
+        return n
+
+    def current_page_number(self):
+        """Return the current page number."""
+        p = self.__page
+        n = 0
+        while p.prev() != p:
+            n += 1
+            p = p.prev()
+        return n
 
     def objects(self):
         """Return the list of objects."""
@@ -78,7 +102,6 @@ class GraphicsObjectManager:
             objects = [ obj.to_dict() for obj in p.objects() ]
             pages.append({ "objects": objects })
             p = p.next(create = False)
-            print("next page!")
         return pages
 
     def export_objects(self):

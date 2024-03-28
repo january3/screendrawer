@@ -37,7 +37,9 @@ class DrawManager:
         self.__wiglets = [ WigletColorSelector(height = app.get_size()[1], 
                                                func_color = self.set_color,
                                                func_bg = self.bg_color),
-                           WigletToolSelector(func_mode = self.mode) ]
+                           WigletToolSelector(func_mode = self.mode),
+                           WigletPageSelector(gom = gom, screen_wh_func = app.get_size),
+                          ]
 
         # drawing parameters
         self.__hidden = False

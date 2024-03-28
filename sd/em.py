@@ -241,7 +241,7 @@ class EventManager:
             'toggle_pens':            {'action': dm.switch_pens},
 
 #            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
-            'copy_content':          {'action': app.copy_content,        'modes': ["move"]},
+            'copy_content':          {'action': app.copy_content,        },
             'cut_content':           {'action': app.cut_content,         'modes': ["move"]},
             'paste_content':         {'action': app.paste_content},
             'screenshot':            {'action': app.screenshot},

@@ -90,6 +90,28 @@ keys, respectively), resize them, or delete them.
 The state is saved in / loaded from `savefile` (on Ubuntu, in the
 `~/.local/share/ScreenDrawer` directory) so you can continue drawing later.
 
+## Some differences to other programs
+
+The differences to other drawing programs are intentional and are based on
+my own workflow. Here are some of them:
+
+ * The state is saved automatically in the current file. There is no "save"
+   command, not really. By default the file is `savefile` in the app
+   directory (on Ubuntu, `~/.local/share/ScreenDrawer/savefile`). This
+   allows me to quickly start and stop drawing without bothering with
+   saving the state. Since the whole program is pretty quick to start and
+   load the drawing, it is as good as putting the program in the
+   background.
+ * If no objects are selected, ctrl-c simply copies all objects. This
+   speeds up the workflow. For example, you can produce quickly a
+   screenshot (Ctrl-Shift-f), annotate it with the draw tool, hit ctrl-c and paste it
+   somewhere without bothering to select anything.
+ * The drawings are organized in *Pages*. You can switch between pages with
+   `Shift-n` and `Shift-p` keys, and delete them with `Shift-d`. While all
+   pages are saved in the savefile, only the current page is displayed, and
+   export works only on the current page (this might change in the future).
+
+
 ## Problems
 
 Try to remove the savefile if you have problems.

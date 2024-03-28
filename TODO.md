@@ -2,7 +2,9 @@ To do (sorted by priority):
 
 
  * deleting page cannot be undone: refactor history so it is run on level
-   of GOM and not the individual pages, add a DeletePageCommand
+   of GOM and not the individual pages, add a DeletePageCommand. Basically,
+   each Command should take the Page object as an argument to know on which
+   page to act.
  * when copying when nothing is selected, simply copy all objects
  * add layers so that we can sketch in one layer, then draw in another, and
    finally remove the first one. 
@@ -43,6 +45,10 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * when pasting the object, the new object should be placed next to the
+   cursor.
+ * when paste an object multiple times, the second and following copies
+   fall on the same position as the first one
  * when text is grouped with other objects, and the group is resized in
    unproportional way, then due to the fact that the bb of the text is
    resized (more or less) proportionally, after a few resize operations the

@@ -97,6 +97,148 @@ class WigletLineWidth(Wiglet):
         pass
 
 ## ---------------------------------------------------------------------
+class WigletPageSelector(Wiglet):
+    """Wiglet for selecting the page."""
+    def __init__(self, coords = (500, 0), gom = None, width = 20, height = 35, screen_wh_func = None):
+        if not gom:
+            raise ValueError("GOM is not defined")
+        super().__init__("page_selector", coords)
+
+        self.__width, self.__height = width, height
+        self.__height_per_page = height
+        self.__gom = gom
+        self.__screen_wh_func = screen_wh_func
+
+        # we need to recalculate often because the pages might have been
+        # changing a lot
+        self.recalculate()
+
+    def recalculate(self):
+        if self.__screen_wh_func and callable(self.__screen_wh_func):
+            w, h = self.__screen_wh_func()
+            self.coords = (w - self.__width, 0)
+        self.__page_n = self.__gom.number_of_pages()
+        print("number of pages:", self.__page_n)
+        self.__height = self.__height_per_page * self.__page_n
+        self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
+        self.__current_page = self.__gom.current_page_number()
+        print("current page:", self.__current_page)
+
+    def on_click(self, x, y, ev):
+
+        if not is_click_in_bbox(x, y, self.__bbox):
+            return False
+
+        # which page is at this position?
+        print("clicked inside the bbox")
+        dy = y - self.__bbox[1]
+
+        page_no = int(dy / self.__height_per_page)
+        print("selected page:", page_no)
+
+        return True
+
+    def draw(self, cr):
+        self.recalculate()
+        cr.set_source_rgb(0.5, 0.5, 0.5)
+        cr.rectangle(*self.__bbox)
+        cr.fill()
+
+        for i in range(self.__page_n):
+            if i == self.__current_page:
+                cr.set_source_rgb(0, 0, 0)
+            else:
+                cr.set_source_rgb(1, 1, 1)
+            cr.rectangle(self.__bbox[0] + 1, self.__bbox[1] + i * self.__height_per_page + 1, 
+                        self.__width - 2, self.__height_per_page - 2)
+            cr.fill()
+            if i == self.__current_page:
+                cr.set_source_rgb(1, 1, 1)
+            else:
+                cr.set_source_rgb(0, 0, 0)
+            cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+            cr.set_font_size(14)
+            cr.move_to(self.__bbox[0] + 5, self.__bbox[1] + i * self.__height_per_page + 20)
+            cr.show_text(str(i + 1))
+
+    def on_click(self, x, y, ev):
+
+        if not is_click_in_bbox(x, y, self.__bbox):
+            return False
+
+        # which mode is at this position?
+        print("clicked inside the bbox")
+        dx = x - self.__bbox[0]
+        print("dx:", dx)
+        sel_mode = None
+        i = int(dx / self.__dw)
+        sel_mode = self.__modes[i]
+        print("selected mode:", sel_mode)
+        if self.__mode_func and callable(self.__mode_func):
+            self.__mode_func(sel_mode)
+
+
+        return True
+
+    def update_size(self, width, height):
+        pass
+
+class WigletColorSelector(Wiglet):
+    """Wiglet for selecting the color."""
+    def __init__(self, coords = (0, 0), width = 15, height = 500, func_color = None, func_bg = None):
+        super().__init__("color_selector", coords)
+        print("height:", height)
+
+        self.__width, self.__height = width, height
+        self.__bbox = (coords[0], coords[1], width, height)
+        self.__colors = self.generate_colors()
+        self.__dh = 25
+        self.__func_color = func_color
+        self.__func_bg    = func_bg
+        self.recalculate()
+
+    def recalculate(self):
+        self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
+        self.__color_dh = (self.__height - self.__dh) / len(self.__colors)
+        self.__colors_hpos = { color : self.__dh + i * self.__color_dh for i, color in enumerate(self.__colors) }
+
+    def update_size(self, width, height):
+        _, self.__height = width, height
+        self.recalculate()
+
+    def draw(self, cr):
+        # draw grey rectangle around my bbox
+        cr.set_source_rgb(0.5, 0.5, 0.5)
+        cr.rectangle(*self.__bbox)
+        cr.fill()
+
+        bg, fg = (0, 0, 0), (1, 1, 1)
+        if self.__func_bg and callable(self.__func_bg):
+            bg = self.__func_bg()
+        if self.__func_color and callable(self.__func_color):
+            fg = self.__func_color()
+
+        cr.set_source_rgb(*bg)
+        cr.rectangle(self.__bbox[0] + 4, self.__bbox[1] + 9, self.__width - 5, 23)
+        cr.fill()
+        cr.set_source_rgb(*fg)
+        cr.rectangle(self.__bbox[0] + 1, self.__bbox[1] + 1, self.__width - 5, 14)
+        cr.fill()
+
+        # draw the colors
+        dh = 25
+        h = (self.__height - dh)/ len(self.__colors)
+        for i, color in enumerate(self.__colors):
+            cr.set_source_rgb(*color)
+            cr.rectangle(self.__bbox[0] + 1, self.__colors_hpos[color], self.__width - 2, h)
+            cr.fill()
+
+
+    def update_size(self, width, height):
+        pass
+
+
+## ---------------------------------------------------------------------
 class WigletToolSelector(Wiglet):
     """Wiglet for selecting the tool."""
     def __init__(self, coords = (50, 0), width = 1000, height = 35, func_mode = None):
@@ -105,11 +247,10 @@ class WigletToolSelector(Wiglet):
         self.__width, self.__height = width, height
         self.__icons_only = True
 
-
-
         self.__modes = [ "move", "draw", "shape", "box", "circle", "text", "eraser", "colorpicker" ]
         self.__modes_dict = { "move": "Move", "draw": "Draw", "shape": "Shape", "box": "Rectangle", 
                               "circle": "Circle", "text": "Text", "eraser": "Eraser", "colorpicker": "Col.Pick" }
+
         if self.__icons_only and width > len(self.__modes) * 35:
             self.__width = len(self.__modes) * 35
 
