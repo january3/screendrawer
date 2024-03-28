@@ -74,6 +74,7 @@ from sd.menus import *                   ###<placeholder sd/menus.py>
 ###<placeholder sd/wiglets.py>
 from sd.dm import *                      ###<placeholder sd/dm.py>
 from sd.icons import Icons               ###<placeholder sd/icons.py>
+from sd.page import Page                 ###<placeholder sd/page.py>
 
 
 # ---------------------------------------------------------------------
@@ -225,13 +226,13 @@ class TransparentWindow(Gtk.Window):
 
     def copy_content(self, destroy = False):
         """Copy content to clipboard."""
-        if self.gom.selection.is_empty():
+        if self.gom.selection().is_empty():
             # nothing selected
             print("Nothing selected")
             return
 
-        print("Copying content", self.gom.selection)
-        self.clipboard.copy_content(self.gom.selection)
+        print("Copying content", self.gom.selection())
+        self.clipboard.copy_content(self.gom.selection())
 
         if destroy:
             self.gom.remove_selection()

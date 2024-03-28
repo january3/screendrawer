@@ -146,7 +146,7 @@ class DrawManager:
 
         for obj in self.__gom.objects():
             hover    = obj == self.__hover and self.__mode == "move"
-            selected = self.__gom.selection.contains(obj) and self.__mode == "move"
+            selected = self.__gom.selection().contains(obj) and self.__mode == "move"
             obj.draw(cr, hover=hover, selected=selected, outline = self.__outline)
     #   if self.current_object:
     #       print("drawing current object:", self.current_object, "mode:", self.mode)
@@ -170,8 +170,8 @@ class DrawManager:
             self.__mode = "move"
             self.__cursor.default(self.__mode)
 
-            if not self.__gom.selection.contains(hover_obj):
-                self.__gom.selection.set([ hover_obj ])
+            if not self.__gom.selection().contains(hover_obj):
+                self.__gom.selection().set([ hover_obj ])
 
             # XXX - this should happen directly?
             self.__app.mm.object_menu(self.__gom.selected_objects()).popup(None, None, None, None, event.button, event.time)
@@ -201,7 +201,7 @@ class DrawManager:
                 self.__resizeobj = RotateCommand(obj, origin = pos, corner = corner)
             else:
                 self.__resizeobj = ResizeCommand(obj, origin = pos, corner = corner, proportional = ctrl)
-            self.__gom.selection.set([ obj ])
+            self.__gom.selection().set([ obj ])
             # XXX - this should happen through GOM and upon mouse release 
             # self.history.append(self.__resizeobj)
             self.__cursor.set(corner)
@@ -209,16 +209,16 @@ class DrawManager:
             if ev.shift():
                 # add if not present, remove if present
                 print("adding object", hover_obj)
-                self.__gom.selection.add(hover_obj)
-            if not self.__gom.selection.contains(hover_obj):
+                self.__gom.selection().add(hover_obj)
+            if not self.__gom.selection().contains(hover_obj):
                 print("object not in selection, setting it", hover_obj)
-                self.__gom.selection.set([ hover_obj ])
-            self.__resizeobj = MoveCommand(self.__gom.selection, pos)
+                self.__gom.selection().set([ hover_obj ])
+            self.__resizeobj = MoveCommand(self.__gom.selection(), pos)
             # XXX - this should happen through GOM and upon mouse release 
             # self.history.append(self.__resizeobj)
             self.__cursor.set("grabbing")
         else:
-            self.__gom.selection.clear()
+            self.__gom.selection().clear()
             self.__resizeobj   = None
             print("starting selection tool")
             self.__selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
@@ -367,9 +367,9 @@ class DrawManager:
             #bb = self.selection_tool.bbox()
             objects = self.__selection_tool.objects_in_selection(self.__gom.objects())
             if len(objects) > 0:
-                self.__gom.selection.set(objects)
+                self.__gom.selection().set(objects)
             else:
-                self.__gom.selection.clear()
+                self.__gom.selection().clear()
             self.__selection_tool = None
             self.__app.queue_draw()
             return True
@@ -377,7 +377,7 @@ class DrawManager:
         # if the user clicked to create a text, we are not really done yet
         if self.__current_object and self.__current_object.type != "text":
             print("there is a current object: ", self.__current_object)
-            self.__gom.selection.clear()
+            self.__gom.selection().clear()
             self.__current_object = None
             self.__app.queue_draw()
             return True
@@ -543,7 +543,7 @@ class DrawManager:
 
     def clear(self):
         """Clear the drawing."""
-        self.__gom.selection.clear()
+        self.__gom.selection().clear()
         self.__resizeobj      = None
         self.__current_object = None
         self.__gom.remove_all()

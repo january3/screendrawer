@@ -232,6 +232,9 @@ class EventManager:
             'redo':                   {'action': gom.redo},
             'undo':                   {'action': gom.undo},
 
+            'next_page':              {'action': gom.next_page},
+            'prev_page':              {'action': gom.prev_page},
+
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
             'apply_pen_to_bg':        {'action': dm.apply_pen_to_bg,        'modes': ["move"]},
             'toggle_pens':            {'action': dm.switch_pens},
@@ -315,7 +318,10 @@ class EventManager:
             'Shift-l':              "set_color_blue",
             'Shift-e':              "set_color_grey",
             'Shift-y':              "set_color_yellow",
-            'Shift-p':              "set_color_purple",
+#            'Shift-p':              "set_color_purple",
+
+            'Shift-p':              "prev_page",
+            'Shift-n':              "next_page",
 
             'Ctrl-e':               "export_drawing",
             'Ctrl-Shift-s':         "save_drawing_as",

@@ -4,11 +4,22 @@ from .utils import sort_by_stack                                      # <remove>
 
 
 class Page:
-    def __init__(self):
+    def __init__(self, prev = None):
+        self.__prev    = prev
+        self.__next = None
         self.__objects = []
         self.__history = []
         self.__redo_stack = []
         self.__selection = SelectionObject(self.__objects)
+
+    def next(self):
+        if not self.__next:
+            print("Creating new page")
+            self.__next = Page(self)
+        return self.__next
+
+    def prev(self):
+        return self.__prev or self # can't go beyond first page
 
     def objects(self, objects = None):
         if objects:

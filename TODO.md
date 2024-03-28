@@ -1,6 +1,9 @@
 To do (sorted by priority):
 
 
+ * when copying when nothing is selected, simply copy all objects
+ * add layers so that we can sketch in one layer, then draw in another, and
+   finally remove the first one. 
  * zoom in and out. I think the time is ripe for it 
  * brushes. (1) brush that generates short diagonal thin strokes (2) brush
    that creates a Gary Larson-like hatching (3) brush that creates a
@@ -14,7 +17,7 @@ To do (sorted by priority):
  * think hard how I want the color setting / pen thing to work
  * implement undo for fonts as well
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
- * add "pages" or "layers" or "frames" or "slides" or "whatever" to the
+ * add "pages" or "frames" or "slides" or "whatever" to the
    drawing. This would allow to switch between different drawings.
  * implement rotating for: Box, Circle (yes, since Circle can be an
    ellipse)
@@ -30,6 +33,10 @@ To do (sorted by priority):
 Design issues:
  * It is not entirely clear where the file is saved. In theory it is, but
    in practice I find myself wondering.
+ * Maybe the *objects* should hold their undo history? This would make
+   sense, because the objects are the ones that are changed. However, this
+   would require that the objects are aware of the commands, which is not
+   the case now.
  * should the EM also take care of pre- and post-dispatch actions? Like
    switching to a ceratain mode after or before certain commands
 
@@ -54,6 +61,10 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * converting drawings to png contains a typo; also converting with borders does not
+   work correctly
+ * implemented a "page" class that serves as an interface between GOM and
+   objects. The goal is to create new pages on the fly.
  * add a better color picker, the gtk thing sucks. Something like in
    inkscape could be nice.
  * when creating boxes, sometimes tiny itsy bitsy boxes are created

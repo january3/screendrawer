@@ -16,15 +16,22 @@ def guess_file_format(filename):
         raise ValueError("Unrecognized file extension")
     return file_format
 
-def convert_file(input_file, output_file, file_format = "all", border = None):
-    config, objects = read_file_as_sdrw(input_file)
+def convert_file(input_file, output_file, file_format = "all", border = None, page = 0):
+    config, objects, pages = read_file_as_sdrw(input_file)
+
+    if pages:
+        if len(pages) < page:
+            raise ValueError("Page number out of range (max. %d)" % len(pages))
+        print("read drawing from", input_file, "with", len(pages), "pages")
+        objects = pages[page]['objects']
+
     print("read drawing from", input_file, "with", len(objects), "objects")
     objects = DrawableGroup(objects)
 
     bbox = config.get("bbox", None) or objects.bbox()
     if border:
         bbox = objects.bbox()
-        bbox = (bbox[0] - border, bbox[1] - border, bbox[2] + border, bbox[3] + border)
+        bbox = (bbox[0] - border, bbox[1] - border, bbox[2] + 2 * border, bbox[3] + 2 * border)
 
     bg           = config.get("bg_color", (1, 1, 1))
     transparency = config.get("transparent", 1.0)
@@ -38,7 +45,7 @@ def convert_file(input_file, output_file, file_format = "all", border = None):
             # create a file name with the same name but different extension
             output_file = path.splitext(input_file)[0] + "." + file_format
 
-    export_image(objects, output_file, file_format, bg = bg, bbox = bbox, transparency = trasnparency)
+    export_image(objects, output_file, file_format, bg = bg, bbox = bbox, transparency = transparency)
 
 
 def export_image(objects, filename, file_format = "all", bg = (1, 1, 1), bbox = None, transparency = 1.0):
@@ -94,9 +101,13 @@ def export_image(objects, filename, file_format = "all", bg = (1, 1, 1), bbox = 
     elif file_format in [ "svg", "pdf" ]:
         surface.finish()
 
-def save_file_as_sdrw(filename, config, objects):
+def save_file_as_sdrw(filename, config, objects = None, pages = None):
     """Save the objects to a file in native format."""
-    state = { 'config': config, 'objects': objects }
+    state = { 'config': config }
+    if pages:
+        state['pages']   = pages
+    if objects:
+        state['objects'] = objects
     try:
         with open(filename, 'wb') as f:
             #yaml.dump(state, f)
@@ -112,16 +123,25 @@ def read_file_as_sdrw(filename):
     if not path.exists(filename):
         print("No saved drawing found at", filename)
         return None, None
+    
+    print("READING file as sdrw:", filename)
 
-    config, objects = None, None
+    config, objects, pages = None, None, None
 
     try:
         with open(filename, "rb") as file:
             state = pickle.load(file)
-            objects = [ Drawable.from_dict(d) for d in state['objects'] ] or [ ]
+            if "objects" in state:
+                print("found objects in savefile")
+                objects = [ Drawable.from_dict(d) for d in state['objects'] ] or [ ]
+            if "pages" in state:
+                print("found pages in savefile")
+                pages = state['pages']
+                for p in pages:
+                    p['objects'] = [ Drawable.from_dict(d) for d in p['objects'] ] or [ ]
             config = state['config']
     except Exception as e:
         print("Error reading file:", e)
         return None, None
-    return config, objects
+    return config, objects, pages
 
