@@ -53,12 +53,36 @@ class GraphicsObjectManager:
         print("GOM: setting n=", len(objects), "objects")
         self.__page.objects(objects)
 
+    def set_pages(self, pages):
+        self.__page = Page()
+        self.__page.objects(pages[0]['objects'])
+        for p in pages[1:]:
+            self.__page = self.__page.next()
+            self.__page.objects(p['objects'])
+
     def add_object(self, obj):
         """Add an object to the list of objects."""
         self.__page.add_object(obj)
 
-    def export_objects(self):
+    def export_pages(self):
+        """Export all pages."""
         # XXX
+        # find the first page
+        p = self.__page
+        while p.prev() != p:
+            p = p.prev()
+
+        # create a list of pages for all pages
+        pages = [ ]
+        while p:
+            objects = [ obj.to_dict() for obj in p.objects() ]
+            pages.append({ "objects": objects })
+            p = p.next(create = False)
+            print("next page!")
+        return pages
+
+    def export_objects(self):
+        """Just the objects from the current page."""
         objects = [ obj.to_dict() for obj in self.__page.objects() ]
         return objects
 
@@ -185,4 +209,7 @@ class GraphicsObjectManager:
         """Go to the prev page."""
         self.__page = self.__page.prev()
 
+    def delete_page(self):
+        """Delete the current page."""
+        self.__page = self.__page.delete()
 

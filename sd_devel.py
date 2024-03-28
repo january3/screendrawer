@@ -388,7 +388,9 @@ class TransparentWindow(Gtk.Window):
         }
 
         objects = self.gom.export_objects()
-        save_file_as_sdrw(self.savefile, config, objects)
+        pages   = self.gom.export_pages()
+
+        save_file_as_sdrw(self.savefile, config, pages = pages)
 
     def open_drawing(self):
         file_name = open_drawing_dialog(self)
@@ -399,9 +401,11 @@ class TransparentWindow(Gtk.Window):
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
-        config, objects = read_file_as_sdrw(filename)
+        config, objects, pages = read_file_as_sdrw(filename)
 
-        if objects:
+        if pages:
+            self.gom.set_pages(pages)
+        elif objects:
             self.gom.set_objects(objects)
 
         if config and load_config:

@@ -103,6 +103,7 @@ def export_image(objects, filename, file_format = "all", bg = (1, 1, 1), bbox = 
 
 def save_file_as_sdrw(filename, config, objects = None, pages = None):
     """Save the objects to a file in native format."""
+    # objects are here for backwards compatibility only
     state = { 'config': config }
     if pages:
         state['pages']   = pages

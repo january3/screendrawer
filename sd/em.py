@@ -234,6 +234,7 @@ class EventManager:
 
             'next_page':              {'action': gom.next_page},
             'prev_page':              {'action': gom.prev_page},
+            'delete_page':            {'action': gom.delete_page},
 
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
             'apply_pen_to_bg':        {'action': dm.apply_pen_to_bg,        'modes': ["move"]},
@@ -322,6 +323,7 @@ class EventManager:
 
             'Shift-p':              "prev_page",
             'Shift-n':              "next_page",
+            'Shift-d':              "delete_page",
 
             'Ctrl-e':               "export_drawing",
             'Ctrl-Shift-s':         "save_drawing_as",
