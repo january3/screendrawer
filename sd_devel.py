@@ -226,13 +226,14 @@ class TransparentWindow(Gtk.Window):
 
     def copy_content(self, destroy = False):
         """Copy content to clipboard."""
-        if self.gom.selection().is_empty():
+        content = self.gom.selection()
+        if content.is_empty():
             # nothing selected
-            print("Nothing selected")
-            return
+            print("Nothing selected, selecting all objects")
+            content = DrawableGroup(self.gom.objects())
 
-        print("Copying content", self.gom.selection())
-        self.clipboard.copy_content(self.gom.selection())
+        print("Copying content", content)
+        self.clipboard.copy_content(content)
 
         if destroy:
             self.gom.remove_selection()

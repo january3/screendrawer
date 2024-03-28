@@ -1,6 +1,8 @@
 To do (sorted by priority):
 
 
+ * deleting page cannot be undone: refactor history so it is run on level
+   of GOM and not the individual pages, add a DeletePageCommand
  * when copying when nothing is selected, simply copy all objects
  * add layers so that we can sketch in one layer, then draw in another, and
    finally remove the first one. 
@@ -61,6 +63,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * deleting pages
  * converting drawings to png contains a typo; also converting with borders does not
    work correctly
  * implemented a "page" class that serves as an interface between GOM and
