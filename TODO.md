@@ -18,8 +18,6 @@ To do (sorted by priority):
    drawing. This would allow to switch between different drawings.
  * implement rotating for: Box, Circle (yes, since Circle can be an
    ellipse)
- * add a better color picker, the gtk thing sucks. Something like in
-   inkscape could be nice.
  * add a line mode and Line object class
  * show corners of the bounding box
  * an idea: wiglets which are shown (optionally, toggleable) on the left
@@ -30,10 +28,16 @@ To do (sorted by priority):
  * maybe an infinite drawing area? Scrollable like?
 
 Design issues:
+ * It is not entirely clear where the file is saved. In theory it is, but
+   in practice I find myself wondering.
  * should the EM also take care of pre- and post-dispatch actions? Like
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * when text is grouped with other objects, and the group is resized in
+   unproportional way, then due to the fact that the bb of the text is
+   resized (more or less) proportionally, after a few resize operations the
+   text size is very small.
  * when drawing very slow the line looks like shit.
  * the undo is, I think, still buggy. 
  * undo remove object places the object in the wrong position in stack - at
@@ -43,7 +47,6 @@ Bugs:
    consider the stack order.
  * rotating the whole selection does not work (b/c the way selection
    behaves)
- * when creating boxes, sometimes tiny itsy bitsy boxes are created
  * when text is rotated, the algorithm for checking for hover objects does
    not consider the enlarged bounding box
  * when the bb is smaller than the corner clicking area, bad things happen
@@ -51,6 +54,9 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * add a better color picker, the gtk thing sucks. Something like in
+   inkscape could be nice.
+ * when creating boxes, sometimes tiny itsy bitsy boxes are created
  * bounding boxes of objects that were reversed during resize are incorrect
  * When exporting, no background is produced
  * wiglet for color 
