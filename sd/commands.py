@@ -1,5 +1,5 @@
 from .utils import * ## <remove>
-from .drawable import DrawableFactory ## <remove>
+from .drawable import DrawableFactory, DrawableGroup ## <remove>
 
 ## ---------------------------------------------------------------------
 ## These are the commands that can be executed on the objects. They should
@@ -44,7 +44,115 @@ class CommandGroup(Command):
         for cmd in self._commands:
             cmd.redo()
         self.__undone = False
-        
+
+class GroupObjectCommand(Command):
+    def __init__(self, objects, stack, selection_object = None, page = None):
+        objects = sort_by_stack(objects, stack)
+
+        super().__init__("group", objects)
+        self.__stack      = stack
+        self.__stack_copy = stack[:]
+
+        self.__page      = page
+        self.__selection = selection_object
+
+        self.__group = DrawableGroup(self.obj)
+        #self.__grouped_objects = self.obj[:]
+
+        # position of the last object in stack
+        idx = self.__stack.index(self.obj[-1])
+
+        # add group to the stack at the position of the last object
+        self.__stack.insert(idx, self.__group)
+
+        for obj in self.obj:
+            self.__stack.remove(obj)
+
+        if self.__selection:
+            self.__selection.set([ self.__group ])
+
+    def swap_stacks(self):
+        # put the copy of the stack into the stack,
+        # and the stack into the copy
+        tmp = self.__stack[:]
+        self.__stack[:] = self.__stack_copy[:]
+        self.__stack_copy = tmp
+
+    def undo(self):
+        if self.undone():
+            return
+        self.swap_stacks()
+        self.undone_set(True)
+        if self.__selection:
+            self.__selection.set(self.obj)
+        return self.__page
+
+    def redo(self):
+        if not self.undone():
+            return
+        self.swap_stacks()
+        self.undone_set(False)
+        if self.__selection:
+            self.__selection.set([ self.__group ])
+        return self.__page
+
+class UngroupObjectCommand(Command):
+    def __init__(self, objects, stack, selection_object = None, page = None):
+        super().__init__("ungroup", objects)
+        self.__stack = stack
+        self.__stack_copy = stack[:]
+        self.__selection = selection_object
+        self.__page = page
+
+        new_objects = []
+        n = 0
+
+        for obj in self.obj:
+            if not obj.type == "group":
+                print("Object is not a group, ignoring:", obj)
+                print("object type:", obj.type)
+                continue
+
+            n += 1
+            # position of the group in the stack
+            idx = self.__stack.index(obj)
+
+            # remove the group from the stack
+            self.__stack.remove(obj)
+
+            # add the objects back to the stack
+            for subobj in obj.objects:
+                self.__stack.insert(idx, subobj)
+                new_objects.append(subobj)
+
+        if n > 0 and self.__selection:
+            self.__selection.set(new_objects)
+
+    def swap_stacks(self):
+        # put the copy of the stack into the stack,
+        # and the stack into the copy
+        tmp = self.__stack[:]
+        self.__stack[:] = self.__stack_copy[:]
+        self.__stack_copy = tmp
+
+    def undo(self):
+        if self.undone():
+            return
+        self.swap_stacks()
+        self.undone_set(True)
+        if self.__selection:
+            self.__selection.set([ self.obj ])
+        return self.__page
+
+    def redo(self):
+        if not self.undone():
+            return
+        self.swap_stacks()
+        self.undone_set(False)
+        if self.__selection:
+            self.__selection.set(self.obj)
+        return self.__page
+
 class SetLWCommand(Command):
     """set line width command"""
     # XXX: what happens if an object is added to group after the command,

@@ -2,6 +2,7 @@ from .commands import *                                              # <remove>
 from .drawable import SelectionObject, DrawableGroup, SelectionTool  # <remove>
 from .drawable import DrawableFactory                                # <remove>
 from .page import Page                                               # <remove>
+from .utils import sort_by_stack                                     # <remove>
 
 
 ## ---------------------------------------------------------------------
@@ -196,26 +197,15 @@ class GraphicsObjectManager:
         if self.__selection.n() < 2:
             return
         print("Grouping", self.__selection.n(), "objects")
-        objects = sort_by_stack(self.__selection.objects, self.__objects)
-        new_grp_obj = DrawableGroup(objects)
-
-        for obj in self.__selection.objects:
-            self.__objects.remove(obj)
-
-        # XXX history append CommandGroup: Remove obj + add group
-        self.__objects.append(new_grp_obj)
-        self.__selection.set([ new_grp_obj ])
+        self.__history.append(GroupObjectCommand(self.__selection.objects, self.__page.objects(), 
+                                                 selection_object=self.__selection, page=self.__page))
 
     def selection_ungroup(self):
         """Ungroup selected objects."""
         if self.__selection.is_empty():
             return
-        for obj in self.__selection.objects:
-            if obj.type == "group":
-                print("Ungrouping", obj)
-                self.__objects.extend(obj.objects)
-                self.__objects.remove(obj)
-        return
+        self.__history.append(UngroupObjectCommand(self.__selection.objects, self.__page.objects(),
+                                                   selection_object=self.__selection, page=self.__page))
 
     def select_reverse(self):
         """Reverse the selection."""

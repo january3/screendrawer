@@ -289,9 +289,9 @@ class DrawableGroup(Drawable):
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
 
         print("Creating DrawableGroup with ", len(objects), "objects")
-        super().__init__("drawable_group", [ (None, None) ], None)
+        # XXX better if type would be "drawable_group"
+        super().__init__("group", [ (None, None) ], None)
         self.objects = objects
-        self.type = "group"
 
     def contains(self, obj):
         return obj in self.objects
