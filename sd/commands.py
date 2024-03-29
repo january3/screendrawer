@@ -604,8 +604,8 @@ class SetPropCommand(Command):
     """Simple class for handling color changes."""
     # XXX: what happens if an object is added to group after the command,
     # but before the undo? well, bad things happen
-    def __init__(self, objects, prop, get_prop_func, set_prop_func):
-        super().__init__("set_pen", objects.get_primitive())
+    def __init__(self, mytype, objects, prop, get_prop_func, set_prop_func):
+        super().__init__(mytype, objects.get_primitive())
         self.__prop = prop
         self.__get_prop_func = get_prop_func
         self.__set_prop_func = set_prop_func
@@ -629,62 +629,23 @@ class SetPropCommand(Command):
             self.__set_prop_func(obj, self.__prop)
         self.undone(False)
 
-class SetPenCommand(Command):
+class SetPenCommand(SetPropCommand):
     """Simple class for handling color changes."""
     # XXX: what happens if an object is added to group after the command,
     # but before the undo? well, bad things happen
     def __init__(self, objects, pen):
-        super().__init__("set_pen", objects.get_primitive())
-        self.__pen = pen.copy()
-        self.__undo_dict = { obj: obj.pen for obj in self.obj }
+        set_prop_func = lambda obj, prop: obj.pen_set(prop)
+        get_prop_func = lambda obj: obj.pen
+        pen = pen.copy()
+        super().__init__("set_pen", objects, pen, get_prop_func, set_prop_func)
 
-        for obj in self.obj:
-            obj.pen_set(pen)
-
-    def undo(self):
-        if self.undone():
-            return
-        for obj in self.obj:
-            if obj in self.__undo_dict:
-                obj.pen_set(self.__undo_dict[obj])
-        self.undone_set(True)
-
-    def redo(self):
-        if not self.undone():
-            return
-        for obj in self.obj:
-            obj.pen_set(self.__pen)
-        self.undone(False)
-
-
-
-class SetColorCommand(Command):
+class SetColorCommand(SetPropCommand):
     """Simple class for handling color changes."""
     # XXX: what happens if an object is added to group after the command,
     # but before the undo? well, bad things happen
     def __init__(self, objects, color):
-        super().__init__("set_color", objects.get_primitive())
-        self._color = color
-        self._undo_color = { obj: obj.pen.color for obj in self.obj }
-
-        for obj in self.obj:
-            obj.color_set(color)
-
-    def undo(self):
-        if self.undone():
-            return
-        for obj in self.obj:
-            if obj in self._undo_color:
-                obj.color_set(self._undo_color[obj])
-        self.undone_set(True)
-
-    def redo(self):
-        if not self.undone():
-            return
-        for obj in self.obj:
-            obj.color_set(self._color)
-        self.undone(False)
-
-
+        set_prop_func = lambda obj, prop: obj.color_set(prop)
+        get_prop_func = lambda obj: obj.pen.color
+        super().__init__("set_color", objects, color, get_prop_func, set_prop_func)
 
 
