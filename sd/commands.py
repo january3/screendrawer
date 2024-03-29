@@ -600,6 +600,35 @@ class ResizeCommand(MoveResizeCommand):
         self.obj.resize_update(newbb)
 
 
+class SetPropCommand(Command):
+    """Simple class for handling color changes."""
+    # XXX: what happens if an object is added to group after the command,
+    # but before the undo? well, bad things happen
+    def __init__(self, objects, prop, get_prop_func, set_prop_func):
+        super().__init__("set_pen", objects.get_primitive())
+        self.__prop = prop
+        self.__get_prop_func = get_prop_func
+        self.__set_prop_func = set_prop_func
+        self.__undo_dict = { obj: get_prop_func(obj) for obj in self.obj }
+
+        for obj in self.obj:
+            set_prop_func(obj, prop)
+
+    def undo(self):
+        if self.undone():
+            return
+        for obj in self.obj:
+            if obj in self.__undo_dict:
+                self.__set_prop_func(obj, self.__undo_dict[obj])
+        self.undone_set(True)
+
+    def redo(self):
+        if not self.undone():
+            return
+        for obj in self.obj:
+            self.__set_prop_func(obj, self.__prop)
+        self.undone(False)
+
 class SetPenCommand(Command):
     """Simple class for handling color changes."""
     # XXX: what happens if an object is added to group after the command,
