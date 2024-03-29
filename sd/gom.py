@@ -259,8 +259,6 @@ class GraphicsObjectManager:
         """Apply the pen to the selected objects."""
         if not self.__selection.is_empty():
             pen = self.__app.dm.pen()
-            # self._history.append(SetColorCommand(self.selection, pen.color))
-            # self._history.append(SetLWCommand(self.selection, pen.color))
             self.__history.append(SetPenCommand(self.__selection, pen))
 
     def redo(self):
