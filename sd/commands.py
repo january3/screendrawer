@@ -627,7 +627,7 @@ class SetPropCommand(Command):
             return
         for obj in self.obj:
             self.__set_prop_func(obj, self.__prop)
-        self.undone(False)
+        self.undone_set(False)
 
 class SetPenCommand(SetPropCommand):
     """Simple class for handling color changes."""
@@ -648,4 +648,11 @@ class SetColorCommand(SetPropCommand):
         get_prop_func = lambda obj: obj.pen.color
         super().__init__("set_color", objects, color, get_prop_func, set_prop_func)
 
-
+class SetFontCommand(SetPropCommand):
+    """Simple class for handling font changes."""
+    # XXX: what happens if an object is added to group after the command,
+    # but before the undo? well, bad things happen
+    def __init__(self, objects, font):
+        set_prop_func = lambda obj, prop: obj.pen.font_set(prop)
+        get_prop_func = lambda obj: obj.pen.font_get()
+        super().__init__("set_font", objects, font, get_prop_func, set_prop_func)

@@ -44,13 +44,14 @@ class Pen:
         """
         self.color        = color
         self.line_width   = line_width
-        self.font_size    = font_size
         self.fill_color   = fill_color
         self.transparency = transparency
         #self.font_family       = font_family or "Segoe Script"
+        self.font_size         = font_size   or 12
         self.font_family       = font_family or "Sans"
         self.font_weight       = font_weight or "normal"
         self.font_style        = font_style  or "normal"
+        self.font_description  = Pango.FontDescription.from_string(f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}")
 
     def color_set(self, color):
         self.color = color
@@ -58,7 +59,34 @@ class Pen:
     def line_width_set(self, line_width):
         self.line_width = lw
 
+    def font_get(self):
+        if not self.font_description:
+            self.font_description = Pango.FontDescription.from_string(f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}")
+        return self.font_description
+
+    def font_set(self, font):
+        if isinstance(font, str):
+            self.font_description = Pango.FontDescription.from_string(font)
+            self.font_set_from_description(font)
+        elif isinstance(font, Pango.FontDescription):
+            self.font_description = font
+            self.font_set_from_description(font)
+        elif isinstance(font, dict):
+            self.font_set_from_dict(font)
+        else:
+            raise ValueError("font must be a string, a Pango.FontDescription, or a dict")
+
+    def font_set_from_dict(self, font_dict):
+        self.font_family = font_dict.get("family", "Sans")
+        self.font_size   = font_dict.get("size", 12)
+        self.font_weight = font_dict.get("weight", "normal")
+        self.font_style  = font_dict.get("style", "normal")
+        self.font_description = Pango.FontDescription.from_string(f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}")
+
+
     def font_set_from_description(self, font_description):
+        print("setting font from", font_description)
+        self.font_description = font_description
         self.font_family = font_description.get_family()
         self.font_size   = font_description.get_size() / Pango.SCALE
         self.font_weight = "bold"   if font_description.get_weight() == Pango.Weight.BOLD  else "normal"

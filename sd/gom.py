@@ -252,8 +252,9 @@ class GraphicsObjectManager:
     def selection_font_set(self, font_description):
         """Set the font of the selected objects."""
         # XXX: no undo!
-        for obj in self.__selection.objects:
-            obj.pen.font_set_from_description(font_description)
+        self.__history.append(SetFontCommand(self.__selection, font_description))
+       #for obj in self.__selection.objects:
+       #    obj.pen.font_set_from_description(font_description)
 
     def selection_apply_pen(self):
         """Apply the pen to the selected objects."""
