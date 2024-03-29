@@ -229,6 +229,7 @@ class DrawManager:
             self.__selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
             self.__current_object = self.__selection_tool # XXX -> this is
                                                           # a hack to force the draw function draw the selection tool
+                                                          # this should be done in a different way
             self.__app.queue_draw()
         return True
 

@@ -192,17 +192,19 @@ class SetColorCommand(Command):
             obj.color_set(color)
 
     def undo(self):
+        if self.undone():
+            return
         for obj in self.obj:
             if obj in self._undo_color:
                 obj.color_set(self._undo_color[obj])
-        self.__undone = True
+        self.undone_set(True)
 
     def redo(self):
-        if not self.__undone:
+        if not self.undone():
             return
         for obj in self.obj:
             obj.color_set(self._color)
-        self.__undone = False
+        self.undone(False)
 
 class RemoveCommand(Command):
     """Simple class for handling deleting objects."""

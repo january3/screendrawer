@@ -1178,10 +1178,6 @@ class Path(Drawable):
         self.coords, self.pressure = smooth_path(self.coords, self.pressure, 1)
         self.outline_recalculate_new()
 
-    def set_pen(self, pen):
-        self.pen = pen
-        self.outline_recalculate_new()
-
     def outline_recalculate_new(self, coords = None, pressure = None):
         if not coords:
             coords = self.coords
