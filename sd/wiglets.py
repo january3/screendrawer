@@ -118,11 +118,9 @@ class WigletPageSelector(Wiglet):
             w, h = self.__screen_wh_func()
             self.coords = (w - self.__width, 0)
         self.__page_n = self.__gom.number_of_pages()
-        print("number of pages:", self.__page_n)
         self.__height = self.__height_per_page * self.__page_n
         self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
         self.__current_page = self.__gom.current_page_number()
-        print("current page:", self.__current_page)
 
     def on_click(self, x, y, ev):
 

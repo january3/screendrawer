@@ -10,17 +10,23 @@ class Command:
     """Base class for commands."""
     def __init__(self, type, objects):
         self.obj   = objects
-        self._type = type
-        self._undone = False
+        self.__type   = type
+        self.__undone = False
 
     def command_type(self):
-        return self._type
+        return self.__type
 
     def undo(self):
         raise NotImplementedError("undo method not implemented")
 
     def redo(self):
         raise NotImplementedError("redo method not implemented")
+
+    def undone(self):
+        return self.__undone
+
+    def undone_set(self, value):
+        self.__undone = value
 
 class CommandGroup(Command):
     """Simple class for handling groups of commands."""
@@ -30,14 +36,14 @@ class CommandGroup(Command):
     def undo(self):
         for cmd in self._commands:
             cmd.undo()
-        self._undone = True
+        self.__undone = True
 
     def redo(self):
-        if not self._undone:
+        if not self.__undone:
             return
         for cmd in self._commands:
             cmd.redo()
-        self._undone = False
+        self.__undone = False
         
 class SetLWCommand(Command):
     """set line width command"""
@@ -56,14 +62,14 @@ class SetLWCommand(Command):
         for obj in self.obj:
             if obj in self._undo_color:
                 obj.line_width_set(self._undo_color[obj])
-        self._undone = True
+        self.__undone = True
 
     def redo(self):
-        if not self._undone:
+        if not self.__undone:
             return
         for obj in self.obj:
             obj.line_width_set(self._color)
-        self._undone = False
+        self.__undone = False
 
 class SetColorCommand(Command):
     """Simple class for handling color changes."""
@@ -81,54 +87,61 @@ class SetColorCommand(Command):
         for obj in self.obj:
             if obj in self._undo_color:
                 obj.color_set(self._undo_color[obj])
-        self._undone = True
+        self.__undone = True
 
     def redo(self):
-        if not self._undone:
+        if not self.__undone:
             return
         for obj in self.obj:
             obj.color_set(self._color)
-        self._undone = False
+        self.__undone = False
 
 class RemoveCommand(Command):
     """Simple class for handling deleting objects."""
-    def __init__(self, objects, stack):
+    def __init__(self, objects, stack, page = None):
         super().__init__("remove", objects)
-        self._stack = stack
+        self.__stack = stack
 
         # remove the objects from the stack
         for obj in self.obj:
-            self._stack.remove(obj)
+            self.__stack.remove(obj)
 
     def undo(self):
-        for obj in self.obj:
-        # XXX: it should insert at the same position!
-            self._stack.append(obj)
-        self._undone = True
-
-    def redo(self):
-        if not self._undone:
+        if self.undone():
             return
         for obj in self.obj:
-            self._stack.remove(obj)
-        self._undone = False
+        # XXX: it should insert at the same position!
+            self.__stack.append(obj)
+        self.undone_set(True)
+
+    def redo(self):
+        if not self.undone():
+            return
+        for obj in self.obj:
+            self.__stack.remove(obj)
+        self.undone_set(False)
 
 class AddCommand(Command):
     """Simple class for handling creating objects."""
-    def __init__(self, objects, stack):
+    def __init__(self, objects, stack, page = None):
         super().__init__("add", objects)
-        self._stack = stack
-        self._stack.append(self.obj)
+        self.__stack = stack
+        self.__stack.append(self.obj)
+        self.__page = page
 
     def undo(self):
-        self._stack.remove(self.obj)
-        self._undone = True
+        if self.undone():
+            return
+        self.__stack.remove(self.obj)
+        self.undone_set(True)
+        return self.__page
 
     def redo(self):
-        if not self._undone:
+        if not self.undone():
             return
-        self._stack.append(self.obj)
-        self._undone = False
+        self.__stack.append(self.obj)
+        self.undone_set(False)
+        return self.__page
 
 class TransmuteCommand(Command):
     """
@@ -141,71 +154,76 @@ class TransmuteCommand(Command):
     However, we don't. Instead we just slap the old object back onto the stack.
     """
 
-    def __init__(self, objects, stack, new_type, selection_objects = None):
+    def __init__(self, objects, stack, new_type, selection_objects = None, page = None):
         super().__init__("transmute", objects)
-        self._new_type = new_type
-        self._old_objs = [ ]
-        self._new_objs = [ ]
-        self._stack    = stack
-        self._selection_objects = selection_objects
+        self.__new_type = new_type
+        self.__old_objs = [ ]
+        self.__new_objs = [ ]
+        self.__stack    = stack
+        self.__selection_objects = selection_objects
+        self.__page = page
+        print("executing transmute; undone = ", self.undone())
 
         for obj in self.obj:
             new_obj = DrawableFactory.transmute(obj, new_type)
 
-            if not obj in self._stack:
+            if not obj in self.__stack:
                 raise ValueError("TransmuteCommand: Got Object not in stack:", obj)
                 continue
 
             if obj == new_obj: # ignore if no transmutation
                 continue
 
-            self._old_objs.append(obj)
-            self._new_objs.append(new_obj)
-            self._stack.remove(obj)
-            self._stack.append(new_obj)
+            self.__old_objs.append(obj)
+            self.__new_objs.append(new_obj)
+            self.__stack.remove(obj)
+            self.__stack.append(new_obj)
 
-        if self._selection_objects:
+        if self.__selection_objects:
             self.map_selection()
 
     def map_selection(self):
         obj_map = self.obj_map()
         # XXX this should not change the order of the objects
-        self._selection_objects[:] = [ obj_map.get(obj, obj) for obj in self._selection_objects ]
+        self.__selection_objects[:] = [ obj_map.get(obj, obj) for obj in self.__selection_objects ]
 
     def obj_map(self):
         """Return a dictionary mapping old objects to new objects."""
-        return { self._old_objs[i]: self._new_objs[i] for i in range(len(self._old_objs)) }
+        return { self.__old_objs[i]: self.__new_objs[i] for i in range(len(self.__old_objs)) }
 
     def undo(self):
         """replace all the new objects with the old ones in the stack"""
-        if self._undone:
+        if self.undone():
             return
-        for obj in self._new_objs:
-            self._stack.remove(obj)
-        for obj in self._old_objs:
-            self._stack.append(obj)
-        self._undone = True
-        if self._selection_objects:
+        for obj in self.__new_objs:
+            self.__stack.remove(obj)
+        for obj in self.__old_objs:
+            self.__stack.append(obj)
+        self.undone_set(True)
+        if self.__selection_objects:
             self.map_selection()
+        return self.__page
 
     def redo(self):
         """put the new objects again on the stack and remove the old ones"""
-        if not self._undone:
+        if not self.undone():
             return
-        for obj in self._old_objs:
-            self._stack.remove(obj)
-        for obj in self._new_objs:
-            self._stack.append(obj)
-        self._undone = False
-        if self._selection_objects:
+        for obj in self.__old_objs:
+            self.__stack.remove(obj)
+        for obj in self.__new_objs:
+            self.__stack.append(obj)
+        self.undone_set(False)
+        if self.__selection_objects:
             self.map_selection()
+        return self.__page
 
 class ZStackCommand(Command):
     """Simple class for handling z-stack operations."""
-    def __init__(self, objects, stack, operation):
+    def __init__(self, objects, stack, operation, page = None):
         super().__init__("z_stack", objects)
         self._operation  = operation
-        self._stack      = stack
+        self.__stack      = stack
+        self.__page = page
 
         for obj in objects:
             if not obj in stack:
@@ -213,7 +231,7 @@ class ZStackCommand(Command):
 
         self._objects = sort_by_stack(objects, stack)
         # copy of the old stack
-        self._stack_orig = stack[:]
+        self.__stack_orig = stack[:]
 
         if operation == "raise":
             self.hoist() # raise is reserved
@@ -230,8 +248,8 @@ class ZStackCommand(Command):
     ## u
 
     def hoist(self):
-        li = self._stack.index(self._objects[-1])
-        n  = len(self._stack)
+        li = self.__stack.index(self._objects[-1])
+        n  = len(self.__stack)
 
         # if the last element is already on top, we just move everything to
         # the top
@@ -243,21 +261,21 @@ class ZStackCommand(Command):
         # following the last one. Then, we just copy the elements from the
         # stack to the new stack, and when we see the indicator object, we
         # add our new objects.
-        ind_obj = self._stack[li + 1]
+        ind_obj = self.__stack[li + 1]
 
         new_list = []
         for i in range(n):
-            o = self._stack[i]
+            o = self.__stack[i]
             if not o in self._objects:
                 new_list.append(o)
             if o == ind_obj:
                 new_list.extend(self._objects)
 
-        self._stack[:] = new_list[:]
+        self.__stack[:] = new_list[:]
 
     def lower(self):
-        fi = self._stack.index(self._objects[0])
-        n  = len(self._stack)
+        fi = self.__stack.index(self._objects[0])
+        n  = len(self.__stack)
 
         if fi == 0:
             self.bottom()
@@ -268,36 +286,41 @@ class ZStackCommand(Command):
         # stack to the new stack, and when we see the indicator object, we
         # this could be done more efficiently, but that way it is clearer
 
-        ind_obj = self._stack[fi - 1]
+        ind_obj = self.__stack[fi - 1]
         new_list = []
         for i in range(n):
-            o = self._stack[i]
+            o = self.__stack[i]
             if o == ind_obj:
                 new_list.extend(self._objects)
             if not o in self._objects:
                 new_list.append(o)
 
-        self._stack[:] = new_list[:]
+        self.__stack[:] = new_list[:]
 
     def top(self):
         for obj in self._objects:
-            self._stack.remove(obj)
-            self._stack.append(obj)
+            self.__stack.remove(obj)
+            self.__stack.append(obj)
 
     def bottom(self):
         for obj in self.obj[::-1]:
-            self._stack.remove(obj)
-            self._stack.insert(0, obj)
+            self.__stack.remove(obj)
+            self.__stack.insert(0, obj)
 
     def undo(self):
-        self.swap_stacks(self._stack, self._stack_orig)
-        self._undone = True
+        if self.undone():
+            return
+        self.swap_stacks(self.__stack, self.__stack_orig)
+        self.undone_set(True)
+        return self.__page
 
     def redo(self):
-        if not self._undone:
+        if not self.undone():
             return
-        self.swap_stacks(self._stack, self._stack_orig)
-        self._undone = False
+        self.swap_stacks(self.__stack, self.__stack_orig)
+        self.__undone = False
+        self.undone_set(False)
+        return self.__page
 
     def swap_stacks(self, stack1, stack2):
         stack1[:], stack2[:] = stack2[:], stack1[:]
@@ -325,10 +348,10 @@ class MoveResizeCommand(Command):
         self.bbox        = obj.bbox()
 
     def event_update(self, x, y):
-        raise NotImplementedError("event_update method not implemented for type", self._type)
+        raise NotImplementedError("event_update method not implemented for type", self.__type)
 
     def event_finish(self):
-        raise NotImplementedError("event_finish method not implemented for type", self._type)
+        raise NotImplementedError("event_finish method not implemented for type", self.__type)
 
 class RotateCommand(MoveResizeCommand):
     """
@@ -346,12 +369,13 @@ class RotateCommand(MoveResizeCommand):
         angle (float, optional): set the rotation angle directly
     """
 
-    def __init__(self, obj, origin=None, corner=None, angle = None):
+    def __init__(self, obj, origin=None, corner=None, angle = None, page = None):
         super().__init__("rotate", obj, origin)
         self.corner      = corner
         bb = obj.bbox()
-        self._rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
-        obj.rotate_start(self._rotation_centre)
+        self.__rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
+        obj.rotate_start(self.__rotation_centre)
+        self.__page = page
 
         if not angle is None:
             self.obj.rotate(angle, set = False)
@@ -359,7 +383,7 @@ class RotateCommand(MoveResizeCommand):
         self._angle = 0
 
     def event_update(self, x, y):
-        angle = calc_rotation_angle(self._rotation_centre, self.start_point, (x, y))
+        angle = calc_rotation_angle(self.__rotation_centre, self.start_point, (x, y))
         d_a = angle - self._angle
         self._angle = angle
         self.obj.rotate(d_a, set = False)
@@ -368,53 +392,60 @@ class RotateCommand(MoveResizeCommand):
         self.obj.rotate_end()
 
     def undo(self):
-        self.obj.rotate_start(self._rotation_centre)
+        if self.undone():
+            return
+        self.obj.rotate_start(self.__rotation_centre)
         self.obj.rotate(-self._angle)
         self.obj.rotate_end()
-        self._undone = True
+        self.undone_set(True)
+        return self.__page
 
     def redo(self):
-        if not self._undone:
+        if not self.undone():
             return
-        self.obj.rotate_start(self._rotation_centre)
+        self.obj.rotate_start(self.__rotation_centre)
         self.obj.rotate(self._angle)
         self.obj.rotate_end()
-        self._undone = False
+        self.undone_set(False)
+        return self.__page
 
 class MoveCommand(MoveResizeCommand):
     """Simple class for handling move events."""
-    def __init__(self, obj, origin):
+    def __init__(self, obj, origin, page = None):
         super().__init__("move", obj, origin)
-        self._last_pt = origin
+        self.__last_pt = origin
+        self.__page = page
         print("MoveCommand: origin is", origin)
 
     def event_update(self, x, y):
-        dx = x - self._last_pt[0]
-        dy = y - self._last_pt[1]
+        dx = x - self.__last_pt[0]
+        dy = y - self.__last_pt[1]
 
         self.obj.move(dx, dy)
-        self._last_pt = (x, y)
+        self.__last_pt = (x, y)
 
     def event_finish(self):
         print("MoveCommand: finish")
         pass
 
     def undo(self):
-        if self._undone:
+        if self.undone():
             return
         print("MoveCommand: undo")
-        dx = self.start_point[0] - self._last_pt[0]
-        dy = self.start_point[1] - self._last_pt[1]
+        dx = self.start_point[0] - self.__last_pt[0]
+        dy = self.start_point[1] - self.__last_pt[1]
         self.obj.move(dx, dy)
-        self._undone = True
+        self.undone_set(True)
+        return self.__page
 
     def redo(self):
-        if not self._undone:
+        if not self.undone():
             return
-        dx = self.start_point[0] - self._last_pt[0]
-        dy = self.start_point[1] - self._last_pt[1]
+        dx = self.start_point[0] - self.__last_pt[0]
+        dy = self.start_point[1] - self.__last_pt[1]
         self.obj.move(-dx, -dy)
-        self._undone = False
+        self.undone_set(False)
+        return self.__page
 
 
 class ResizeCommand(MoveResizeCommand):
@@ -435,16 +466,16 @@ class ResizeCommand(MoveResizeCommand):
         obj.resize_start(self.corner, pt)
         self.obj.resize_update(self._orig_bb)
         obj.resize_end()
-        self._undone = True
+        self.__undone = True
 
     def redo(self):
-        if not self._undone:
+        if not self.__undone:
             return
         obj = self.obj
         obj.resize_start(self.corner, self.start_point)
         obj.resize_update(self._newbb)
         obj.resize_end()
-        self._undone = False
+        self.__undone = False
 
     def event_finish(self):
         self.obj.resize_end()

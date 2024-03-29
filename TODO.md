@@ -69,6 +69,8 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * moved command history from Page to GOM
+ * regression: z-moving no longer works
  * deleting pages
  * converting drawings to png contains a typo; also converting with borders does not
    work correctly
