@@ -99,7 +99,8 @@ class WigletLineWidth(Wiglet):
 ## ---------------------------------------------------------------------
 class WigletPageSelector(Wiglet):
     """Wiglet for selecting the page."""
-    def __init__(self, coords = (500, 0), gom = None, width = 20, height = 35, screen_wh_func = None):
+    def __init__(self, coords = (500, 0), gom = None, width = 20, height = 35, screen_wh_func = None,
+                 set_page_func = None):
         if not gom:
             raise ValueError("GOM is not defined")
         super().__init__("page_selector", coords)
@@ -108,6 +109,7 @@ class WigletPageSelector(Wiglet):
         self.__height_per_page = height
         self.__gom = gom
         self.__screen_wh_func = screen_wh_func
+        self.__set_page_func  = set_page_func
 
         # we need to recalculate often because the pages might have been
         # changing a lot
@@ -124,6 +126,7 @@ class WigletPageSelector(Wiglet):
 
     def on_click(self, x, y, ev):
 
+        self.recalculate()
         if not is_click_in_bbox(x, y, self.__bbox):
             return False
 
@@ -133,6 +136,10 @@ class WigletPageSelector(Wiglet):
 
         page_no = int(dy / self.__height_per_page)
         print("selected page:", page_no)
+
+        if page_no >= 0 and page_no < self.__page_n and self.__set_page_func and callable(self.__set_page_func):
+            print("setting page to", page_no)
+            self.__set_page_func(page_no)
 
         return True
 
@@ -158,25 +165,6 @@ class WigletPageSelector(Wiglet):
             cr.set_font_size(14)
             cr.move_to(self.__bbox[0] + 5, self.__bbox[1] + i * self.__height_per_page + 20)
             cr.show_text(str(i + 1))
-
-    def on_click(self, x, y, ev):
-
-        if not is_click_in_bbox(x, y, self.__bbox):
-            return False
-
-        # which mode is at this position?
-        print("clicked inside the bbox")
-        dx = x - self.__bbox[0]
-        print("dx:", dx)
-        sel_mode = None
-        i = int(dx / self.__dw)
-        sel_mode = self.__modes[i]
-        print("selected mode:", sel_mode)
-        if self.__mode_func and callable(self.__mode_func):
-            self.__mode_func(sel_mode)
-
-
-        return True
 
     def update_size(self, width, height):
         pass

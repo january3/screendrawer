@@ -38,7 +38,8 @@ class DrawManager:
                                                func_color = self.set_color,
                                                func_bg = self.bg_color),
                            WigletToolSelector(func_mode = self.mode),
-                           WigletPageSelector(gom = gom, screen_wh_func = app.get_size),
+                           WigletPageSelector(gom = gom, screen_wh_func = app.get_size,
+                                              set_page_func = gom.set_page_number),
                           ]
 
         # drawing parameters

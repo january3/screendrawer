@@ -31,6 +31,23 @@ class GraphicsObjectManager:
         """Return the current page."""
         return self.__page
 
+    def set_page_number(self, n):
+        """Choose page number n."""
+        tot_n = self.number_of_pages()
+        if n < 0 or n >= tot_n:
+            return
+        cur_n = self.current_page_number()
+
+        if n == cur_n:
+            return
+        if n > cur_n:
+            for i in range(n - cur_n):
+                self.next_page()
+        else:
+            for i in range(cur_n - n):
+                self.prev_page()
+
+
     def number_of_pages(self):
         """Return the total number of pages."""
         p = self.start_page()
