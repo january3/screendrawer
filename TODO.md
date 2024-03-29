@@ -35,6 +35,18 @@ To do (sorted by priority):
  * maybe an infinite drawing area? Scrollable like?
 
 Design issues:
+ * how about: each object has methods "save_state" (which returns
+   everything that is needed to completely restore state) and "restore_state"
+   (which restores the state). This would allow to save the state of the
+   object before the operation and restore it after undo. That way, 
+   every object would have to take care of proper restore of its state, and
+   MoveCommand, SetLWCommand etc. would only have to call the save_state
+   when modifying the objects. Drawback: this would require loads of
+   memory, because the object does not know what part of the state is
+   needed and which is not.
+
+
+
  * It is not entirely clear where the file is saved. In theory it is, but
    in practice I find myself wondering.
  * Maybe the *objects* should hold their undo history? This would make
@@ -69,6 +81,18 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * something is horribly wrong with undo when group / ungroup is involved.
+   to reproduce: create three objects. group them. ungroup them. undo. move
+   them around. undo. [found:] the problem is that move command simply
+   takes one object and moves / unmoves it. However, when the object is a
+   selection, which varying content, the undo will be applied to whatever
+   is (or not) selected at the time of the undo. There are two solutions:
+   (i) pass lists of "real" objects, so the caller has to take care of
+   making sure these are real objects, or (ii) implement "get_primitive" to
+   search for real graphic primitives in the object tree and apply the move
+   to each of them. [fixed:] The caller uses the copy() method of the
+   selection object to get a copy in a DrawableGroup object which is safe
+   to keep in the history.
  * moved command history from Page to GOM
  * regression: z-moving no longer works
  * deleting pages

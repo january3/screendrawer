@@ -216,7 +216,9 @@ class DrawManager:
             if not self.__gom.selection().contains(hover_obj):
                 print("object not in selection, setting it", hover_obj)
                 self.__gom.selection().set([ hover_obj ])
-            self.__resizeobj = MoveCommand(self.__gom.selection(), pos)
+            # we are using the .selection().copy() because the selection
+            # object can change in time
+            self.__resizeobj = MoveCommand(self.__gom.selection().copy(), pos)
             # XXX - this should happen through GOM and upon mouse release 
             # self.history.append(self.__resizeobj)
             self.__cursor.set("grabbing")

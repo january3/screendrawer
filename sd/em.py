@@ -52,7 +52,7 @@ class EventManager:
         """
         Dispatches an action by name.
         """
-        print("dispatch_action", action_name)
+        #print("dispatch_action", action_name)
         if not action_name in self.__actions:
             print(f"action {action_name} not found in actions")
             return
@@ -78,7 +78,7 @@ class EventManager:
         """
         Dispatches an action by key event.
         """
-        print("dispatch_key_event", key_event, mode)
+        #print("dispatch_key_event", key_event, mode)
 
         if not key_event in self.__keybindings:
             print(f"key_event {key_event} not found in keybindings")
@@ -96,7 +96,7 @@ class EventManager:
                 print("action not allowed in this mode")
                 return
 
-        print("dispatching action", action_name)
+        print("keyevent", key_event, "dispatching action", action_name)
         self.dispatch_action(action_name)
 
     def on_key_press(self, widget, event):
@@ -125,7 +125,7 @@ class EventManager:
             keyfull = "Ctrl-" + keyfull
         if alt_l:
             keyfull = "Alt-" + keyfull
-        print("keyfull", keyfull)
+        #print("keyfull", keyfull)
 
         # first, check whether there is a current object being worked on
         # and whether this object is a text object. In that case, we only

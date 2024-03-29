@@ -102,6 +102,7 @@ my own workflow. Here are some of them:
    saving the state. Since the whole program is pretty quick to start and
    load the drawing, it is as good as putting the program in the
    background.
+ * "Save as" simply changes the location of the savefile. 
  * If no objects are selected, ctrl-c simply copies all objects. This
    speeds up the workflow. For example, you can produce quickly a
    screenshot (Ctrl-Shift-f), annotate it with the draw tool, hit ctrl-c and paste it
@@ -110,6 +111,12 @@ my own workflow. Here are some of them:
    `Shift-n` and `Shift-p` keys, and delete them with `Shift-d`. While all
    pages are saved in the savefile, only the current page is displayed, and
    export works only on the current page (this might change in the future).
+ * Resizing does not change the width of the paths. This is on purpose (it
+   would be trivial to make it proportional). I actually went quite a long
+   way to make it work this way. One of the reasons is this: when you
+   resize a drawing not proportionally, vertical paths are resized
+   differently from horizontal paths. This looks butt ugly.
+
 
 
 ## Problems

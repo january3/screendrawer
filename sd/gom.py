@@ -297,7 +297,7 @@ class GraphicsObjectManager:
         """Move the selected objects by the given amount."""
         if self.__selection.is_empty():
             return
-        self.move_obj(self.__selection, dx, dy)
+        self.move_obj(self.__selection.copy(), dx, dy)
 
     def rotate_obj(self, obj, angle):
         """Rotate the object by the given angle (degrees)."""

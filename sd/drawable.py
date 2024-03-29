@@ -451,12 +451,23 @@ class SelectionObject(DrawableGroup):
     selecting and manipulating objects. Note that more often than not, the
     methods in this class need to have access to the global list of all
     object (e.g. to inverse a selection).
+
+    Attributes:
+        objects (list): The list of selected objects.
+        _all_objects (list): The list of all objects in the canvas.
     """
 
     def __init__(self, all_objects):
         super().__init__([ ], None)
 
+        print("Selection Object with ", len(all_objects), "objects")
         self._all_objects = all_objects
+
+    def copy(self):
+        """Return a copy of the selection object."""
+        # the copy can be used for undo operations
+        print("copying selection to a new selection object")
+        return DrawableGroup(self.objects[:])
 
     def n(self):
         return len(self.objects)
