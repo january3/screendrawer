@@ -179,32 +179,7 @@ class SetLWCommand(Command):
             obj.line_width_set(self._color)
         self.__undone = False
 
-class SetColorCommand(Command):
-    """Simple class for handling color changes."""
-    # XXX: what happens if an object is added to group after the command,
-    # but before the undo? well, bad things happen
-    def __init__(self, objects, color):
-        super().__init__("set_color", objects.get_primitive())
-        self._color = color
-        self._undo_color = { obj: obj.pen.color for obj in self.obj }
 
-        for obj in self.obj:
-            obj.color_set(color)
-
-    def undo(self):
-        if self.undone():
-            return
-        for obj in self.obj:
-            if obj in self._undo_color:
-                obj.color_set(self._undo_color[obj])
-        self.undone_set(True)
-
-    def redo(self):
-        if not self.undone():
-            return
-        for obj in self.obj:
-            obj.color_set(self._color)
-        self.undone(False)
 
 class RemoveCommand(Command):
     """Simple class for handling deleting objects."""
@@ -623,5 +598,64 @@ class ResizeCommand(MoveResizeCommand):
 
         self._newbb = newbb
         self.obj.resize_update(newbb)
+
+
+class SetPenCommand(Command):
+    """Simple class for handling color changes."""
+    # XXX: what happens if an object is added to group after the command,
+    # but before the undo? well, bad things happen
+    def __init__(self, objects, pen):
+        super().__init__("set_pen", objects.get_primitive())
+        self.__pen = pen.copy()
+        self.__undo_dict = { obj: obj.pen for obj in self.obj }
+
+        for obj in self.obj:
+            obj.pen_set(pen)
+
+    def undo(self):
+        if self.undone():
+            return
+        for obj in self.obj:
+            if obj in self.__undo_dict:
+                obj.pen_set(self.__undo_dict[obj])
+        self.undone_set(True)
+
+    def redo(self):
+        if not self.undone():
+            return
+        for obj in self.obj:
+            obj.pen_set(self.__pen)
+        self.undone(False)
+
+
+
+class SetColorCommand(Command):
+    """Simple class for handling color changes."""
+    # XXX: what happens if an object is added to group after the command,
+    # but before the undo? well, bad things happen
+    def __init__(self, objects, color):
+        super().__init__("set_color", objects.get_primitive())
+        self._color = color
+        self._undo_color = { obj: obj.pen.color for obj in self.obj }
+
+        for obj in self.obj:
+            obj.color_set(color)
+
+    def undo(self):
+        if self.undone():
+            return
+        for obj in self.obj:
+            if obj in self._undo_color:
+                obj.color_set(self._undo_color[obj])
+        self.undone_set(True)
+
+    def redo(self):
+        if not self.undone():
+            return
+        for obj in self.obj:
+            obj.color_set(self._color)
+        self.undone(False)
+
+
 
 

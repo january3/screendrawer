@@ -255,13 +255,13 @@ class GraphicsObjectManager:
         for obj in self.__selection.objects:
             obj.pen.font_set_from_description(font_description)
 
-    def selection_apply_pen(self, pen):
+    def selection_apply_pen(self):
         """Apply the pen to the selected objects."""
         if not self.__selection.is_empty():
+            pen = self.__app.dm.pen()
             # self._history.append(SetColorCommand(self.selection, pen.color))
             # self._history.append(SetLWCommand(self.selection, pen.color))
-            for obj in self.__selection.objects:
-                obj.set_pen(pen)
+            self.__history.append(SetPenCommand(self.__selection, pen))
 
     def redo(self):
         """Redo the last action."""
