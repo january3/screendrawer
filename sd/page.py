@@ -1,6 +1,7 @@
-from .drawable import Drawable, DrawableGroup, SelectionObject # <remove>
-from .commands import *                                              # <remove>
-from .utils import sort_by_stack                                      # <remove>
+"""
+This module contains the Page class, which is a container for objects.
+"""
+from .drawable import SelectionObject # <remove>
 
 
 class Page:
@@ -49,16 +50,16 @@ class Page:
         return self.__prev or self.__next
 
     def objects(self, objects = None):
+        """Return or set the list of objects on the page."""
         if objects:
             self.__objects = objects
             self.__selection = SelectionObject(self.__objects)
         return self.__objects
 
     def selection(self):
+        """Return the selection object."""
         return self.__selection
 
     def kill_object(self, obj):
         """Directly remove an object from the list of objects."""
         self.__objects.remove(obj)
-
-

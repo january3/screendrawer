@@ -66,10 +66,12 @@ class WigletTransparency(Wiglet):
         print("initial transparency:", self._initial_transparency)
 
     def draw(self, cr):
+        """draw the widget"""
         cr.set_source_rgba(*self.pen.color, self.pen.transparency)
         draw_dot(cr, *self.coords, 50)
 
     def event_update(self, x, y):
+        """update on mouse move"""
         dx = x - self.coords[0]
         #print("changing transparency", dx)
         ## we want to change the transparency by 0.1 for every 20 pixels
@@ -77,7 +79,7 @@ class WigletTransparency(Wiglet):
         #print("new transparency:", self.pen.transparency)
 
     def event_finish(self):
-        pass
+        """update on mouse release"""
 
 class WigletLineWidth(Wiglet):
     """

@@ -1,14 +1,20 @@
-# the design of the app is as follows: the EventManager class is a singleton
-# that manages the events and actions of the app. The actions are defined in
-# the actions_dictionary method. 
-#
-# So the EM is a know-it-all class, and the others (GOM, App) are just
-# listeners to the EM. The EM is the one that knows what to do when an event
-# happens.
+"""
+EM stands for EventManager. The EventManager class is a singleton that
+manages the events and actions of the app. The actions are defined in the
+make_actions_dictionary method.
+
+The design of the app is as follows: the EventManager class is a singleton
+that manages the events and actions of the app. The actions are defined in
+the actions_dictionary method. 
+
+So the EM is a know-it-all class, and the others (GOM, App) are just
+listeners to the EM. The EM is the one that knows what to do when an event
+happens.
+"""
 
 import traceback # <remove>
 from sys import exc_info # <remove>
-from gi.repository import Gdk, Gtk # <remove>
+from gi.repository import Gdk # <remove>
 
 COLORS = {
         "black": (0, 0, 0),
@@ -42,7 +48,6 @@ class EventManager:
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
-            self.__gom = gom
             self.__app = app
             self.__dm  = dm
             self.make_actions_dictionary(gom, app, dm)
@@ -104,7 +109,7 @@ class EventManager:
         This method is called when a key is pressed.
         """
 
-        gom, dm, app = self.__gom, self.__dm, self.__app
+        dm, app = self.__dm, self.__app
 
         keyname = Gdk.keyval_name(event.keyval)
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
@@ -355,5 +360,3 @@ class EventManager:
             'Ctrl-plus':            "stroke_increase",
             'Ctrl-minus':           "stroke_decrease",
         }
-
-
