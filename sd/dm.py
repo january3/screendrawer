@@ -1,9 +1,14 @@
+"""
+DrawManager is a class that manages the drawing on the canvas.
+"""
+
+
 import cairo # <remove>
 from sd.drawable import DrawableFactory, SelectionTool             # <remove>
-from sd.commands import MoveCommand, ResizeCommand, RotateCommand  # <remove>
+from sd.commands import RemoveCommand, MoveCommand, ResizeCommand, RotateCommand  # <remove>
 from sd.events   import MouseEvent                                 # <remove>
 from sd.utils    import get_color_under_cursor, rgb_to_hex         # <remove>
-from sd.wiglets  import *                                          # <remove>
+from sd.wiglets  import WigletTransparency, WigletLineWidth, WigletPageSelector, WigletToolSelector, WigletColorSelector   # <remove>
 from sd.pen      import Pen                                        # <remove>
 #from sd.cursor   import CursorManager                              # <remove>
 
@@ -20,7 +25,6 @@ class DrawManager:
     """
     def __init__(self, gom, app, cursor, bg_color = (.8, .75, .65), transparent = 0.0):
         self.__current_object = None
-        self.__pos = None
         self.__gom = gom
         self.__app = app
         self.__cursor = cursor
@@ -34,7 +38,7 @@ class DrawManager:
         self.__current_object = None
         self.__paning = None
         self.__show_wiglets = True
-        self.__wiglets = [ WigletColorSelector(height = app.get_size()[1], 
+        self.__wiglets = [ WigletColorSelector(height = app.get_size()[1],
                                                func_color = self.set_color,
                                                func_bg = self.bg_color),
                            WigletToolSelector(func_mode = self.mode),
@@ -104,11 +108,13 @@ class DrawManager:
         return self.__modified
 
     def bg_color(self, color=None):
+        """Get or set the background color."""
         if color:
             self.__bg_color = color
         return self.__bg_color
 
     def transparent(self, value=None):
+        """Get or set the transparency."""
         if value:
             self.__transparent = value
         return self.__transparent
@@ -138,7 +144,7 @@ class DrawManager:
             for w in self.__wiglets:
                 w.update_size(*self.__app.get_size())
                 w.draw(cr)
- 
+
         if self.__wiglet_active:
             self.__wiglet_active.draw(cr)
 
@@ -157,7 +163,7 @@ class DrawManager:
 
         # If changing line width, draw a preview of the new line width
 
-     
+
     # ---------------------------------------------------------------------
     #                              Event handlers
 
@@ -205,7 +211,7 @@ class DrawManager:
             else:
                 self.__resizeobj = ResizeCommand(obj, origin = pos, corner = corner, proportional = ctrl)
             self.__gom.selection().set([ obj ])
-            # XXX - this should happen through GOM and upon mouse release 
+            # XXX - this should happen through GOM and upon mouse release
             # self.history.append(self.__resizeobj)
             self.__cursor.set(corner)
         elif hover_obj:
@@ -219,7 +225,7 @@ class DrawManager:
             # we are using the .selection().copy() because the selection
             # object can change in time
             self.__resizeobj = MoveCommand(self.__gom.selection().copy(), pos)
-            # XXX - this should happen through GOM and upon mouse release 
+            # XXX - this should happen through GOM and upon mouse release
             # self.history.append(self.__resizeobj)
             self.__cursor.set("grabbing")
         else:
@@ -260,11 +266,12 @@ class DrawManager:
                     self.__app.queue_draw()
                     return True
 
-        shift, ctrl, alt, pressure = ev.shift(), ev.ctrl(), ev.alt(), ev.pressure()
+        shift, ctrl, alt = ev.shift(), ev.ctrl(), ev.alt()
         hover_obj = ev.hover()
 
         # double click on a text object: start editing
-        if event.button == 1 and (ev.double() or self.__mode == "text") and hover_obj and hover_obj.type == "text" and self.__mode in ["draw", "text", "move"]:
+        hover_is_text = hover_obj and hover_obj.type == "text"
+        if event.button == 1 and (ev.double() or self.__mode == "text") and hover_is_text and self.__mode in ["draw", "text", "move"]:
             # put the cursor in the last line, end of the text
             # this should be a Command event
             hover_obj.move_caret("End")
@@ -293,8 +300,8 @@ class DrawManager:
             return True
 
         # Start changing line width: single click with ctrl pressed
-        if ctrl and self.__mode == "draw": 
-            if not shift: 
+        if ctrl and self.__mode == "draw":
+            if not shift:
                 self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__pen)
             else:
                 self.__wiglet_active = WigletTransparency((event.x, event.y), self.__pen)
@@ -303,19 +310,19 @@ class DrawManager:
         if self.__mode == "colorpicker":
             #print("picker mode")
             color = get_color_under_cursor()
-            self.set_color(color) 
+            self.set_color(color)
             color_hex = rgb_to_hex(color)
             self.__app.clipboard.set_text(color_hex)
             self.__app.queue_draw()
             return True
 
-        elif self.__mode == "move":
+        if self.__mode == "move":
             return self.move_resize_rotate(ev)
 
         # erasing an object, if an object is underneath the cursor
-        elif self.__mode == "eraser":
-            if hover_obj: 
-                ## XXX -> GOM 
+        if self.__mode == "eraser":
+            if hover_obj:
+                ## XXX -> GOM
                 # self.history.append(RemoveCommand([ hover_obj ], self.objects))
                 self.__gom.remove_objects([ hover_obj ], clear_selection = True)
                 self.__resizeobj   = None
@@ -393,11 +400,12 @@ class DrawManager:
             # in the lower left corner, delete the object
             self.__resizeobj.event_finish()
             obj = self.__resizeobj.obj
-            if self.__resizeobj.command_type == "move" and  event.x < 10 and event.y > self.get_size()[1] - 10:
+            _, width = self.__app.get_size()
+            if self.__resizeobj.command_type() == "move" and  event.x < 10 and event.y > width - 10:
                 # command group because these are two commands: first move,
                 # then remove
                 self.__gom.command_append([ self.__resizeobj, RemoveCommand([ obj ], self.__gom.objects()) ])
-                self.__selection.clear()
+                self.__gom.selection().clear()
             else:
                 self.__gom.command_append([ self.__resizeobj ])
             self.__resizeobj    = None
@@ -509,7 +517,7 @@ class DrawManager:
             print("Changing text size")
             cobj.stroke_change(direction)
             self.__pen.font_size = cobj.pen.font_size
-        else: 
+        else:
             for obj in self.__gom.selected_objects():
                 obj.stroke_change(direction)
 
@@ -520,6 +528,7 @@ class DrawManager:
             self.__pen.font_size = max(1, self.__pen.font_size + direction)
 
     def set_color(self, color = None):
+        """Set the color."""
         if color is None:
             return self.__pen.color
         self.__pen.color_set(color)
@@ -554,5 +563,3 @@ class DrawManager:
         self.__current_object = None
         self.__gom.remove_all()
         self.__app.queue_draw()
-
-

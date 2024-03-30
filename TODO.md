@@ -36,6 +36,7 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * dragging an object to lower left corner results in an exception
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies
