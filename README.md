@@ -123,6 +123,18 @@ my own workflow. Here are some of them:
 
 Try to remove the savefile if you have problems.
 
+### Common issues
+
+ * **The exported PNG has black background.**. The background is not black,
+   but transparent. You have exported the graphics while the background was
+   transparent. Hit ctrl-b two times to get solid background and then
+   export the image again.
+ * **The background is ugly beige color.** I am afraid this is a feature,
+   because a brownish background is often used to draw with both charcoal
+   (black) and chalk (white). You can change the background color with
+   ctrl-shift-k or by shift-clicking on the color selector bar.
+
+
 # Development
 
 ## Design principles

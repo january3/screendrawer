@@ -1,5 +1,11 @@
+"""
+CursorManager class to manage the cursor.
+
+Basically, this class is responsible for creating and managing the cursor for the window.
+It has methods to set the cursor to different modes.
+"""
+
 from gi.repository import Gdk         # <remove>
-from .utils import base64_to_pixbuf # <remove>
 from .icons import Icons            # <remove>
 
 ## ---------------------------------------------------------------------
@@ -43,7 +49,8 @@ class CursorManager:
             "moving":      Gdk.Cursor.new_from_name(window.get_display(), "grab"),
             "text":        Gdk.Cursor.new_from_name(window.get_display(), "text"),
             #"eraser":      Gdk.Cursor.new_from_name(window.get_display(), "not-allowed"),
-            "eraser":      Gdk.Cursor.new_from_pixbuf(window.get_display(), icons.get("eraser"), 2, 23),
+            "eraser":      Gdk.Cursor.new_from_pixbuf(window.get_display(),
+                                                      icons.get("eraser"), 2, 23),
             "pencil":      Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "picker":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             #"colorpicker": Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
@@ -62,9 +69,11 @@ class CursorManager:
         }
 
     def pos(self):
+        """Return the current position of the cursor."""
         return self._pos
 
     def update_pos(self, x, y):
+        """Update the current position of the cursor."""
         self._pos = (x, y)
 
     def default(self, cursor_name):
@@ -91,6 +100,3 @@ class CursorManager:
         #print("changing cursor to", cursor_name)
         self._window.get_window().set_cursor(self._cursors[cursor_name])
         self._current_cursor = cursor_name
-
-
-
