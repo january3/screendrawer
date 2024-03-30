@@ -217,10 +217,10 @@ class DrawManager:
         elif hover_obj:
             if ev.shift():
                 # add if not present, remove if present
-                print("adding object", hover_obj)
+                print("adding object to selection:", hover_obj)
                 self.__gom.selection().add(hover_obj)
             if not self.__gom.selection().contains(hover_obj):
-                print("object not in selection, setting it", hover_obj)
+                print("object not in selection, setting selection to it:", hover_obj)
                 self.__gom.selection().set([ hover_obj ])
             # we are using the .selection().copy() because the selection
             # object can change in time
@@ -399,12 +399,17 @@ class DrawManager:
             # If the user was dragging a selected object and the drag ends
             # in the lower left corner, delete the object
             self.__resizeobj.event_finish()
-            obj = self.__resizeobj.obj
+            # self.__resizeobj is a command object
+            # self.__resizeobj.obj is a copy of the selection group
+            # self.__resizeobj.obj.objects is the list of objects in the copy of the selection group
+
+            #
+            obj = self.__resizeobj.obj.objects
             _, width = self.__app.get_size()
             if self.__resizeobj.command_type() == "move" and  event.x < 10 and event.y > width - 10:
                 # command group because these are two commands: first move,
                 # then remove
-                self.__gom.command_append([ self.__resizeobj, RemoveCommand([ obj ], self.__gom.objects()) ])
+                self.__gom.command_append([ self.__resizeobj, RemoveCommand(obj, self.__gom.objects()) ])
                 self.__gom.selection().clear()
             else:
                 self.__gom.command_append([ self.__resizeobj ])

@@ -1,6 +1,8 @@
 To do (sorted by priority):
 
 
+ * make wiglets movable
+ * draw a dustbin wiglet in lower left corner
  * clean up font code. Maybe use the Pango.FontDescription class for
    everything - why not?
  * add layers so that we can sketch in one layer, then draw in another, and
@@ -36,7 +38,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * dragging an object to lower left corner results in an exception
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies
@@ -61,6 +62,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * dragging an object to lower left corner results in an exception
  * something is horribly wrong with undo when group / ungroup is involved.
    to reproduce: create three objects. group them. ungroup them. undo. move
    them around. undo. [found:] the problem is that move command simply

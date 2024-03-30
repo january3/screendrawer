@@ -302,14 +302,14 @@ class DrawableGroup(Drawable):
     Attributes:
         objects (list): The list of objects in the group.
     """
-    def __init__(self, objects = [ ], objects_dict = None):
+    def __init__(self, objects = [ ], objects_dict = None, mytype = "group"):
 
         if objects_dict:
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
 
         print("Creating DrawableGroup with ", len(objects), "objects")
         # XXX better if type would be "drawable_group"
-        super().__init__("group", [ (None, None) ], None)
+        super().__init__(mytype, [ (None, None) ], None)
         self.objects = objects
 
     def contains(self, obj):
@@ -492,7 +492,7 @@ class SelectionObject(DrawableGroup):
     """
 
     def __init__(self, all_objects):
-        super().__init__([ ], None)
+        super().__init__([ ], None, mytype = "selection_object")
 
         print("Selection Object with ", len(all_objects), "objects")
         self._all_objects = all_objects
