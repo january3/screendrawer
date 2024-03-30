@@ -49,9 +49,6 @@ import pyautogui
 from PIL import ImageGrab
 from os import path
 
-ICONS = { "pipette": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAYAAABvCO8sAAADJUlEQVRIx7XWS2xVVRQG4O/c20LpxTYNLSaAVagVtYoDG1DQ+IgaFYOmIeJME4hKfIImDBgYlRgiJDghPsAoQdGRGsMAUQgywOADRPFBYiiVKpZauZDS2+c9ThZJY4DUXrpGO+vss/691v7/vRZjZ2V4AZ3owBe4oWyMwKrwMboxBw24Be9nxgCsBtvQFVk2YBpm40CpgNdieIxqfIYfMA8VqAx/FZpLAVyGD/ARHkEWH+JTLEBr+I5iJi7G9lIA78eL6MMVWI5BPIry8PcG8I3hW50tAXA2noiANZiLS+K+vow9x9GEWXgJO5MSACfiLTTGPe5Dc2TSjp7wz4vsN5fKxvtwOoJvx/dYjwHsx++hvabhP422pC1BlsEo5UnMiOCvY1KUcyUOlJrZ9UGGAu4a5r85WPs2FmITPg85jNquipO347qzfF8UGlyNO0MSd48WbGqAdWD6OfbMxF78hV/jHutHAzYeh7HqPAGWxXO2LrixFltGA1aPtgA7356uuMOS7OF48VfBxDd7irn1+cHcyz89N2zPlVG6nSNh/fmEvzjKshA7Kl/55UhSNn5aUjM1I8kmuo7c3r3i8hTvhQZb0D+SJnk2W4kHsQY7JqzY9XVmcmO9oYFEX0HxVEdv4dXbnsLV+CrYWRxpV/6vPR2amjN+6eZLs/WzjxmXqy2ePPa3npN1aX+3/k2PH0zzf9bhGywZKdjZXppn8QBaqjamUyRlewwNTsrUzShLKi/KpT15/VueaRs6vLc9NLZ4JGU8V4ZLoox3TNiYXjN06o+tErWZKU3S013SwimFdfccTztb9wVJlv+fzM7YmX7YjMdwb9U76axMX35bsf1gXaZuhuLx36SdrXpfm9+bdrZ+gkNRieJoaH+GpWvxbfWGdO9Q34n9xUO7q4rlE5Ik1SGbre19Y1FP2t21Jrr2k6WOcpVYIMm0DOTbssWjP1ZDUpE7ZLC/vLBufoWBwi5MxvOlCjuJjj0dksZb85mKcd9lG27KpSfaywd2b+iTppfh3ZBKeiHGun+GrX+OA+yJ9dIxmVqzDXNPBM3X4qGYS5rj0b6g9i9UTPumQhFEOwAAAABJRU5ErkJggg==",
-        }
-
 
 # ---------------------------------------------------------------------
 # These are various classes and utilities for the sd.py script. In the
@@ -426,17 +423,23 @@ class Command:
     """Base class for commands."""
     def __init__(self, type, objects):
         self.obj   = objects
-        self._type = type
-        self._undone = False
+        self.__type   = type
+        self.__undone = False
 
     def command_type(self):
-        return self._type
+        return self.__type
 
     def undo(self):
         raise NotImplementedError("undo method not implemented")
 
     def redo(self):
         raise NotImplementedError("redo method not implemented")
+
+    def undone(self):
+        return self.__undone
+
+    def undone_set(self, value):
+        self.__undone = value
 
 class CommandGroup(Command):
     """Simple class for handling groups of commands."""
@@ -446,15 +449,123 @@ class CommandGroup(Command):
     def undo(self):
         for cmd in self._commands:
             cmd.undo()
-        self._undone = True
+        self.__undone = True
 
     def redo(self):
-        if not self._undone:
+        if not self.__undone:
             return
         for cmd in self._commands:
             cmd.redo()
-        self._undone = False
-        
+        self.__undone = False
+
+class GroupObjectCommand(Command):
+    def __init__(self, objects, stack, selection_object = None, page = None):
+        objects = sort_by_stack(objects, stack)
+
+        super().__init__("group", objects)
+        self.__stack      = stack
+        self.__stack_copy = stack[:]
+
+        self.__page      = page
+        self.__selection = selection_object
+
+        self.__group = DrawableGroup(self.obj)
+        #self.__grouped_objects = self.obj[:]
+
+        # position of the last object in stack
+        idx = self.__stack.index(self.obj[-1])
+
+        # add group to the stack at the position of the last object
+        self.__stack.insert(idx, self.__group)
+
+        for obj in self.obj:
+            self.__stack.remove(obj)
+
+        if self.__selection:
+            self.__selection.set([ self.__group ])
+
+    def swap_stacks(self):
+        # put the copy of the stack into the stack,
+        # and the stack into the copy
+        tmp = self.__stack[:]
+        self.__stack[:] = self.__stack_copy[:]
+        self.__stack_copy = tmp
+
+    def undo(self):
+        if self.undone():
+            return
+        self.swap_stacks()
+        self.undone_set(True)
+        if self.__selection:
+            self.__selection.set(self.obj)
+        return self.__page
+
+    def redo(self):
+        if not self.undone():
+            return
+        self.swap_stacks()
+        self.undone_set(False)
+        if self.__selection:
+            self.__selection.set([ self.__group ])
+        return self.__page
+
+class UngroupObjectCommand(Command):
+    def __init__(self, objects, stack, selection_object = None, page = None):
+        super().__init__("ungroup", objects)
+        self.__stack = stack
+        self.__stack_copy = stack[:]
+        self.__selection = selection_object
+        self.__page = page
+
+        new_objects = []
+        n = 0
+
+        for obj in self.obj:
+            if not obj.type == "group":
+                print("Object is not a group, ignoring:", obj)
+                print("object type:", obj.type)
+                continue
+
+            n += 1
+            # position of the group in the stack
+            idx = self.__stack.index(obj)
+
+            # remove the group from the stack
+            self.__stack.remove(obj)
+
+            # add the objects back to the stack
+            for subobj in obj.objects:
+                self.__stack.insert(idx, subobj)
+                new_objects.append(subobj)
+
+        if n > 0 and self.__selection:
+            self.__selection.set(new_objects)
+
+    def swap_stacks(self):
+        # put the copy of the stack into the stack,
+        # and the stack into the copy
+        tmp = self.__stack[:]
+        self.__stack[:] = self.__stack_copy[:]
+        self.__stack_copy = tmp
+
+    def undo(self):
+        if self.undone():
+            return
+        self.swap_stacks()
+        self.undone_set(True)
+        if self.__selection:
+            self.__selection.set([ self.obj ])
+        return self.__page
+
+    def redo(self):
+        if not self.undone():
+            return
+        self.swap_stacks()
+        self.undone_set(False)
+        if self.__selection:
+            self.__selection.set(self.obj)
+        return self.__page
+
 class SetLWCommand(Command):
     """set line width command"""
     # XXX: what happens if an object is added to group after the command,
@@ -472,79 +583,63 @@ class SetLWCommand(Command):
         for obj in self.obj:
             if obj in self._undo_color:
                 obj.line_width_set(self._undo_color[obj])
-        self._undone = True
+        self.__undone = True
 
     def redo(self):
-        if not self._undone:
+        if not self.__undone:
             return
         for obj in self.obj:
             obj.line_width_set(self._color)
-        self._undone = False
+        self.__undone = False
 
-class SetColorCommand(Command):
-    """Simple class for handling color changes."""
-    # XXX: what happens if an object is added to group after the command,
-    # but before the undo? well, bad things happen
-    def __init__(self, objects, color):
-        super().__init__("set_color", objects.get_primitive())
-        self._color = color
-        self._undo_color = { obj: obj.pen.color for obj in self.obj }
 
-        for obj in self.obj:
-            obj.color_set(color)
-
-    def undo(self):
-        for obj in self.obj:
-            if obj in self._undo_color:
-                obj.color_set(self._undo_color[obj])
-        self._undone = True
-
-    def redo(self):
-        if not self._undone:
-            return
-        for obj in self.obj:
-            obj.color_set(self._color)
-        self._undone = False
 
 class RemoveCommand(Command):
     """Simple class for handling deleting objects."""
-    def __init__(self, objects, stack):
+    def __init__(self, objects, stack, page = None):
         super().__init__("remove", objects)
-        self._stack = stack
+        self.__stack = stack
 
         # remove the objects from the stack
         for obj in self.obj:
-            self._stack.remove(obj)
+            self.__stack.remove(obj)
 
     def undo(self):
-        for obj in self.obj:
-        # XXX: it should insert at the same position!
-            self._stack.append(obj)
-        self._undone = True
-
-    def redo(self):
-        if not self._undone:
+        if self.undone():
             return
         for obj in self.obj:
-            self._stack.remove(obj)
-        self._undone = False
+        # XXX: it should insert at the same position!
+            self.__stack.append(obj)
+        self.undone_set(True)
+
+    def redo(self):
+        if not self.undone():
+            return
+        for obj in self.obj:
+            self.__stack.remove(obj)
+        self.undone_set(False)
 
 class AddCommand(Command):
     """Simple class for handling creating objects."""
-    def __init__(self, objects, stack):
+    def __init__(self, objects, stack, page = None):
         super().__init__("add", objects)
-        self._stack = stack
-        self._stack.append(self.obj)
+        self.__stack = stack
+        self.__stack.append(self.obj)
+        self.__page = page
 
     def undo(self):
-        self._stack.remove(self.obj)
-        self._undone = True
+        if self.undone():
+            return
+        self.__stack.remove(self.obj)
+        self.undone_set(True)
+        return self.__page
 
     def redo(self):
-        if not self._undone:
+        if not self.undone():
             return
-        self._stack.append(self.obj)
-        self._undone = False
+        self.__stack.append(self.obj)
+        self.undone_set(False)
+        return self.__page
 
 class TransmuteCommand(Command):
     """
@@ -557,71 +652,76 @@ class TransmuteCommand(Command):
     However, we don't. Instead we just slap the old object back onto the stack.
     """
 
-    def __init__(self, objects, stack, new_type, selection_objects = None):
+    def __init__(self, objects, stack, new_type, selection_objects = None, page = None):
         super().__init__("transmute", objects)
-        self._new_type = new_type
-        self._old_objs = [ ]
-        self._new_objs = [ ]
-        self._stack    = stack
-        self._selection_objects = selection_objects
+        self.__new_type = new_type
+        self.__old_objs = [ ]
+        self.__new_objs = [ ]
+        self.__stack    = stack
+        self.__selection_objects = selection_objects
+        self.__page = page
+        print("executing transmute; undone = ", self.undone())
 
         for obj in self.obj:
             new_obj = DrawableFactory.transmute(obj, new_type)
 
-            if not obj in self._stack:
+            if not obj in self.__stack:
                 raise ValueError("TransmuteCommand: Got Object not in stack:", obj)
                 continue
 
             if obj == new_obj: # ignore if no transmutation
                 continue
 
-            self._old_objs.append(obj)
-            self._new_objs.append(new_obj)
-            self._stack.remove(obj)
-            self._stack.append(new_obj)
+            self.__old_objs.append(obj)
+            self.__new_objs.append(new_obj)
+            self.__stack.remove(obj)
+            self.__stack.append(new_obj)
 
-        if self._selection_objects:
+        if self.__selection_objects:
             self.map_selection()
 
     def map_selection(self):
         obj_map = self.obj_map()
         # XXX this should not change the order of the objects
-        self._selection_objects[:] = [ obj_map.get(obj, obj) for obj in self._selection_objects ]
+        self.__selection_objects[:] = [ obj_map.get(obj, obj) for obj in self.__selection_objects ]
 
     def obj_map(self):
         """Return a dictionary mapping old objects to new objects."""
-        return { self._old_objs[i]: self._new_objs[i] for i in range(len(self._old_objs)) }
+        return { self.__old_objs[i]: self.__new_objs[i] for i in range(len(self.__old_objs)) }
 
     def undo(self):
         """replace all the new objects with the old ones in the stack"""
-        if self._undone:
+        if self.undone():
             return
-        for obj in self._new_objs:
-            self._stack.remove(obj)
-        for obj in self._old_objs:
-            self._stack.append(obj)
-        self._undone = True
-        if self._selection_objects:
+        for obj in self.__new_objs:
+            self.__stack.remove(obj)
+        for obj in self.__old_objs:
+            self.__stack.append(obj)
+        self.undone_set(True)
+        if self.__selection_objects:
             self.map_selection()
+        return self.__page
 
     def redo(self):
         """put the new objects again on the stack and remove the old ones"""
-        if not self._undone:
+        if not self.undone():
             return
-        for obj in self._old_objs:
-            self._stack.remove(obj)
-        for obj in self._new_objs:
-            self._stack.append(obj)
-        self._undone = False
-        if self._selection_objects:
+        for obj in self.__old_objs:
+            self.__stack.remove(obj)
+        for obj in self.__new_objs:
+            self.__stack.append(obj)
+        self.undone_set(False)
+        if self.__selection_objects:
             self.map_selection()
+        return self.__page
 
 class ZStackCommand(Command):
     """Simple class for handling z-stack operations."""
-    def __init__(self, objects, stack, operation):
+    def __init__(self, objects, stack, operation, page = None):
         super().__init__("z_stack", objects)
         self._operation  = operation
-        self._stack      = stack
+        self.__stack      = stack
+        self.__page = page
 
         for obj in objects:
             if not obj in stack:
@@ -629,7 +729,7 @@ class ZStackCommand(Command):
 
         self._objects = sort_by_stack(objects, stack)
         # copy of the old stack
-        self._stack_orig = stack[:]
+        self.__stack_orig = stack[:]
 
         if operation == "raise":
             self.hoist() # raise is reserved
@@ -646,8 +746,8 @@ class ZStackCommand(Command):
     ## u
 
     def hoist(self):
-        li = self._stack.index(self._objects[-1])
-        n  = len(self._stack)
+        li = self.__stack.index(self._objects[-1])
+        n  = len(self.__stack)
 
         # if the last element is already on top, we just move everything to
         # the top
@@ -659,21 +759,21 @@ class ZStackCommand(Command):
         # following the last one. Then, we just copy the elements from the
         # stack to the new stack, and when we see the indicator object, we
         # add our new objects.
-        ind_obj = self._stack[li + 1]
+        ind_obj = self.__stack[li + 1]
 
         new_list = []
         for i in range(n):
-            o = self._stack[i]
+            o = self.__stack[i]
             if not o in self._objects:
                 new_list.append(o)
             if o == ind_obj:
                 new_list.extend(self._objects)
 
-        self._stack[:] = new_list[:]
+        self.__stack[:] = new_list[:]
 
     def lower(self):
-        fi = self._stack.index(self._objects[0])
-        n  = len(self._stack)
+        fi = self.__stack.index(self._objects[0])
+        n  = len(self.__stack)
 
         if fi == 0:
             self.bottom()
@@ -684,36 +784,41 @@ class ZStackCommand(Command):
         # stack to the new stack, and when we see the indicator object, we
         # this could be done more efficiently, but that way it is clearer
 
-        ind_obj = self._stack[fi - 1]
+        ind_obj = self.__stack[fi - 1]
         new_list = []
         for i in range(n):
-            o = self._stack[i]
+            o = self.__stack[i]
             if o == ind_obj:
                 new_list.extend(self._objects)
             if not o in self._objects:
                 new_list.append(o)
 
-        self._stack[:] = new_list[:]
+        self.__stack[:] = new_list[:]
 
     def top(self):
         for obj in self._objects:
-            self._stack.remove(obj)
-            self._stack.append(obj)
+            self.__stack.remove(obj)
+            self.__stack.append(obj)
 
     def bottom(self):
         for obj in self.obj[::-1]:
-            self._stack.remove(obj)
-            self._stack.insert(0, obj)
+            self.__stack.remove(obj)
+            self.__stack.insert(0, obj)
 
     def undo(self):
-        self.swap_stacks(self._stack, self._stack_orig)
-        self._undone = True
+        if self.undone():
+            return
+        self.swap_stacks(self.__stack, self.__stack_orig)
+        self.undone_set(True)
+        return self.__page
 
     def redo(self):
-        if not self._undone:
+        if not self.undone():
             return
-        self.swap_stacks(self._stack, self._stack_orig)
-        self._undone = False
+        self.swap_stacks(self.__stack, self.__stack_orig)
+        self.__undone = False
+        self.undone_set(False)
+        return self.__page
 
     def swap_stacks(self, stack1, stack2):
         stack1[:], stack2[:] = stack2[:], stack1[:]
@@ -741,10 +846,10 @@ class MoveResizeCommand(Command):
         self.bbox        = obj.bbox()
 
     def event_update(self, x, y):
-        raise NotImplementedError("event_update method not implemented for type", self._type)
+        raise NotImplementedError("event_update method not implemented for type", self.__type)
 
     def event_finish(self):
-        raise NotImplementedError("event_finish method not implemented for type", self._type)
+        raise NotImplementedError("event_finish method not implemented for type", self.__type)
 
 class RotateCommand(MoveResizeCommand):
     """
@@ -762,12 +867,13 @@ class RotateCommand(MoveResizeCommand):
         angle (float, optional): set the rotation angle directly
     """
 
-    def __init__(self, obj, origin=None, corner=None, angle = None):
+    def __init__(self, obj, origin=None, corner=None, angle = None, page = None):
         super().__init__("rotate", obj, origin)
         self.corner      = corner
         bb = obj.bbox()
-        self._rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
-        obj.rotate_start(self._rotation_centre)
+        self.__rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
+        obj.rotate_start(self.__rotation_centre)
+        self.__page = page
 
         if not angle is None:
             self.obj.rotate(angle, set = False)
@@ -775,7 +881,7 @@ class RotateCommand(MoveResizeCommand):
         self._angle = 0
 
     def event_update(self, x, y):
-        angle = calc_rotation_angle(self._rotation_centre, self.start_point, (x, y))
+        angle = calc_rotation_angle(self.__rotation_centre, self.start_point, (x, y))
         d_a = angle - self._angle
         self._angle = angle
         self.obj.rotate(d_a, set = False)
@@ -784,53 +890,60 @@ class RotateCommand(MoveResizeCommand):
         self.obj.rotate_end()
 
     def undo(self):
-        self.obj.rotate_start(self._rotation_centre)
+        if self.undone():
+            return
+        self.obj.rotate_start(self.__rotation_centre)
         self.obj.rotate(-self._angle)
         self.obj.rotate_end()
-        self._undone = True
+        self.undone_set(True)
+        return self.__page
 
     def redo(self):
-        if not self._undone:
+        if not self.undone():
             return
-        self.obj.rotate_start(self._rotation_centre)
+        self.obj.rotate_start(self.__rotation_centre)
         self.obj.rotate(self._angle)
         self.obj.rotate_end()
-        self._undone = False
+        self.undone_set(False)
+        return self.__page
 
 class MoveCommand(MoveResizeCommand):
     """Simple class for handling move events."""
-    def __init__(self, obj, origin):
+    def __init__(self, obj, origin, page = None):
         super().__init__("move", obj, origin)
-        self._last_pt = origin
+        self.__last_pt = origin
+        self.__page = page
         print("MoveCommand: origin is", origin)
 
     def event_update(self, x, y):
-        dx = x - self._last_pt[0]
-        dy = y - self._last_pt[1]
+        dx = x - self.__last_pt[0]
+        dy = y - self.__last_pt[1]
 
         self.obj.move(dx, dy)
-        self._last_pt = (x, y)
+        self.__last_pt = (x, y)
 
     def event_finish(self):
         print("MoveCommand: finish")
         pass
 
     def undo(self):
-        if self._undone:
+        if self.undone():
             return
         print("MoveCommand: undo")
-        dx = self.start_point[0] - self._last_pt[0]
-        dy = self.start_point[1] - self._last_pt[1]
+        dx = self.start_point[0] - self.__last_pt[0]
+        dy = self.start_point[1] - self.__last_pt[1]
         self.obj.move(dx, dy)
-        self._undone = True
+        self.undone_set(True)
+        return self.__page
 
     def redo(self):
-        if not self._undone:
+        if not self.undone():
             return
-        dx = self.start_point[0] - self._last_pt[0]
-        dy = self.start_point[1] - self._last_pt[1]
+        dx = self.start_point[0] - self.__last_pt[0]
+        dy = self.start_point[1] - self.__last_pt[1]
         self.obj.move(-dx, -dy)
-        self._undone = False
+        self.undone_set(False)
+        return self.__page
 
 
 class ResizeCommand(MoveResizeCommand):
@@ -851,16 +964,16 @@ class ResizeCommand(MoveResizeCommand):
         obj.resize_start(self.corner, pt)
         self.obj.resize_update(self._orig_bb)
         obj.resize_end()
-        self._undone = True
+        self.__undone = True
 
     def redo(self):
-        if not self._undone:
+        if not self.__undone:
             return
         obj = self.obj
         obj.resize_start(self.corner, self.start_point)
         obj.resize_update(self._newbb)
         obj.resize_end()
-        self._undone = False
+        self.__undone = False
 
     def event_finish(self):
         self.obj.resize_end()
@@ -900,6 +1013,62 @@ class ResizeCommand(MoveResizeCommand):
         self.obj.resize_update(newbb)
 
 
+class SetPropCommand(Command):
+    """Simple class for handling color changes."""
+    # XXX: what happens if an object is added to group after the command,
+    # but before the undo? well, bad things happen
+    def __init__(self, mytype, objects, prop, get_prop_func, set_prop_func):
+        super().__init__(mytype, objects.get_primitive())
+        self.__prop = prop
+        self.__get_prop_func = get_prop_func
+        self.__set_prop_func = set_prop_func
+        self.__undo_dict = { obj: get_prop_func(obj) for obj in self.obj }
+
+        for obj in self.obj:
+            set_prop_func(obj, prop)
+
+    def undo(self):
+        if self.undone():
+            return
+        for obj in self.obj:
+            if obj in self.__undo_dict:
+                self.__set_prop_func(obj, self.__undo_dict[obj])
+        self.undone_set(True)
+
+    def redo(self):
+        if not self.undone():
+            return
+        for obj in self.obj:
+            self.__set_prop_func(obj, self.__prop)
+        self.undone_set(False)
+
+class SetPenCommand(SetPropCommand):
+    """Simple class for handling color changes."""
+    # XXX: what happens if an object is added to group after the command,
+    # but before the undo? well, bad things happen
+    def __init__(self, objects, pen):
+        set_prop_func = lambda obj, prop: obj.pen_set(prop)
+        get_prop_func = lambda obj: obj.pen
+        pen = pen.copy()
+        super().__init__("set_pen", objects, pen, get_prop_func, set_prop_func)
+
+class SetColorCommand(SetPropCommand):
+    """Simple class for handling color changes."""
+    # XXX: what happens if an object is added to group after the command,
+    # but before the undo? well, bad things happen
+    def __init__(self, objects, color):
+        set_prop_func = lambda obj, prop: obj.color_set(prop)
+        get_prop_func = lambda obj: obj.pen.color
+        super().__init__("set_color", objects, color, get_prop_func, set_prop_func)
+
+class SetFontCommand(SetPropCommand):
+    """Simple class for handling font changes."""
+    # XXX: what happens if an object is added to group after the command,
+    # but before the undo? well, bad things happen
+    def __init__(self, objects, font):
+        set_prop_func = lambda obj, prop: obj.pen.font_set(prop)
+        get_prop_func = lambda obj: obj.pen.font_get()
+        super().__init__("set_font", objects, font, get_prop_func, set_prop_func)
 
 class Pen:
     """
@@ -945,13 +1114,14 @@ class Pen:
         """
         self.color        = color
         self.line_width   = line_width
-        self.font_size    = font_size
         self.fill_color   = fill_color
         self.transparency = transparency
         #self.font_family       = font_family or "Segoe Script"
+        self.font_size         = font_size   or 12
         self.font_family       = font_family or "Sans"
         self.font_weight       = font_weight or "normal"
         self.font_style        = font_style  or "normal"
+        self.font_description  = Pango.FontDescription.from_string(f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}")
 
     def color_set(self, color):
         self.color = color
@@ -959,14 +1129,40 @@ class Pen:
     def line_width_set(self, line_width):
         self.line_width = lw
 
+    def font_get(self):
+        if not self.font_description:
+            self.font_description = Pango.FontDescription.from_string(f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}")
+        return self.font_description
+
+    def font_set(self, font):
+        if isinstance(font, str):
+            self.font_description = Pango.FontDescription.from_string(font)
+            self.font_set_from_description(font)
+        elif isinstance(font, Pango.FontDescription):
+            self.font_description = font
+            self.font_set_from_description(font)
+        elif isinstance(font, dict):
+            self.font_set_from_dict(font)
+        else:
+            raise ValueError("font must be a string, a Pango.FontDescription, or a dict")
+
+    def font_set_from_dict(self, font_dict):
+        self.font_family = font_dict.get("family", "Sans")
+        self.font_size   = font_dict.get("size", 12)
+        self.font_weight = font_dict.get("weight", "normal")
+        self.font_style  = font_dict.get("style", "normal")
+        self.font_description = Pango.FontDescription.from_string(f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}")
+
+
     def font_set_from_description(self, font_description):
+        print("setting font from", font_description)
+        self.font_description = font_description
         self.font_family = font_description.get_family()
         self.font_size   = font_description.get_size() / Pango.SCALE
         self.font_weight = "bold"   if font_description.get_weight() == Pango.Weight.BOLD  else "normal"
         self.font_style  = "italic" if font_description.get_style()  == Pango.Style.ITALIC else "normal"
 
         print("setting font to", self.font_family, self.font_size, self.font_weight, self.font_style)
-
 
     def transparency_set(self, transparency):
         self.transparency = transparency
@@ -1289,9 +1485,9 @@ class DrawableGroup(Drawable):
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
 
         print("Creating DrawableGroup with ", len(objects), "objects")
-        super().__init__("drawable_group", [ (None, None) ], None)
+        # XXX better if type would be "drawable_group"
+        super().__init__("group", [ (None, None) ], None)
         self.objects = objects
-        self.type = "group"
 
     def contains(self, obj):
         return obj in self.objects
@@ -1451,12 +1647,23 @@ class SelectionObject(DrawableGroup):
     selecting and manipulating objects. Note that more often than not, the
     methods in this class need to have access to the global list of all
     object (e.g. to inverse a selection).
+
+    Attributes:
+        objects (list): The list of selected objects.
+        _all_objects (list): The list of all objects in the canvas.
     """
 
     def __init__(self, all_objects):
         super().__init__([ ], None)
 
+        print("Selection Object with ", len(all_objects), "objects")
         self._all_objects = all_objects
+
+    def copy(self):
+        """Return a copy of the selection object."""
+        # the copy can be used for undo operations
+        print("copying selection to a new selection object")
+        return DrawableGroup(self.objects[:])
 
     def n(self):
         return len(self.objects)
@@ -2167,8 +2374,8 @@ class Path(Drawable):
         self.coords, self.pressure = smooth_path(self.coords, self.pressure, 1)
         self.outline_recalculate_new()
 
-    def set_pen(self, pen):
-        self.pen = pen
+    def pen_set(self, pen):
+        self.pen = pen.copy()
         self.outline_recalculate_new()
 
     def outline_recalculate_new(self, coords = None, pressure = None):
@@ -3033,34 +3240,87 @@ class GraphicsObjectManager:
 
     Attributes:
         _objects (list): The list of objects.
-        _history_stack (list): The list of commands in the history.
-        _hidden (bool): True if the objects are hidden.
-        _resizeobj (Drawable): The object being resized.
-        _mode (str): The current mode.
-        _hover (Drawable): The object being hovered over.
-        _clipboard (Clipboard): The clipboard.
-        _selection_tool (SelectionTool): The selection tool.
     """
 
     def __init__(self, app):
-        # public attr
-        self.clipboard = Clipboard()
 
         # private attr
         self.__app = app
-        self._objects    = []
-        self._history    = []
-        self._redo_stack = []
-        self.selection = SelectionObject(self._objects)
+       #self._objects    = []
+        self.__history    = []
+        self.__redo_stack = []
+        self.page_set(Page())
 
-        self._hidden = False
-        self._resizeobj = None
-        self._hover = None
-        self._selection_tool = None
+    def page_set(self, page):
+        self.__page = page
+        self.__selection = self.__page.selection()
+
+    def next_page(self):
+        """Go to the next page."""
+        self.page_set(self.__page.next(create = True))
+
+    def prev_page(self):
+        """Go to the prev page."""
+        self.page_set(self.__page.prev())
+
+    def delete_page(self):
+        """Delete the current page."""
+        self.page_set(self.__page.delete())
+
+    def page(self):
+        """Return the current page."""
+        return self.__page
+
+    def set_page_number(self, n):
+        """Choose page number n."""
+        tot_n = self.number_of_pages()
+        if n < 0 or n >= tot_n:
+            return
+        cur_n = self.current_page_number()
+
+        if n == cur_n:
+            return
+        if n > cur_n:
+            for i in range(n - cur_n):
+                self.next_page()
+        else:
+            for i in range(cur_n - n):
+                self.prev_page()
+
+
+    def number_of_pages(self):
+        """Return the total number of pages."""
+        p = self.start_page()
+
+        n = 1
+        while p.next(create = False):
+            n += 1
+            p = p.next(create = False)
+        return n
+
+    def current_page_number(self):
+        """Return the current page number."""
+        p = self.__page
+        n = 0
+        while p.prev() != p:
+            n += 1
+            p = p.prev()
+        return n
+
+    def start_page(self):
+        """Return the first page."""
+        p = self.__page
+        while p.prev() != p:
+            p = p.prev()
+        return p
 
     def objects(self):
         """Return the list of objects."""
-        return self._objects
+        return self.__page.objects()
+
+    def selection(self):
+        """Return the selection object."""
+        return self.__selection
 
     def transmute(self, objects, mode):
         """
@@ -3074,9 +3334,10 @@ class GraphicsObjectManager:
             objects (list): The list of objects.
             mode (str): The mode to transmute to.
         """
-        self._history.append(TransmuteCommand(objects, self._objects, mode, self.selection.objects))
-        # XXX the problem is that we need to remove the old objects from the
-        # selection as well. However, it turns out to be more complicated than
+        self.__history.append(TransmuteCommand(objects=objects, stack=self.__page.objects(), 
+                                               new_type=mode, 
+                                               selection_objects=self.__selection.objects, 
+                                               page = self.__page))
 
     def transmute_selection(self, mode):
         """
@@ -3085,198 +3346,204 @@ class GraphicsObjectManager:
         Args:
             mode ( str ): The mode to transmute to.
         """
-        if self.selection.is_empty():
+        if self.__selection.is_empty():
             return
-        self.transmute(self.selection.objects, mode)
+        self.transmute(self.__selection.objects, mode)
 
     def set_objects(self, objects):
         """Set the list of objects."""
         ## no undo
         print("GOM: setting n=", len(objects), "objects")
-        self._objects = objects
-        self.selection = SelectionObject(self._objects)
+        self.__page.objects(objects)
+
+    def set_pages(self, pages):
+        self.__page = Page()
+        self.__page.objects(pages[0]['objects'])
+        for p in pages[1:]:
+            self.__page = self.__page.next()
+            self.__page.objects(p['objects'])
+        self.__selection = self.__page.selection()
 
     def add_object(self, obj):
         """Add an object to the list of objects."""
-        self._history.append(AddCommand(obj, self._objects))
-        ##self._objects.append(obj)
+        self.__history.append(AddCommand(obj, self.__page.objects(), page=self.__page))
+ 
+    def export_pages(self):
+        """Export all pages."""
+        # XXX
+        # find the first page
+        p = self.__page
+        while p.prev() != p:
+            p = p.prev()
+
+        # create a list of pages for all pages
+        pages = [ ]
+        while p:
+            objects = [ obj.to_dict() for obj in p.objects() ]
+            pages.append({ "objects": objects })
+            p = p.next(create = False)
+        return pages
 
     def export_objects(self):
-        objects = [ obj.to_dict() for obj in self._objects ]
+        """Just the objects from the current page."""
+        objects = [ obj.to_dict() for obj in self.__page.objects() ]
         return objects
 
     def kill_object(self, obj):
         """Directly remove an object from the list of objects."""
-        self._objects.remove(obj)
-        ##self._objects.remove(obj)
+        self.__page.kill_object(obj)
 
     def selected_objects(self):
         """Return the selected objects."""
-        return self.selection.objects
+        return self.__selection.objects
 
     def remove_selection(self):
         """Remove the selected objects from the list of objects."""
-        if self.selection.is_empty():
+        if self.__selection.is_empty():
             return
-        self._history.append(RemoveCommand(self.selection.objects, self._objects))
-        self.selection.clear()
+        self.__history.append(RemoveCommand(self.__selection.objects, self.__page.objects(), page=self.__page))
+        self.__selection.clear()
 
     def remove_objects(self, objects, clear_selection = False):
         """Remove an object from the list of objects."""
-        self._history.append(RemoveCommand(objects, self._objects))
+        self.__history.append(RemoveCommand(objects, self.__page.objects(), page=self.__page))
         if clear_selection:
-            self.selection.clear()
-        ##self._objects.remove(obj)
+            self.__selection.clear()
 
     def remove_all(self):
         """Clear the list of objects."""
-        self._history.append(RemoveCommand(self._objects[:], self._objects))
+        self.__history.append(RemoveCommand(self.__page.objects()[:], self.__page.objects(), page = self.__page))
 
     def command_append(self, command_list):
         """Append a group of commands to the history."""
         ## append in reverse order
-        self._history.append(CommandGroup(command_list[::-1]))
-
-    def hide(self):
-        """Hide the objects."""
-        self._hidden = True
-
-    def show(self):
-        """Show the objects."""
-        self._hidden = False
-
-    def toggle_visibility(self):
-        """Toggle the visibility of the objects."""
-        self._hidden = not self._hidden
+        self.__history.append(CommandGroup(command_list[::-1]))
 
     def selection_group(self):
         """Group selected objects."""
-        if self.selection.n() < 2:
+        if self.__selection.n() < 2:
             return
-        print("Grouping", self.selection.n(), "objects")
-        objects = sort_by_stack(self.selection.objects, self._objects)
-        new_grp_obj = DrawableGroup(objects)
-
-        for obj in self.selection.objects:
-            self._objects.remove(obj)
-
-        # XXX history append CommandGroup: Remove obj + add group
-        self._objects.append(new_grp_obj)
-        self.selection.set([ new_grp_obj ])
+        print("Grouping", self.__selection.n(), "objects")
+        self.__history.append(GroupObjectCommand(self.__selection.objects, self.__page.objects(), 
+                                                 selection_object=self.__selection, page=self.__page))
 
     def selection_ungroup(self):
         """Ungroup selected objects."""
-        if self.selection.is_empty():
+        if self.__selection.is_empty():
             return
-        for obj in self.selection.objects:
-            if obj.type == "group":
-                print("Ungrouping", obj)
-                self._objects.extend(obj.objects)
-                self._objects.remove(obj)
-        return
+        self.__history.append(UngroupObjectCommand(self.__selection.objects, self.__page.objects(),
+                                                   selection_object=self.__selection, page=self.__page))
 
     def select_reverse(self):
         """Reverse the selection."""
-        self.selection.reverse()
+        self.__selection.reverse()
         self.__app.dm.mode("move")
 
     def select_all(self):
         """Select all objects."""
-        if not self._objects:
+        if not self.__page.objects():
             return
 
-        self.selection.all()
+        self.__selection.all()
         self.__app.dm.mode("move")
 
     def selection_delete(self):
         """Delete selected objects."""
-        if self.selection.objects:
-            self._history.append(RemoveCommand(self.selection.objects, self._objects))
-            self.selection.clear()
+        #self.__page.selection_delete()
+        if self.__selection.objects:
+            self.__history.append(RemoveCommand(self.__selection.objects, 
+                                                self.__page.objects(), page=self.__page))
+            self.__selection.clear()
 
     def select_next_object(self):
         """Select the next object."""
-        self.selection.next()
+        self.__selection.next()
+
+    def select_previous_object(self):
+        """Select the previous object."""
+        self.__selection.previous()
 
     def selection_fill(self):
         """Fill the selected object."""
         # XXX gom should not call dm directly
+        # this code should be gone!
         color = self.__app.dm.pen().color
-        for obj in self.selection.objects:
+        for obj in self.__selection.objects:
             obj.fill(color)
-
-    def select_previous_object(self):
-        """Select the previous object."""
-        self.selection.previous()
 
     def selection_color_set(self, color):
         """Set the color of the selected objects."""
-        if not self.selection.is_empty():
-            self._history.append(SetColorCommand(self.selection, color))
+        if not self.__selection.is_empty():
+            self.__history.append(SetColorCommand(self.__selection, color))
 
     def selection_font_set(self, font_description):
-        for obj in self.selection.objects:
-            obj.pen.font_set_from_description(font_description)
+        """Set the font of the selected objects."""
+        # XXX: no undo!
+        self.__history.append(SetFontCommand(self.__selection, font_description))
+       #for obj in self.__selection.objects:
+       #    obj.pen.font_set_from_description(font_description)
 
     def selection_apply_pen(self):
-        pen = self.__app.dm.pen()
         """Apply the pen to the selected objects."""
-        if not self.selection.is_empty():
-            # self._history.append(SetColorCommand(self.selection, pen.color))
-            # self._history.append(SetLWCommand(self.selection, pen.color))
-            for obj in self.selection.objects:
-                obj.set_pen(pen)
-
-    def do(self, command):
-        """Do a command."""
-        self._history.append(command)
+        if not self.__selection.is_empty():
+            pen = self.__app.dm.pen()
+            self.__history.append(SetPenCommand(self.__selection, pen))
 
     def redo(self):
         """Redo the last action."""
-        print("Redo stack, size is", len(self._redo_stack))
-        if self._redo_stack:
-            command = self._redo_stack.pop()
-            command.redo()
-            self._history.append(command)
+        print("Redo stack, size is", len(self.__redo_stack))
+        if self.__redo_stack:
+            command = self.__redo_stack.pop()
+            page = command.redo()
+            self.__history.append(command)
+
+            # switch to the relevant page
+            if page:
+                self.page_set(page)
 
     def undo(self):
         """Undo the last action."""
-        print("Undo, history size is", len(self._history))
-        if self._history:
-            command = self._history.pop()
-            command.undo()
-            self._redo_stack.append(command)
+        print("Undo, history size is", len(self.__history))
+        if self.__history:
+            command = self.__history.pop()
+            page = command.undo()
+            self.__redo_stack.append(command)
+
+            # switch to the relevant page
+            if page:
+                self.page_set(page)
 
     def move_obj(self, obj, dx, dy):
         """Move the object by the given amount."""
-        eventObj = MoveCommand(obj, (0, 0))
+        eventObj = MoveCommand(obj, (0, 0), page=self.__page)
         eventObj.event_update(dx, dy)
-        self._history.append(eventObj)
+        self.__history.append(eventObj)
 
     def move_selection(self, dx, dy):
         """Move the selected objects by the given amount."""
-        if self.selection.is_empty():
+        if self.__selection.is_empty():
             return
-        self.move_obj(self.selection, dx, dy)
+        self.move_obj(self.__selection.copy(), dx, dy)
 
     def rotate_obj(self, obj, angle):
         """Rotate the object by the given angle (degrees)."""
         print("rotating by", angle)
-        eventObj = RotateCommand(obj, angle=math.radians(angle))
+        eventObj = RotateCommand(obj, angle=math.radians(angle), page = self.__page)
         eventObj.event_finish()
-        self._history.append(eventObj)
+        self.__history.append(eventObj)
 
     def rotate_selection(self, angle):
         """Rotate the selected objects by the given angle (degrees)."""
-        if self.selection.is_empty():
+        if self.__selection.is_empty():
             return
-        self.rotate_obj(self.selection, angle)
+        self.__rotate_obj(self.__selection, angle)
 
     def selection_zmove(self, operation):
         """move the selected objects long the z-axis."""
-        if self.selection.is_empty():
+        if self.__selection.is_empty():
             return
-        self._history.append(ZStackCommand(self.selection.objects, self._objects, operation))
+        self.__history.append(ZStackCommand(self.__selection.objects, 
+                                            self.__page.objects(), operation, page=self.__page))
 
 
 
@@ -3293,15 +3560,22 @@ def guess_file_format(filename):
         raise ValueError("Unrecognized file extension")
     return file_format
 
-def convert_file(input_file, output_file, file_format = "all", border = None):
-    config, objects = read_file_as_sdrw(input_file)
+def convert_file(input_file, output_file, file_format = "all", border = None, page = 0):
+    config, objects, pages = read_file_as_sdrw(input_file)
+
+    if pages:
+        if len(pages) < page:
+            raise ValueError("Page number out of range (max. %d)" % len(pages))
+        print("read drawing from", input_file, "with", len(pages), "pages")
+        objects = pages[page]['objects']
+
     print("read drawing from", input_file, "with", len(objects), "objects")
     objects = DrawableGroup(objects)
 
     bbox = config.get("bbox", None) or objects.bbox()
     if border:
         bbox = objects.bbox()
-        bbox = (bbox[0] - border, bbox[1] - border, bbox[2] + border, bbox[3] + border)
+        bbox = (bbox[0] - border, bbox[1] - border, bbox[2] + 2 * border, bbox[3] + 2 * border)
 
     bg           = config.get("bg_color", (1, 1, 1))
     transparency = config.get("transparent", 1.0)
@@ -3315,7 +3589,7 @@ def convert_file(input_file, output_file, file_format = "all", border = None):
             # create a file name with the same name but different extension
             output_file = path.splitext(input_file)[0] + "." + file_format
 
-    export_image(objects, output_file, file_format, bg = bg, bbox = bbox, transparency = trasnparency)
+    export_image(objects, output_file, file_format, bg = bg, bbox = bbox, transparency = transparency)
 
 
 def export_image(objects, filename, file_format = "all", bg = (1, 1, 1), bbox = None, transparency = 1.0):
@@ -3371,9 +3645,14 @@ def export_image(objects, filename, file_format = "all", bg = (1, 1, 1), bbox = 
     elif file_format in [ "svg", "pdf" ]:
         surface.finish()
 
-def save_file_as_sdrw(filename, config, objects):
+def save_file_as_sdrw(filename, config, objects = None, pages = None):
     """Save the objects to a file in native format."""
-    state = { 'config': config, 'objects': objects }
+    # objects are here for backwards compatibility only
+    state = { 'config': config }
+    if pages:
+        state['pages']   = pages
+    if objects:
+        state['objects'] = objects
     try:
         with open(filename, 'wb') as f:
             #yaml.dump(state, f)
@@ -3389,18 +3668,27 @@ def read_file_as_sdrw(filename):
     if not path.exists(filename):
         print("No saved drawing found at", filename)
         return None, None
+    
+    print("READING file as sdrw:", filename)
 
-    config, objects = None, None
+    config, objects, pages = None, None, None
 
     try:
         with open(filename, "rb") as file:
             state = pickle.load(file)
-            objects = [ Drawable.from_dict(d) for d in state['objects'] ] or [ ]
+            if "objects" in state:
+                print("found objects in savefile")
+                objects = [ Drawable.from_dict(d) for d in state['objects'] ] or [ ]
+            if "pages" in state:
+                print("found pages in savefile")
+                pages = state['pages']
+                for p in pages:
+                    p['objects'] = [ Drawable.from_dict(d) for d in p['objects'] ] or [ ]
             config = state['config']
     except Exception as e:
         print("Error reading file:", e)
         return None, None
-    return config, objects
+    return config, objects, pages
 
 # the design of the app is as follows: the EventManager class is a singleton
 # that manages the events and actions of the app. The actions are defined in
@@ -3453,7 +3741,7 @@ class EventManager:
         """
         Dispatches an action by name.
         """
-        print("dispatch_action", action_name)
+        #print("dispatch_action", action_name)
         if not action_name in self.__actions:
             print(f"action {action_name} not found in actions")
             return
@@ -3479,7 +3767,7 @@ class EventManager:
         """
         Dispatches an action by key event.
         """
-        print("dispatch_key_event", key_event, mode)
+        #print("dispatch_key_event", key_event, mode)
 
         if not key_event in self.__keybindings:
             print(f"key_event {key_event} not found in keybindings")
@@ -3497,7 +3785,7 @@ class EventManager:
                 print("action not allowed in this mode")
                 return
 
-        print("dispatching action", action_name)
+        print("keyevent", key_event, "dispatching action", action_name)
         self.dispatch_action(action_name)
 
     def on_key_press(self, widget, event):
@@ -3526,7 +3814,7 @@ class EventManager:
             keyfull = "Ctrl-" + keyfull
         if alt_l:
             keyfull = "Alt-" + keyfull
-        print("keyfull", keyfull)
+        #print("keyfull", keyfull)
 
         # first, check whether there is a current object being worked on
         # and whether this object is a text object. In that case, we only
@@ -3633,12 +3921,16 @@ class EventManager:
             'redo':                   {'action': gom.redo},
             'undo':                   {'action': gom.undo},
 
+            'next_page':              {'action': gom.next_page},
+            'prev_page':              {'action': gom.prev_page},
+            'delete_page':            {'action': gom.delete_page},
+
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
             'apply_pen_to_bg':        {'action': dm.apply_pen_to_bg,        'modes': ["move"]},
             'toggle_pens':            {'action': dm.switch_pens},
 
 #            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
-            'copy_content':          {'action': app.copy_content,        'modes': ["move"]},
+            'copy_content':          {'action': app.copy_content,        },
             'cut_content':           {'action': app.cut_content,         'modes': ["move"]},
             'paste_content':         {'action': app.paste_content},
             'screenshot':            {'action': app.screenshot},
@@ -3716,7 +4008,11 @@ class EventManager:
             'Shift-l':              "set_color_blue",
             'Shift-e':              "set_color_grey",
             'Shift-y':              "set_color_yellow",
-            'Shift-p':              "set_color_purple",
+#            'Shift-p':              "set_color_purple",
+
+            'Shift-p':              "prev_page",
+            'Shift-n':              "next_page",
+            'Shift-d':              "delete_page",
 
             'Ctrl-e':               "export_drawing",
             'Ctrl-Shift-s':         "save_drawing_as",
@@ -3963,6 +4259,134 @@ class WigletLineWidth(Wiglet):
         pass
 
 ## ---------------------------------------------------------------------
+class WigletPageSelector(Wiglet):
+    """Wiglet for selecting the page."""
+    def __init__(self, coords = (500, 0), gom = None, width = 20, height = 35, screen_wh_func = None,
+                 set_page_func = None):
+        if not gom:
+            raise ValueError("GOM is not defined")
+        super().__init__("page_selector", coords)
+
+        self.__width, self.__height = width, height
+        self.__height_per_page = height
+        self.__gom = gom
+        self.__screen_wh_func = screen_wh_func
+        self.__set_page_func  = set_page_func
+
+        # we need to recalculate often because the pages might have been
+        # changing a lot
+        self.recalculate()
+
+    def recalculate(self):
+        if self.__screen_wh_func and callable(self.__screen_wh_func):
+            w, h = self.__screen_wh_func()
+            self.coords = (w - self.__width, 0)
+        self.__page_n = self.__gom.number_of_pages()
+        self.__height = self.__height_per_page * self.__page_n
+        self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
+        self.__current_page = self.__gom.current_page_number()
+
+    def on_click(self, x, y, ev):
+
+        self.recalculate()
+        if not is_click_in_bbox(x, y, self.__bbox):
+            return False
+
+        # which page is at this position?
+        print("clicked inside the bbox")
+        dy = y - self.__bbox[1]
+
+        page_no = int(dy / self.__height_per_page)
+        print("selected page:", page_no)
+
+        if page_no >= 0 and page_no < self.__page_n and self.__set_page_func and callable(self.__set_page_func):
+            print("setting page to", page_no)
+            self.__set_page_func(page_no)
+
+        return True
+
+    def draw(self, cr):
+        self.recalculate()
+        cr.set_source_rgb(0.5, 0.5, 0.5)
+        cr.rectangle(*self.__bbox)
+        cr.fill()
+
+        for i in range(self.__page_n):
+            if i == self.__current_page:
+                cr.set_source_rgb(0, 0, 0)
+            else:
+                cr.set_source_rgb(1, 1, 1)
+            cr.rectangle(self.__bbox[0] + 1, self.__bbox[1] + i * self.__height_per_page + 1, 
+                        self.__width - 2, self.__height_per_page - 2)
+            cr.fill()
+            if i == self.__current_page:
+                cr.set_source_rgb(1, 1, 1)
+            else:
+                cr.set_source_rgb(0, 0, 0)
+            cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+            cr.set_font_size(14)
+            cr.move_to(self.__bbox[0] + 5, self.__bbox[1] + i * self.__height_per_page + 20)
+            cr.show_text(str(i + 1))
+
+    def update_size(self, width, height):
+        pass
+
+class WigletColorSelector(Wiglet):
+    """Wiglet for selecting the color."""
+    def __init__(self, coords = (0, 0), width = 15, height = 500, func_color = None, func_bg = None):
+        super().__init__("color_selector", coords)
+        print("height:", height)
+
+        self.__width, self.__height = width, height
+        self.__bbox = (coords[0], coords[1], width, height)
+        self.__colors = self.generate_colors()
+        self.__dh = 25
+        self.__func_color = func_color
+        self.__func_bg    = func_bg
+        self.recalculate()
+
+    def recalculate(self):
+        self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
+        self.__color_dh = (self.__height - self.__dh) / len(self.__colors)
+        self.__colors_hpos = { color : self.__dh + i * self.__color_dh for i, color in enumerate(self.__colors) }
+
+    def update_size(self, width, height):
+        _, self.__height = width, height
+        self.recalculate()
+
+    def draw(self, cr):
+        # draw grey rectangle around my bbox
+        cr.set_source_rgb(0.5, 0.5, 0.5)
+        cr.rectangle(*self.__bbox)
+        cr.fill()
+
+        bg, fg = (0, 0, 0), (1, 1, 1)
+        if self.__func_bg and callable(self.__func_bg):
+            bg = self.__func_bg()
+        if self.__func_color and callable(self.__func_color):
+            fg = self.__func_color()
+
+        cr.set_source_rgb(*bg)
+        cr.rectangle(self.__bbox[0] + 4, self.__bbox[1] + 9, self.__width - 5, 23)
+        cr.fill()
+        cr.set_source_rgb(*fg)
+        cr.rectangle(self.__bbox[0] + 1, self.__bbox[1] + 1, self.__width - 5, 14)
+        cr.fill()
+
+        # draw the colors
+        dh = 25
+        h = (self.__height - dh)/ len(self.__colors)
+        for i, color in enumerate(self.__colors):
+            cr.set_source_rgb(*color)
+            cr.rectangle(self.__bbox[0] + 1, self.__colors_hpos[color], self.__width - 2, h)
+            cr.fill()
+
+
+    def update_size(self, width, height):
+        pass
+
+
+## ---------------------------------------------------------------------
 class WigletToolSelector(Wiglet):
     """Wiglet for selecting the tool."""
     def __init__(self, coords = (50, 0), width = 1000, height = 35, func_mode = None):
@@ -3971,11 +4395,10 @@ class WigletToolSelector(Wiglet):
         self.__width, self.__height = width, height
         self.__icons_only = True
 
-
-
         self.__modes = [ "move", "draw", "shape", "box", "circle", "text", "eraser", "colorpicker" ]
         self.__modes_dict = { "move": "Move", "draw": "Draw", "shape": "Shape", "box": "Rectangle", 
                               "circle": "Circle", "text": "Text", "eraser": "Eraser", "colorpicker": "Col.Pick" }
+
         if self.__icons_only and width > len(self.__modes) * 35:
             self.__width = len(self.__modes) * 35
 
@@ -4214,7 +4637,10 @@ class DrawManager:
         self.__wiglets = [ WigletColorSelector(height = app.get_size()[1], 
                                                func_color = self.set_color,
                                                func_bg = self.bg_color),
-                           WigletToolSelector(func_mode = self.mode) ]
+                           WigletToolSelector(func_mode = self.mode),
+                           WigletPageSelector(gom = gom, screen_wh_func = app.get_size,
+                                              set_page_func = gom.set_page_number),
+                          ]
 
         # drawing parameters
         self.__hidden = False
@@ -4323,7 +4749,7 @@ class DrawManager:
 
         for obj in self.__gom.objects():
             hover    = obj == self.__hover and self.__mode == "move"
-            selected = self.__gom.selection.contains(obj) and self.__mode == "move"
+            selected = self.__gom.selection().contains(obj) and self.__mode == "move"
             obj.draw(cr, hover=hover, selected=selected, outline = self.__outline)
     #   if self.current_object:
     #       print("drawing current object:", self.current_object, "mode:", self.mode)
@@ -4347,8 +4773,8 @@ class DrawManager:
             self.__mode = "move"
             self.__cursor.default(self.__mode)
 
-            if not self.__gom.selection.contains(hover_obj):
-                self.__gom.selection.set([ hover_obj ])
+            if not self.__gom.selection().contains(hover_obj):
+                self.__gom.selection().set([ hover_obj ])
 
             # XXX - this should happen directly?
             self.__app.mm.object_menu(self.__gom.selected_objects()).popup(None, None, None, None, event.button, event.time)
@@ -4378,7 +4804,7 @@ class DrawManager:
                 self.__resizeobj = RotateCommand(obj, origin = pos, corner = corner)
             else:
                 self.__resizeobj = ResizeCommand(obj, origin = pos, corner = corner, proportional = ctrl)
-            self.__gom.selection.set([ obj ])
+            self.__gom.selection().set([ obj ])
             # XXX - this should happen through GOM and upon mouse release 
             # self.history.append(self.__resizeobj)
             self.__cursor.set(corner)
@@ -4386,21 +4812,24 @@ class DrawManager:
             if ev.shift():
                 # add if not present, remove if present
                 print("adding object", hover_obj)
-                self.__gom.selection.add(hover_obj)
-            if not self.__gom.selection.contains(hover_obj):
+                self.__gom.selection().add(hover_obj)
+            if not self.__gom.selection().contains(hover_obj):
                 print("object not in selection, setting it", hover_obj)
-                self.__gom.selection.set([ hover_obj ])
-            self.__resizeobj = MoveCommand(self.__gom.selection, pos)
+                self.__gom.selection().set([ hover_obj ])
+            # we are using the .selection().copy() because the selection
+            # object can change in time
+            self.__resizeobj = MoveCommand(self.__gom.selection().copy(), pos)
             # XXX - this should happen through GOM and upon mouse release 
             # self.history.append(self.__resizeobj)
             self.__cursor.set("grabbing")
         else:
-            self.__gom.selection.clear()
+            self.__gom.selection().clear()
             self.__resizeobj   = None
             print("starting selection tool")
             self.__selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
             self.__current_object = self.__selection_tool # XXX -> this is
                                                           # a hack to force the draw function draw the selection tool
+                                                          # this should be done in a different way
             self.__app.queue_draw()
         return True
 
@@ -4544,9 +4973,9 @@ class DrawManager:
             #bb = self.selection_tool.bbox()
             objects = self.__selection_tool.objects_in_selection(self.__gom.objects())
             if len(objects) > 0:
-                self.__gom.selection.set(objects)
+                self.__gom.selection().set(objects)
             else:
-                self.__gom.selection.clear()
+                self.__gom.selection().clear()
             self.__selection_tool = None
             self.__app.queue_draw()
             return True
@@ -4554,7 +4983,7 @@ class DrawManager:
         # if the user clicked to create a text, we are not really done yet
         if self.__current_object and self.__current_object.type != "text":
             print("there is a current object: ", self.__current_object)
-            self.__gom.selection.clear()
+            self.__gom.selection().clear()
             self.__current_object = None
             self.__app.queue_draw()
             return True
@@ -4720,7 +5149,7 @@ class DrawManager:
 
     def clear(self):
         """Clear the drawing."""
-        self.__gom.selection.clear()
+        self.__gom.selection().clear()
         self.__resizeobj      = None
         self.__current_object = None
         self.__gom.remove_all()
@@ -4778,6 +5207,67 @@ class Icons:
                  "draw":"iVBORw0KGgoAAAANSUhEUgAAABwAAAAaCAYAAACkVDyJAAAFAUlEQVRIx92WWWxUZRTHf9+9t8y0nel02s6UQmkZ28rSBbugCEUIi4IokWAUMS4oD8aYiDwQouEB9YEXDIkmJJAIQRNME8FEgQASVmVrrRTaQgtCO3SGdjrTZdpZeufO50OhQC1Y0Sf/yffy3XPO/5x7vrPA/x1ipEsppXyokhDiUQm1B5K5D9TiOT6ZQF0iER9ICaY0SeaMS3/n0MOc0u4hsgBB2o400rxrCm1HSweJ4iCUO1KCzppiQl4PBW/WErzmItiSQTRgxogqqOYIic4OrK7Ld5waTixuk2UBHmo2GjTvUulvAyUBUvLAOQNsBQaKpnDzsMB7HJQxYLJDtAti4UGnkCDE4LcEK6Q8BtnPVlO2oeJeUk1KaQI8nF0HDVtVpAG2SZC/Mkrui+ewT50NqAB0nB3UiusQbocxtkHDpjRQTaD3QcgLoXbwVUP3lQr0/moppbxDqgERWvcHafrGCsDE5ZLiD8/iqJgBzAagp6GaM2sq8J4ERQXikJAC0zcFyJpTR4KlE0UzMAacRHwuuurH07hdpbMG2n8t+2sO3futRAPgKIfS9TuwF74zlNtw1z7/oa+XtBwdoMO3DN1IxmoJkD/JTXZZ7JSwTFg6ZC0BMKdD6uRXSU4VNOzUMTlVoOouYbClF191CqoZxla230tWt69jf92e5sX1PxYS6JyJLjUkAgWw27pYEM2ZPv8T3u73RyKB1vDUPv9Aph42khRNLLA4ym+mT5rfkJZF1VBKACGllBx7awN6SKHgdQ8TX9ru/r3ni192tq6qrvLYA94oIEiyKKSON6NpBsE2Pz3dSSTZxlDygnOgxxtVA+6QGumNYegSRRUk2jTs2Ynx7Gkp7Su2FGfdebFieKE3n/Tv3ftx47KmU37iCDLsnVTM9VC8ekV3ZklOp3mg0XV+0xa1audioroJiSSORCDQhEDRBHEDYvE4cSQqAkduMovW5dfPfd9VKIYX/dbl5zi/x4PZBNOfPMPC+T+QPefpXubuSAG48F21UfVRrdp+yznUpibPy6DouUxSs80DpmRNj0UNzd8SNrXWdnPlmJ+AN8y4x618fmX+fYUvq6vaGusPdkzRFJXn19pZPO0QargVrK+5gcK6n279tnt9V1nHLSdWm0ZMl0RDMUqWjI0sXJtnBsbcPkOo+d5z7vDma1GhIIDK+1pb0wl/QV+/Tm6RnWfey0O9kAh9QE+9K3Byt3//p6llHS0DZDjCvLK5iCPburl8ykfnjZAYqatIKbXy5eP08uXjhu6UewVC3bp3bK7levEix/WUCWM7cFYCkvj1g0mHPzuZ3nw+SmKiZOn69L6KN4owWzQkklg0rj6gn8bEMAxFGO030ld/W+6/T6Pwg3b0QKb7RBNnTs8EFGatyqFy7RMWgLgRB8TdVvtPpoXZogWGjysppaRyO1eOnaa37xYZOWYq33XVAqUAAXcYBUFqllkfafKMBGU0I8bdZMZAMmGajZwyWynAz1uueX1X+0myJJBTZvOONsJR/Qw9EhsUVoUEOLHtRu2RL//IisYM8mel4XrKfvyRB/BIyMy3SAUhGo/4xMaSo3TeCJX2BwdIz0piwZo8n9VhWjXaLWBUEZa/PO6qqyyN/qDOjYvdRIIxXKV2Vn5VEi5a5HSM1s4Dd5qR1o6bF3tbLx1oz4n0xkjPTYpPnpfR4MhLLgIShBCx/5TwQYvVv1mm/r/4E+uvH1a7XvVXAAAAAElFTkSuQmCC",
                  }
         self._icons = { name: base64_to_pixbuf(data) for name, data in icons.items() }
+
+
+
+
+class Page:
+    """
+    A page is a container for objects.
+    """
+    def __init__(self, prev = None):
+        self.__prev    = prev
+        self.__next = None
+        self.__objects = []
+        self.__selection = SelectionObject(self.__objects)
+
+    def next(self, create = True):
+        """
+        Return the next page.
+
+        If create is True, create a new page if it doesn't exist.
+        """
+        if not self.__next and create:
+            print("Creating new page")
+            self.__next = Page(self)
+        return self.__next
+
+    def prev(self):
+        """Return the previous page."""
+        return self.__prev or self # can't go beyond first page
+
+    def next_set(self, page):
+        """Set the next page."""
+        self.__next = page
+
+    def prev_set(self, page):
+        """Set the previous page."""
+        self.__prev = page
+
+    def delete(self):
+        """Delete the page and create links between prev and next pages."""
+        if not self.__prev and not self.__next:
+            print("only one page remaining")
+            return self
+
+        if self.__prev:
+            self.__prev.next_set(self.__next)
+        if self.__next:
+            self.__next.prev_set(self.__prev)
+        return self.__prev or self.__next
+
+    def objects(self, objects = None):
+        if objects:
+            self.__objects = objects
+            self.__selection = SelectionObject(self.__objects)
+        return self.__objects
+
+    def selection(self):
+        return self.__selection
+
+    def kill_object(self, obj):
+        """Directly remove an object from the list of objects."""
+        self.__objects.remove(obj)
 
 
 
@@ -4931,13 +5421,14 @@ class TransparentWindow(Gtk.Window):
 
     def copy_content(self, destroy = False):
         """Copy content to clipboard."""
-        if self.gom.selection.is_empty():
+        content = self.gom.selection()
+        if content.is_empty():
             # nothing selected
-            print("Nothing selected")
-            return
+            print("Nothing selected, selecting all objects")
+            content = DrawableGroup(self.gom.objects())
 
-        print("Copying content", self.gom.selection)
-        self.clipboard.copy_content(self.gom.selection)
+        print("Copying content", content)
+        self.clipboard.copy_content(content)
 
         if destroy:
             self.gom.remove_selection()
@@ -5093,7 +5584,9 @@ class TransparentWindow(Gtk.Window):
         }
 
         objects = self.gom.export_objects()
-        save_file_as_sdrw(self.savefile, config, objects)
+        pages   = self.gom.export_pages()
+
+        save_file_as_sdrw(self.savefile, config, pages = pages)
 
     def open_drawing(self):
         file_name = open_drawing_dialog(self)
@@ -5104,9 +5597,11 @@ class TransparentWindow(Gtk.Window):
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
-        config, objects = read_file_as_sdrw(filename)
+        config, objects, pages = read_file_as_sdrw(filename)
 
-        if objects:
+        if pages:
+            self.gom.set_pages(pages)
+        elif objects:
             self.gom.set_objects(objects)
 
         if config and load_config:

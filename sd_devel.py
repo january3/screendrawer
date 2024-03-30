@@ -23,16 +23,12 @@
 ##  SOFTWARE.
 
 # ---------------------------------------------------------------------
-import gi
 import copy
 import yaml
 import pickle
 import traceback
 import colorsys
 from sys import exc_info, argv 
-gi.require_version('Gtk', '3.0')
-
-from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
 import cairo
 import os
 import time
@@ -47,10 +43,11 @@ import argparse
 
 import pyautogui
 from PIL import ImageGrab
-from os import path
 
-ICONS = { "pipette": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAYAAABvCO8sAAADJUlEQVRIx7XWS2xVVRQG4O/c20LpxTYNLSaAVagVtYoDG1DQ+IgaFYOmIeJME4hKfIImDBgYlRgiJDghPsAoQdGRGsMAUQgywOADRPFBYiiVKpZauZDS2+c9ThZJY4DUXrpGO+vss/691v7/vRZjZ2V4AZ3owBe4oWyMwKrwMboxBw24Be9nxgCsBtvQFVk2YBpm40CpgNdieIxqfIYfMA8VqAx/FZpLAVyGD/ARHkEWH+JTLEBr+I5iJi7G9lIA78eL6MMVWI5BPIry8PcG8I3hW50tAXA2noiANZiLS+K+vow9x9GEWXgJO5MSACfiLTTGPe5Dc2TSjp7wz4vsN5fKxvtwOoJvx/dYjwHsx++hvabhP422pC1BlsEo5UnMiOCvY1KUcyUOlJrZ9UGGAu4a5r85WPs2FmITPg85jNquipO347qzfF8UGlyNO0MSd48WbGqAdWD6OfbMxF78hV/jHutHAzYeh7HqPAGWxXO2LrixFltGA1aPtgA7356uuMOS7OF48VfBxDd7irn1+cHcyz89N2zPlVG6nSNh/fmEvzjKshA7Kl/55UhSNn5aUjM1I8kmuo7c3r3i8hTvhQZb0D+SJnk2W4kHsQY7JqzY9XVmcmO9oYFEX0HxVEdv4dXbnsLV+CrYWRxpV/6vPR2amjN+6eZLs/WzjxmXqy2ePPa3npN1aX+3/k2PH0zzf9bhGywZKdjZXppn8QBaqjamUyRlewwNTsrUzShLKi/KpT15/VueaRs6vLc9NLZ4JGU8V4ZLoox3TNiYXjN06o+tErWZKU3S013SwimFdfccTztb9wVJlv+fzM7YmX7YjMdwb9U76axMX35bsf1gXaZuhuLx36SdrXpfm9+bdrZ+gkNRieJoaH+GpWvxbfWGdO9Q34n9xUO7q4rlE5Ik1SGbre19Y1FP2t21Jrr2k6WOcpVYIMm0DOTbssWjP1ZDUpE7ZLC/vLBufoWBwi5MxvOlCjuJjj0dksZb85mKcd9lG27KpSfaywd2b+iTppfh3ZBKeiHGun+GrX+OA+yJ9dIxmVqzDXNPBM3X4qGYS5rj0b6g9i9UTPumQhFEOwAAAABJRU5ErkJggg==",
-        }
+import gi
+gi.require_version('Gtk', '3.0')
+
+from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
 
 
 # ---------------------------------------------------------------------

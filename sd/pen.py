@@ -94,7 +94,6 @@ class Pen:
 
         print("setting font to", self.font_family, self.font_size, self.font_weight, self.font_style)
 
-
     def transparency_set(self, transparency):
         self.transparency = transparency
     

@@ -1,11 +1,8 @@
 To do (sorted by priority):
 
 
- * deleting page cannot be undone: refactor history so it is run on level
-   of GOM and not the individual pages, add a DeletePageCommand. Basically,
-   each Command should take the Page object as an argument to know on which
-   page to act.
- * when copying when nothing is selected, simply copy all objects
+ * clean up font code. Maybe use the Pango.FontDescription class for
+   everything - why not?
  * add layers so that we can sketch in one layer, then draw in another, and
    finally remove the first one. 
  * zoom in and out. I think the time is ripe for it 
@@ -21,8 +18,6 @@ To do (sorted by priority):
  * think hard how I want the color setting / pen thing to work
  * implement undo for fonts as well
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
- * add "pages" or "frames" or "slides" or "whatever" to the
-   drawing. This would allow to switch between different drawings.
  * implement rotating for: Box, Circle (yes, since Circle can be an
    ellipse)
  * add a line mode and Line object class
@@ -35,24 +30,8 @@ To do (sorted by priority):
  * maybe an infinite drawing area? Scrollable like?
 
 Design issues:
- * how about: each object has methods "save_state" (which returns
-   everything that is needed to completely restore state) and "restore_state"
-   (which restores the state). This would allow to save the state of the
-   object before the operation and restore it after undo. That way, 
-   every object would have to take care of proper restore of its state, and
-   MoveCommand, SetLWCommand etc. would only have to call the save_state
-   when modifying the objects. Drawback: this would require loads of
-   memory, because the object does not know what part of the state is
-   needed and which is not.
-
-
-
  * It is not entirely clear where the file is saved. In theory it is, but
    in practice I find myself wondering.
- * Maybe the *objects* should hold their undo history? This would make
-   sense, because the objects are the ones that are changed. However, this
-   would require that the objects are aware of the commands, which is not
-   the case now.
  * should the EM also take care of pre- and post-dispatch actions? Like
    switching to a ceratain mode after or before certain commands
 
@@ -93,11 +72,18 @@ Done:
    to each of them. [fixed:] The caller uses the copy() method of the
    selection object to get a copy in a DrawableGroup object which is safe
    to keep in the history.
+ * deleting page cannot be undone: refactor history so it is run on level
+   of GOM and not the individual pages, add a DeletePageCommand. Basically,
+   each Command should take the Page object as an argument to know on which
+   page to act.
  * moved command history from Page to GOM
  * regression: z-moving no longer works
+ * when copying when nothing is selected, simply copy all objects
  * deleting pages
  * converting drawings to png contains a typo; also converting with borders does not
    work correctly
+ * add "pages" or "frames" or "slides" or "whatever" to the
+   drawing. This would allow to switch between different drawings.
  * implemented a "page" class that serves as an interface between GOM and
    objects. The goal is to create new pages on the fly.
  * add a better color picker, the gtk thing sucks. Something like in
@@ -242,6 +228,21 @@ Parked ideas:
    to do it properly it would require specialized libraries.
 
 Rejected ideas:
+ * how about: each object has methods "save_state" (which returns
+   everything that is needed to completely restore state) and "restore_state"
+   (which restores the state). This would allow to save the state of the
+   object before the operation and restore it after undo. That way, 
+   every object would have to take care of proper restore of its state, and
+   MoveCommand, SetLWCommand etc. would only have to call the save_state
+   when modifying the objects. Drawback: this would require loads of
+   memory, because the object does not know what part of the state is
+   needed and which is not. [I think the current solution is OK, that is:
+   commands can filter out the primitives with get_primitive and so save the state of their
+   properties without an issue]
+ * Maybe the *objects* should hold their undo history? This would make
+   sense, because the objects are the ones that are changed. However, this
+   would require that the objects are aware of the commands, which is not
+   the case now.
  * turn it into a Gnome plugin (who 一体 needs that?)
  * eraser should allow a selection like with selection tool (really? what
    for? why not select in select mode and press del?)
