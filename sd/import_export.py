@@ -1,9 +1,14 @@
-import cairo # <remove>
+"""
+This module provides functions to import and export drawings in various formats.
+"""
+
 from os import path # <remove>
 import pickle # <remove>
+import cairo # <remove>
 from sd.drawable import Drawable, DrawableGroup # <remove>
 
 def guess_file_format(filename):
+    """Guess the file format from the file extension."""
     _, file_format = path.splitext(filename)
     file_format = file_format[1:]
     # lower case
@@ -17,11 +22,12 @@ def guess_file_format(filename):
     return file_format
 
 def convert_file(input_file, output_file, file_format = "all", border = None, page = 0):
+    """Convert a drawing from the internal format to another."""
     config, objects, pages = read_file_as_sdrw(input_file)
 
     if pages:
         if len(pages) < page:
-            raise ValueError("Page number out of range (max. %d)" % len(pages))
+            raise ValueError(f"Page number out of range (max. {len(pages)})")
         print("read drawing from", input_file, "with", len(pages), "pages")
         objects = pages[page]['objects']
 
@@ -45,10 +51,17 @@ def convert_file(input_file, output_file, file_format = "all", border = None, pa
             # create a file name with the same name but different extension
             output_file = path.splitext(input_file)[0] + "." + file_format
 
-    export_image(objects, output_file, file_format, bg = bg, bbox = bbox, transparency = transparency)
+    export_image(objects,
+                 output_file, file_format,
+                 bg = bg, bbox = bbox,
+                 transparency = transparency)
 
 
-def export_image(objects, filename, file_format = "all", bg = (1, 1, 1), bbox = None, transparency = 1.0):
+def export_image(objects, filename,
+                 file_format = "all",
+                 bg = (1, 1, 1),
+                 bbox = None,
+                 transparency = 1.0):
     """Export the drawing to a file."""
 
     # if filename is None, we send the output to stdout
@@ -115,16 +128,19 @@ def save_file_as_sdrw(filename, config, objects = None, pages = None):
             pickle.dump(state, f)
         print("Saved drawing to", filename)
         return True
-    except Exception as e:
-        print("Error saving file:", e)
+    except OSError as e:
+        print(f"Error saving file due to a file I/O error: {e}")
+        return False
+    except pickle.PicklingError as e:
+        print(f"Error saving file because an object could not be pickled: {e}")
         return False
 
 def read_file_as_sdrw(filename):
     """Read the objects from a file in native format."""
     if not path.exists(filename):
         print("No saved drawing found at", filename)
-        return None, None
-    
+        return None, None, None
+
     print("READING file as sdrw:", filename)
 
     config, objects, pages = None, None, None
@@ -141,8 +157,10 @@ def read_file_as_sdrw(filename):
                 for p in pages:
                     p['objects'] = [ Drawable.from_dict(d) for d in p['objects'] ] or [ ]
             config = state['config']
-    except Exception as e:
-        print("Error reading file:", e)
-        return None, None
+    except OSError as e:
+        print(f"Error saving file due to a file I/O error: {e}")
+        return None, None, None
+    except pickle.PicklingError as e:
+        print(f"Error saving file because an object could not be pickled: {e}")
+        return None, None, None
     return config, objects, pages
-

@@ -1,3 +1,7 @@
+"""
+This module holds the MenuMaker class, which is a singleton class that creates menus.
+"""
+
 from gi.repository import Gtk # <remove>
 
 class MenuMaker:
@@ -19,6 +23,7 @@ class MenuMaker:
             self.__object_menu = None
 
     def build_menu(self, menu_items):
+        """Build a menu from a list of menu items."""
         menu = Gtk.Menu()
         menu.set_name("myMenu")
 
@@ -33,13 +38,15 @@ class MenuMaker:
         return menu
 
     def on_menu_item_activated(self, widget, action):
-        print("Menu item activated:", action)
+        """Callback for when a menu item is activated."""
+        print("Menu item activated:", action, "from", widget)
 
         self.__em.dispatch_action(action)
         self.__app.queue_draw()
 
 
     def context_menu(self):
+        """Build the main context menu"""
         # general menu for everything
         ## build only once
         if self.__context_menu:
@@ -79,6 +86,7 @@ class MenuMaker:
         return self.__context_menu
 
     def object_menu(self, objects):
+        """Build the object context menu"""
         # when right-clicking on an object
         menu_items = [
                 { "label": "Copy (Ctrl-c)",        "callback": self.on_menu_item_activated, "action": "copy_content" },
@@ -117,5 +125,3 @@ class MenuMaker:
         self.__object_menu = self.build_menu(menu_items)
 
         return self.__object_menu
-
-

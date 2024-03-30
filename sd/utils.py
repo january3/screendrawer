@@ -1,29 +1,24 @@
-## ---------------------------------------------------------------------
-import gi                                                           #<remove>                                                                 
-import copy                                                         #<remove>           
-import yaml                                                         #<remove>           
-import pickle                                                       #<remove>             
-gi.require_version('Gtk', '3.0')                                    #<remove>                                
-                                                                    #<remove>
-from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib          #<remove>                                                          
-import cairo                                                        #<remove>            
-import os                                                           #<remove>         
-import time                                                         #<remove>           
-import math                                                         #<remove>           
-import base64                                                       #<remove>             
+"""
+General utility functions for the ScreenDrawer application.
+"""
+import os                                                           #<remove>
+import math                                                         #<remove>
+import base64                                                       #<remove>
+import tempfile                                                     #<remove>
+import warnings                                                     #<remove>
 from io import BytesIO                                              # <remove>
-import tempfile                                                     #<remove>               
-from io import BytesIO                                              #<remove>                      
-                                                                    #<remove>
-import warnings                                                     #<remove>               
-import appdirs                                                      #<remove>              
-import argparse                                                     #<remove>               
-                                                                    #<remove>
-import pyautogui                                                    #<remove>                
-from PIL import ImageGrab                                           #<remove>                                                                   
-                                                                     
+import cairo                                                        #<remove>
+import gi                                                           #<remove>
+from gi.repository import Gdk, GdkPixbuf                            #<remove>
+import appdirs                                                      #<remove>
+import pyautogui                                                    #<remove>
+from PIL import ImageGrab                                           #<remove>
+
+gi.require_version('Gtk', '3.0')                                    #<remove>
 
 def get_default_savefile(app_name, app_author):
+    """Get the default save file for the application."""
+
     # Get user-specific data directory
     user_data_dir = appdirs.user_data_dir(app_name, app_author)
     print(f"User data directory: {user_data_dir}")
@@ -49,23 +44,23 @@ def get_color_under_cursor():
 
 def rgb_to_hex(rgb):
     """Convert an RGB color to a hexadecimal string."""
-    return "#{:02x}{:02x}{:02x}".format(*[int(255 * c) for c in rgb])
+    r, g, b = [int(255 * c) for c in rgb]
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 def get_screenshot(window, x0, y0, x1, y1):
+    """Capture a screenshot of a specific area on the screen."""
 
     # Get the absolute position of the area to capture
-    window_position = window.get_position()
-    x0 = window_position[0] + x0
-    y0 = window_position[1] + y0
-    x1 = window_position[0] + x1
-    y1 = window_position[1] + y1
+    wpos = window.get_position()
+    x0, y0 = wpos[0] + x0, wpos[1] + y0
+    x1, y1 = wpos[0] + x1, wpos[1] + y1
 
     screenshot = ImageGrab.grab(bbox=(x0, y0, x1, y1))
 
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-    screenshot.save(temp_file, format="PNG")
-    temp_file_name = temp_file.name  
-    temp_file.close()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
+        screenshot.save(temp_file, format="PNG")
+        temp_file_name = temp_file.name
+
     print("Saved screenshot to temporary file:", temp_file_name)
 
     pixbuf = GdkPixbuf.Pixbuf.new_from_file(temp_file_name)
@@ -75,19 +70,19 @@ def flatten_and_unique(lst, result_set=None):
     """Flatten a list and remove duplicates."""
     if result_set is None:
         result_set = set()
-        
+
     for item in lst:
         if isinstance(item, list):
             flatten_and_unique(item, result_set)
         else:
             result_set.add(item)
-            
+
     return list(result_set)
 
 def sort_by_stack(objs, stack):
     """Sort a list of objects by their position in the stack."""
     # sort the list of objects by their position in the stack
-    return sorted(objs, key=lambda x: stack.index(x))
+    return sorted(objs, key=stack.index)
 
 
 def distance(p1, p2):
@@ -102,6 +97,7 @@ def bezier_point(t, start, control, end):
     return (x, y)
 
 def segment_intersection(p1, p2, p3, p4):
+    """Calculate the intersection of two line segments."""
     x1, y1 = p1
     x2, y2 = p2
     x3, y3 = p3
@@ -119,9 +115,8 @@ def segment_intersection(p1, p2, p3, p4):
         intersect_x = x1 + t * (x2 - x1)
         intersect_y = y1 + t * (y2 - y1)
         return (True, (intersect_x, intersect_y))
-    else:
-        return (False, None)  # No intersection
 
+    return (False, None)  # No intersection
 
 def calculate_angle(p0, p1, p2):
     """Calculate the angle between the line p0->p1 and p1->p2 in degrees."""
@@ -149,7 +144,7 @@ def smooth_path(coords, pressure=None, threshold=20):
 
     if pressure and len(pressure) != len(coords):
         raise ValueError("Pressure and coords must have the same length")
-    
+
     print("smoothing path with", len(coords), "points")
     smoothed_coords = [coords[0]]  # Start with the first point
     if pressure:
@@ -168,23 +163,27 @@ def smooth_path(coords, pressure=None, threshold=20):
             prev_pressure = pressure[i - 1]
             current_pressure = pressure[i]
             next_pressure = pressure[i + 1]
-        
+
         # Calculate distances to determine if smoothing is needed
         dist_to_prev = math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
         dist_to_next = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
 
         #angle = calculate_angle(p0, p1, p2)
         #print("angle is", angle)
-        
+
         if dist_to_prev > threshold or dist_to_next > threshold:
             # Calculate control points for smoother transitions
             control1 = midpoint(p0, p1)
             control2 = midpoint(p1, p2)
-            
+
             # Generate intermediate points for the cubic Bézier curve
             for t in t_values:
-                x = (1-t)**3 * control1[0] + 3*(1-t)**2 * t * p1[0] + 3*(1-t) * t**2 * control2[0] + t**3 * p2[0]
-                y = (1-t)**3 * control1[1] + 3*(1-t)**2 * t * p1[1] + 3*(1-t) * t**2 * control2[1] + t**3 * p2[1]
+                t0 = (1 - t) ** 3
+                t1 = 3 * (1 - t) ** 2 * t
+                t2 = 3 * (1 - t) * t ** 2
+                t3 = t ** 3
+                x = t0 * control1[0] + t1 * p1[0] + t2 * control2[0] + t3 * p2[0]
+                y = t0 * control1[1] + t1 * p1[1] + t2 * control2[1] + t3 * p2[1]
                 if pressure:
                     new_pressure.append((1-t) * prev_pressure + t * next_pressure)
                 smoothed_coords.append((x, y))
@@ -193,31 +192,34 @@ def smooth_path(coords, pressure=None, threshold=20):
             smoothed_coords.append(p1)
             if pressure:
                 new_pressure.append(current_pressure)
-    
+
     smoothed_coords.append(coords[-1])  # Ensure the last point is added
     if pressure:
         new_pressure.append(pressure[-1])
     return smoothed_coords, new_pressure
 
 
-def distance_point_to_segment(px, py, x1, y1, x2, y2):
+def distance_point_to_segment(p, segment):
     """Calculate the distance from a point (px, py) to a line segment (x1, y1) to (x2, y2)."""
     # Calculate the line segment's length squared
+    px, py = p
+    x1, y1 = segment[0]
+    x2, y2 = segment[1]
     length_squared = (x2 - x1) ** 2 + (y2 - y1) ** 2
     if length_squared == 0:
         # The segment is a point
         return math.sqrt((px - x1) ** 2 + (py - y1) ** 2)
-    
+
     # Consider the line extending the segment, parameterized as x1 + t (x2 - x1), y1 + t (y2 - y1).
-    # We find projection of point p onto the line. 
+    # We find projection of point p onto the line.
     # It falls where t = [(p-x1) . (x2-x1) + (p-y1) . (y2-y1)] / |x2-x1|^2
     t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / length_squared
     t = max(0, min(1, t))
-    
+
     # Projection falls on the segment
     projection_x = x1 + t * (x2 - x1)
     projection_y = y1 + t * (y2 - y1)
-    
+
     return math.sqrt((px - projection_x) ** 2 + (py - projection_y) ** 2)
 
 def find_obj_close_to_click(click_x, click_y, objects, threshold):
@@ -245,6 +247,16 @@ def find_obj_in_bbox(bbox, objects):
     return ret
 
 def calc_rotation_angle(origin, p1, p2):
+    """
+    Calculate the rotation angle based on the initial (p1) and new (p2)
+    cursor position and the rotation centre (origin).
+
+    Arguments:
+    origin -- the rotation centre
+    p1     -- the initial cursor position
+    p2     -- the new cursor position
+    """
+
     # x, y are the new positions of the cursor
     # we need to calculate the angle between two lines:
     # 1. the line between the rotation centre and the origin
@@ -281,16 +293,14 @@ def transform_coords(coords, bb1, bb2):
         # issue warning
         warnings.warn("Bounding box has zero width or height")
         return coords
-    ret = [ 
-        (x1 + (x - x0) / w0 * w1, y1 + (y - y0) / h0 * h1) 
-        for x, y in coords 
+    ret = [
+        (x1 + (x - x0) / w0 * w1, y1 + (y - y0) / h0 * h1)
+        for x, y in coords
     ]
     return ret
 
 def move_coords(coords, dx, dy):
     """Move a path by a given offset."""
-    if not coords:
-        ValueError("No coordinates to move")
     for i in range(len(coords)):
         coords[i] = (coords[i][0] + dx, coords[i][1] + dy)
     return coords
@@ -307,12 +317,14 @@ def path_bbox(coords):
 
 def is_click_close_to_path(click_x, click_y, path, threshold):
     """Check if a click is close to any segment in the path."""
+    point = (click_x, click_y)
 
     for i in range(len(path) - 1):
         segment_start = path[i]
         segment_end = path[i + 1]
-        distance = distance_point_to_segment(click_x, click_y, segment_start[0], segment_start[1], segment_end[0], segment_end[1])
-        if distance <= threshold:
+        dist = distance_point_to_segment(point,
+                                         [ segment_start, segment_end])
+        if dist <= threshold:
             return True
     return False
 
@@ -376,4 +388,3 @@ def base64_to_pixbuf(image_base64):
     loader.close()  # Finalize the loader
     image = loader.get_pixbuf()  # Get the loaded GdkPixbuf
     return image
-

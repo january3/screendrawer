@@ -1,8 +1,12 @@
-import gi # <remove>
+"""
+Dialogs for the ScreenDrawer application.
+"""
+
 import os # <remove>
-from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib # <remove>
+from gi.repository import Gtk # <remove>
 from .pen import Pen # <remove>
 
+## ---------------------------------------------------------------------
 FORMATS = {
     "All files": { "pattern": "*",      "mime_type": "application/octet-stream", "name": "all" },
     "PNG files":  { "pattern": "*.png",  "mime_type": "image/png",       "name": "png" },
@@ -13,6 +17,7 @@ FORMATS = {
 
 ## ---------------------------------------------------------------------
 class help_dialog(Gtk.Dialog):
+    """A dialog to show help information."""
     def __init__(self, parent):
         print("parent:", parent)
         super().__init__(title="Help", transient_for=parent, flags=0)
@@ -61,10 +66,10 @@ Moving object to left lower screen corner deletes it.
 <b>With Ctrl:</b>              <b>Simple key (not when entering text)</b>               <b>With Ctrl:</b>             <b>Simple key (not when entering text)</b>
 Ctrl-q: Quit            x, q: Exit                                        Ctrl-c: Copy content   Tab: Next object
 Ctrl-e: Export drawing  h, F1, ?: Show this help dialog                   Ctrl-v: Paste content  Shift-Tab: Previous object
-Ctrl-l: Clear drawing   l: Clear drawing                                  Ctrl-x: Cut content    Shift-letter: quick color selection e.g. 
+Ctrl-l: Clear drawing   l: Clear drawing                                  Ctrl-x: Cut content    Shift-letter: quick color selection e.g.
                                                                                                  Shift-r for red
 Ctrl-i: insert image                                                                             |Del|: Delete selected object(s)
-Ctrl-z: undo            |Esc|: Finish text input                                                 g, u: group, ungroup                           
+Ctrl-z: undo            |Esc|: Finish text input                                                 g, u: group, ungroup
 Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up, Alt-Down: Move object up, down
                                                                           Alt-PgUp, Alt-PgDown: Move object to front, back
 Ctrl-k: Select color                     f: fill with current color       Alt-s: convert drawing(s) to shape(s)
@@ -90,7 +95,7 @@ other programs as a PNG image.
 
 </span>
 
-The state is saved in / loaded from `{parent.savefile}` so you can continue drawing later. 
+The state is saved in / loaded from `{parent.savefile}` so you can continue drawing later.
 An autosave happens every minute or so.
         """
         label = Gtk.Label()
@@ -108,11 +113,11 @@ An autosave happens every minute or so.
 
 def _dialog_add_image_formats(dialog):
     for name, data in FORMATS.items():
-        filter = Gtk.FileFilter()
-        filter.set_name(name)
-        filter.add_pattern(data["pattern"])
-        filter.add_mime_type(data["mime_type"])
-        dialog.add_filter(filter)
+        file_filter = Gtk.FileFilter()
+        file_filter.set_name(name)
+        file_filter.add_pattern(data["pattern"])
+        file_filter.add_mime_type(data["mime_type"])
+        dialog.add_filter(file_filter)
 
 ## ---------------------------------------------------------------------
 
@@ -149,7 +154,8 @@ def export_dialog(parent):
 def save_dialog(parent):
     """Show a file chooser dialog to set the savefile."""
     print("export_dialog")
-    file_name, selected_filter = None, None
+    #file_name, selected_filter = None, None
+    file_name = None
 
     dialog = Gtk.FileChooserDialog(
         title="Save As", parent=parent, action=Gtk.FileChooserAction.SAVE)
@@ -243,13 +249,13 @@ def FontChooser(pen, parent):
     font_dialog = Gtk.FontChooserDialog(title="Select a Font", parent=parent)
     #font_dialog.set_preview_text("Zażółć gęślą jaźń")
     font_dialog.set_preview_text("Sphinx of black quartz, judge my vow.")
-    
+
     # You can set the initial font for the dialog
-    font_dialog.set_font(pen.font_family + " " + 
+    font_dialog.set_font(pen.font_family + " " +
                          pen.font_style + " " +
                          str(pen.font_weight) + " " +
                          str(pen.font_size))
-    
+
     response = font_dialog.run()
 
     font_description = None
