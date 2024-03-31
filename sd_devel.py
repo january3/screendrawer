@@ -129,18 +129,27 @@ class TransparentWindow(Gtk.Window):
         self.set_app_paintable(True)
 
         # autosave
-        GLib.timeout_add(AUTOSAVE_INTERVAL, self.autosave)
+        GLib.timeout_add(AUTOSAVE_INTERVAL, self.__autosave)
 
         # Drawing setup
         self.clipboard           = Clipboard()
-        self.gom                 = GraphicsObjectManager(self)
+        self.canvas              = Canvas()
+        self.gom                 = GraphicsObjectManager(self, canvas=self.canvas)
         self.cursor              = CursorManager(self)
-        self.canvas              = Canvas(gom = self.gom)
+
+        # dm needs to know about gom because gom manipulates the selection
+        # and history (object creation etc)
+        # it needs to know about the cursor to change the cursor if needed
+        # it needs to know about the canvas to get the pen
+        # it needs to know about the app to get the size of the window and
+        # queue up redraws
         self.dm                  = DrawManager(gom = self.gom,  app = self,
                                                cursor = self.cursor, canvas = self.canvas)
+
+        # em has to know about all that to link actions to methods
         self.em                  = EventManager(gom = self.gom, app = self,
                                                 dm = self.dm, canvas = self.canvas)
-        self.mm                  = MenuMaker(self.gom, self.em, self)
+        self.mm                  = MenuMaker(self.em, self)
 
         # distance for selecting objects
         self.max_dist   = 15
@@ -175,7 +184,7 @@ class TransparentWindow(Gtk.Window):
         """Exit the application."""
         ## close the savefile_f
         print("Exiting")
-        self.save_state()
+        self.__save_state()
         Gtk.main_quit()
 
     # ---------------------------------------------------------------------
@@ -209,6 +218,20 @@ class TransparentWindow(Gtk.Window):
 
         self.gom.add_object(new_obj)
 
+    def copy_content(self, destroy = False):
+        """Copy content to clipboard."""
+        content = self.gom.selection()
+        if content.is_empty():
+            # nothing selected
+            print("Nothing selected, selecting all objects")
+            content = DrawableGroup(self.gom.objects())
+
+        print("Copying content", content)
+        self.clipboard.copy_content(content)
+
+        if destroy:
+            self.gom.remove_selection()
+
     def paste_content(self):
         """Paste content from clipboard."""
         clip_type, clip = self.clipboard.get_content()
@@ -232,20 +255,6 @@ class TransparentWindow(Gtk.Window):
         elif clip_type == "image":
             self.paste_image(clip)
 
-    def copy_content(self, destroy = False):
-        """Copy content to clipboard."""
-        content = self.gom.selection()
-        if content.is_empty():
-            # nothing selected
-            print("Nothing selected, selecting all objects")
-            content = DrawableGroup(self.gom.objects())
-
-        print("Copying content", content)
-        self.clipboard.copy_content(content)
-
-        if destroy:
-            self.gom.remove_selection()
-
     def cut_content(self):
         """Cut content to clipboard."""
         self.copy_content(True)
@@ -260,7 +269,7 @@ class TransparentWindow(Gtk.Window):
         """Select a color for drawing using ColorChooser dialog."""
         color = ColorChooser(self)
         if color:
-            self.canvas.set_color((color.red, color.green, color.blue))
+            self.dm.set_color((color.red, color.green, color.blue))
 
     def select_font(self):
         """Select a font for drawing using FontChooser dialog."""
@@ -282,7 +291,7 @@ class TransparentWindow(Gtk.Window):
         if file:
             self.savefile = file
             print("setting savefile to", file)
-            self.save_state()
+            self.__save_state()
 
     def export_drawing(self):
         """Save the drawing to a file."""
@@ -375,7 +384,7 @@ class TransparentWindow(Gtk.Window):
             Gtk.main_iteration_do(False)
         GLib.timeout_add(100, self.__screenshot_finalize, bb)
 
-    def autosave(self):
+    def __autosave(self):
         """Autosave the drawing state."""
         if not self.dm.modified():
             return
@@ -384,10 +393,10 @@ class TransparentWindow(Gtk.Window):
             return
 
         print("Autosaving")
-        self.save_state()
+        self.__save_state()
         self.dm.modified(False)
 
-    def save_state(self):
+    def __save_state(self):
         """Save the current drawing state to a file."""
         if not self.savefile:
             print("No savefile set")

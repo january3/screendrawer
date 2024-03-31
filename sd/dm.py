@@ -40,7 +40,7 @@ class DrawManager:
         self.__paning = None
         self.__show_wiglets = True
         self.__wiglets = [ WigletColorSelector(height = app.get_size()[1],
-                                               func_color = self.__canvas.set_color,
+                                               func_color = self.set_color,
                                                func_bg = self.__canvas.bg_color),
                            WigletToolSelector(func_mode = self.mode),
                            WigletPageSelector(gom = gom, screen_wh_func = app.get_size,
@@ -100,7 +100,7 @@ class DrawManager:
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
-        self.__canvas.draw(cr, self.__hover, self.__mode)
+        self.__gom.draw(cr, self.__hover, self.__mode)
 
         if self.__current_object:
             self.__current_object.draw(cr)
@@ -324,7 +324,7 @@ class DrawManager:
             return False
 
         color = get_color_under_cursor()
-        self.__canvas.set_color(color)
+        self.set_color(color)
         color_hex = rgb_to_hex(color)
         self.__app.clipboard.set_text(color_hex)
         self.__app.queue_draw()
@@ -632,6 +632,13 @@ class DrawManager:
 #       if self.selection.n() > 0:
 #           for obj in self.selection.objects:
 #               obj.smoothen()
+    def set_color(self, color = None):
+        """Set the color."""
+        if color is None:
+            return self.__canvas.pen().color
+        self.__canvas.pen().color_set(color)
+        self.__gom.selection_color_set(color)
+        return color
 
     def clear(self):
         """Clear the drawing."""

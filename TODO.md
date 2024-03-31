@@ -32,19 +32,13 @@ To do (sorted by priority):
  * maybe an infinite drawing area? Scrollable like?
 
 Design issues:
+ * the interaction between canvas, gom, dm, em is tangled. 
  * It is not entirely clear where the file is saved. In theory it is, but
    in practice I find myself wondering.
  * should the EM also take care of pre- and post-dispatch actions? Like
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * double-shift clicking in text mode results in exceptions being thrown
-   around. The problem is that a double click event gets raised before the
-   second click is released; therefore, a text object is created with the
-   first click, then again with the second click, and then the second click
-   raises a double click event, which tries to remove the previous text
-   object, but it is not entered into the object list yet.
- * Clicking a text in text mode results in exceptions being thrown around.
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies
@@ -69,6 +63,13 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * double-shift clicking in text mode results in exceptions being thrown
+   around. The problem is that a double click event gets raised before the
+   second click is released; therefore, a text object is created with the
+   first click, then again with the second click, and then the second click
+   raises a double click event, which tries to remove the previous text
+   object, but it is not entered into the object list yet.
+ * Clicking a text in text mode results in exceptions being thrown around.
  * regression: after short click, the current object does not disappear
    so mouse release is not properly detected
  * circle and box do not respect transparency

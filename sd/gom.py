@@ -15,10 +15,11 @@ class GraphicsObjectManager:
         _objects (list): The list of objects.
     """
 
-    def __init__(self, app):
+    def __init__(self, app, canvas):
 
         # private attr
         self.__app = app
+        self.__canvas = canvas
         self.__history    = []
         self.__redo_stack = []
         self.__page = None
@@ -253,7 +254,7 @@ class GraphicsObjectManager:
         """Fill the selected object."""
         # XXX gom should not call dm directly
         # this code should be gone!
-        color = self.__app.dm.pen().color
+        color = self.__canvas.pen().color
         for obj in self.__selection.objects:
             obj.fill(color)
 
@@ -272,7 +273,7 @@ class GraphicsObjectManager:
     def selection_apply_pen(self):
         """Apply the pen to the selected objects."""
         if not self.__selection.is_empty():
-            pen = self.__app.dm.pen()
+            pen = self.__canvas.pen()
             self.__history.append(SetPenCommand(self.__selection, pen))
 
     def redo(self):
@@ -330,3 +331,11 @@ class GraphicsObjectManager:
             return
         self.__history.append(ZStackCommand(self.__selection.objects,
                                             self.__page.objects(), operation, page=self.__page))
+
+    def draw(self, cr, hover_obj = None, mode = None):
+        """Draw the objects in the given context. Used also by export functions."""
+
+        for obj in self.__page.objects():
+            hover    = obj == hover_obj and mode == "move"
+            selected = self.__selection.contains(obj) and mode == "move"
+            obj.draw(cr, hover=hover, selected=selected, outline = self.__canvas.outline())

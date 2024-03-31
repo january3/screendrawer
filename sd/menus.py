@@ -13,10 +13,9 @@ class MenuMaker:
             cls._instance = super(MenuMaker, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, gom, em, app):
+    def __init__(self, em, app):
         if not hasattr(self, '_initialized'):
             self._initialized = True
-            self.__gom = gom # GraphicObjectManager
             self.__app = app # App
             self.__em  = em  # EventManager
             self.__context_menu = None

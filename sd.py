@@ -5586,7 +5586,7 @@ set them.
 The actual objects are managed by the GOM, graphical object manager.
 The drawing on screen is realized mainly through DM, Draw Manager that also
 holds information about other stuff that needs to be drawn, like the
-currently selected object, etc.
+currently selected object, wiglets etc.
 """
 
 
