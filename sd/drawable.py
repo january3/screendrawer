@@ -1502,22 +1502,24 @@ class Circle(Drawable):
         else:
             cr.set_line_width(self.pen.line_width)
 
-        cr.set_source_rgb(*self.pen.color)
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
         x1, y1 = self.coords[0]
         x2, y2 = self.coords[1]
         w, h = (abs(x1 - x2), abs(y1 - y2))
-        x0, y0 = (min(x1, x2), min(y1, y2))
-        #cr.rectangle(x0, y0, w, h)
-        cr.save()
-        cr.translate(x0 + w / 2, y0 + h / 2)
-        cr.scale(w / 2, h / 2)
-        cr.arc(0, 0, 1, 0, 2 * 3.14159)
 
-        if self.pen.fill_color:
-            cr.set_source_rgb(*self.pen.fill_color)
-            cr.fill_preserve()
-        cr.restore()
-        cr.stroke()
+        if w != 0 and h != 0:
+            x0, y0 = (min(x1, x2), min(y1, y2))
+            #cr.rectangle(x0, y0, w, h)
+            cr.save()
+            cr.translate(x0 + w / 2, y0 + h / 2)
+            cr.scale(w / 2, h / 2)
+            cr.arc(0, 0, 1, 0, 2 * 3.14159)
+            cr.restore()
+
+            if self.pen.fill_color:
+                cr.fill()
+            else:
+                cr.stroke()
 
         if selected:
             cr.set_source_rgba(1, 0, 0)
@@ -1545,7 +1547,6 @@ class Box(Drawable):
         self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
 
     def draw(self, cr, hover=False, selected=False, outline=False):
-        cr.set_source_rgb(*self.pen.color)
 
         if hover:
             cr.set_line_width(self.pen.line_width + 1)
@@ -1558,14 +1559,14 @@ class Box(Drawable):
         x0, y0 = (min(x1, x2), min(y1, y2))
 
         if self.pen.fill_color:
-            cr.set_source_rgb(*self.pen.fill_color)
+            cr.set_source_rgba(*self.pen.fill_color, self.pen.transparency)
             cr.rectangle(x0, y0, w, h)
             cr.fill()
             cr.stroke()
-
-        cr.set_source_rgb(*self.pen.color)
-        cr.rectangle(x0, y0, w, h)
-        cr.stroke()
+        else:
+            cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+            cr.rectangle(x0, y0, w, h)
+            cr.stroke()
 
         if selected:
             cr.set_line_width(0.5)

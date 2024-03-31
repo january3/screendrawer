@@ -420,12 +420,14 @@ class DrawManager:
             obj.finish()
             # remove paths that are too small
             if len(obj.coords) < 3:
+                self.__current_object = None
                 obj = None
 
         # remove objects that are too small
         if obj:
             bb = obj.bbox()
             if bb and obj.type in [ "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
+                self.__current_object = None
                 obj = None
 
         if obj:
@@ -433,7 +435,7 @@ class DrawManager:
             # with text, we are not done yet! Need to keep current object
             # such that keyboard events can update it
             if self.__current_object.type != "text":
-                self.__current_object.caret_pos = None
+                #self.__current_object.caret_pos = None
 
                 self.__gom.selection().clear()
                 self.__current_object = None
@@ -540,10 +542,14 @@ class DrawManager:
         if obj:
             obj.update(x, y, ev.pressure())
             self.__app.queue_draw()
-        elif self.__resizeobj:
+            return True
+
+        if self.__resizeobj:
             self.__resizeobj.event_update(x, y)
             self.__app.queue_draw()
-        elif self.__mode == "move":
+            return True
+
+        if self.__mode == "move":
             object_underneath = ev.hover()
             prev_hover = self.__hover
 

@@ -38,7 +38,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * circle and box do not respect transparency
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies
@@ -63,6 +62,9 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * regression: after short click, the current object does not disappear
+   so mouse release is not properly detected
+ * circle and box do not respect transparency
  * dragging an object to lower left corner results in an exception
  * something is horribly wrong with undo when group / ungroup is involved.
    to reproduce: create three objects. group them. ungroup them. undo. move
