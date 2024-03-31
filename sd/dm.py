@@ -223,7 +223,9 @@ class DrawManager:
                                                  corner = corner, proportional = ctrl)
             self.__gom.selection().set([ corner_obj ])
             self.__cursor.set(corner)
-        elif hover_obj:
+            return True
+
+        if hover_obj:
             if ev.shift():
                 # add if not present, remove if present
                 print("adding object to selection:", hover_obj)
@@ -235,13 +237,18 @@ class DrawManager:
             # object can change in time
             self.__resizeobj = MoveCommand(self.__gom.selection().copy(), pos)
             self.__cursor.set("grabbing")
-        else:
+            return True
+
+        if not ctrl and not shift:
+            # start selection tool
             self.__gom.selection().clear()
             self.__resizeobj   = None
             print("starting selection tool")
             self.__selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
             self.__app.queue_draw()
-        return True
+            return True
+
+        return False
 
     def create_object(self, ev):
         """Create an object based on the current mode."""
@@ -304,7 +311,8 @@ class DrawManager:
             return True
 
         if self.__mode == "move":
-            return self.move_resize_rotate(ev)
+            if self.move_resize_rotate(ev):
+                return True
 
         if self.handle_mode_specials_on_click(event, ev):
             return True
@@ -320,7 +328,7 @@ class DrawManager:
         """Handle special events for the current mode."""
 
         # Start changing line width: single click with ctrl pressed
-        if ev.ctrl() and self.__mode == "draw":
+        if ev.ctrl(): # and self.__mode == "draw":
             if not ev.shift():
                 self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__pen)
             else:

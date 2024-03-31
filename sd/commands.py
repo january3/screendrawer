@@ -484,7 +484,7 @@ class RotateCommand(MoveResizeCommand):
         angle = calc_rotation_angle(self.__rotation_centre, self.start_point, (x, y))
         d_a = angle - self._angle
         self._angle = angle
-        self.obj.rotate(d_a, set = False)
+        self.obj.rotate(d_a, set_angle = False)
 
     def event_finish(self):
         self.obj.rotate_end()

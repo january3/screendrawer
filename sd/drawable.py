@@ -383,7 +383,7 @@ class DrawableGroup(Drawable):
         else:
             self.rotation += angle
         for obj in self.objects:
-            obj.rotate(angle, set)
+            obj.rotate(angle, set_angle)
 
     def rotate_end(self):
         """Finish the rotation operation."""
@@ -792,12 +792,11 @@ class Text(Drawable):
 
     def rotate_end(self):
         """Finish the rotation operation."""
-        if self.bb:
-            center_x, center_y = self.bb[0] + self.bb[2] / 2, self.bb[1] + self.bb[3] / 2
-            new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
-            self.move(new_center[0] - center_x, new_center[1] - center_y)
-        self.rot_origin = new_center
-        pass
+       #if self.bb:
+       #    center_x, center_y = self.bb[0] + self.bb[2] / 2, self.bb[1] + self.bb[3] / 2
+       #    new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
+       #    self.move(new_center[0] - center_x, new_center[1] - center_y)
+       #self.rot_origin = new_center
 
     def stroke_change(self, direction):
         """Change text size up or down."""
