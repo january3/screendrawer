@@ -44,13 +44,14 @@ class EventManager:
             cls._instance = super(EventManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, gom, app, dm):
+    def __init__(self, gom, app, dm, canvas):
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
             self.__app = app
             self.__dm  = dm
-            self.make_actions_dictionary(gom, app, dm)
+            self.__canvas = canvas
+            self.make_actions_dictionary(gom, app, dm, canvas)
             self.make_default_keybindings()
 
     def dispatch_action(self, action_name, **kwargs):
@@ -149,7 +150,7 @@ class EventManager:
         app.queue_draw()
 
 
-    def make_actions_dictionary(self, gom, app, dm):
+    def make_actions_dictionary(self, gom, app, dm, canvas):
         """
         This dictionary maps key events to actions.
         """
@@ -166,9 +167,10 @@ class EventManager:
 
             'finish_text_input':     {'action': dm.finish_text_input},
 
+            'cycle_bg_transparency': {'action': canvas.cycle_background},
+            'toggle_outline':        {'action': canvas.outline_toggle},
+
             'clear_page':            {'action': dm.clear},
-            'cycle_bg_transparency': {'action': dm.cycle_background},
-            'toggle_outline':        {'action': dm.outline_toggle},
             'toggle_wiglets':        {'action': dm.toggle_wiglets},
 
             'show_help_dialog':      {'action': app.show_help_dialog},
@@ -205,17 +207,19 @@ class EventManager:
             'zmove_selection_raise':  {'action': gom.selection_zmove, 'args': [ "raise" ],  'modes': ["move"]},
             'zmove_selection_lower':  {'action': gom.selection_zmove, 'args': [ "lower" ],  'modes': ["move"]},
 
-            'set_color_white':       {'action': dm.set_color, 'args': [COLORS["white"]]},
-            'set_color_black':       {'action': dm.set_color, 'args': [COLORS["black"]]},
-            'set_color_red':         {'action': dm.set_color, 'args': [COLORS["red"]]},
-            'set_color_green':       {'action': dm.set_color, 'args': [COLORS["green"]]},
-            'set_color_blue':        {'action': dm.set_color, 'args': [COLORS["blue"]]},
-            'set_color_yellow':      {'action': dm.set_color, 'args': [COLORS["yellow"]]},
-            'set_color_cyan':        {'action': dm.set_color, 'args': [COLORS["cyan"]]},
-            'set_color_magenta':     {'action': dm.set_color, 'args': [COLORS["magenta"]]},
-            'set_color_purple':      {'action': dm.set_color, 'args': [COLORS["purple"]]},
-            'set_color_grey':        {'action': dm.set_color, 'args': [COLORS["grey"]]},
+            'set_color_white':       {'action': canvas.set_color, 'args': [COLORS["white"]]},
+            'set_color_black':       {'action': canvas.set_color, 'args': [COLORS["black"]]},
+            'set_color_red':         {'action': canvas.set_color, 'args': [COLORS["red"]]},
+            'set_color_green':       {'action': canvas.set_color, 'args': [COLORS["green"]]},
+            'set_color_blue':        {'action': canvas.set_color, 'args': [COLORS["blue"]]},
+            'set_color_yellow':      {'action': canvas.set_color, 'args': [COLORS["yellow"]]},
+            'set_color_cyan':        {'action': canvas.set_color, 'args': [COLORS["cyan"]]},
+            'set_color_magenta':     {'action': canvas.set_color, 'args': [COLORS["magenta"]]},
+            'set_color_purple':      {'action': canvas.set_color, 'args': [COLORS["purple"]]},
+            'set_color_grey':        {'action': canvas.set_color, 'args': [COLORS["grey"]]},
 
+            'apply_pen_to_bg':       {'action': canvas.apply_pen_to_bg,        'modes': ["move"]},
+            'toggle_pens':           {'action': canvas.switch_pens},
 
             # dialogs
             "export_drawing":        {'action': app.export_drawing},
@@ -242,8 +246,6 @@ class EventManager:
             'delete_page':            {'action': gom.delete_page},
 
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
-            'apply_pen_to_bg':        {'action': dm.apply_pen_to_bg,        'modes': ["move"]},
-            'toggle_pens':            {'action': dm.switch_pens},
 
 #            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
             'copy_content':          {'action': app.copy_content,        },
@@ -251,8 +253,8 @@ class EventManager:
             'paste_content':         {'action': app.paste_content},
             'screenshot':            {'action': app.screenshot},
 
-            'stroke_increase':       {'action': dm.stroke_increase},
-            'stroke_decrease':       {'action': dm.stroke_decrease},
+            'stroke_increase':       {'action': dm.stroke_change, 'args': [1]},
+            'stroke_decrease':       {'action': dm.stroke_change, 'args': [-1]},
         }
 
     def get_keybindings(self):

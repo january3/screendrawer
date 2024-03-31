@@ -1,10 +1,10 @@
 ## singleton class for serving icon pixbufs
 
-import os
-import sys
-import gi
-from sd.utils import base64_to_pixbuf
-gi.require_version('Gtk', '3.0')
+import os                                    # <remove>
+import sys                                   # <remove>
+import gi                                    # <remove>
+from sd.utils import base64_to_pixbuf        # <remove>
+gi.require_version('Gtk', '3.0')             # <remove>
 
 
 class Icons:
@@ -28,6 +28,7 @@ class Icons:
         self._load_icons()
 
     def get(self, name):
+        """Get the icon with the given name."""
         print("getting icon", name)
         if name not in self._icons:
             print("icon not found")

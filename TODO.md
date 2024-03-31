@@ -38,6 +38,13 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * double-shift clicking in text mode results in exceptions being thrown
+   around. The problem is that a double click event gets raised before the
+   second click is released; therefore, a text object is created with the
+   first click, then again with the second click, and then the second click
+   raises a double click event, which tries to remove the previous text
+   object, but it is not entered into the object list yet.
+ * Clicking a text in text mode results in exceptions being thrown around.
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies

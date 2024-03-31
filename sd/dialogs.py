@@ -46,8 +46,8 @@ Draw on the screen with Gnome and Cairo. Quick and dirty.
 <b>Mouse:</b>
 
 <b>All modes:</b>                                 <b>Move mode:</b>
-shift-click:  Enter text mode              click: Select object   Resizing: click in corner
-                                           move: Move object      Rotating: ctrl-shift-click in corner
+shift-click:  Enter text mode              click: Select object             Resizing: click in corner
+                                           click and drag: Move object      Rotating: ctrl-shift-click in corner
 ctrl-click:   Change line width            ctrl-a: Select all
 ctrl-shift-click: Change transparency
 
@@ -267,10 +267,10 @@ def FontChooser(pen, parent):
     return font_description
 
 
-def ColorChooser(parent):
+def ColorChooser(parent, title = "Select Pen Color"):
     """Select a color for drawing."""
     # Create a new color chooser dialog
-    color_chooser = Gtk.ColorChooserDialog("Select Current Foreground Color", parent = parent)
+    color_chooser = Gtk.ColorChooserDialog(title, parent = parent)
 
     # Show the dialog
     response = color_chooser.run()

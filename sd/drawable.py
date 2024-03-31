@@ -23,31 +23,32 @@ class DrawableFactory:
         """
         Create a drawable object of the specified type.
         """
-        print("create object of type", mode)
         shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
         pos = ev.pos()
-        corner_obj, corner = ev.corner()
-        hover_obj  = ev.hover()
-
         ret_obj = None
 
-        shift_click = shift and not ctrl
-        no_active_area = not corner_obj and not hover_obj
+        print("create object in mode", mode)
+        #if mode == "text" or (mode == "draw" and shift_click and no_active_area):
 
-        if mode == "text" or (mode == "draw" and shift_click and no_active_area):
+        if mode == "text":
+            print("creating text object")
             ret_obj = Text([ pos ], pen = pen, content = "")
             ret_obj.move_caret("Home")
 
         elif mode == "draw":
+            print("creating path object")
             ret_obj = Path([ pos ], pen = pen, pressure = [ pressure ])
 
         elif mode == "box":
+            print("creating box object")
             ret_obj = Box([ pos, (pos[0], pos[1]) ], pen = pen)
 
         elif mode == "shape":
+            print("creating shape object")
             ret_obj = Shape([ pos ], pen = pen)
 
         elif mode == "circle":
+            print("creating circle object")
             ret_obj = Circle([ pos, (pos[0], pos[1]) ], pen = pen)
 
         else:
@@ -792,6 +793,7 @@ class Text(Drawable):
 
     def rotate_end(self):
         """Finish the rotation operation."""
+       ## hmm, not sure what this is supposed to do.
        #if self.bb:
        #    center_x, center_y = self.bb[0] + self.bb[2] / 2, self.bb[1] + self.bb[3] / 2
        #    new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]

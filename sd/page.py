@@ -62,4 +62,5 @@ class Page:
 
     def kill_object(self, obj):
         """Directly remove an object from the list of objects."""
-        self.__objects.remove(obj)
+        if obj in self.__objects:
+            self.__objects.remove(obj)
