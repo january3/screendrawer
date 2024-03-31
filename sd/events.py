@@ -55,7 +55,7 @@ class MouseEvent:
             self.__info["corner"] = find_corners_next_to_click(self.__pos[0],
                                                        self.__pos[1],
                                                        self.objects, 20)
-        return self.__info["corner"]
+        return self.__info["corner"][0], self.__info["corner"][1]
 
     def pos(self):
         """Return the position of the mouse."""

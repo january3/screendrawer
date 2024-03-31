@@ -38,6 +38,7 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * circle and box do not respect transparency
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies

@@ -26,13 +26,14 @@ class DrawableFactory:
         print("create object of type", mode)
         shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
         pos = ev.pos()
-        corner_obj = ev.corner()
+        corner_obj, corner = ev.corner()
         hover_obj  = ev.hover()
 
         ret_obj = None
 
         shift_click = shift and not ctrl
-        no_active_area = not corner_obj[0] and not hover_obj
+        no_active_area = not corner_obj and not hover_obj
+
         if mode == "text" or (mode == "draw" and shift_click and no_active_area):
             ret_obj = Text([ pos ], pen = pen, content = "")
             ret_obj.move_caret("Home")
