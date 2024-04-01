@@ -1,12 +1,22 @@
 To do (sorted by priority):
 
 
+ * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
+   files
  * make wiglets movable
  * draw a dustbin wiglet in lower left corner
  * clean up font code. Maybe use the Pango.FontDescription class for
    everything - why not?
- * add layers so that we can sketch in one layer, then draw in another, and
-   finally remove the first one. 
+ * add layers so that we can create a sketch in one layer, then draw in another, and
+   finally remove the first one. Layers could be implemented as
+   DrawableGroup object within the Page class. Page should then keep track
+   of existing layers. The layers list would be independent of any
+   selection information, but the selection object and tool would probably
+   have to be aware of the layers; ctrl-a should only select objects from
+   the current layer.
+ * idea for path editing: "thumb" - moving a point on path and dragging
+   surrounding points with it in a rubber-like fashion; how many - that depends on current line
+   width (so broader line make more points move)
  * zoom in and out. I think the time is ripe for it 
  * brushes. (1) brush that generates short diagonal thin strokes (2) brush
    that creates a Gary Larson-like hatching (3) brush that creates a
@@ -63,6 +73,11 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * Replaced "Boxes" with "Rectangles" which are really Shapes (closed
+   paths). So I don't need to separately implement rotations for
+   Rectangles, which proved to be tricky, esp. for calculating the bounding
+   boxes of a rotated box. The Box class is still there, used for example
+   for the selection tool.
  * double-shift clicking in text mode results in exceptions being thrown
    around. The problem is that a double click event gets raised before the
    second click is released; therefore, a text object is created with the

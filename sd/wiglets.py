@@ -195,10 +195,10 @@ class WigletToolSelector(Wiglet):
         self.__width, self.__height = width, height
         self.__icons_only = True
 
-        self.__modes = [ "move", "draw", "shape", "box",
+        self.__modes = [ "move", "draw", "shape", "rectangle",
                         "circle", "text", "eraser", "colorpicker" ]
         self.__modes_dict = { "move": "Move", "draw": "Draw", "shape": "Shape",
-                              "box": "Rectangle", "circle": "Circle", "text": "Text",
+                              "rectangle": "Rectangle", "circle": "Circle", "text": "Text",
                               "eraser": "Eraser", "colorpicker": "Col.Pick" }
 
         if self.__icons_only and width > len(self.__modes) * 35:

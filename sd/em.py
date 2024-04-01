@@ -156,7 +156,7 @@ class EventManager:
         """
         self.__actions = {
             'mode_draw':             {'action': dm.mode, 'args': ["draw"]},
-            'mode_box':              {'action': dm.mode, 'args': ["box"]},
+            'mode_rectangle':              {'action': dm.mode, 'args': ["rectangle"]},
             'mode_circle':           {'action': dm.mode, 'args': ["circle"]},
             'mode_move':             {'action': dm.mode, 'args': ["move"]},
             'mode_text':             {'action': dm.mode, 'args': ["text"]},
@@ -269,7 +269,7 @@ class EventManager:
         """
         self.__keybindings = {
             'm':                    "mode_move",
-            'b':                    "mode_box",
+            'r':                    "mode_rectangle",
             'c':                    "mode_circle",
             'd':                    "mode_draw",
             't':                    "mode_text",

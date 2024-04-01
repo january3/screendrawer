@@ -216,7 +216,7 @@ class DrawManager:
         if ev.shift() and not ev.ctrl():
             mode = "text"
 
-        if not mode in [ "draw", "shape", "box", "circle", "text" ]:
+        if not mode in [ "draw", "shape", "rectangle", "circle", "text" ]:
             return False
 
         obj = DrawableFactory.create_drawable(mode, pen = self.__canvas.pen(), ev=ev)
@@ -416,7 +416,7 @@ class DrawManager:
         # remove objects that are too small
         if obj:
             bb = obj.bbox()
-            if bb and obj.type in [ "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
+            if bb and obj.type in [ "rectangle", "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
                 print("removing object of type", obj.type, "because too small")
                 self.__current_object = None
                 obj = None

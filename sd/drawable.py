@@ -23,8 +23,8 @@ class DrawableFactory:
         """
         Create a drawable object of the specified type.
         """
-        shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
         pos = ev.pos()
+        pressure = ev.pressure()
         ret_obj = None
 
         print("create object in mode", mode)
@@ -39,9 +39,9 @@ class DrawableFactory:
             print("creating path object")
             ret_obj = Path([ pos ], pen = pen, pressure = [ pressure ])
 
-        elif mode == "box":
-            print("creating box object")
-            ret_obj = Box([ pos, (pos[0], pos[1]) ], pen = pen)
+        elif mode == "rectangle":
+            print("creating rectangle object")
+            ret_obj = Rectangle([ pos ], pen = pen)
 
         elif mode == "shape":
             print("creating shape object")
@@ -76,8 +76,8 @@ class DrawableFactory:
             obj = Text.from_object(obj)
         elif mode == "draw":
             obj = Path.from_object(obj)
-        elif mode == "box":
-            obj = Box.from_object(obj)
+        elif mode == "rectangle":
+            obj = Rectangle.from_object(obj)
         elif mode == "shape":
             print("calling Shape.from_object")
             obj = Shape.from_object(obj)
@@ -263,12 +263,18 @@ class Drawable:
     # ------------ Drawable conversion methods ------------------
     @classmethod
     def from_dict(cls, d):
-        """ Create a drawable object from a dictionary. """
+        """ 
+        Create a drawable object from a dictionary. 
+
+        Objects must take all named arguments specified in their
+        dictionary.
+        """
         type_map = {
             "path": Path,
             "polygon": Shape, #back compatibility
             "shape": Shape,
             "circle": Circle,
+            "rectangle": Rectangle,
             "box": Box,
             "image": Image,
             "group": DrawableGroup,
@@ -1063,149 +1069,6 @@ class Text(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.5)
 
-class Shape(Drawable):
-    """Class for shapes (closed paths with no outline)."""
-    def __init__(self, coords, pen):
-        super().__init__("shape", coords, pen)
-        self.bb = None
-
-    def finish(self):
-        """Finish the shape."""
-        print("finishing shape")
-        self.coords, _ = smooth_path(self.coords)
-        #self.outline_recalculate_new()
-
-    def update(self, x, y, pressure):
-        """Update the shape with a new point."""
-        self.path_append(x, y, pressure)
-
-    def move(self, dx, dy):
-        """Move the shape by dx, dy."""
-        move_coords(self.coords, dx, dy)
-        self.bb = None
-
-
-    def rotate_end(self):
-        """finish the rotation"""
-        # rotate all coords and outline
-        self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
-        self.rotation   = 0
-        self.rot_origin = None
-        # recalculate bbox
-        self.bb = path_bbox(self.coords)
-
-    def is_close_to_click(self, click_x, click_y, threshold):
-        """Check if a click is close to the object."""
-        bb = self.bbox()
-        if bb is None:
-            return False
-        x, y, width, height = bb
-        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
-            return True
-        return False
-
-    def path_append(self, x, y, pressure = None):
-        """Append a new point to the path."""
-        self.coords.append((x, y))
-        self.bb = None
-
-    def bbox(self):
-        """Calculate the bounding box of the shape."""
-        if self.resizing:
-            return self.resizing["bbox"]
-        if not self.bb:
-            self.bb = path_bbox(self.coords)
-        return self.bb
-
-    def resize_end(self):
-        """recalculate the coordinates after resizing"""
-        old_bbox = self.bb or path_bbox(self.coords)
-        self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
-        self.resizing  = None
-        self.bb = path_bbox(self.coords)
-
-
-    def draw_outline(self, cr):
-        """draws each segment separately and makes a dot at each coord."""
-        coords = self.coords
-
-        for i in range(len(coords) - 1):
-            cr.move_to(coords[i][0], coords[i][1])
-            cr.line_to(coords[i + 1][0], coords[i + 1][1])
-            cr.stroke()
-            # make a dot at each coord
-            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
-            cr.fill()
-        cr.move_to(coords[-1][0], coords[-1][1])
-        cr.line_to(coords[0][0], coords[0][1])
-        cr.stroke()
-
-    def draw_simple(self, cr, bbox=None):
-        """draws the path as a single line. Useful for resizing."""
-
-        if len(self.coords) < 3:
-            return
-
-        if bbox:
-            old_bbox = path_bbox(self.coords)
-            coords = transform_coords(self.coords, old_bbox, bbox)
-        else:
-            coords = self.coords
-
-        cr.set_line_width(0.5)
-        cr.move_to(coords[0][0], coords[0][1])
-        for point in coords[1:]:
-            cr.line_to(point[0], point[1])
-        cr.close_path()
-
-
-    def draw(self, cr, hover=False, selected=False, outline = False):
-        """Draw the shape on the Cairo context."""
-        if len(self.coords) < 3:
-            return
-
-        if self.rotation != 0:
-            cr.save()
-            cr.translate(self.rot_origin[0], self.rot_origin[1])
-            cr.rotate(self.rotation)
-            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
-
-        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
-        res_bb = self.resizing and self.resizing["bbox"] or None
-        self.draw_simple(cr, res_bb)
-
-        if outline:
-            cr.stroke()
-            self.draw_outline(cr)
-        else:
-            cr.fill()
-
-        if selected:
-            cr.set_source_rgba(1, 0, 0)
-            self.bbox_draw(cr, lw=.2)
-
-        if hover:
-            self.bbox_draw(cr, lw=.2)
-
-        if self.rotation != 0:
-            cr.restore()
-
-    @classmethod
-    def from_path(cls, path):
-        """Create a shape from a path."""
-        return cls(path.coords, path.pen)
-
-    @classmethod
-    def from_object(cls, obj):
-        """Create a shape from an object."""
-        print("Shape.from_object", obj)
-        if obj.coords and len(obj.coords) > 2 and obj.pen:
-            return cls(obj.coords, obj.pen)
-
-        # issue a warning
-        print("Shape.from_object: invalid object")
-        return obj
-
 class Path(Drawable):
     """ Path is like shape, but not closed and has an outline that depends on
         line width and pressure."""
@@ -1479,6 +1342,203 @@ class Path(Drawable):
         print("Path.from_object: invalid object")
         return obj
 
+class Shape(Drawable):
+    """Class for shapes (closed paths with no outline)."""
+    def __init__(self, coords, pen, filled = True):
+        super().__init__("shape", coords, pen)
+        self.bb = None
+        self.__filled = filled
+
+    def finish(self):
+        """Finish the shape."""
+        print("finishing shape")
+        self.coords, _ = smooth_path(self.coords)
+        #self.outline_recalculate_new()
+
+    def update(self, x, y, pressure):
+        """Update the shape with a new point."""
+        self.path_append(x, y, pressure)
+
+    def move(self, dx, dy):
+        """Move the shape by dx, dy."""
+        move_coords(self.coords, dx, dy)
+        self.bb = None
+
+    def rotate_end(self):
+        """finish the rotation"""
+        # rotate all coords and outline
+        self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
+        self.rotation   = 0
+        self.rot_origin = None
+        # recalculate bbox
+        self.bb = path_bbox(self.coords)
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the object."""
+        bb = self.bbox()
+        if bb is None:
+            return False
+        x, y, width, height = bb
+        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
+            return True
+        return False
+
+    def path_append(self, x, y, pressure = None):
+        """Append a new point to the path."""
+        self.coords.append((x, y))
+        self.bb = None
+
+    def bbox(self):
+        """Calculate the bounding box of the shape."""
+        if self.resizing:
+            return self.resizing["bbox"]
+        if not self.bb:
+            self.bb = path_bbox(self.coords)
+        return self.bb
+
+    def resize_end(self):
+        """recalculate the coordinates after resizing"""
+        old_bbox = self.bb or path_bbox(self.coords)
+        self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
+        self.resizing  = None
+        self.bb = path_bbox(self.coords)
+
+    def to_dict(self):
+        """Convert the object to a dictionary."""
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "filled": self.__filled,
+            "pen": self.pen.to_dict()
+        }
+
+
+    def draw_outline(self, cr):
+        """draws each segment separately and makes a dot at each coord."""
+        coords = self.coords
+
+        for i in range(len(coords) - 1):
+            cr.move_to(coords[i][0], coords[i][1])
+            cr.line_to(coords[i + 1][0], coords[i + 1][1])
+            cr.stroke()
+            # make a dot at each coord
+            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+            cr.fill()
+        cr.move_to(coords[-1][0], coords[-1][1])
+        cr.line_to(coords[0][0], coords[0][1])
+        cr.stroke()
+
+    def draw_simple(self, cr, bbox=None):
+        """draws the path as a single line. Useful for resizing."""
+
+        if len(self.coords) < 3:
+            return
+
+        if bbox:
+            old_bbox = path_bbox(self.coords)
+            coords = transform_coords(self.coords, old_bbox, bbox)
+        else:
+            coords = self.coords
+
+        cr.set_line_width(0.5)
+        cr.move_to(coords[0][0], coords[0][1])
+
+        for point in coords[1:]:
+            cr.line_to(point[0], point[1])
+        cr.close_path()
+
+
+    def draw(self, cr, hover=False, selected=False, outline = False):
+        """Draw the shape on the Cairo context."""
+        if len(self.coords) < 3:
+            return
+
+        if self.rotation != 0:
+            cr.save()
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+        res_bb = self.resizing and self.resizing["bbox"] or None
+        self.draw_simple(cr, res_bb)
+
+        if outline:
+            cr.stroke()
+            self.draw_outline(cr)
+        elif self.__filled:
+            cr.fill()
+        else:
+            cr.set_line_width(self.pen.line_width)
+            cr.stroke()
+
+        if selected:
+            cr.set_source_rgba(1, 0, 0)
+            self.bbox_draw(cr, lw=.2)
+
+        if hover:
+            self.bbox_draw(cr, lw=.2)
+
+        if self.rotation != 0:
+            cr.restore()
+
+    @classmethod
+    def from_path(cls, path):
+        """Create a shape from a path."""
+        return cls(path.coords, path.pen)
+
+    @classmethod
+    def from_object(cls, obj):
+        """Create a shape from an object."""
+        print("Shape.from_object", obj)
+        if obj.coords and len(obj.coords) > 2 and obj.pen:
+            return cls(obj.coords, obj.pen)
+
+        # issue a warning
+        print("Shape.from_object: invalid object")
+        return obj
+
+class Rectangle(Shape):
+    """Class for creating rectangles."""
+    def __init__(self, coords, pen, filled = False):
+        super().__init__(coords, pen, filled)
+        self.coords = coords
+        self.type = "rectangle"
+        # fill up coords to length 4
+        n = 5 - len(coords)
+        if n > 0:
+            self.coords += [(coords[0][0], coords[0][1])] * n
+
+    def finish(self):
+        """Finish the rectangle."""
+        print("finishing rectangle")
+        #self.coords, _ = smooth_path(self.coords)
+        #self.outline_recalculate_new()
+
+    def update(self, x, y, pressure):
+        """
+        Update the rectangle with a new point.
+
+        Unlike the shape, we use four points only to define rectangle.
+
+        We need more than two points, because subsequent transformations
+        may change it to a parallelogram.
+        """
+        x0, y0 = self.coords[0]
+        if x < x0:
+            x, x0 = x0, x
+
+        if y < y0:
+            y, y0 = y0, y
+
+        self.coords[0] = (x0, y0)
+        self.coords[1] = (x, y0)
+        self.coords[2] = (x, y)
+        self.coords[3] = (x0, y)
+        self.coords[4] = (x0, y0)
+
+        print("coords now:", [c for c in self.coords])
+
 
 class Circle(Drawable):
     """Class for creating circles."""
@@ -1543,6 +1603,15 @@ class Box(Drawable):
         self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
         self.resizing = None
 
+    def rotate_end(self):
+        """Ignore rotation"""
+
+    def rotate_start(self, origin):
+        """Ignore rotation."""
+
+    def rotate(self, angle, set_angle = False):
+        """Ignore rotation."""
+
     def resize_update(self, bbox):
         self.resizing["bbox"] = bbox
         self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
@@ -1574,6 +1643,7 @@ class Box(Drawable):
             cr.arc(x0, y0, 10, 0, 2 * 3.14159)  # Draw a circle
             #cr.fill()  # Fill the circle to make a dot
             cr.stroke()
+
         if selected:
             cr.set_source_rgba(1, 0, 0)
             self.bbox_draw(cr, lw=.35)

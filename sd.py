@@ -3448,10 +3448,11 @@ class GraphicsObjectManager:
         _objects (list): The list of objects.
     """
 
-    def __init__(self, app):
+    def __init__(self, app, canvas):
 
         # private attr
         self.__app = app
+        self.__canvas = canvas
         self.__history    = []
         self.__redo_stack = []
         self.__page = None
@@ -3686,7 +3687,7 @@ class GraphicsObjectManager:
         """Fill the selected object."""
         # XXX gom should not call dm directly
         # this code should be gone!
-        color = self.__app.dm.pen().color
+        color = self.__canvas.pen().color
         for obj in self.__selection.objects:
             obj.fill(color)
 
@@ -3705,7 +3706,7 @@ class GraphicsObjectManager:
     def selection_apply_pen(self):
         """Apply the pen to the selected objects."""
         if not self.__selection.is_empty():
-            pen = self.__app.dm.pen()
+            pen = self.__canvas.pen()
             self.__history.append(SetPenCommand(self.__selection, pen))
 
     def redo(self):
@@ -3763,6 +3764,14 @@ class GraphicsObjectManager:
             return
         self.__history.append(ZStackCommand(self.__selection.objects,
                                             self.__page.objects(), operation, page=self.__page))
+
+    def draw(self, cr, hover_obj = None, mode = None):
+        """Draw the objects in the given context. Used also by export functions."""
+
+        for obj in self.__page.objects():
+            hover    = obj == hover_obj and mode == "move"
+            selected = self.__selection.contains(obj) and mode == "move"
+            obj.draw(cr, hover=hover, selected=selected, outline = self.__canvas.outline())
 """
 This module provides functions to import and export drawings in various formats.
 """
@@ -4131,16 +4140,16 @@ class EventManager:
             'zmove_selection_raise':  {'action': gom.selection_zmove, 'args': [ "raise" ],  'modes': ["move"]},
             'zmove_selection_lower':  {'action': gom.selection_zmove, 'args': [ "lower" ],  'modes': ["move"]},
 
-            'set_color_white':       {'action': canvas.set_color, 'args': [COLORS["white"]]},
-            'set_color_black':       {'action': canvas.set_color, 'args': [COLORS["black"]]},
-            'set_color_red':         {'action': canvas.set_color, 'args': [COLORS["red"]]},
-            'set_color_green':       {'action': canvas.set_color, 'args': [COLORS["green"]]},
-            'set_color_blue':        {'action': canvas.set_color, 'args': [COLORS["blue"]]},
-            'set_color_yellow':      {'action': canvas.set_color, 'args': [COLORS["yellow"]]},
-            'set_color_cyan':        {'action': canvas.set_color, 'args': [COLORS["cyan"]]},
-            'set_color_magenta':     {'action': canvas.set_color, 'args': [COLORS["magenta"]]},
-            'set_color_purple':      {'action': canvas.set_color, 'args': [COLORS["purple"]]},
-            'set_color_grey':        {'action': canvas.set_color, 'args': [COLORS["grey"]]},
+            'set_color_white':       {'action': dm.set_color, 'args': [COLORS["white"]]},
+            'set_color_black':       {'action': dm.set_color, 'args': [COLORS["black"]]},
+            'set_color_red':         {'action': dm.set_color, 'args': [COLORS["red"]]},
+            'set_color_green':       {'action': dm.set_color, 'args': [COLORS["green"]]},
+            'set_color_blue':        {'action': dm.set_color, 'args': [COLORS["blue"]]},
+            'set_color_yellow':      {'action': dm.set_color, 'args': [COLORS["yellow"]]},
+            'set_color_cyan':        {'action': dm.set_color, 'args': [COLORS["cyan"]]},
+            'set_color_magenta':     {'action': dm.set_color, 'args': [COLORS["magenta"]]},
+            'set_color_purple':      {'action': dm.set_color, 'args': [COLORS["purple"]]},
+            'set_color_grey':        {'action': dm.set_color, 'args': [COLORS["grey"]]},
 
             'apply_pen_to_bg':       {'action': canvas.apply_pen_to_bg,        'modes': ["move"]},
             'toggle_pens':           {'action': canvas.switch_pens},
@@ -4300,10 +4309,9 @@ class MenuMaker:
             cls._instance = super(MenuMaker, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, gom, em, app):
+    def __init__(self, em, app):
         if not hasattr(self, '_initialized'):
             self._initialized = True
-            self.__gom = gom # GraphicObjectManager
             self.__app = app # App
             self.__em  = em  # EventManager
             self.__context_menu = None
@@ -4862,7 +4870,7 @@ class DrawManager:
         self.__paning = None
         self.__show_wiglets = True
         self.__wiglets = [ WigletColorSelector(height = app.get_size()[1],
-                                               func_color = self.__canvas.set_color,
+                                               func_color = self.set_color,
                                                func_bg = self.__canvas.bg_color),
                            WigletToolSelector(func_mode = self.mode),
                            WigletPageSelector(gom = gom, screen_wh_func = app.get_size,
@@ -4922,7 +4930,7 @@ class DrawManager:
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
-        self.__canvas.draw(cr, self.__hover, self.__mode)
+        self.__gom.draw(cr, self.__hover, self.__mode)
 
         if self.__current_object:
             self.__current_object.draw(cr)
@@ -5146,7 +5154,7 @@ class DrawManager:
             return False
 
         color = get_color_under_cursor()
-        self.__canvas.set_color(color)
+        self.set_color(color)
         color_hex = rgb_to_hex(color)
         self.__app.clipboard.set_text(color_hex)
         self.__app.queue_draw()
@@ -5454,6 +5462,13 @@ class DrawManager:
 #       if self.selection.n() > 0:
 #           for obj in self.selection.objects:
 #               obj.smoothen()
+    def set_color(self, color = None):
+        """Set the color."""
+        if color is None:
+            return self.__canvas.pen().color
+        self.__canvas.pen().color_set(color)
+        self.__gom.selection_color_set(color)
+        return color
 
     def clear(self):
         """Clear the drawing."""
@@ -5594,8 +5609,7 @@ class Canvas:
     """
     Canvas for drawing shapes and text.
     """
-    def __init__(self, gom):
-        self.__gom = gom
+    def __init__(self):
         self.__bg_color = (.8, .75, .65)
         self.__transparency = 0
         self.__outline = False
@@ -5629,17 +5643,13 @@ class Canvas:
         """Cycle through background transparency."""
         self.__transparency = {1: 0, 0: 0.5, 0.5: 1}[self.__transparency]
 
+    def outline(self):
+        """Get the outline mode."""
+        return self.__outline
+
     def outline_toggle(self):
         """Toggle outline mode."""
         self.__outline = not self.__outline
-
-    def draw(self, cr, hover_obj = None, mode = None):
-        """Draw the objects in the given context. Used also by export functions."""
-
-        for obj in self.__gom.objects():
-            hover    = obj == hover_obj and mode == "move"
-            selected = self.__gom.selection().contains(obj) and mode == "move"
-            obj.draw(cr, hover=hover, selected=selected, outline = self.__outline)
 
     def bg_color(self, color=None):
         """Get or set the background color."""
@@ -5653,13 +5663,7 @@ class Canvas:
             self.__transparency = value
         return self.__transparency
 
-    def set_color(self, color = None):
-        """Set the color."""
-        if color is None:
-            return self.__pen.color
-        self.__pen.color_set(color)
-        self.__gom.selection_color_set(color)
-        return color
+
 
 
 # ---------------------------------------------------------------------
@@ -5714,18 +5718,27 @@ class TransparentWindow(Gtk.Window):
         self.set_app_paintable(True)
 
         # autosave
-        GLib.timeout_add(AUTOSAVE_INTERVAL, self.autosave)
+        GLib.timeout_add(AUTOSAVE_INTERVAL, self.__autosave)
 
         # Drawing setup
         self.clipboard           = Clipboard()
-        self.gom                 = GraphicsObjectManager(self)
+        self.canvas              = Canvas()
+        self.gom                 = GraphicsObjectManager(self, canvas=self.canvas)
         self.cursor              = CursorManager(self)
-        self.canvas              = Canvas(gom = self.gom)
+
+        # dm needs to know about gom because gom manipulates the selection
+        # and history (object creation etc)
+        # it needs to know about the cursor to change the cursor if needed
+        # it needs to know about the canvas to get the pen
+        # it needs to know about the app to get the size of the window and
+        # queue up redraws
         self.dm                  = DrawManager(gom = self.gom,  app = self,
                                                cursor = self.cursor, canvas = self.canvas)
+
+        # em has to know about all that to link actions to methods
         self.em                  = EventManager(gom = self.gom, app = self,
                                                 dm = self.dm, canvas = self.canvas)
-        self.mm                  = MenuMaker(self.gom, self.em, self)
+        self.mm                  = MenuMaker(self.em, self)
 
         # distance for selecting objects
         self.max_dist   = 15
@@ -5760,7 +5773,7 @@ class TransparentWindow(Gtk.Window):
         """Exit the application."""
         ## close the savefile_f
         print("Exiting")
-        self.save_state()
+        self.__save_state()
         Gtk.main_quit()
 
     # ---------------------------------------------------------------------
@@ -5794,6 +5807,20 @@ class TransparentWindow(Gtk.Window):
 
         self.gom.add_object(new_obj)
 
+    def copy_content(self, destroy = False):
+        """Copy content to clipboard."""
+        content = self.gom.selection()
+        if content.is_empty():
+            # nothing selected
+            print("Nothing selected, selecting all objects")
+            content = DrawableGroup(self.gom.objects())
+
+        print("Copying content", content)
+        self.clipboard.copy_content(content)
+
+        if destroy:
+            self.gom.remove_selection()
+
     def paste_content(self):
         """Paste content from clipboard."""
         clip_type, clip = self.clipboard.get_content()
@@ -5817,20 +5844,6 @@ class TransparentWindow(Gtk.Window):
         elif clip_type == "image":
             self.paste_image(clip)
 
-    def copy_content(self, destroy = False):
-        """Copy content to clipboard."""
-        content = self.gom.selection()
-        if content.is_empty():
-            # nothing selected
-            print("Nothing selected, selecting all objects")
-            content = DrawableGroup(self.gom.objects())
-
-        print("Copying content", content)
-        self.clipboard.copy_content(content)
-
-        if destroy:
-            self.gom.remove_selection()
-
     def cut_content(self):
         """Cut content to clipboard."""
         self.copy_content(True)
@@ -5845,7 +5858,7 @@ class TransparentWindow(Gtk.Window):
         """Select a color for drawing using ColorChooser dialog."""
         color = ColorChooser(self)
         if color:
-            self.canvas.set_color((color.red, color.green, color.blue))
+            self.dm.set_color((color.red, color.green, color.blue))
 
     def select_font(self):
         """Select a font for drawing using FontChooser dialog."""
@@ -5867,7 +5880,7 @@ class TransparentWindow(Gtk.Window):
         if file:
             self.savefile = file
             print("setting savefile to", file)
-            self.save_state()
+            self.__save_state()
 
     def export_drawing(self):
         """Save the drawing to a file."""
@@ -5960,7 +5973,7 @@ class TransparentWindow(Gtk.Window):
             Gtk.main_iteration_do(False)
         GLib.timeout_add(100, self.__screenshot_finalize, bb)
 
-    def autosave(self):
+    def __autosave(self):
         """Autosave the drawing state."""
         if not self.dm.modified():
             return
@@ -5969,10 +5982,10 @@ class TransparentWindow(Gtk.Window):
             return
 
         print("Autosaving")
-        self.save_state()
+        self.__save_state()
         self.dm.modified(False)
 
-    def save_state(self):
+    def __save_state(self):
         """Save the current drawing state to a file."""
         if not self.savefile:
             print("No savefile set")

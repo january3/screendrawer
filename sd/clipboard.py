@@ -23,7 +23,7 @@ class Clipboard:
     def on_clipboard_owner_change(self, clipboard, event):
         """Handle clipboard owner change events."""
 
-        print("Owner change, removing internal clipboard")
+        print(f"Owner change ({clipboard}), removing internal clipboard")
         print("reason:", event.reason)
         if self.clipboard_owner:
             self.clipboard_owner = False

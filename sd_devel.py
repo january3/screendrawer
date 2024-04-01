@@ -357,13 +357,13 @@ class TransparentWindow(Gtk.Window):
     def __find_screenshot_box(self):
         """Find a box suitable for selecting a screenshot."""
         cobj = self.dm.current_object()
-        if cobj and cobj.type == "box":
+        if cobj and cobj.type == "rectangle":
             return cobj
         for obj in self.gom.selected_objects():
-            if obj.type == "box":
+            if obj.type == "rectangle":
                 return obj
         for obj in self.gom.objects()[::-1]:
-            if obj.type == "box":
+            if obj.type == "rectangle":
                 return obj
         return None
 

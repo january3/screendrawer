@@ -59,7 +59,7 @@ class CursorManager:
             "draw":        Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "crosshair":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             "circle":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
-            "box":         Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
+            "rectangle":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             "none":        Gdk.Cursor.new_from_name(window.get_display(), "none"),
             "upper_left":  Gdk.Cursor.new_from_name(window.get_display(), "nw-resize"),
             "upper_right": Gdk.Cursor.new_from_name(window.get_display(), "ne-resize"),
