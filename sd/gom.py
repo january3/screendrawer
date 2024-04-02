@@ -251,12 +251,9 @@ class GraphicsObjectManager:
         self.__selection.previous()
 
     def selection_fill(self):
-        """Fill the selected object."""
-        # XXX gom should not call dm directly
-        # this code should be gone!
-        color = self.__canvas.pen().color
+        """Toggle the fill of the selected objects."""
         for obj in self.__selection.objects:
-            obj.fill(color)
+            obj.fill_toggle()
 
     def selection_color_set(self, color):
         """Set the color of the selected objects."""

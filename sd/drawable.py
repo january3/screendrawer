@@ -104,12 +104,13 @@ class Drawable:
         pen (Pen): The pen used for drawing the object.
     """
     def __init__(self, mytype, coords, pen):
-        self.type       = mytype
-        self.coords     = coords
-        self.origin     = None
-        self.resizing   = None
-        self.rotation   = 0
-        self.rot_origin = None
+        self.type         = mytype
+        self.coords       = coords
+        self.origin       = None
+        self.resizing     = None
+        self.rotation     = 0
+        self.rot_origin   = None
+        self.__filled     = False
         if pen:
             self.pen    = pen.copy()
         else:
@@ -174,13 +175,17 @@ class Drawable:
         """Smoothen the object."""
         print(f"smoothening not implemented (threshold {threshold})")
 
-    def unfill(self):
-        """Remove the fill from the object."""
-        self.pen.fill_set(None)
+    def fill(self):
+        """Return the fill status"""
+        return self.__filled
 
-    def fill(self, color = None):
+    def fill_toggle(self):
+        """Toggle the fill of the object."""
+        self.__filled = not self.__filled
+
+    def fill_set(self, fill):
         """Fill the object with a color."""
-        self.pen.fill_set(color)
+        self.__filled = fill
 
     def line_width_set(self, lw):
         """Set the color of the object."""
@@ -329,6 +334,11 @@ class DrawableGroup(Drawable):
             if obj.is_close_to_click(click_x, click_y, threshold):
                 return True
         return False
+
+    def fill_toggle(self):
+        """Toggle the fill of the objects"""
+        for obj in self.objects:
+            obj.fill_toggle()
 
     def stroke_change(self, direction):
         """Change the stroke size of the objects in the group."""
@@ -1346,7 +1356,7 @@ class Shape(Drawable):
     def __init__(self, coords, pen, filled = True):
         super().__init__("shape", coords, pen)
         self.bb = None
-        self.__filled = filled
+        self.fill_set(filled)
 
     def finish(self):
         """Finish the shape."""
@@ -1390,9 +1400,12 @@ class Shape(Drawable):
     def bbox(self):
         """Calculate the bounding box of the shape."""
         if self.resizing:
-            return self.resizing["bbox"]
+            bb = self.resizing["bbox"]
+            lw = self.pen.line_width
+            bb = (bb[0] - lw / 2, bb[1] - lw / 2, bb[2] + lw, bb[3] + lw)
+            return bb
         if not self.bb:
-            self.bb = path_bbox(self.coords)
+            self.bb = path_bbox(self.coords, lw = self.pen.line_width)
         return self.bb
 
     def resize_end(self):
@@ -1400,14 +1413,14 @@ class Shape(Drawable):
         old_bbox = self.bb or path_bbox(self.coords)
         self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
         self.resizing  = None
-        self.bb = path_bbox(self.coords)
+        self.bb = path_bbox(self.coords, lw = self.pen.line_width)
 
     def to_dict(self):
         """Convert the object to a dictionary."""
         return {
             "type": self.type,
             "coords": self.coords,
-            "filled": self.__filled,
+            "filled": self.fill(),
             "pen": self.pen.to_dict()
         }
 
@@ -1465,7 +1478,7 @@ class Shape(Drawable):
         if outline:
             cr.stroke()
             self.draw_outline(cr)
-        elif self.__filled:
+        elif self.fill():
             cr.fill()
         else:
             cr.set_line_width(self.pen.line_width)
@@ -1542,12 +1555,9 @@ class Circle(Shape):
     def __init__(self, coords, pen, filled = False):
         super().__init__(coords, pen, filled)
         self.coords = coords
-        self.type = "rectangle"
+        self.type = "circle"
         self.__bb = [ (coords[0][0], coords[0][1]), (coords[0][0], coords[0][1]) ]
         # fill up coords to length 4
-        n = 5 - len(coords)
-        if n > 0:
-            self.coords += [(coords[0][0], coords[0][1])] * n
 
     def finish(self):
         """Finish the circle."""
@@ -1575,10 +1585,14 @@ class Circle(Shape):
 
         # calculate the points
         coords = []
-        for i in range(n_points):
-            x = cx + rx * math.cos(i * angle)
-            y = cy + ry * math.sin(i * angle)
-            coords.append((x, y))
+        coords = [ (cx + rx * math.cos(i * angle),
+                    cy + ry * math.sin(i * angle)) for i in range(n_points)
+                  ]
+
+       #for i in range(n_points):
+       #    x = cx + rx * math.cos(i * angle)
+       #    y = cy + ry * math.sin(i * angle)
+       #    coords.append((x, y))
 
         self.coords = coords
 

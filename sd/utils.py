@@ -305,14 +305,15 @@ def move_coords(coords, dx, dy):
         coords[i] = (coords[i][0] + dx, coords[i][1] + dy)
     return coords
 
-def path_bbox(coords):
+def path_bbox(coords, lw = 0):
     """Calculate the bounding box of a path."""
     if not coords:
         return (0, 0, 0, 0)
 
-    left, top = min(p[0] for p in coords), min(p[1] for p in coords)
-    width  =    max(p[0] for p in coords) - left
-    height =    max(p[1] for p in coords) - top
+    left = min(p[0] for p in coords) - lw/2
+    top = min(p[1] for p in coords) - lw/2
+    width  =    max(p[0] for p in coords) - left + lw/2
+    height =    max(p[1] for p in coords) - top + lw/2
     return (left, top, width, height)
 
 def is_click_close_to_path(click_x, click_y, path, threshold):

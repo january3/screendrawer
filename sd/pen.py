@@ -70,9 +70,17 @@ class Pen:
         """Set fill color"""
         self.fill_color = color
 
+    def fill_get(self):
+        """Get fill color"""
+        return self.fill_color
+
     def color_set(self, color):
         """Set pen color"""
         self.color = color
+
+    def color_get(self):
+        """Get pen color"""
+        return self.color
 
     def line_width_set(self, line_width):
         """Set pen line width"""

@@ -16,20 +16,15 @@ class Icons:
 
     def __new__(cls, *args, **kwargs):
         if cls.__new_instance is None:
-            print("creating new instance of Icons")
             cls.__new_instance = super(Icons, cls).__new__(cls)
-        else:
-            print("returning existing instance of Icons")
         return cls.__new_instance
 
     def __init__(self):
-        print("initializing Icons")
         self._icons = {}
         self._load_icons()
 
     def get(self, name):
         """Get the icon with the given name."""
-        print("getting icon", name)
         if name not in self._icons:
             print("icon not found")
             return None
