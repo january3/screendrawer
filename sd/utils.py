@@ -15,7 +15,6 @@ import pyautogui                                                    #<remove>
 from PIL import ImageGrab                                           #<remove>
 
 gi.require_version('Gtk', '3.0')                                    #<remove>
-from .brush import Brush                                             #<remove>
 
 def get_default_savefile(app_name, app_author):
     """Get the default save file for the application."""
@@ -144,9 +143,12 @@ def smooth_path(coords, pressure=None, threshold=20):
         return coords, pressure  # Not enough points to smooth
 
     if pressure and len(pressure) != len(coords):
-        raise ValueError("Pressure and coords must have the same length")
+        #raise ValueError("Pressure and coords must have the same length")
+        print("Pressure and coords must have the same length:", len(pressure), len(coords))
+        return coords, pressure
 
-    print("smoothing path with", len(coords), "points")
+
+    #print("smoothing path with", len(coords), "points")
     smoothed_coords = [coords[0]]  # Start with the first point
     if pressure:
         new_pressure    = [pressure[0]]
@@ -264,7 +266,6 @@ def calc_arc_coords(p1, p2, p3, n = 20):
     radius = math.sqrt((x2 - x1)**2 + (y2 - y1)**2) / 2
 
     side = determine_side_math(p1, p2, p3)
-    print("side = ", side)
     
     # calculate the from p0 to p1
     a1 = math.atan2(y1 - p0[1], x1 - p0[0])
@@ -316,6 +317,56 @@ def coords_rotate(coords, angle, origin):
         y1 = x0 * math.sin(angle) + y0 * math.cos(angle)
         ret.append((x1 + origin[0], y1 + origin[1]))
     return ret
+
+def calc_normal_outline(coords, pressure, line_width, rounded = False):
+    """Calculate the normal outline of a path."""
+    n = len(coords)
+
+    outline_l = []
+    outline_r = []
+
+    for i in range(n - 2):
+        p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
+        nx, ny = normal_vec(p0, p1)
+        mx, my = normal_vec(p1, p2)
+
+        width  = line_width * pressure[i] / 2
+
+        left_segment1_start = (p0[0] + nx * width, p0[1] + ny * width)
+        left_segment1_end   = (p1[0] + nx * width, p1[1] + ny * width)
+        left_segment2_start = (p1[0] + mx * width, p1[1] + my * width)
+        left_segment2_end   = (p2[0] + mx * width, p2[1] + my * width)
+
+        right_segment1_start = (p0[0] - nx * width, p0[1] - ny * width)
+        right_segment1_end   = (p1[0] - nx * width, p1[1] - ny * width)
+        right_segment2_start = (p1[0] - mx * width, p1[1] - my * width)
+        right_segment2_end   = (p2[0] - mx * width, p2[1] - my * width)
+
+        if i == 0:
+        ## append the points for the first coord
+            if rounded:
+                arc_coords = calc_arc_coords( left_segment1_start,
+                                              right_segment1_start, 
+                                             p1, 10)
+                outline_r.extend(arc_coords)
+            outline_l.append(left_segment1_start)
+            outline_r.append(right_segment1_start)
+
+        outline_l.append(left_segment1_end)
+        outline_l.append(left_segment2_start)
+        outline_r.append(right_segment1_end)
+        outline_r.append(right_segment2_start)
+
+        if i == n - 3:
+            outline_l.append(left_segment2_end)
+            outline_r.append(right_segment2_end)
+            if rounded:
+                arc_coords = calc_arc_coords( left_segment2_end,
+                                              right_segment2_end,
+                                             p1, 10)
+                outline_l.extend(arc_coords)
+    return outline_l, outline_r
+
 
 def normal_vec(p0, p1):
     """Calculate the normal vector of a line segment."""

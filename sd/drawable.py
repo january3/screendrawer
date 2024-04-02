@@ -13,6 +13,7 @@ from .utils import normal_vec, transform_coords, smooth_path, coords_rotate     
 from .utils import is_click_close_to_path, path_bbox, move_coords, flatten_and_unique # <remove>
 from .utils import base64_to_pixbuf, find_obj_in_bbox     # <remove>
 from .utils import calc_arc_coords                       # <remove>
+from .brush import Brush, BrushFactory                   #<remove>
 
 
 class DrawableFactory:
@@ -1078,22 +1079,28 @@ class Text(Drawable):
 class Path(Drawable):
     """ Path is like shape, but not closed and has an outline that depends on
         line width and pressure."""
-    def __init__(self, coords, pen, outline = None, pressure = None):
+    def __init__(self, coords, pen, outline = None, pressure = None, brush = "marker"):
         super().__init__("path", coords, pen = pen)
         self.__outline   = outline  or []
         self.__pressure  = pressure or []
-        self.__outline_l = []
-        self.__outline_r = []
         self.__bb        = []
+        self.__brush     = BrushFactory.create_brush(brush)
+        self.__brush_type = brush
+        print("brush type is", brush)
 
         if len(self.coords) > 3 and not self.__outline:
-            self.outline_recalculate_new()
+            self.outline_recalculate()
+
+    def outline_recalculate(self):
+        """Recalculate the outline of the path."""
+        self.__brush.recalculate(self.pen.line_width, 
+                                 coords = self.coords, 
+                                 pressure = self.__pressure)
+        self.__outline  = self.__brush.outline()
 
     def finish(self):
         """Finish the path."""
-        self.outline_recalculate_new()
-        if len(self.coords) != len(self.__pressure):
-            raise ValueError("Pressure and coords don't match")
+        self.outline_recalculate()
 
     def update(self, x, y, pressure):
         """Update the path with a new point."""
@@ -1126,13 +1133,14 @@ class Path(Drawable):
             "coords": self.coords,
             "outline": self.__outline,
             "pressure": self.__pressure,
-            "pen": self.pen.to_dict()
+            "pen": self.pen.to_dict(),
+            "brush": self.__brush_type,
         }
 
     def stroke_change(self, direction):
         """Change the stroke size."""
         self.pen.stroke_change(direction)
-        self.outline_recalculate_new()
+        self.outline_recalculate()
 
     def smoothen(self, threshold=20):
         """Smoothen the path."""
@@ -1140,84 +1148,12 @@ class Path(Drawable):
             return
         print("smoothening path")
         self.coords, self.__pressure = smooth_path(self.coords, self.__pressure, 1)
-        self.outline_recalculate_new()
+        self.outline_recalculate()
 
     def pen_set(self, pen):
         """Set the pen for the path."""
         self.pen = pen.copy()
-        self.outline_recalculate_new()
-
-    def outline_recalculate_new(self, coords = None, pressure = None):
-        """Recalculate the outline of the path."""
-        if not coords:
-            coords = self.coords
-        if not pressure:
-            pressure = self.__pressure or [1] * len(coords)
-
-        lwd = self.pen.line_width
-
-        if len(coords) < 3:
-            return
-        print("recalculating outline")
-
-        print("1.length of coords and pressure:", len(coords), len(pressure))
-        coords, pressure = smooth_path(coords, pressure, 20)
-        print("2.length of coords and pressure:", len(coords), len(pressure))
-
-        outline_l = []
-        outline_r = []
-
-        n = len(coords)
-
-        for i in range(n - 2):
-            p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
-            nx, ny = normal_vec(p0, p1)
-            mx, my = normal_vec(p1, p2)
-
-            width  = lwd * pressure[i] / 2
-            #width  = self.line_width / 2
-
-            left_segment1_start = (p0[0] + nx * width, p0[1] + ny * width)
-            left_segment1_end   = (p1[0] + nx * width, p1[1] + ny * width)
-            left_segment2_start = (p1[0] + mx * width, p1[1] + my * width)
-            left_segment2_end   = (p2[0] + mx * width, p2[1] + my * width)
-
-            right_segment1_start = (p0[0] - nx * width, p0[1] - ny * width)
-            right_segment1_end   = (p1[0] - nx * width, p1[1] - ny * width)
-            right_segment2_start = (p1[0] - mx * width, p1[1] - my * width)
-            right_segment2_end   = (p2[0] - mx * width, p2[1] - my * width)
-
-            if i == 0:
-            ## append the points for the first coord
-                arc_coords = calc_arc_coords( left_segment1_start,
-                                              right_segment1_start, 
-                                             p1, 10)
-                outline_r.extend(arc_coords)
-                outline_l.append(left_segment1_start)
-                outline_r.append(right_segment1_start)
-
-            outline_l.append(left_segment1_end)
-            outline_l.append(left_segment2_start)
-            outline_r.append(right_segment1_end)
-            outline_r.append(right_segment2_start)
-
-            if i == n - 3:
-                print("last segment")
-                outline_l.append(left_segment2_end)
-                outline_r.append(right_segment2_end)
-                arc_coords = calc_arc_coords( left_segment2_end,
-                                              right_segment2_end,
-                                             p1, 10)
-                outline_l.extend(arc_coords)
-
-            #self.outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
-            #self.outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
-
-        self.__outline_l, _ = smooth_path(outline_l, None, 20)
-        self.__outline_r, _ = smooth_path(outline_r, None, 20)
-        self.__outline  = outline_l + outline_r[::-1]
-        self.coords   = coords
-        self.__pressure = pressure
+        self.outline_recalculate()
 
 
     def path_append(self, x, y, pressure = 1):
@@ -1242,18 +1178,7 @@ class Path(Drawable):
 
         if len(coords) < 2:
             return
-
-        p1, p2 = coords[-2], coords[-1]
-        nx, ny = normal_vec(p1, p2)
-
-        if len(coords) == 2:
-            ## append the points for the first coord
-            self.__outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
-            self.__outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
-
-        self.__outline_l.append((p2[0] + nx * width, p2[1] + ny * width))
-        self.__outline_r.append((p2[0] - nx * width, p2[1] - ny * width))
-        self.__outline = self.__outline_l + self.__outline_r[::-1]
+        self.outline_recalculate()
         self.__bb = None
 
     def bbox(self, actual = False):
@@ -1266,11 +1191,10 @@ class Path(Drawable):
 
     def resize_end(self):
         """recalculate the outline after resizing"""
-        print("length of coords and pressure:", len(self.coords), len(self.__pressure))
+        #print("length of coords and pressure:", len(self.coords), len(self.__pressure))
         old_bbox = self.__bb or path_bbox(self.coords)
-        new_coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
-        pressure   = self.__pressure
-        self.outline_recalculate_new(coords=new_coords, pressure=pressure)
+        self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
+        self.outline_recalculate()
         self.resizing  = None
         self.__bb = path_bbox(self.__outline or self.coords)
 
@@ -1377,7 +1301,6 @@ class Shape(Drawable):
         """Finish the shape."""
         print("finishing shape")
         self.coords, _ = smooth_path(self.coords)
-        #self.outline_recalculate_new()
 
     def update(self, x, y, pressure):
         """Update the shape with a new point."""
@@ -1574,7 +1497,6 @@ class Rectangle(Shape):
         """Finish the rectangle."""
         print("finishing rectangle")
         #self.coords, _ = smooth_path(self.coords)
-        #self.outline_recalculate_new()
 
     def update(self, x, y, pressure):
         """
