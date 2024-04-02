@@ -75,6 +75,7 @@ from sd.dm import *                      ###<placeholder sd/dm.py>
 from sd.icons import Icons               ###<placeholder sd/icons.py>
 from sd.page import Page                 ###<placeholder sd/page.py>
 from sd.canvas import Canvas             ###<placeholder sd/canvas.py>
+from sd.brush import Brush               ###<placeholder sd/brush.py>
 
 
 # ---------------------------------------------------------------------

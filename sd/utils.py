@@ -15,6 +15,7 @@ import pyautogui                                                    #<remove>
 from PIL import ImageGrab                                           #<remove>
 
 gi.require_version('Gtk', '3.0')                                    #<remove>
+from .brush import Brush                                             #<remove>
 
 def get_default_savefile(app_name, app_author):
     """Get the default save file for the application."""
@@ -245,6 +246,45 @@ def find_obj_in_bbox(bbox, objects):
         if x_o >= x and y_o >= y and x_o + w_o <= x + w and y_o + h_o <= y + h:
             ret.append(obj)
     return ret
+
+def determine_side_math(p1, p2, p3):
+    """Determine the side of a point p3 relative to a line segment p1->p2."""
+    det = (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
+    return 'left' if det > 0 else 'right'
+
+def calc_arc_coords(p1, p2, p3, n = 20):
+    """
+    Calculate the coordinates of an arc between two points.
+    The point p3 is on the opposite side of the arc from the line p1->p2.
+    """
+    x1, y1 = p1
+    x2, y2 = p2
+    p0 = ((x1 + x2) / 2, (y1 + y2) / 2)
+    x0, y0 = p0
+    radius = math.sqrt((x2 - x1)**2 + (y2 - y1)**2) / 2
+
+    side = determine_side_math(p1, p2, p3)
+    print("side = ", side)
+    
+    # calculate the from p0 to p1
+    a1 = math.atan2(y1 - p0[1], x1 - p0[0])
+    a2 = math.atan2(y2 - p0[1], x2 - p0[0])
+
+    if side == 'left' and a1 > a2:
+        a2 += 2 * math.pi
+    elif side == 'right' and a1 < a2:
+        a1 += 2 * math.pi
+
+    # calculate 20 points on the arc between a1 and a2
+    coords = []
+    for i in range(n):
+        a = a1 + (a2 - a1) * i / (n - 1)
+        x = x0 + radius * math.cos(a)
+        y = y0 + radius * math.sin(a)
+        coords.append((x, y))
+
+    return coords
+
 
 def calc_rotation_angle(origin, p1, p2):
     """

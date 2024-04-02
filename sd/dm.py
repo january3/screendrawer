@@ -59,7 +59,6 @@ class DrawManager:
     def toggle_grid(self):
         """Toggle the wiglets."""
         self.__show_grid = not self.__show_grid
-        print("show grid:", self.__show_grid)
 
     def toggle_wiglets(self):
         """Toggle the wiglets."""
@@ -98,13 +97,11 @@ class DrawManager:
     def on_draw(self, widget, cr):
         """Handle draw events."""
         if self.__hidden:
-            print("I am hidden!")
             return True
 
         cr.save()
         if self.__translate:
             cr.translate(*self.__translate)
-            print("translating by", self.__translate)
 
         cr.set_source_rgba(*self.__canvas.bg_color(), self.__canvas.transparent())
         cr.set_operator(cairo.OPERATOR_SOURCE)
@@ -112,7 +109,6 @@ class DrawManager:
         cr.set_operator(cairo.OPERATOR_OVER)
 
         if self.__show_grid:
-            print("drawing grid")
             tr = self.__translate if self.__translate else (0, 0)
             self.__grid.draw(cr, tr, self.__app.get_size())
 

@@ -12,6 +12,7 @@ from .pen import Pen                     # <remove>
 from .utils import normal_vec, transform_coords, smooth_path, coords_rotate           # <remove>
 from .utils import is_click_close_to_path, path_bbox, move_coords, flatten_and_unique # <remove>
 from .utils import base64_to_pixbuf, find_obj_in_bbox     # <remove>
+from .utils import calc_arc_coords                       # <remove>
 
 
 class DrawableFactory:
@@ -1079,46 +1080,52 @@ class Path(Drawable):
         line width and pressure."""
     def __init__(self, coords, pen, outline = None, pressure = None):
         super().__init__("path", coords, pen = pen)
-        self.outline   = outline  or []
-        self.pressure  = pressure or []
-        self.outline_l = []
-        self.outline_r = []
-        self.bb        = []
+        self.__outline   = outline  or []
+        self.__pressure  = pressure or []
+        self.__outline_l = []
+        self.__outline_r = []
+        self.__bb        = []
 
-        if len(self.coords) > 3 and not self.outline:
+        if len(self.coords) > 3 and not self.__outline:
             self.outline_recalculate_new()
 
     def finish(self):
+        """Finish the path."""
         self.outline_recalculate_new()
-        if len(self.coords) != len(self.pressure):
+        if len(self.coords) != len(self.__pressure):
             raise ValueError("Pressure and coords don't match")
 
     def update(self, x, y, pressure):
+        """Update the path with a new point."""
         self.path_append(x, y, pressure)
 
     def move(self, dx, dy):
+        """Move the path by dx, dy."""
         move_coords(self.coords, dx, dy)
-        move_coords(self.outline, dx, dy)
-        self.bb = None
+        move_coords(self.__outline, dx, dy)
+        self.__bb = None
 
     def rotate_end(self):
+        """Finish the rotation operation."""
         # rotate all coords and outline
         self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
-        self.outline = coords_rotate(self.outline, self.rotation, self.rot_origin)
+        self.__outline = coords_rotate(self.__outline, self.rotation, self.rot_origin)
         self.rotation   = 0
         self.rot_origin = None
         # recalculate bbox
-        self.bb = path_bbox(self.coords)
+        self.__bb = path_bbox(self.coords)
 
     def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the path."""
         return is_click_close_to_path(click_x, click_y, self.coords, threshold)
 
     def to_dict(self):
+        """Convert the path to a dictionary."""
         return {
             "type": self.type,
             "coords": self.coords,
-            "outline": self.outline,
-            "pressure": self.pressure,
+            "outline": self.__outline,
+            "pressure": self.__pressure,
             "pen": self.pen.to_dict()
         }
 
@@ -1132,7 +1139,7 @@ class Path(Drawable):
         if len(self.coords) < 3:
             return
         print("smoothening path")
-        self.coords, self.pressure = smooth_path(self.coords, self.pressure, 1)
+        self.coords, self.__pressure = smooth_path(self.coords, self.__pressure, 1)
         self.outline_recalculate_new()
 
     def pen_set(self, pen):
@@ -1145,7 +1152,7 @@ class Path(Drawable):
         if not coords:
             coords = self.coords
         if not pressure:
-            pressure = self.pressure or [1] * len(coords)
+            pressure = self.__pressure or [1] * len(coords)
 
         lwd = self.pen.line_width
 
@@ -1182,6 +1189,10 @@ class Path(Drawable):
 
             if i == 0:
             ## append the points for the first coord
+                arc_coords = calc_arc_coords( left_segment1_start,
+                                              right_segment1_start, 
+                                             p1, 10)
+                outline_r.extend(arc_coords)
                 outline_l.append(left_segment1_start)
                 outline_r.append(right_segment1_start)
 
@@ -1190,19 +1201,23 @@ class Path(Drawable):
             outline_r.append(right_segment1_end)
             outline_r.append(right_segment2_start)
 
-            if i == n - 2:
+            if i == n - 3:
                 print("last segment")
                 outline_l.append(left_segment2_end)
                 outline_r.append(right_segment2_end)
+                arc_coords = calc_arc_coords( left_segment2_end,
+                                              right_segment2_end,
+                                             p1, 10)
+                outline_l.extend(arc_coords)
 
             #self.outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
             #self.outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
 
-        self.outline_l, _ = smooth_path(outline_l, None, 20)
-        self.outline_r, _ = smooth_path(outline_r, None, 20)
-        self.outline  = outline_l + outline_r[::-1]
+        self.__outline_l, _ = smooth_path(outline_l, None, 20)
+        self.__outline_r, _ = smooth_path(outline_r, None, 20)
+        self.__outline  = outline_l + outline_r[::-1]
         self.coords   = coords
-        self.pressure = pressure
+        self.__pressure = pressure
 
 
     def path_append(self, x, y, pressure = 1):
@@ -1213,7 +1228,7 @@ class Path(Drawable):
         width  = self.pen.line_width * pressure
 
         if len(coords) == 0:
-            self.pressure.append(pressure)
+            self.__pressure.append(pressure)
             coords.append((x, y))
             return
 
@@ -1221,7 +1236,7 @@ class Path(Drawable):
         if abs(x - lp[0]) < 1 and abs(y - lp[1]) < 1:
             return
 
-        self.pressure.append(pressure)
+        self.__pressure.append(pressure)
         coords.append((x, y))
         width = width / 2
 
@@ -1233,35 +1248,37 @@ class Path(Drawable):
 
         if len(coords) == 2:
             ## append the points for the first coord
-            self.outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
-            self.outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
+            self.__outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
+            self.__outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
 
-        self.outline_l.append((p2[0] + nx * width, p2[1] + ny * width))
-        self.outline_r.append((p2[0] - nx * width, p2[1] - ny * width))
-        self.outline = self.outline_l + self.outline_r[::-1]
-        self.bb = None
+        self.__outline_l.append((p2[0] + nx * width, p2[1] + ny * width))
+        self.__outline_r.append((p2[0] - nx * width, p2[1] - ny * width))
+        self.__outline = self.__outline_l + self.__outline_r[::-1]
+        self.__bb = None
 
     def bbox(self, actual = False):
         """Return the bounding box"""
         if self.resizing:
             return self.resizing["bbox"]
-        if not self.bb:
-            self.bb = path_bbox(self.outline or self.coords)
-        return self.bb
+        if not self.__bb:
+            self.__bb = path_bbox(self.__outline or self.coords)
+        return self.__bb
 
     def resize_end(self):
         """recalculate the outline after resizing"""
-        print("length of coords and pressure:", len(self.coords), len(self.pressure))
-        old_bbox = self.bb or path_bbox(self.coords)
+        print("length of coords and pressure:", len(self.coords), len(self.__pressure))
+        old_bbox = self.__bb or path_bbox(self.coords)
         new_coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
-        pressure   = self.pressure
+        pressure   = self.__pressure
         self.outline_recalculate_new(coords=new_coords, pressure=pressure)
         self.resizing  = None
-        self.bb = path_bbox(self.outline or self.coords)
+        self.__bb = path_bbox(self.__outline or self.coords)
 
     def draw_outline(self, cr):
         """draws each segment separately and makes a dot at each coord."""
 
+        cr.set_source_rgb(1, 0, 0)
+        cr.set_line_width(0.2)
         coords = self.coords
         for i in range(len(coords) - 1):
             cr.move_to(coords[i][0], coords[i][1])
@@ -1270,7 +1287,8 @@ class Path(Drawable):
             # make a dot at each coord
             cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
             cr.fill()
-
+        cr.arc(coords[-1][0], coords[-1][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+        cr.fill()
 
     def draw_simple(self, cr, bbox=None):
         """draws the path as a single line. Useful for resizing."""
@@ -1279,13 +1297,14 @@ class Path(Drawable):
             return
 
         if bbox:
-            old_bbox = path_bbox(self.outline or self.coords)
+            old_bbox = path_bbox(self.__outline or self.coords)
             coords = transform_coords(self.coords, old_bbox, bbox)
         else:
             coords = self.coords
 
         cr.set_source_rgb(*self.pen.color)
-        cr.set_line_width(0.5)
+        cr.set_line_width(self.pen.line_width)
+
         cr.move_to(coords[0][0], coords[0][1])
         for point in coords[1:]:
             cr.line_to(point[0], point[1])
@@ -1296,15 +1315,15 @@ class Path(Drawable):
         """standard drawing of the path."""
         cr.set_fill_rule(cairo.FillRule.WINDING)
 
-        cr.move_to(self.outline[0][0], self.outline[0][1])
-        for point in self.outline[1:]:
+        cr.move_to(self.__outline[0][0], self.__outline[0][1])
+        for point in self.__outline[1:]:
             cr.line_to(point[0], point[1])
         cr.close_path()
 
 
     def draw(self, cr, hover=False, selected=False, outline = False):
         """Draw the path."""
-        if len(self.outline) < 4 or len(self.coords) < 3:
+        if len(self.__outline) < 4 or len(self.coords) < 3:
             return
 
         if self.rotation != 0:
@@ -1320,6 +1339,7 @@ class Path(Drawable):
             self.draw_standard(cr)
             if outline:
                 print("drawing outline")
+                cr.set_line_width(0.4)
                 cr.stroke()
                 self.draw_outline(cr)
             else:
@@ -1345,6 +1365,7 @@ class Path(Drawable):
         print("Path.from_object: invalid object")
         return obj
 
+# ----------------------------
 class Shape(Drawable):
     """Class for shapes (closed paths with no outline)."""
     def __init__(self, coords, pen, filled = True):
