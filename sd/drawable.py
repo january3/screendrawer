@@ -7,8 +7,8 @@ import tempfile                          # <remove>
 import math                              # <remove>
 import base64                            # <remove>
 import cairo                             # <remove>
-from .pen import Pen                     # <remove>
 from gi.repository import Gdk            # <remove>
+from .pen import Pen                     # <remove>
 from .utils import normal_vec, transform_coords, smooth_path, coords_rotate           # <remove>
 from .utils import is_click_close_to_path, path_bbox, move_coords, flatten_and_unique # <remove>
 from .utils import base64_to_pixbuf, find_obj_in_bbox     # <remove>
@@ -243,7 +243,7 @@ class Drawable:
         if self.rotation:
             self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
 
-    def bbox(self):
+    def bbox(self, actual = False):
         """Return the bounding box of the object."""
         if self.resizing:
             return self.resizing["bbox"]
@@ -252,10 +252,9 @@ class Drawable:
         height =   max(p[1] for p in self.coords) - top
         return (left, top, width, height)
 
-    def bbox_draw(self, cr, bb=None, lw=0.2):
+    def bbox_draw(self, cr, lw=0.2):
         """Draw the bounding box of the object."""
-        if not bb:
-            bb = self.bbox()
+        bb = self.bbox(actual = True)
         x, y, w, h = bb
         cr.set_line_width(lw)
         cr.rectangle(x, y, w, h)
@@ -439,18 +438,18 @@ class DrawableGroup(Drawable):
         """Return the number of objects in the group."""
         return len(self.objects)
 
-    def bbox(self):
+    def bbox(self, actual = False):
         """Return the bounding box of the group."""
         if self.resizing:
             return self.resizing["bbox"]
         if not self.objects:
             return None
 
-        left, top, width, height = self.objects[0].bbox()
+        left, top, width, height = self.objects[0].bbox(actual = actual)
         bottom, right = top + height, left + width
 
         for obj in self.objects[1:]:
-            x, y, w, h = obj.bbox()
+            x, y, w, h = obj.bbox(actual = actual)
             left, top = min(left, x, x + w), min(top, y, y + h)
             bottom, right = max(bottom, y, y + h), max(right, x, x + w)
 
@@ -677,7 +676,7 @@ class Image(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.5)
 
-    def bbox(self):
+    def bbox(self, actual = False):
         """Return the bounding box of the object."""
         bb = self._bbox_internal()
         if self.rotation:
@@ -703,7 +702,6 @@ class Image(Drawable):
     def resize_update(self, bbox):
         """Update during the resize of the object."""
         self.resizing["bbox"] = bbox
-        coords = self.coords
 
         x1, y1, w1, h1 = bbox
 
@@ -742,7 +740,7 @@ class Image(Drawable):
         if bb is None:
             return False
         x, y, width, height = bb
-        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
+        if x <= click_x <= x + width and y <= click_y <= y + height:
             return True
         return False
 
@@ -796,7 +794,7 @@ class Text(Drawable):
         if self.bb is None:
             return False
         x, y, width, height = self.bb
-        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
+        if x <= click_x <= x + width and y <= click_y <= y + height:
             return True
         return False
 
@@ -889,7 +887,7 @@ class Text(Drawable):
             "content": self.as_string()
         }
 
-    def bbox(self):
+    def bbox(self, actual = False):
         if self.resizing:
             return self.resizing["bbox"]
         if not self.bb:
@@ -976,13 +974,11 @@ class Text(Drawable):
         elif direction == "Down":
             if self.line < len(self.content) - 1:
                 self.line += 1
-                if self.caret_pos > len(self.content[self.line]):
-                    self.caret_pos = len(self.content[self.line])
+                self.caret_pos = min(self.caret_pos, len(self.content[self.line]))
         elif direction == "Up":
             if self.line > 0:
                 self.line -= 1
-                if self.caret_pos > len(self.content[self.line]):
-                    self.caret_pos = len(self.content[self.line])
+                self.caret_pos = min(self.caret_pos, len(self.content[self.line]))
         else:
             raise ValueError("Invalid direction:", direction)
 
@@ -1245,9 +1241,8 @@ class Path(Drawable):
         self.outline = self.outline_l + self.outline_r[::-1]
         self.bb = None
 
-    # XXX not efficient, this should be done in path_append and modified
-    # upon move.
-    def bbox(self):
+    def bbox(self, actual = False):
+        """Return the bounding box"""
         if self.resizing:
             return self.resizing["bbox"]
         if not self.bb:
@@ -1314,7 +1309,6 @@ class Path(Drawable):
 
         if self.rotation != 0:
             cr.save()
-            bb = self.bbox()
             cr.translate(self.rot_origin[0], self.rot_origin[1])
             cr.rotate(self.rotation)
             cr.translate(-self.rot_origin[0], -self.rot_origin[1])
@@ -1397,23 +1391,53 @@ class Shape(Drawable):
         self.coords.append((x, y))
         self.bb = None
 
-    def bbox(self):
+    def fill_toggle(self):
+        """Toggle the fill of the object."""
+        old_bbox = self.bbox(actual = True)
+        self.bb  = None
+        self.fill_set(not self.fill())
+        new_bbox = self.bbox(actual = True)
+        self.coords = transform_coords(self.coords, new_bbox, old_bbox)
+        self.bb = None
+
+    def bbox(self, actual = False):
         """Calculate the bounding box of the shape."""
         if self.resizing:
             bb = self.resizing["bbox"]
+        else:
+            if not self.bb:
+                self.bb = path_bbox(self.coords)
+            bb = self.bb
+        if actual and not self.fill():
             lw = self.pen.line_width
             bb = (bb[0] - lw / 2, bb[1] - lw / 2, bb[2] + lw, bb[3] + lw)
-            return bb
-        if not self.bb:
-            self.bb = path_bbox(self.coords, lw = self.pen.line_width)
-        return self.bb
+        return bb
+
+    def resize_start(self, corner, origin):
+        """Start the resizing operation."""
+        bbox = path_bbox(self.coords)
+        self.resizing = {
+            "corner": corner,
+            "origin": origin,
+            "bbox":   bbox,
+            "start_bbox": bbox
+            }
+
+    def resize_update(self, bbox):
+        """Update during the resize of the object."""
+        self.resizing["bbox"] = bbox
 
     def resize_end(self):
         """recalculate the coordinates after resizing"""
-        old_bbox = self.bb or path_bbox(self.coords)
-        self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
+        old_bbox = self.resizing["start_bbox"]
+        new_bbox = self.resizing["bbox"]
+        self.coords = transform_coords(self.coords, old_bbox, new_bbox)
         self.resizing  = None
-        self.bb = path_bbox(self.coords, lw = self.pen.line_width)
+        if self.fill():
+            self.bb = path_bbox(self.coords)
+        else:
+            self.bb = path_bbox(self.coords, lw = self.pen.line_width)
+        self.bb = path_bbox(self.coords)
 
     def to_dict(self):
         """Convert the object to a dictionary."""
@@ -1447,7 +1471,11 @@ class Shape(Drawable):
             return
 
         if bbox:
-            old_bbox = path_bbox(self.coords)
+            if self.fill():
+                old_bbox = path_bbox(self.coords)
+            else:
+                old_bbox = path_bbox(self.coords)
+                #old_bbox = path_bbox(self.coords, lw = self.pen.line_width)
             coords = transform_coords(self.coords, old_bbox, bbox)
         else:
             coords = self.coords
