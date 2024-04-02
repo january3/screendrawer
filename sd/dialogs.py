@@ -77,6 +77,7 @@ Ctrl-Shift-k: Select bg color
 Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline                Alt-d: convert shape(s) to drawing(s)
 Ctrl-b: Cycle background transparency
 Ctrl-p: toggle between two pens
+Ctrl-g: toggle grid
 Ctrl-Shift-f: screenshot: for a screenshot, you need at least one rectangle
 object (r mode) in the drawing which serves as the selection area. The
 screenshot will be pasted into the drawing.

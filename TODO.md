@@ -71,6 +71,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * implemented grid (ctrl-g)
  * implement rotating for: Box, Circle (yes, since Circle can be an
    ellipse)
  * Replaced "Boxes" with "Rectangles" which are really Shapes (closed

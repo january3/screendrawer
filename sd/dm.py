@@ -4,13 +4,14 @@ DrawManager is a class that manages the drawing on the canvas.
 
 
 import cairo # <remove>
-from sd.drawable import DrawableFactory, SelectionTool             # <remove>
-from sd.commands import RemoveCommand, MoveCommand, ResizeCommand, RotateCommand  # <remove>
-from sd.events   import MouseEvent                                 # <remove>
-from sd.utils    import get_color_under_cursor, rgb_to_hex         # <remove>
-from sd.wiglets  import WigletTransparency, WigletLineWidth        # <remove>
-from sd.wiglets  import WigletPageSelector, WigletToolSelector, WigletColorSelector   # <remove>
-#from sd.cursor   import CursorManager                              # <remove>
+from .drawable import DrawableFactory, SelectionTool             # <remove>
+from .commands import RemoveCommand, MoveCommand, ResizeCommand, RotateCommand  # <remove>
+from .events   import MouseEvent                                 # <remove>
+from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
+from .wiglets  import WigletTransparency, WigletLineWidth        # <remove>
+from .wiglets  import WigletPageSelector, WigletToolSelector, WigletColorSelector   # <remove>
+from .grid     import Grid                                       # <remove>
+#from sd.cursor   import CursorManager                            # <remove>
 
 
 
@@ -30,6 +31,8 @@ class DrawManager:
         self.__app = app
         self.__cursor = cursor
         self.__mode = "draw"
+        self.__grid = Grid()
+        self.__show_grid = False
 
         # objects that indicate the state of the drawing area
         self.__hover = None
@@ -53,9 +56,15 @@ class DrawManager:
         self.__translate = None
 
         # defaults for drawing
+    def toggle_grid(self):
+        """Toggle the wiglets."""
+        self.__show_grid = not self.__show_grid
+        print("show grid:", self.__show_grid)
+
     def toggle_wiglets(self):
         """Toggle the wiglets."""
         self.__show_wiglets = not self.__show_wiglets
+
 
     def show_wiglets(self, value = None):
         """Show or hide the wiglets."""
@@ -95,11 +104,18 @@ class DrawManager:
         cr.save()
         if self.__translate:
             cr.translate(*self.__translate)
+            print("translating by", self.__translate)
 
         cr.set_source_rgba(*self.__canvas.bg_color(), self.__canvas.transparent())
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
+
+        if self.__show_grid:
+            print("drawing grid")
+            tr = self.__translate if self.__translate else (0, 0)
+            self.__grid.draw(cr, tr, self.__app.get_size())
+
         self.__gom.draw(cr, self.__hover, self.__mode)
 
         if self.__current_object:

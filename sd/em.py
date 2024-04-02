@@ -172,6 +172,7 @@ class EventManager:
 
             'clear_page':            {'action': dm.clear},
             'toggle_wiglets':        {'action': dm.toggle_wiglets},
+            'toggle_grid':           {'action': dm.toggle_grid},
 
             'show_help_dialog':      {'action': app.show_help_dialog},
             'app_exit':              {'action': app.exit},
@@ -291,6 +292,7 @@ class EventManager:
             'l':                    "clear_page",
             'o':                    "toggle_outline",
             'w':                    "toggle_wiglets",
+            'Ctrl-g':              "toggle_grid",
             'Alt-s':                "transmute_to_shape",
             'Alt-d':                "transmute_to_draw",
             'f':                    "selection_fill",
