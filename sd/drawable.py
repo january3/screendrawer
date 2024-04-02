@@ -316,7 +316,6 @@ class DrawableGroup(Drawable):
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
 
         print("Creating DrawableGroup with ", len(objects), "objects")
-        # XXX better if type would be "drawable_group"
         super().__init__(mytype, [ (None, None) ], None)
         self.objects = objects
 
@@ -1525,11 +1524,11 @@ class Rectangle(Shape):
         may change it to a parallelogram.
         """
         x0, y0 = self.coords[0]
-        if x < x0:
-            x, x0 = x0, x
+        #if x < x0:
+        #    x, x0 = x0, x
 
-        if y < y0:
-            y, y0 = y0, y
+        #if y < y0:
+        #    y, y0 = y0, y
 
         self.coords[0] = (x0, y0)
         self.coords[1] = (x, y0)
@@ -1537,57 +1536,52 @@ class Rectangle(Shape):
         self.coords[3] = (x0, y)
         self.coords[4] = (x0, y0)
 
-        print("coords now:", [c for c in self.coords])
 
-
-class Circle(Drawable):
+class Circle(Shape):
     """Class for creating circles."""
-    def __init__(self, coords, pen):
-        super().__init__("circle", coords, pen)
+    def __init__(self, coords, pen, filled = False):
+        super().__init__(coords, pen, filled)
+        self.coords = coords
+        self.type = "rectangle"
+        self.__bb = [ (coords[0][0], coords[0][1]), (coords[0][0], coords[0][1]) ]
+        # fill up coords to length 4
+        n = 5 - len(coords)
+        if n > 0:
+            self.coords += [(coords[0][0], coords[0][1])] * n
+
+    def finish(self):
+        """Finish the circle."""
 
     def update(self, x, y, pressure):
-        self.coords[1] = (x, y)
+        """
+        Update the circle with a new point.
+        """
+        x0, y0 = min(self.__bb[0][0], x), min(self.__bb[0][1], y)
+        x1, y1 = max(self.__bb[1][0], x), max(self.__bb[1][1], y)
 
-    def resize_end(self):
-        bbox = self.bbox()
-        self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
-        self.resizing = None
+        n_points = 100
 
-    def resize_update(self, bbox):
-        self.resizing["bbox"] = bbox
-        self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
+        # calculate coords for 100 points on an ellipse contained in the rectangle
+        # given by x0, y0, x1, y1
 
-    def draw(self, cr, hover=False, selected=False, outline=False):
-        if hover:
-            cr.set_line_width(self.pen.line_width + 1)
-        else:
-            cr.set_line_width(self.pen.line_width)
+        # calculate the center of the ellipse
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
 
-        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
-        x1, y1 = self.coords[0]
-        x2, y2 = self.coords[1]
-        w, h = (abs(x1 - x2), abs(y1 - y2))
+        # calculate the radius of the ellipse
+        rx, ry = (x1 - x0) / 2, (y1 - y0) / 2
 
-        if w != 0 and h != 0:
-            x0, y0 = (min(x1, x2), min(y1, y2))
-            #cr.rectangle(x0, y0, w, h)
-            cr.save()
-            cr.translate(x0 + w / 2, y0 + h / 2)
-            cr.scale(w / 2, h / 2)
-            cr.arc(0, 0, 1, 0, 2 * 3.14159)
-            cr.restore()
+        # calculate the angle between two points
+        angle = 2 * math.pi / n_points
 
-            if self.pen.fill_color:
-                cr.fill()
-            else:
-                cr.stroke()
+        # calculate the points
+        coords = []
+        for i in range(n_points):
+            x = cx + rx * math.cos(i * angle)
+            y = cy + ry * math.sin(i * angle)
+            coords.append((x, y))
 
-        if selected:
-            cr.set_source_rgba(1, 0, 0)
-            self.bbox_draw(cr, lw=.35)
+        self.coords = coords
 
-        if hover:
-            self.bbox_draw(cr, lw=.35)
 
 
 class Box(Drawable):

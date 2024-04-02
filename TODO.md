@@ -30,8 +30,6 @@ To do (sorted by priority):
  * think hard how I want the color setting / pen thing to work
  * implement undo for fonts as well
  * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
- * implement rotating for: Box, Circle (yes, since Circle can be an
-   ellipse)
  * add a line mode and Line object class
  * show corners of the bounding box
  * an idea: wiglets which are shown (optionally, toggleable) on the left
@@ -73,6 +71,8 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * implement rotating for: Box, Circle (yes, since Circle can be an
+   ellipse)
  * Replaced "Boxes" with "Rectangles" which are really Shapes (closed
    paths). So I don't need to separately implement rotations for
    Rectangles, which proved to be tricky, esp. for calculating the bounding
