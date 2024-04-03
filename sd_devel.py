@@ -410,7 +410,8 @@ class TransparentWindow(Gtk.Window):
                 'show_wiglets': self.dm.show_wiglets(),
                 'bbox':        (0, 0, *self.get_size()),
                 'pen':         self.canvas.pen().to_dict(),
-                'pen2':        self.canvas.pen(alternate = True).to_dict()
+                'pen2':        self.canvas.pen(alternate = True).to_dict(),
+                'page':        self.gom.current_page_number()
         }
 
         #objects = self.gom.export_objects()
@@ -444,6 +445,7 @@ class TransparentWindow(Gtk.Window):
             self.dm.show_wiglets(show_wiglets)
             self.canvas.pen(pen = Pen.from_dict(config['pen']))
             self.canvas.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
+            self.gom.set_page_number(config.get('page') or 0)
         if config or objects:
             self.dm.modified(True)
             return True
