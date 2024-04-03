@@ -1,6 +1,7 @@
 To do (sorted by priority):
 
 
+ * remember the last opened tab.
  * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
    files
  * make wiglets movable
