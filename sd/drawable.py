@@ -290,6 +290,7 @@ class Drawable:
             raise ValueError("Invalid type:", obj_type)
 
         if "pen" in d:
+            print("Read pen from dict. Pen is", d["pen"], "brush", d["pen"]["brush"])
             d["pen"] = Pen.from_dict(d["pen"])
         #print("generating object of type", type, "with data", d)
         return type_map.get(obj_type)(**d)
@@ -1079,18 +1080,18 @@ class Path(Drawable):
         line width and pressure."""
     def __init__(self, coords, pen, outline = None, pressure = None):
         super().__init__("path", coords, pen = pen)
-        self.__outline   = outline  or []
         self.__pressure  = pressure or []
         self.__bb        = []
         #self.__brush     = BrushFactory.create_brush(brush)
         #self.__brush_type = brush
 
-        if len(self.coords) > 3 and not self.__outline:
+        if len(self.coords) > 3 and not self.pen.brush().outline():
             self.outline_recalculate()
 
     def outline_recalculate(self):
         """Recalculate the outline of the path."""
-        self.__outline = self.pen.brush().calculate(self.pen.line_width,
+        #self.__outline = 
+        self.pen.brush().calculate(self.pen.line_width,
                                  coords = self.coords,
                                  pressure = self.__pressure)
 
@@ -1105,14 +1106,16 @@ class Path(Drawable):
     def move(self, dx, dy):
         """Move the path by dx, dy."""
         move_coords(self.coords, dx, dy)
-        move_coords(self.__outline, dx, dy)
+        #move_coords(self.__outline, dx, dy)
+        self.outline_recalculate()
         self.__bb = None
 
     def rotate_end(self):
         """Finish the rotation operation."""
         # rotate all coords and outline
         self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
-        self.__outline = coords_rotate(self.__outline, self.rotation, self.rot_origin)
+        #self.__outline = coords_rotate(self.__outline, self.rotation, self.rot_origin)
+        self.outline_recalculate()
         self.rotation   = 0
         self.rot_origin = None
         # recalculate bbox
@@ -1127,7 +1130,7 @@ class Path(Drawable):
         return {
             "type": self.type,
             "coords": self.coords,
-            "outline": self.__outline,
+            #"outline": self.__outline,
             "pressure": self.__pressure,
             "pen": self.pen.to_dict(),
         }
@@ -1181,7 +1184,7 @@ class Path(Drawable):
         if self.resizing:
             return self.resizing["bbox"]
         if not self.__bb:
-            self.__bb = path_bbox(self.__outline or self.coords)
+            self.__bb = path_bbox(self.pen.brush().outline() or self.coords)
         return self.__bb
 
     def resize_end(self):
@@ -1191,7 +1194,7 @@ class Path(Drawable):
         self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
         self.outline_recalculate()
         self.resizing  = None
-        self.__bb = path_bbox(self.__outline or self.coords)
+        self.__bb = path_bbox(self.pen.brush().outline() or self.coords)
 
     def draw_outline(self, cr):
         """draws each segment separately and makes a dot at each coord."""
@@ -1216,7 +1219,7 @@ class Path(Drawable):
             return
 
         if bbox:
-            old_bbox = path_bbox(self.__outline or self.coords)
+            old_bbox = path_bbox(self.pen.brush().outline() or self.coords)
             coords = transform_coords(self.coords, old_bbox, bbox)
         else:
             coords = self.coords
@@ -1233,16 +1236,11 @@ class Path(Drawable):
     def draw_standard(self, cr):
         """standard drawing of the path."""
         cr.set_fill_rule(cairo.FillRule.WINDING)
-
-        cr.move_to(self.__outline[0][0], self.__outline[0][1])
-        for point in self.__outline[1:]:
-            cr.line_to(point[0], point[1])
-        cr.close_path()
-
+        self.pen.brush().draw(cr)
 
     def draw(self, cr, hover=False, selected=False, outline = False):
         """Draw the path."""
-        if not self.__outline or len(self.__outline) < 4 or len(self.coords) < 3:
+        if not self.pen.brush().outline() or len(self.pen.brush().outline()) < 4 or len(self.coords) < 3:
             return
 
         if self.rotation != 0:

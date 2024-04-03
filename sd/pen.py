@@ -52,6 +52,7 @@ class Pen:
         """
         Initializes a new Pen object with the specified drawing properties.
         """
+        print("creating new pen", self, "brush", brush)
         self.color        = color
         self.line_width   = line_width
         self.fill_color   = fill_color
@@ -150,6 +151,7 @@ class Pen:
 
     def to_dict(self):
         """Convert pen properties to a dictionary"""
+        print("saving pen with brush", self.__brush_type)
         return {
             "color": self.color,
             "line_width": self.line_width,
@@ -174,4 +176,4 @@ class Pen:
         """Create a pen object from a dictionary"""
         #def __init__(self, color = (0, 0, 0), line_width = 12, font_size = 12, transparency = 1, fill_color = None, family = "Sans", weight = "normal", style = "normal"):
         return cls(d.get("color"), d.get("line_width"), d.get("transparency"), d.get("fill_color"),
-                   d.get("font_size"), d.get("font_family"), d.get("font_weight"), d.get("font_style"))
+                   d.get("font_size"), d.get("font_family"), d.get("font_weight"), d.get("font_style"), d.get("brush"))

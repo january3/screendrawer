@@ -35,6 +35,7 @@ class Brush:
         self.__coords = [ ]
         self.__pressure = [ ]
         self.__rounded = rounded
+        self.__outline = [ ]
 
     def coords(self, coords = None):
         """Set or get brush coordinates."""
@@ -42,8 +43,10 @@ class Brush:
             self.__coords = coords
         return self.__coords
 
-    def outline(self):
+    def outline(self, new_outline = None):
         """Get brush outline."""
+        if new_outline is not None:
+            self.__outline = new_outline
         return self.__outline
 
     def pressure(self, pressure = None):
@@ -55,6 +58,15 @@ class Brush:
     def bbox(self):
         """Get bounding box of the brush."""
         return path_bbox(self.__outline)
+
+    def draw(self, cr):
+        """Draw the brush on the Cairo context."""
+        if not self.__outline or len(self.__outline) < 4:
+            return
+        cr.move_to(self.__outline[0][0], self.__outline[0][1])
+        for point in self.__outline[1:]:
+            cr.line_to(point[0], point[1])
+        cr.close_path()
 
     def calculate(self, line_width, coords, pressure = None):
         """Recalculate the outline of the brush."""
@@ -80,6 +92,7 @@ class Brush:
         if len(coords) != len(pressure):
             #raise ValueError("Pressure and coords don't match")
             print("Pressure and coords don't match:", len(coords), len(pressure))
+        self.__outline = outline
         return outline
 
 class BrushRound(Brush):
@@ -96,6 +109,7 @@ class BrushSlanted(Brush):
 
     def calculate(self, line_width, coords = None, pressure = None):
         """Recalculate the outline of the brush."""
+        print("calculating slanted brush")
 
         outline_l, outline_r = [ ], [ ]
         coords, pressure = smooth_path(coords, pressure, 20)
@@ -111,4 +125,8 @@ class BrushSlanted(Brush):
         #outline_l, outline_r = remove_intersections(outline_l, outline_r)
         print("calculated outline for n=", len(coords), "points")
         print("length left: ", len(outline_l), "length right:", len(outline_r))
-        return outline_l + outline_r[::-1]
+        outline = outline_l + outline_r[::-1]
+        self.outline(outline)
+
+        return outline
+
