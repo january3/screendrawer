@@ -117,6 +117,10 @@ def segment_intersection(p1, p2, p3, p4):
 
     return (False, None)  # No intersection
 
+def pp(p):
+    """return point in integers"""
+    return [int(p[0]), int(p[1])]
+
 def remove_intersections(outline_l, outline_r):
     """Remove intersections between the left and right outlines."""
     # Does not work yet
@@ -127,18 +131,28 @@ def remove_intersections(outline_l, outline_r):
         print("outlines of different length")
         return outline_l, outline_r
 
+    out_ret_l = []
+    out_ret_r = []
+
     for i in range(n - 1):
+
+        out_ret_l.append(outline_l[i])
         for j in range(i + 1, n - 1):
+            print("i", i, "left segment: ", pp(outline_l[i]), pp(outline_l[i + 1]))
+            print("j", j, "right segment: ", pp(outline_r[j]), pp(outline_r[j + 1]))
             intersect, point = segment_intersection(outline_l[i], outline_l[i + 1],
                                                 outline_r[j], outline_r[j + 1])
             if intersect:
-                print("FOUND Intersection")
+                print("FOUND Intersection at", point, "i", i, "j", j)
+                #out_ret_l, out_ret_r = out_ret_r, out_ret_l
+
+            out_ret_r.append(outline_r[i])
                 # exchange the remainder between outlines
                 #tmp = outline_l[(i + 1):]
                 #outline_l[(i + 1):] = outline_r[(i + 1):]
                 #outline_r[(i + 1):] = tmp
 
-    return outline_l, outline_r
+    return out_ret_l, out_ret_r
 
 def calculate_angle(p0, p1, p2):
     """Calculate the angle between the line p0->p1 and p1->p2 in degrees."""
