@@ -1,5 +1,6 @@
 """Class for different brushes."""
 from .utils import path_bbox, calc_normal_outline, smooth_path                      # <remove>
+from .utils import remove_intersections                      # <remove>
 
 class BrushFactory:
     """
@@ -91,7 +92,7 @@ class BrushSlanted(Brush):
     def __init__(self):
         super().__init__()
 
-        self.__slant = (-0.3, 0.6, 0.3, - 0.6)
+        self.__slant = (-0.4, 0.6, 0.3, - 0.6)
 
     def calculate(self, line_width, coords = None, pressure = None):
         """Recalculate the outline of the brush."""
@@ -107,4 +108,5 @@ class BrushSlanted(Brush):
             outline_l.append((x + dx0, y + dy0))
             outline_r.append((x + dx1, y + dy1))
 
+        #outline_l, outline_r = remove_intersections(outline_l, outline_r)
         return outline_l + outline_r[::-1]

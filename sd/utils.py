@@ -84,7 +84,6 @@ def sort_by_stack(objs, stack):
     # sort the list of objects by their position in the stack
     return sorted(objs, key=stack.index)
 
-
 def distance(p1, p2):
     """Calculate the Euclidean distance between two points."""
     return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
@@ -118,6 +117,29 @@ def segment_intersection(p1, p2, p3, p4):
 
     return (False, None)  # No intersection
 
+def remove_intersections(outline_l, outline_r):
+    """Remove intersections between the left and right outlines."""
+    # Does not work yet
+    n = len(outline_l)
+    if n < 2:
+        return outline_l, outline_r
+    if n != len(outline_r):
+        print("outlines of different length")
+        return outline_l, outline_r
+
+    for i in range(n - 1):
+        for j in range(i + 1, n - 1):
+            intersect, point = segment_intersection(outline_l[i], outline_l[i + 1],
+                                                outline_r[j], outline_r[j + 1])
+            if intersect:
+                print("FOUND Intersection")
+                # exchange the remainder between outlines
+                #tmp = outline_l[(i + 1):]
+                #outline_l[(i + 1):] = outline_r[(i + 1):]
+                #outline_r[(i + 1):] = tmp
+
+    return outline_l, outline_r
+
 def calculate_angle(p0, p1, p2):
     """Calculate the angle between the line p0->p1 and p1->p2 in degrees."""
     a = math.sqrt((p1[0] - p0[0])**2 + (p1[1] - p0[1])**2)
@@ -130,7 +152,6 @@ def calculate_angle(p0, p1, p2):
     cos_angle = max(-1, min(1, cos_angle))
     angle = math.acos(cos_angle)
     return math.degrees(angle)
-
 
 def midpoint(p1, p2):
     """Calculate the midpoint between two points."""
@@ -180,12 +201,7 @@ def smooth_path(coords, pressure=None, threshold=20):
 
             # Generate intermediate points for the cubic Bézier curve
             for t in t_values:
-                t0 = (1 - t) ** 3
-                t1 = 3 * (1 - t) ** 2 * t
-                t2 = 3 * (1 - t) * t ** 2
-                t3 = t ** 3
-                x = t0 * control1[0] + t1 * p1[0] + t2 * control2[0] + t3 * p2[0]
-                y = t0 * control1[1] + t1 * p1[1] + t2 * control2[1] + t3 * p2[1]
+                x, y = calc_bezier_coords(t, p1, p2, control1, control2)
                 if pressure:
                     new_pressure.append((1-t) * prev_pressure + t * next_pressure)
                 smoothed_coords.append((x, y))
@@ -199,6 +215,17 @@ def smooth_path(coords, pressure=None, threshold=20):
     if pressure:
         new_pressure.append(pressure[-1])
     return smoothed_coords, new_pressure
+
+def calc_bezier_coords(t, p1, p2, control1, control2):
+    """Calculate a point on a cubic Bézier curve."""
+    t0 = (1 - t) ** 3
+    t1 = 3 * (1 - t) ** 2 * t
+    t2 = 3 * (1 - t) * t ** 2
+    t3 = t ** 3
+    x = t0 * control1[0] + t1 * p1[0] + t2 * control2[0] + t3 * p2[0]
+    y = t0 * control1[1] + t1 * p1[1] + t2 * control2[1] + t3 * p2[1]
+
+    return x, y
 
 
 def distance_point_to_segment(p, segment):
@@ -223,30 +250,6 @@ def distance_point_to_segment(p, segment):
     projection_y = y1 + t * (y2 - y1)
 
     return math.sqrt((px - projection_x) ** 2 + (py - projection_y) ** 2)
-
-def find_obj_close_to_click(click_x, click_y, objects, threshold):
-    """Find first object that is close to a click."""
-    for obj in objects[::-1]: # loop in reverse order to find the topmost object
-        if not obj is None and obj.is_close_to_click(click_x, click_y, threshold):
-            return obj
-
-    return None
-
-def find_obj_in_bbox(bbox, objects):
-    """Find objects that are inside a given bounding box."""
-    x, y, w, h = bbox
-    ret = []
-    for obj in objects:
-        x_o, y_o, w_o, h_o = obj.bbox()
-        if w_o < 0:
-            x_o += w_o
-            w_o = -w_o
-        if h_o < 0:
-            y_o += h_o
-            h_o = -h_o
-        if x_o >= x and y_o >= y and x_o + w_o <= x + w and y_o + h_o <= y + h:
-            ret.append(obj)
-    return ret
 
 def determine_side_math(p1, p2, p3):
     """Determine the side of a point p3 relative to a line segment p1->p2."""
@@ -405,6 +408,30 @@ def path_bbox(coords, lw = 0):
     width  =    max(p[0] for p in coords) - left + lw/2
     height =    max(p[1] for p in coords) - top + lw/2
     return (left, top, width, height)
+
+def find_obj_close_to_click(click_x, click_y, objects, threshold):
+    """Find first object that is close to a click."""
+    for obj in objects[::-1]: # loop in reverse order to find the topmost object
+        if not obj is None and obj.is_close_to_click(click_x, click_y, threshold):
+            return obj
+
+    return None
+
+def find_obj_in_bbox(bbox, objects):
+    """Find objects that are inside a given bounding box."""
+    x, y, w, h = bbox
+    ret = []
+    for obj in objects:
+        x_o, y_o, w_o, h_o = obj.bbox()
+        if w_o < 0:
+            x_o += w_o
+            w_o = -w_o
+        if h_o < 0:
+            y_o += h_o
+            h_o = -h_o
+        if x_o >= x and y_o >= y and x_o + w_o <= x + w and y_o + h_o <= y + h:
+            ret.append(obj)
+    return ret
 
 def is_click_close_to_path(click_x, click_y, path, threshold):
     """Check if a click is close to any segment in the path."""
