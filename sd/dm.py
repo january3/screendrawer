@@ -644,8 +644,16 @@ class DrawManager:
 #       if self.selection.n() > 0:
 #           for obj in self.selection.objects:
 #               obj.smoothen()
+
+    def set_brush(self, brush = None):
+        """Set the brush."""
+        if brush is not None:
+            print("setting pen", self.__canvas.pen(), "brush to", brush)
+            self.__canvas.pen().brush(brush)
+        return self.__canvas.pen().brush()
+
     def set_color(self, color = None):
-        """Set the color."""
+        """Get or set the color."""
         if color is None:
             return self.__canvas.pen().color
         self.__canvas.pen().color_set(color)

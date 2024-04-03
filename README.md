@@ -116,6 +116,13 @@ my own workflow. Here are some of them:
    way to make it work this way. One of the reasons is this: when you
    resize a drawing not proportionally, vertical paths are resized
    differently from horizontal paths. This looks butt ugly.
+ * Applying pens, colors, brushes etc. is wildly inconsistent. The reason
+   for that is, again, simplification of my own work flow. So for example,
+   changing the brush of the current pen does not change the brush of the
+   selection, while changing the color does. This is because I never want
+   to change the brush of the existing line, but I sometimes wish to change
+   its color. (However, you can always apply the current pen to a selection
+   with alt-p).
 
 
 

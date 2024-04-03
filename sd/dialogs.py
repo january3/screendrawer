@@ -75,13 +75,15 @@ Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up
 Ctrl-k: Select color                     f: fill with current color       Alt-s: convert drawing(s) to shape(s)
 Ctrl-Shift-k: Select bg color
 Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline                Alt-d: convert shape(s) to drawing(s)
-Ctrl-b: Cycle background transparency
-Ctrl-p: toggle between two pens
-Ctrl-g: toggle grid
-Ctrl-Shift-f: screenshot: for a screenshot, you need at least one rectangle
-object (r mode) in the drawing which serves as the selection area. The
-screenshot will be pasted into the drawing.
+Ctrl-b: Cycle background transparency                                     Alt-p: apply pen to selection
+Ctrl-p: toggle between two pens                                           Alt-Shift-p: apply pen color to background
+Ctrl-g: toggle grid                      1-3: select brush
 
+<b>Taking screenshots:</b>
+Ctrl-Shift-f: screenshot: for a screenshot, if you have at least one rectangle
+object (r mode) in the drawing, then it will serve as the selection area. The
+screenshot will be pasted into the drawing. If there are no rectangles,
+then the whole window will be captured.
 
 <b>Saving / importing:</b>
 Ctrl-i: Import image from a file (jpeg, png)

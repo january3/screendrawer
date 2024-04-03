@@ -9,11 +9,9 @@ import base64                            # <remove>
 import cairo                             # <remove>
 from gi.repository import Gdk            # <remove>
 from .pen import Pen                     # <remove>
-from .utils import normal_vec, transform_coords, smooth_path, coords_rotate           # <remove>
+from .utils import transform_coords, smooth_path, coords_rotate           # <remove>
 from .utils import is_click_close_to_path, path_bbox, move_coords, flatten_and_unique # <remove>
 from .utils import base64_to_pixbuf, find_obj_in_bbox     # <remove>
-from .utils import calc_arc_coords                       # <remove>
-from .brush import Brush, BrushFactory                   #<remove>
 
 
 class DrawableFactory:
@@ -269,8 +267,8 @@ class Drawable:
     # ------------ Drawable conversion methods ------------------
     @classmethod
     def from_dict(cls, d):
-        """ 
-        Create a drawable object from a dictionary. 
+        """
+        Create a drawable object from a dictionary.
 
         Objects must take all named arguments specified in their
         dictionary.
@@ -1079,24 +1077,22 @@ class Text(Drawable):
 class Path(Drawable):
     """ Path is like shape, but not closed and has an outline that depends on
         line width and pressure."""
-    def __init__(self, coords, pen, outline = None, pressure = None, brush = "marker"):
+    def __init__(self, coords, pen, outline = None, pressure = None):
         super().__init__("path", coords, pen = pen)
         self.__outline   = outline  or []
         self.__pressure  = pressure or []
         self.__bb        = []
-        self.__brush     = BrushFactory.create_brush(brush)
-        self.__brush_type = brush
-        print("brush type is", brush)
+        #self.__brush     = BrushFactory.create_brush(brush)
+        #self.__brush_type = brush
 
         if len(self.coords) > 3 and not self.__outline:
             self.outline_recalculate()
 
     def outline_recalculate(self):
         """Recalculate the outline of the path."""
-        self.__brush.recalculate(self.pen.line_width, 
-                                 coords = self.coords, 
+        self.__outline = self.pen.brush().calculate(self.pen.line_width,
+                                 coords = self.coords,
                                  pressure = self.__pressure)
-        self.__outline  = self.__brush.outline()
 
     def finish(self):
         """Finish the path."""
@@ -1134,7 +1130,6 @@ class Path(Drawable):
             "outline": self.__outline,
             "pressure": self.__pressure,
             "pen": self.pen.to_dict(),
-            "brush": self.__brush_type,
         }
 
     def stroke_change(self, direction):
@@ -1247,7 +1242,7 @@ class Path(Drawable):
 
     def draw(self, cr, hover=False, selected=False, outline = False):
         """Draw the path."""
-        if len(self.__outline) < 4 or len(self.coords) < 3:
+        if not self.__outline or len(self.__outline) < 4 or len(self.coords) < 3:
             return
 
         if self.rotation != 0:
@@ -1326,7 +1321,7 @@ class Shape(Drawable):
         if bb is None:
             return False
         x, y, width, height = bb
-        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
+        if x <= click_x <= x + width and y <= click_y <= y + height:
             return True
         return False
 

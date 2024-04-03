@@ -219,6 +219,10 @@ class EventManager:
             'set_color_purple':      {'action': dm.set_color, 'args': [COLORS["purple"]]},
             'set_color_grey':        {'action': dm.set_color, 'args': [COLORS["grey"]]},
 
+            'set_brush_rounded':     {'action': dm.set_brush, 'args': ["rounded"] },
+            'set_brush_marker':      {'action': dm.set_brush, 'args': ["marker"] },
+            'set_brush_slanted':     {'action': dm.set_brush, 'args': ["slanted"] },
+
             'apply_pen_to_bg':       {'action': canvas.apply_pen_to_bg,        'modes': ["move"]},
             'toggle_pens':           {'action': canvas.switch_pens},
 
@@ -329,6 +333,10 @@ class EventManager:
             'Shift-e':              "set_color_grey",
             'Shift-y':              "set_color_yellow",
 #            'Shift-p':              "set_color_purple",
+
+            '1':                    "set_brush_rounded",
+            '2':                    "set_brush_marker",
+            '3':                    "set_brush_slanted",
 
             'Shift-p':              "prev_page",
             'Shift-n':              "next_page",

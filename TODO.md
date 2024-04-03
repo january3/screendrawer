@@ -71,6 +71,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * implemented three simple brushes, selectable through 1-3
  * implemented grid (ctrl-g)
  * implement rotating for: Box, Circle (yes, since Circle can be an
    ellipse)

@@ -147,7 +147,6 @@ def smooth_path(coords, pressure=None, threshold=20):
         print("Pressure and coords must have the same length:", len(pressure), len(coords))
         return coords, pressure
 
-
     #print("smoothing path with", len(coords), "points")
     smoothed_coords = [coords[0]]  # Start with the first point
     if pressure:
@@ -266,7 +265,7 @@ def calc_arc_coords(p1, p2, p3, n = 20):
     radius = math.sqrt((x2 - x1)**2 + (y2 - y1)**2) / 2
 
     side = determine_side_math(p1, p2, p3)
-    
+
     # calculate the from p0 to p1
     a1 = math.atan2(y1 - p0[1], x1 - p0[0])
     a2 = math.atan2(y2 - p0[1], x2 - p0[0])
@@ -346,7 +345,7 @@ def calc_normal_outline(coords, pressure, line_width, rounded = False):
         ## append the points for the first coord
             if rounded:
                 arc_coords = calc_arc_coords( left_segment1_start,
-                                              right_segment1_start, 
+                                              right_segment1_start,
                                              p1, 10)
                 outline_r.extend(arc_coords)
             outline_l.append(left_segment1_start)

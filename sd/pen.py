@@ -3,6 +3,7 @@ This module defines the Pen class, which represents a pen with customizable draw
 """
 
 from gi.repository import Pango  # <remove>
+from .brush import BrushFactory                   #<remove>
 
 class Pen:
     """
@@ -46,7 +47,8 @@ class Pen:
     def __init__(self, color = (0, 0, 0), line_width = 12, transparency = 1,
                  fill_color = None,
                  font_size = 12, font_family = "Sans",
-                 font_weight = "normal", font_style = "normal"):
+                 font_weight = "normal", font_style = "normal",
+                 brush = "rounded"):
         """
         Initializes a new Pen object with the specified drawing properties.
         """
@@ -61,6 +63,16 @@ class Pen:
         self.font_style        = font_style  or "normal"
         self.font_description  = Pango.FontDescription.from_string(
                 f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}")
+        self.__brush     = BrushFactory.create_brush(brush)
+        self.__brush_type = brush
+
+    def brush(self, brush_type = None):
+        """Get or set the brush property"""
+        if brush_type is not None:
+            print("creating new self", self, "brush", brush_type)
+            self.__brush = BrushFactory.create_brush(brush_type)
+            self.__brush_type = brush_type
+        return self.__brush
 
     def transparency_set(self, transparency):
         """Set pen transparency"""
@@ -146,12 +158,16 @@ class Pen:
             "font_size": self.font_size,
             "font_family": self.font_family,
             "font_weight": self.font_weight,
+            "brush": self.__brush_type,
             "font_style": self.font_style
         }
 
     def copy(self):
         """Create a copy of the pen"""
-        return Pen(self.color, self.line_width, self.transparency, self.fill_color, self.font_size, self.font_family, self.font_weight, self.font_style)
+        print("copying pen", self, "brush", self.__brush_type)
+        return Pen(self.color, self.line_width, self.transparency, self.fill_color, 
+                   self.font_size, self.font_family, self.font_weight, self.font_style,
+                   brush = self.__brush_type)
 
     @classmethod
     def from_dict(cls, d):
