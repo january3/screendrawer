@@ -1,6 +1,7 @@
 """Class for different brushes."""
 from .utils import path_bbox, calc_normal_outline, smooth_path                      # <remove>
-from .utils import pp, remove_intersections                      # <remove>
+from .utils import pp, remove_intersections, calculate_angle2                      # <remove>
+from math import atan2, degrees # <remove>
 
 class BrushFactory:
     """
@@ -116,11 +117,32 @@ class BrushSlanted(Brush):
         n = len(coords)
 
         dx0, dy0, dx1, dy1 = [ x * line_width for x in self.__slant ]
+        slant_vec   = (dx0 - dx1, dy0 - dy1)
 
-        for p in coords:
+        p_prev = coords[0]
+        x, y = coords[0]
+        outline_l.append((x + dx0, y + dy0))
+        outline_r.append((x + dx1, y + dy1))
+        prev_cs_angle = None
+
+        i = 0
+        for p in coords[1:]:
             x, y = p
+            coord_angle = atan2(x - p_prev[0], y - p_prev[1])
+
+            coord_slant_angle = calculate_angle2((x - p_prev[0], y - p_prev[1]), slant_vec)
+
+            # avoid crossing of outlines
+            if prev_cs_angle is not None:
+                if prev_cs_angle * coord_slant_angle < 0:
+                    outline_l, outline_r = outline_r, outline_l
+
+            prev_cs_angle = coord_slant_angle
+
             outline_l.append((x + dx0, y + dy0))
             outline_r.append((x + dx1, y + dy1))
+            p_prev = p
+            i += 1
 
         #outline_l, outline_r = remove_intersections(outline_l, outline_r)
         print("calculated outline for n=", len(coords), "points")
@@ -128,5 +150,6 @@ class BrushSlanted(Brush):
         outline = outline_l + outline_r[::-1]
         self.outline(outline)
 
+        print("done calculating slanted brush")
         return outline
 

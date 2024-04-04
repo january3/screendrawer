@@ -154,6 +154,15 @@ def remove_intersections(outline_l, outline_r):
 
     return out_ret_l, out_ret_r
 
+def calculate_angle2(p0, p1):
+    """Calculate angle between vectors given by p0 and p1"""
+    x1, y1 = p0
+    x2, y2 = p1
+    dot = x1 * x2 + y1 * y2
+    det = x1 * y2 - y1 * x2
+    angle = math.atan2(det, dot)
+    return angle
+
 def calculate_angle(p0, p1, p2):
     """Calculate the angle between the line p0->p1 and p1->p2 in degrees."""
     a = math.sqrt((p1[0] - p0[0])**2 + (p1[1] - p0[1])**2)
