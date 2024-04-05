@@ -250,6 +250,10 @@ class EventManager:
             'prev_page':              {'action': gom.prev_page},
             'delete_page':            {'action': gom.delete_page},
 
+            'next_layer':             {'action': gom.next_layer},
+            'prev_layer':             {'action': gom.prev_layer},
+            'delete_layer':           {'action': gom.delete_layer},
+
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
 
 #            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
@@ -341,6 +345,9 @@ class EventManager:
             'Shift-p':              "prev_page",
             'Shift-n':              "next_page",
             'Shift-d':              "delete_page",
+            'Ctrl-Shift-p':         "prev_layer",
+            'Ctrl-Shift-n':         "next_layer",
+            'Ctrl-Shift-d':         "delete_layer",
 
             'Ctrl-e':               "export_drawing",
             'Ctrl-Shift-s':         "save_drawing_as",

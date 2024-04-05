@@ -1,19 +1,19 @@
 To do (sorted by priority):
 
 
+ * add layers so that we can create a sketch in one layer, then draw in another, and
+   finally remove the first one. Layers could be implemented as
+   DrawableGroup or Page object within the Page class. Page should then keep track
+   of existing layers. The layers list would be independent of any
+   selection information, but the selection object and tool would probably
+   have to be aware of the layers; ctrl-a should only select objects from
+   the current layer.
  * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
    files
  * make wiglets movable
  * draw a dustbin wiglet in lower left corner
  * clean up font code. Maybe use the Pango.FontDescription class for
    everything - why not?
- * add layers so that we can create a sketch in one layer, then draw in another, and
-   finally remove the first one. Layers could be implemented as
-   DrawableGroup object within the Page class. Page should then keep track
-   of existing layers. The layers list would be independent of any
-   selection information, but the selection object and tool would probably
-   have to be aware of the layers; ctrl-a should only select objects from
-   the current layer.
  * idea for path editing: "thumb" - moving a point on path and dragging
    surrounding points with it in a rubber-like fashion; how many - that depends on current line
    width (so broader line make more points move)
@@ -258,6 +258,8 @@ Done:
 Parked ideas:
  * import SVG: that would be a nice thing, but it is a lot of work. Also,
    to do it properly it would require specialized libraries.
+ * For outlines, split each outline into non-overlapping segments. This is
+   much harder than I thought it would be, but fun.
 
 Rejected ideas:
  * how about: each object has methods "save_state" (which returns

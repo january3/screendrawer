@@ -123,6 +123,11 @@ my own workflow. Here are some of them:
    to change the brush of the existing line, but I sometimes wish to change
    its color. (However, you can always apply the current pen to a selection
    with alt-p).
+ * The app *never* asks for confirmation when saving files. You can always
+   overwrite the file you are saving your screenshot in. It is a feature,
+   because I often want to save the screenshot in the same file, and I
+   am annoyed by the dialog asking me if I want to overwrite the file.
+   Also, I tend to press OK without reading the warning. So beware of that.
 
 
 
