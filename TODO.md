@@ -42,6 +42,8 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * clearing up the canvas should clear the whole page, not only the current
+   layer
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.

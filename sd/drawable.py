@@ -7,6 +7,8 @@ import tempfile                          # <remove>
 import math                              # <remove>
 import base64                            # <remove>
 import cairo                             # <remove>
+import gi                                 # <remove>
+gi.require_version('Gdk', '3.0')        # <remove>
 from gi.repository import Gdk            # <remove>
 from .pen import Pen                     # <remove>
 from .utils import transform_coords, smooth_path, coords_rotate           # <remove>
