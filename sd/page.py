@@ -98,6 +98,10 @@ class Page:
         layer = self.__layers[self.__current_layer]
         layer.kill_object(obj)
 
+    def number_of_layers(self):
+        """Return the number of layers."""
+        return len(self.__layers)
+
     def next_layer(self):
         """Switch to the next layer."""
         print("appending a new layer")
@@ -113,12 +117,17 @@ class Page:
             self.__current_layer = 0
         return self.__current_layer
 
-    def set_layer(self, layer_no):
-        """Set the current layer."""
+    def layer_no(self, layer_no = None):
+        """Get or set the current layer."""
+        if layer_no is None:
+            return self.__current_layer
+
         if layer_no < 0:
             layer_no = 0
+
         if layer_no >= len(self.__layers):
             self.__layers.append(Layer())
+
         self.__current_layer = layer_no
         return self.__current_layer
 

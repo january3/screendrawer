@@ -10,6 +10,29 @@ from .pen import Pen                           # <remove>
 from .utils import draw_dot, is_click_in_bbox  # <remove>
 from .icons import Icons                       # <remove>
 
+def draw_rhomb(cr, bbox, fg = (0, 0, 0), bg = (1, 1, 1)):
+    """
+    Draw a rhombus shape
+    """
+    x0, y0, w, h = bbox
+    cr.set_source_rgb(*bg)
+    cr.move_to(x0, y0 + h/2)
+    cr.line_to(x0 + w/2, y0)
+    cr.line_to(x0 + w, y0 + h/2)
+    cr.line_to(x0 + w/2, y0 + h)
+    cr.close_path()
+    cr.fill()
+
+    cr.set_source_rgb(*fg)
+    cr.set_line_width(1)
+    cr.move_to(x0, y0 + h/2)
+    cr.line_to(x0 + w/2, y0)
+    cr.line_to(x0 + w, y0 + h/2)
+    cr.line_to(x0 + w/2, y0 + h)
+    cr.close_path()
+    cr.stroke()
+
+
 def adjust_color_brightness(rgb, factor):
     """
     Adjust the color brightness.
@@ -136,7 +159,7 @@ class WigletPageSelector(Wiglet):
         self.__page_n = self.__gom.number_of_pages()
         self.__height = self.__height_per_page * self.__page_n
         self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
-        self.__current_page = self.__gom.current_page_number()
+        self.__current_page_n = self.__gom.current_page_number()
 
     def on_click(self, x, y, ev):
         """handle the click event"""
@@ -161,26 +184,56 @@ class WigletPageSelector(Wiglet):
     def draw(self, cr):
         """draw the widget"""
         self.recalculate()
-        cr.set_source_rgb(0.5, 0.5, 0.5)
-        cr.rectangle(*self.__bbox)
-        cr.fill()
+
+        wpos = self.__bbox[0]
+        hpos = self.__bbox[1]
 
         for i in range(self.__page_n):
-            if i == self.__current_page:
+            cr.set_source_rgb(0.5, 0.5, 0.5)
+            cr.rectangle(wpos, hpos, self.__width, self.__height_per_page)
+            cr.fill()
+
+            if i == self.__current_page_n:
                 cr.set_source_rgb(0, 0, 0)
             else:
                 cr.set_source_rgb(1, 1, 1)
-            cr.rectangle(self.__bbox[0] + 1, self.__bbox[1] + i * self.__height_per_page + 1,
+
+            cr.rectangle(wpos + 1, hpos + 1,
                         self.__width - 2, self.__height_per_page - 2)
             cr.fill()
-            if i == self.__current_page:
+            if i == self.__current_page_n:
                 cr.set_source_rgb(1, 1, 1)
             else:
                 cr.set_source_rgb(0, 0, 0)
             cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
             cr.set_font_size(14)
-            cr.move_to(self.__bbox[0] + 5, self.__bbox[1] + i * self.__height_per_page + 20)
+            cr.move_to(wpos + 5, hpos + 20)
             cr.show_text(str(i + 1))
+
+            hpos += self.__height_per_page
+
+            # draw layer symbols for the current page
+            if i == self.__current_page_n:
+                page = self.__gom.page()
+                n_layers = page.number_of_layers()
+                cur_layer = page.layer_no()
+                cr.set_source_rgb(0.5, 0.5, 0.5)
+                cr.rectangle(wpos, hpos, self.__width, 
+                             n_layers * 5 + 5)
+                cr.fill()
+
+                hpos = hpos + n_layers * 5 + 5
+                for j in range(n_layers):
+                    # draw a small rhombus for each layer
+                    curpos = hpos - j * 5 - 10
+                    if j == cur_layer:
+                        # inverted for the current layer
+                        draw_rhomb(cr, (wpos, curpos, self.__width, 10),
+                                   (1, 1, 1), (0, 0, 0))
+                    else:
+                        draw_rhomb(cr, (wpos, curpos, self.__width, 10))
+
+
 
     def update_size(self, width, height):
         """update the size of the widget"""
