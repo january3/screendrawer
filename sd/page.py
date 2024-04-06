@@ -43,6 +43,7 @@ class Page:
         #self.__selection = SelectionObject(self.__objects)
         self.__layers = [ layers or Layer() ]
         self.__current_layer = 0
+        self.__translate = None
 
     def next(self, create = True):
         """
@@ -140,3 +141,13 @@ class Page:
             self.__current_layer = len(self.__layers) - 1
         return self.__current_layer
 
+    def translate(self, new_val = None):
+        """Get or set the translate"""
+        if new_val is not None:
+            self.__translate = new_val
+        return self.__translate
+
+    def translate_set(self, new_val):
+        """Set the translate"""
+        self.__translate = new_val
+        return(self.__translate)

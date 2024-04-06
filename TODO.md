@@ -1,13 +1,7 @@
 To do (sorted by priority):
 
 
- * add layers so that we can create a sketch in one layer, then draw in another, and
-   finally remove the first one. Layers could be implemented as
-   DrawableGroup or Page object within the Page class. Page should then keep track
-   of existing layers. The layers list would be independent of any
-   selection information, but the selection object and tool would probably
-   have to be aware of the layers; ctrl-a should only select objects from
-   the current layer.
+ * remember canvas translation; separately for each page!
  * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
    files
  * make wiglets movable
@@ -71,6 +65,13 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * add layers so that we can create a sketch in one layer, then draw in another, and
+   finally remove the first one. Layers could be implemented as
+   DrawableGroup or Page object within the Page class. Page should then keep track
+   of existing layers. The layers list would be independent of any
+   selection information, but the selection object and tool would probably
+   have to be aware of the layers; ctrl-a should only select objects from
+   the current layer.
  * remember page number
  * implemented three simple brushes, selectable through 1-3
  * implemented grid (ctrl-g)

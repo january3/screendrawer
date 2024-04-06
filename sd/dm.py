@@ -100,8 +100,9 @@ class DrawManager:
             return True
 
         cr.save()
-        if self.__translate:
-            cr.translate(*self.__translate)
+        tr = self.__gom.page().translate()
+        if tr:
+            cr.translate(*tr)
 
         cr.set_source_rgba(*self.__canvas.bg_color(), self.__canvas.transparent())
         cr.set_operator(cairo.OPERATOR_SOURCE)
@@ -109,7 +110,7 @@ class DrawManager:
         cr.set_operator(cairo.OPERATOR_OVER)
 
         if self.__show_grid:
-            tr = self.__translate if self.__translate else (0, 0)
+            tr = tr or (0, 0)
             self.__grid.draw(cr, tr, self.__app.get_size())
 
         self.__gom.draw(cr, self.__hover, self.__mode)
@@ -245,7 +246,8 @@ class DrawManager:
         """Handle mouse button press events."""
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
         self.__modified = True # better safe than sorry
-        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+        ev = MouseEvent(event, self.__gom.objects(), 
+                        translate = self.__gom.page().translate())
 
         # Ignore clicks when text input is active
         if self.__current_object:
@@ -389,7 +391,8 @@ class DrawManager:
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         print("button release: type:", event.type, "button:", event.button, "state:", event.state)
-        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+        ev = MouseEvent(event, self.__gom.objects(), 
+                        translate = self.__gom.page().translate())
 
         if self.__paning:
             self.__paning = None
@@ -509,7 +512,8 @@ class DrawManager:
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
 
-        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+        ev = MouseEvent(event, self.__gom.objects(), 
+                        translate = self.__gom.page().translate())
         x, y = ev.pos()
         self.__cursor.update_pos(x, y)
 
@@ -583,10 +587,13 @@ class DrawManager:
         if not self.__paning:
             return False
 
-        if not self.__translate:
-            self.__translate = (0, 0)
+        tr = self.__gom.page().translate()
+        if not tr:
+            tr = self.__gom.page().translate((0, 0))
         dx, dy = event.x - self.__paning[0], event.y - self.__paning[1]
-        self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
+        tr = (tr[0] + dx, tr[1] + dy)
+        self.__gom.page().translate(tr)
+        #self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
         self.__paning = (event.x, event.y)
         self.__app.queue_draw()
         return True
