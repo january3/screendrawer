@@ -96,7 +96,18 @@ def bezier_point(t, start, control, end):
     return (x, y)
 
 def segment_intersection(p1, p2, p3, p4):
-    """Calculate the intersection of two line segments."""
+    """
+    Calculate the intersection of two line segments.
+    
+    Parameters:
+    - p1, p2: Coordinates of the first line segment's endpoints.
+    - p3, p4: Coordinates of the second line segment's endpoints.
+    
+    Returns:
+    - A tuple (True, (x, y)) if segments intersect, with (x, y) being the intersection point.
+    - A tuple (False, None) if segments do not intersect.
+    """
+
     x1, y1 = p1
     x2, y2 = p2
     x3, y3 = p3

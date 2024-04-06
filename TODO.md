@@ -1,6 +1,8 @@
 To do (sorted by priority):
 
 
+ * unit tests. more, more, more
+ * add -p PAGE parameter to the command line interface
  * remember canvas translation; separately for each page!
  * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
    files
@@ -16,7 +18,6 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
  * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
    to the corresponding pen
- * unit tests. this is becoming pressing but will be a lot of work
  * wiglets for pen / line width / tool. They should be drawinggroup
    objects knowing how to draw themselves and how to react to mouse
  * Help should be actually a new screendrawer window with written on it!
@@ -31,7 +32,7 @@ To do (sorted by priority):
    transparency etc.
  * grid
  * horizontal and vertical guides
- * maybe an infinite drawing area? Scrollable like?
+ * PDFs should be multipage (ha, ha)
 
 Design issues:
  * the interaction between canvas, gom, dm, em is tangled. 
@@ -41,6 +42,7 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies
@@ -65,6 +67,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * unit tests. this is becoming pressing but will be a lot of work
  * extra layers created when importing
  * only current layer gets saved
  * add layers so that we can create a sketch in one layer, then draw in another, and
@@ -128,6 +131,7 @@ Done:
  * When exporting, no background is produced
  * wiglet for color 
  * paning the draw area
+ * maybe an infinite drawing area? Scrollable like?
  * Drawing Manager
  * when converting via command line, it should be possible to specify a
    border around the actual drawing (so not all screen is exported)

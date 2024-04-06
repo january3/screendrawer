@@ -6,6 +6,7 @@ from os import path # <remove>
 import pickle # <remove>
 import cairo # <remove>
 from sd.drawable import Drawable, DrawableGroup # <remove>
+from sd.page import Page # <remove>
 
 def guess_file_format(filename):
     """Guess the file format from the file extension."""
@@ -29,7 +30,9 @@ def convert_file(input_file, output_file, file_format = "all", border = None, pa
         if len(pages) < page:
             raise ValueError(f"Page number out of range (max. {len(pages)})")
         print("read drawing from", input_file, "with", len(pages), "pages")
-        objects = pages[page]['objects']
+        p = Page()
+        p.import_page(pages[page])
+        objects = p.objects_all_layers()
 
     print("read drawing from", input_file, "with", len(objects), "objects")
     objects = DrawableGroup(objects)
