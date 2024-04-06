@@ -1,7 +1,7 @@
 """
 This module contains the Page class, which is a container for objects.
 """
-from .drawable import SelectionObject # <remove>
+from .drawable import Drawable, SelectionObject # <remove>
 
 
 class Layer:
@@ -19,6 +19,10 @@ class Layer:
             self.__selection = SelectionObject(self.__objects)
         return self.__objects
 
+    def objects_import(self, object_list):
+        """Import objects from a dict"""
+        self.__objects = [ Drawable.from_dict(d) for d in object_list ] or [ ]
+
     def selection(self):
         """Return the selection object."""
         return self.__selection
@@ -27,6 +31,9 @@ class Layer:
         """Directly remove an object from the list of objects."""
         if obj in self.__objects:
             self.__objects.remove(obj)
+
+    def export(self):
+        return [ obj.to_dict() for obj in self.__objects ]
 
 class Page:
     """
@@ -39,8 +46,6 @@ class Page:
     def __init__(self, prev = None, layers = None):
         self.__prev    = prev
         self.__next = None
-        #self.__objects = []
-        #self.__selection = SelectionObject(self.__objects)
         self.__layers = [ layers or Layer() ]
         self.__current_layer = 0
         self.__translate = None
@@ -151,3 +156,26 @@ class Page:
         """Set the translate"""
         self.__translate = new_val
         return(self.__translate)
+
+    def export(self):
+        """Exports the page with all layers as a dict"""
+        layers = [ l.export() for l in self.__layers ]
+        ret = { 
+                 "layers": layers,
+                 "translate": self.translate(),
+                 "cur_layer": self.__current_layer
+              }
+        return ret
+
+    def import_page(self, page_dict):
+        """Imports a dict to self"""
+        self.__translate = page_dict.get("translate")
+        if "objects" in page_dict:
+            self.objects(page_dict["objects"])
+        elif "layers" in page_dict:
+            for l_list in page_dict["layers"]:
+                layer = self.__layers[self.__current_layer]
+                layer.objects_import(l_list)
+                self.next_layer()
+        cl = page_dict.get("cur_layer")
+        self.__current_layer = cl if cl is not None else 0

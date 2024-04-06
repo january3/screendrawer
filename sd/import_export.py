@@ -155,7 +155,10 @@ def read_file_as_sdrw(filename):
                 print("found pages in savefile")
                 pages = state['pages']
                 for p in pages:
-                    p['objects'] = [ Drawable.from_dict(d) for d in p['objects'] ] or [ ]
+                    print(p)
+                    if "objects" in p:
+                        p['objects'] = [ Drawable.from_dict(d) for d in p['objects'] ] or [ ]
+                            
             config = state['config']
     except OSError as e:
         print(f"Error saving file due to a file I/O error: {e}")

@@ -290,7 +290,7 @@ class Drawable:
             raise ValueError("Invalid type:", obj_type)
 
         if "pen" in d:
-            print("Read pen from dict. Pen is", d["pen"], "brush", d["pen"]["brush"])
+            print("Read pen from dict. Pen is", d.get("pen"))
             d["pen"] = Pen.from_dict(d["pen"])
         #print("generating object of type", type, "with data", d)
         return type_map.get(obj_type)(**d)

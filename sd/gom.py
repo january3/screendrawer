@@ -148,13 +148,10 @@ class GraphicsObjectManager:
     def set_pages(self, pages):
         """Set the content of pages."""
         self.__page = Page()
-        self.__page.objects(pages[0]['objects'])
-        self.__page.translate(pages[0].get("translate"))
+        self.__page.import_page(pages[0])
         for p in pages[1:]:
             self.__page = self.__page.next()
-            self.__page.objects(p.get("objects"))
-            self.__page.translate(p.get("translate"))
-        
+            self.__page.import_page(p)
 
     def add_object(self, obj):
         """Add an object to the list of objects."""
@@ -171,11 +168,7 @@ class GraphicsObjectManager:
         # create a list of pages for all pages
         pages = [ ]
         while p:
-            objects = [ obj.to_dict() for obj in p.objects() ]
-            pages.append({ 
-                          "objects": objects,
-                          "translate": p.translate(),
-                         })
+            pages.append(p.export())
             p = p.next(create = False)
         return pages
 
