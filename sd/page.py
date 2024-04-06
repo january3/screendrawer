@@ -169,13 +169,22 @@ class Page:
 
     def import_page(self, page_dict):
         """Imports a dict to self"""
+        print("importing pages")
         self.__translate = page_dict.get("translate")
         if "objects" in page_dict:
             self.objects(page_dict["objects"])
         elif "layers" in page_dict:
+            print(len(page_dict["layers"]), "layers found")
+            print("however, we only have", len(self.__layers), "layers")
+            print("creating", len(page_dict["layers"]) - len(self.__layers), "new layers")
+            self.__current_layer = 0
+            for i in range(len(page_dict["layers"]) - len(self.__layers)):
+                self.next_layer()
+            self.__current_layer = 0
             for l_list in page_dict["layers"]:
                 layer = self.__layers[self.__current_layer]
                 layer.objects_import(l_list)
-                self.next_layer()
+                self.__current_layer += 1
+
         cl = page_dict.get("cur_layer")
         self.__current_layer = cl if cl is not None else 0

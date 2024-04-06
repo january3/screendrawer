@@ -155,7 +155,9 @@ def read_file_as_sdrw(filename):
                 print("found pages in savefile")
                 pages = state['pages']
                 for p in pages:
-                    print(p)
+                    # this is for compatibility; newer drawings are saved
+                    # with a "layers" key which is then processed by the
+                    # page import function - best if page takes care of it
                     if "objects" in p:
                         p['objects'] = [ Drawable.from_dict(d) for d in p['objects'] ] or [ ]
                             

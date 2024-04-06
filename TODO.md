@@ -41,7 +41,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * only current layer gets saved
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies
@@ -66,6 +65,8 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * extra layers created when importing
+ * only current layer gets saved
  * add layers so that we can create a sketch in one layer, then draw in another, and
    finally remove the first one. Layers could be implemented as
    DrawableGroup or Page object within the Page class. Page should then keep track
