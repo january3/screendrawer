@@ -441,8 +441,6 @@ class DrawManager:
             # with text, we are not done yet! Need to keep current object
             # such that keyboard events can update it
             if self.__current_object.type != "text":
-                #self.__current_object.caret_pos = None
-
                 self.__gom.selection().clear()
                 self.__current_object = None
 
@@ -613,7 +611,7 @@ class DrawManager:
         """Clean up current text and finish text input."""
         print("finishing text input")
         if self.__current_object and self.__current_object.type == "text":
-            self.__current_object.caret_pos = None
+            self.__current_object.show_caret(False)
             if self.__current_object.strlen() == 0:
                 print("kill object because empty")
                 self.__gom.kill_object(self.__current_object)

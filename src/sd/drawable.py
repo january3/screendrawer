@@ -14,6 +14,7 @@ from .pen import Pen                     # <remove>
 from .utils import transform_coords, smooth_path, coords_rotate           # <remove>
 from .utils import is_click_close_to_path, path_bbox, move_coords, flatten_and_unique # <remove>
 from .utils import base64_to_pixbuf, find_obj_in_bbox     # <remove>
+from .texteditor import TextEditor      # <remove>
 
 
 class DrawableFactory:
@@ -772,16 +773,26 @@ class Text(Drawable):
         super().__init__("text", coords, pen)
 
         # split content by newline
-        content = content.split("\n")
-        self.content = content
-        self.line    = 0
-        self.caret_pos    = None
+        # content = content.split("\n")
+        self.__text = TextEditor(content)
         self.bb           = None
         self.font_extents = None
+        self.__show_caret = False
 
         if rotation:
             self.rotation = rotation
             self.rot_origin = rot_origin
+
+    def move_caret(self, direction):
+        """Move the caret."""
+        self.__text.move_caret(direction)
+        self.show_caret(True)
+
+    def show_caret(self, show = None):
+        """Show the caret."""
+        if show is not None:
+            self.__show_caret = show
+        return self.__show_caret
 
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the object."""
@@ -878,7 +889,7 @@ class Text(Drawable):
             "pen": self.pen.to_dict(),
             "rotation": self.rotation,
             "rot_origin": self.rot_origin,
-            "content": self.as_string()
+            "content": self.__text.to_string()
         }
 
     def bbox(self, actual = False):
@@ -898,94 +909,21 @@ class Text(Drawable):
 
         return bb
 
-    def as_string(self):
+    def to_string(self):
         """Return the text as a single string."""
-        return "\n".join(self.content)
+        return self.__text.to_string()
 
     def strlen(self):
         """Return the length of the text."""
-        return len(self.as_string())
+        return self.__text.strlen()
 
     def add_text(self, text):
         """Add text to the object."""
-        # split text by newline
-        lines = text.split("\n")
-        for i, line in enumerate(lines):
-            if i == 0:
-                self.content[self.line] += line
-                self.caret_pos += len(text)
-            else:
-                self.content.insert(self.line + i, line)
-                self.caret_pos = len(line)
-
-    def backspace(self):
-        """Remove the last character from the text."""
-        cnt = self.content
-        if self.caret_pos > 0:
-            cnt[self.line] = cnt[self.line][:self.caret_pos - 1] + cnt[self.line][self.caret_pos:]
-            self.caret_pos -= 1
-        elif self.line > 0:
-            self.caret_pos = len(cnt[self.line - 1])
-            cnt[self.line - 1] += cnt[self.line]
-            cnt.pop(self.line)
-            self.line -= 1
-
-    def newline(self):
-        """Add a newline to the text."""
-        self.content.insert(self.line + 1,
-                            self.content[self.line][self.caret_pos:])
-        self.content[self.line] = self.content[self.line][:self.caret_pos]
-        self.line += 1
-        self.caret_pos = 0
-
-    def add_char(self, char):
-        """Add a character to the text."""
-        before_caret = self.content[self.line][:self.caret_pos]
-        after_caret  = self.content[self.line][self.caret_pos:]
-        self.content[self.line] = before_caret + char + after_caret
-        self.caret_pos += 1
-
-    def move_caret(self, direction):
-        """Move the caret in the text."""
-        if direction == "End":
-            self.line = len(self.content) - 1
-            self.caret_pos = len(self.content[self.line])
-        elif direction == "Home":
-            self.line = 0
-            self.caret_pos = 0
-        elif direction == "Right":
-            if self.caret_pos < len(self.content[self.line]):
-                self.caret_pos += 1
-            elif self.line < len(self.content) - 1:
-                self.line += 1
-                self.caret_pos = 0
-        elif direction == "Left":
-            if self.caret_pos > 0:
-                self.caret_pos -= 1
-            elif self.line > 0:
-                self.line -= 1
-                self.caret_pos = len(self.content[self.line])
-        elif direction == "Down":
-            if self.line < len(self.content) - 1:
-                self.line += 1
-                self.caret_pos = min(self.caret_pos, len(self.content[self.line]))
-        elif direction == "Up":
-            if self.line > 0:
-                self.line -= 1
-                self.caret_pos = min(self.caret_pos, len(self.content[self.line]))
-        else:
-            raise ValueError("Invalid direction:", direction)
+        self.__text.add_text(text)
 
     def update_by_key(self, keyname, char):
         """Update the text object by keypress."""
-        if keyname == "BackSpace": # and cur["caret_pos"] > 0:
-            self.backspace()
-        elif keyname in ["Home", "End", "Down", "Up", "Right", "Left"]:
-            self.move_caret(keyname)
-        elif keyname == "Return":
-            self.newline()
-        elif char and char.isprintable():
-            self.add_char(char)
+        self.__text.update_by_key(keyname, char)
 
     def draw_caret(self, cr, xx0, yy0, height):
         """Draw the caret."""
@@ -1004,7 +942,9 @@ class Text(Drawable):
     def draw(self, cr, hover=False, selected=False, outline=False):
         """Draw the text object."""
         position = self.coords[0]
-        content, pen, caret_pos = self.content, self.pen, self.caret_pos
+        content = self.__text.lines()
+        caret_pos = self.__text.caret_pos()
+        pen = self.pen
 
         # get font info
         cr.select_font_face(pen.font_family,
@@ -1048,7 +988,7 @@ class Text(Drawable):
             cr.stroke()
 
             # draw the caret
-            if not caret_pos is None and i == self.line:
+            if self.__show_caret and not caret_pos is None and i == self.__text.caret_line():
                 x_bearing, _, t_width, _, _, _ = cr.text_extents("|" +
                                                         fragment[:caret_pos] + "|")
                 _, _, t_width2, _, _, _ = cr.text_extents("|")

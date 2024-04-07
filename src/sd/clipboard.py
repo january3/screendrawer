@@ -77,7 +77,7 @@ class Clipboard:
             sel = selection
 
         if sel.type == "text":
-            text = sel.as_string()
+            text = sel.to_string()
             print("Copying text", text)
             # just copy the text
             clipboard.set_text(text, -1)
