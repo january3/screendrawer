@@ -99,7 +99,6 @@ class Page:
 
     def selection(self):
         """Return the selection object."""
-        print("getting selection from layer", self.__current_layer)
         layer = self.__layers[self.__current_layer]
         return layer.selection()
 

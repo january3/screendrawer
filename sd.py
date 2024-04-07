@@ -1,28 +1,35 @@
 #!/usr/bin/env python3
 
-##  MIT License
-##
-##  Copyright (c) 2024 January Weiner
-##
-##  Permission is hereby granted, free of charge, to any person obtaining a copy
-##  of this software and associated documentation files (the "Software"), to deal
-##  in the Software without restriction, including without limitation the rights
-##  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-##  copies of the Software, and to permit persons to whom the Software is
-##  furnished to do so, subject to the following conditions:
-##
-##  The above copyright notice and this permission notice shall be included in all
-##  copies or substantial portions of the Software.
-##
-##  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-##  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-##  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-##  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-##  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-##  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-##  SOFTWARE.
+## MIT License
+## 
+## Copyright (c) 2024 January Weiner
+## 
+## Permission is hereby granted, free of charge, to any person obtaining a copy
+## of this software and associated documentation files (the "Software"), to deal
+## in the Software without restriction, including without limitation the rights
+## to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+## copies of the Software, and to permit persons to whom the Software is
+## furnished to do so, subject to the following conditions:
+## 
+## The above copyright notice and this permission notice shall be included in all
+## copies or substantial portions of the Software.
+## 
+## THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+## IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+## FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+## AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+## LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+## SOFTWARE.
+"""
+ScreenDrawer - a simple drawing program that allows you to draw on the screen
 
-# ---------------------------------------------------------------------
+Usage:
+  sd.py [options] [file.sdrw [file.[png, pdf, svg]]]
+
+See README.md for more information.
+"""
+
 import copy
 import pickle
 import traceback
@@ -6380,6 +6387,70 @@ class BrushSlanted(Brush):
         print("done calculating slanted brush")
         return outline
 
+"""Grid class for drawing a grid on screen"""
+
+class Grid:
+    """
+    Grid object holds information about how tight a grid is, and how it is drawn.
+
+    app is a necessary argument, because Grid needs to know the current size of 
+    the screen to draw the grid properly.
+    """
+    def __init__(self):
+        self.__spacing = 10
+        self.__tocks  = 5
+        self.__origin = (0, 0)
+        self.__color = (.2, .2, .2, .75)
+        self.__line_width = 0.2
+
+    def draw(self, cr, tr, size):
+        """Draw grid in the current cairo context"""
+
+        width, height = size
+        dx, dy = tr
+
+        x0 =  - int(dx / self.__spacing) * self.__spacing
+        y0 =  - int(dy / self.__spacing) * self.__spacing
+
+        cr.set_source_rgba(*self.__color)
+        cr.set_line_width(self.__line_width/2)
+
+        # draw vertical lines
+        x = x0
+        i = 1
+        while x < width + x0:
+            if i == 5:
+                cr.set_line_width(self.__line_width)
+                cr.move_to(x, y0)
+                cr.line_to(x, height + y0)
+                cr.stroke()
+                cr.set_line_width(self.__line_width/2)
+                i = 1
+            else:
+                cr.move_to(x, y0)
+                cr.line_to(x, height + y0)
+                cr.stroke()
+                i += 1
+            x += self.__spacing
+
+        # draw horizontal lines
+        y = y0
+        while y < height + y0:
+            if i == 5:
+                cr.set_line_width(self.__line_width)
+                cr.move_to(x0, y)
+                cr.line_to(width + x0, y)
+                cr.stroke()
+                cr.set_line_width(self.__line_width/2)
+                i = 1
+            else:
+                cr.move_to(x0, y)
+                cr.line_to(width + x0, y)
+                cr.stroke()
+                i += 1
+            y += self.__spacing
+
+
 
 
 # ---------------------------------------------------------------------
@@ -6620,7 +6691,7 @@ class TransparentWindow(Gtk.Window):
 
         if file_name:
             export_image(obj, file_name, file_format,
-                         bg = self.canvas.bg_color(), 
+                         bg = self.canvas.bg_color(),
                          bbox = bbox, transparency = self.canvas.transparent())
 
     def select_image_and_create_pixbuf(self):
@@ -6852,4 +6923,3 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
 
 if __name__ == "__main__":
     main()
-

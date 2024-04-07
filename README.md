@@ -65,7 +65,7 @@ pip3 install .
 Now, the reason why I primarily use a single script is that I do not
 understand fully the pip build system. It seems to be very complex, and I
 am a bit reluctant to rely on it. However, the sd.py script is the result
-of processing the `sd/*.py` files with the `make.py` script, so it should
+of processing the `sd/*.py` files with the `scripts/make.py` script, so it should
 be equivalent to the pip installation.
 
 ### Debian package
