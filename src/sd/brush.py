@@ -119,7 +119,6 @@ class BrushSlanted(Brush):
 
     def calculate(self, line_width, coords = None, pressure = None):
         """Recalculate the outline of the brush."""
-        print("calculating slanted brush")
 
         outline_l, outline_r = [ ], [ ]
         coords, pressure = smooth_path(coords, pressure, 20)
@@ -151,10 +150,10 @@ class BrushSlanted(Brush):
             i += 1
 
         #outline_l, outline_r = remove_intersections(outline_l, outline_r)
-        print("calculated outline for n=", len(coords), "points")
-        print("length left: ", len(outline_l), "length right:", len(outline_r))
+        #print("calculated outline for n=", len(coords), "points")
+        #print("length left: ", len(outline_l), "length right:", len(outline_r))
         outline = outline_l + outline_r[::-1]
         self.outline(outline)
 
-        print("done calculating slanted brush")
+        #print("done calculating slanted brush")
         return outline

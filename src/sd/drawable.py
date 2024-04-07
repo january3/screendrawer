@@ -983,7 +983,6 @@ class Path(Drawable):
         self.__pressure  = pressure or []
         self.__bb        = []
         if outline:
-            print("Warning: setting outline.")
             self.pen.brush().outline(outline)
         if pressure:
             print("Warning: pressure is not used in Path")

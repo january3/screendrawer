@@ -39,6 +39,11 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * I fixed the issue with rotating the brush by scaling / rotating / moving
+   the outline instead of recalculating. The side effect is that the
+   outline is, well, scaled, which is not what I would like to have: I
+   would prefer to have the "line width" (brush outline) not change with
+   scaling.
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.

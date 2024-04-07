@@ -151,7 +151,6 @@ class Pen:
 
     def to_dict(self):
         """Convert pen properties to a dictionary"""
-        print("saving pen with brush", self.__brush_type)
         return {
             "color": self.color,
             "line_width": self.line_width,
