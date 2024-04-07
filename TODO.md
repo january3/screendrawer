@@ -66,6 +66,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * switching between layers should autoselect all objects for a visual hint
  * regression: ctrl-a (select all) no longer works 
  * undo for deleting layers
  * remember canvas translation; separately for each page!

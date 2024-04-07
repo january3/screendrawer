@@ -118,11 +118,13 @@ class Page:
         self.__current_layer += 1
         if self.__current_layer == len(self.__layers):
             self.__layers.append(Layer())
+        self.__layers[self.__current_layer].selection().all()
         return self.__current_layer
 
     def prev_layer(self):
         """Switch to the previous layer."""
         self.__current_layer = max(0, self.__current_layer - 1)
+        self.__layers[self.__current_layer].selection().all()
         return self.__current_layer
 
     def layer(self, new_layer = None, pos = None):
