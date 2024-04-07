@@ -313,12 +313,12 @@ class DrawableGroup(Drawable):
     Attributes:
         objects (list): The list of objects in the group.
     """
-    def __init__(self, objects, objects_dict = None, mytype = "group"):
+    def __init__(self, objects = None, objects_dict = None, mytype = "group"):
 
+        if objects is None:
+            objects = [ ]
         if objects_dict:
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
-
-        objects = objects or [ ]
 
         print("Creating DrawableGroup with ", len(objects), "objects")
         super().__init__(mytype, [ (None, None) ], None)
