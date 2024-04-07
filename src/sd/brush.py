@@ -3,7 +3,7 @@ from .utils import path_bbox, calc_normal_outline, smooth_path     # <remove>
 from .utils import calculate_angle2                                # <remove>
 from .utils import coords_rotate, transform_coords                 # <remove>
 
-def calculate_outlines(coords, dx0, dy0, dx1, dy1):
+def calculate_slant_outlines(coords, dx0, dy0, dx1, dy1):
     """Calculate the left and right outlines."""
     outline_l, outline_r = [ ], [ ]
     slant_vec   = (dx0 - dx1, dy0 - dy1)
@@ -176,7 +176,7 @@ class BrushSlanted(Brush):
         # we need to multiply everything by line_width
         dx0, dy0, dx1, dy1 = [ line_width * x for x in self.__slant[0] + self.__slant[1] ]
 
-        outline_l, outline_r = calculate_outlines(coords, dx0, dy0, dx1, dy1)
+        outline_l, outline_r = calculate_slant_outlines(coords, dx0, dy0, dx1, dy1)
         outline = outline_l + outline_r[::-1]
         self.outline(outline)
 
