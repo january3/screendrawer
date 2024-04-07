@@ -8,7 +8,7 @@ class BrushFactory:
     Factory class for creating brushes.
     """
     @classmethod
-    def create_brush(cls, brush_type):
+    def create_brush(cls, brush_type = "marker", **kwargs):
         """
         Create a brush of the specified type.
         """
@@ -16,25 +16,34 @@ class BrushFactory:
         print("BrushFactory brush type:", brush_type)
 
         if brush_type == "rounded":
-            return BrushRound()
+            return BrushRound(**kwargs)
 
         if brush_type == "slanted":
-            return BrushSlanted()
+            return BrushSlanted(**kwargs)
 
         if brush_type == "marker":
             print("returning marker brush")
-            return Brush(rounded = False)
+            return BrushMarker(**kwargs)
 
         return Brush()
 
 class Brush:
     """Base class for brushes."""
-    def __init__(self, rounded = False):
+    def __init__(self, rounded = False, brush_type = "marker"):
         self.__outline = [ ]
         self.__coords = [ ]
         self.__pressure = [ ]
         self.__rounded = rounded
         self.__outline = [ ]
+        self.__brush_type = brush_type
+
+    def to_dict(self):
+        """Return a dictionary representation of the brush."""
+        return { "brush_type": self.__brush_type }
+
+    def brush_type(self):
+        """Get brush type."""
+        return self.__brush_type
 
     def coords(self, coords = None):
         """Set or get brush coordinates."""
@@ -105,25 +114,47 @@ class Brush:
         self.__outline = outline
         return outline
 
+class BrushMarker(Brush):
+    """Marker brush."""
+    def __init__(self):
+        super().__init__(rounded = False, brush_type = "marker")
+
 class BrushRound(Brush):
     """Round brush."""
     def __init__(self):
-        super().__init__(rounded = True)
+        super().__init__(rounded = True, brush_type = "rounded")
 
 class BrushSlanted(Brush):
     """Slanted brush."""
-    def __init__(self):
-        super().__init__()
+    def __init__(self, slant = None):
+        super().__init__(brush_type = "slanted")
 
-        self.__slant = (-0.4, 0.6, 0.3, - 0.6)
+        self.__slant = slant or [(-0.4, 0.6), (0.3, - 0.6)]
 
-    def calculate(self, line_width, coords = None, pressure = None):
+    def to_dict(self):
+        """Return a dictionary representation of the brush."""
+        return { "brush_type": self.brush_type(), "slant": self.__slant }
+
+    def rotate(self, angle, rot_origin):
+        """Rotate the outline."""
+        #self.outline(coords_rotate(self.outline(), angle, rot_origin))
+        self.__slant = coords_rotate(self.__slant, angle, (0, 0))
+
+    def __cord_slant_angle(self, p, p_prev, slant_vec):
+        """Calculate the angle between the slant vector and the current coordinate."""
+        coord_slant_angle = calculate_angle2((p[0] - p_prev[0], p[1] - p_prev[1]), slant_vec)
+        return coord_slant_angle
+
+
+    def calculate(self, line_width = 1, coords = None, pressure = None):
         """Recalculate the outline of the brush."""
 
         outline_l, outline_r = [ ], [ ]
         coords, pressure = smooth_path(coords, pressure, 20)
 
-        dx0, dy0, dx1, dy1 = [ x * line_width for x in self.__slant ]
+        # self.__slant is a list of two tupples
+        # we need to multiply everything by line_width
+        dx0, dy0, dx1, dy1 = [ line_width * x for x in self.__slant[0] + self.__slant[1] ]
         slant_vec   = (dx0 - dx1, dy0 - dy1)
 
         p_prev = coords[0]

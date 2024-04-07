@@ -24,9 +24,6 @@ To do (sorted by priority):
  * think hard how I want the color setting / pen thing to work
  * add a line mode and Line object class
  * show corners of the bounding box
- * an idea: wiglets which are shown (optionally, toggleable) on the left
-   side of the screen, allowing to quickly select colors, line widths,
-   transparency etc.
  * grid
  * horizontal and vertical guides
  * PDFs should be multipage (ha, ha)
@@ -39,11 +36,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * I fixed the issue with rotating the brush by scaling / rotating / moving
-   the outline instead of recalculating. The side effect is that the
-   outline is, well, scaled, which is not what I would like to have: I
-   would prefer to have the "line width" (brush outline) not change with
-   scaling.
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
@@ -63,6 +55,11 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * I fixed the issue with rotating the brush by scaling / rotating / moving
+   the outline instead of recalculating. The side effect is that the
+   outline is, well, scaled, which is not what I would like to have: I
+   would prefer to have the "line width" (brush outline) not change with
+   scaling. Basically the only solution I see is to have the 
  * when brush 3 is rotated, the outline is not recalculated. However, upon
    save + exit the outline is recalculated which results in a modified
    outline. Probably the pen should save the rotation. Or maybe the outline
@@ -147,6 +144,9 @@ Done:
  * bounding boxes of objects that were reversed during resize are incorrect
  * When exporting, no background is produced
  * wiglet for color 
+ * an idea: wiglets which are shown (optionally, toggleable) on the left
+   side of the screen, allowing to quickly select colors, line widths,
+   transparency etc.
  * paning the draw area
  * maybe an infinite drawing area? Scrollable like?
  * Drawing Manager

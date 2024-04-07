@@ -654,8 +654,8 @@ class DrawManager:
         """Set the brush."""
         if brush is not None:
             print("setting pen", self.__canvas.pen(), "brush to", brush)
-            self.__canvas.pen().brush(brush)
-        return self.__canvas.pen().brush()
+            self.__canvas.pen().brush_type(brush)
+        return self.__canvas.pen().brush_type()
 
     def set_color(self, color = None):
         """Get or set the color."""
