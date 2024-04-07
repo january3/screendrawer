@@ -1096,7 +1096,8 @@ class Path(Drawable):
         #print("length of coords and pressure:", len(self.coords), len(self.__pressure))
         old_bbox = self.__bb or path_bbox(self.coords)
         self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
-        self.outline_recalculate()
+        #self.outline_recalculate()
+        self.pen.brush().scale(old_bbox, self.resizing["bbox"])
         self.resizing  = None
         self.__bb = path_bbox(self.pen.brush().outline() or self.coords)
 

@@ -2,9 +2,9 @@ To do (sorted by priority):
 
 
  * unit tests. more, more, more
- * add -p PAGE parameter to the command line interface
  * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
    files
+ * create a pen wiglet
  * make wiglets movable
  * draw a dustbin wiglet in lower left corner
  * clean up font code. Maybe use the Pango.FontDescription class for
@@ -22,8 +22,6 @@ To do (sorted by priority):
  * Help should be actually a new screendrawer window with written on it!
  * how should the color picker and the color selection dialog colaborate?
  * think hard how I want the color setting / pen thing to work
- * implement undo for fonts as well
- * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
  * add a line mode and Line object class
  * show corners of the bounding box
  * an idea: wiglets which are shown (optionally, toggleable) on the left
@@ -66,6 +64,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * add -p PAGE parameter to the command line interface
  * rotating / moving of paths recalculates the outline. This is not OK for
    brushes like no. 3, because the outline has been calculated with certain
    absolute slant in mind.
@@ -91,6 +90,7 @@ Done:
  * implemented grid (ctrl-g)
  * implement rotating for: Box, Circle (yes, since Circle can be an
    ellipse)
+ * implement undo for fonts as well
  * Replaced "Boxes" with "Rectangles" which are really Shapes (closed
    paths). So I don't need to separately implement rotations for
    Rectangles, which proved to be tricky, esp. for calculating the bounding
@@ -147,6 +147,7 @@ Done:
  * implement command line conversion between sdrw and (png, svg, pdf, ...)
    -> this will require detaching the drawing from the window!
  * save selection as...
+ * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
  * implement "copy pen" or "set with pen" thingy. Also, 
  * changing bg color from current pen?
  * implement a way to change the color of the background

@@ -1,7 +1,7 @@
 """Class for different brushes."""
-from .utils import path_bbox, calc_normal_outline, smooth_path                      # <remove>
-from .utils import calculate_angle2                      # <remove>
-from .utils import coords_rotate           # <remove>
+from .utils import path_bbox, calc_normal_outline, smooth_path     # <remove>
+from .utils import calculate_angle2                                # <remove>
+from .utils import coords_rotate, transform_coords                 # <remove>
 
 class BrushFactory:
     """
@@ -74,6 +74,11 @@ class Brush:
     def rotate(self, angle, rot_origin):
         """Rotate the outline."""
         self.__outline = coords_rotate(self.__outline, angle, rot_origin)
+
+    def scale(self, old_bbox, new_bbox):
+        """Scale the outline."""
+        self.__outline = transform_coords(self.__outline, old_bbox, new_bbox)
+
 
     def calculate(self, line_width, coords, pressure = None):
         """Recalculate the outline of the brush."""
