@@ -239,6 +239,7 @@ class GraphicsObjectManager:
     def select_all(self):
         """Select all objects."""
         if not self.__page.objects():
+            print("no objects found")
             return
 
         self.__page.selection().all()

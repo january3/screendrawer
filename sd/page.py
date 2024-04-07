@@ -23,7 +23,7 @@ class Layer:
 
     def objects_import(self, object_list):
         """Import objects from a dict"""
-        self.__objects = [ Drawable.from_dict(d) for d in object_list ] or [ ]
+        self.objects([ Drawable.from_dict(d) for d in object_list ] or [ ])
 
     def selection(self):
         """Return the selection object."""
@@ -99,6 +99,7 @@ class Page:
 
     def selection(self):
         """Return the selection object."""
+        print("getting selection from layer", self.__current_layer)
         layer = self.__layers[self.__current_layer]
         return layer.selection()
 

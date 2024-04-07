@@ -41,7 +41,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * regression: ctrl-a (select all) no longer works 
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
@@ -67,6 +66,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * regression: ctrl-a (select all) no longer works 
  * undo for deleting layers
  * remember canvas translation; separately for each page!
  * clearing up the canvas should clear the whole page, not only the current
