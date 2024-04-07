@@ -12,41 +12,6 @@ class TextEditor:
         self.__line = 0
         self.__caret_pos = 0
 
-    def to_string(self):
-        """Return the text as a string."""
-        return "\n".join(self.__cont)
-
-    def lines(self):
-        """Return the text split by lines."""
-        return self.__cont
-
-    def strlen(self):
-        """Return the length of the text."""
-        return len(self.to_string())
-
-    def caret_line(self, new_line = None):
-        """Return the current line."""
-        if new_line is not None:
-            self.__line = new_line
-        return self.__line
-
-    def caret_pos(self, new_pos = None):
-        """Return the caret position."""
-        if new_pos is not None:
-            self.__caret_pos = new_pos
-        return self.__caret_pos
-
-    def add_text(self, text):
-        # split text by newline
-        lines = text.split("\n")
-        for i, line in enumerate(lines):
-            if i == 0:
-                self.__cont[self.line] += line
-                self.__caret_pos += len(text)
-            else:
-                self.__cont.insert(self.__line + i, line)
-                self.__caret_pos = len(line)
-
     def __backspace(self):
         """Remove the last character from the text."""
         cnt = self.__cont
@@ -55,7 +20,7 @@ class TextEditor:
 
         if cpos > 0:
             cnt[lno] = cnt[lno][:cpos - 1] + cnt[lno][cpos:]
-            self.caret_pos -= 1
+            self.__caret_pos -= 1
         elif lno > 0:
             self.__caret_pos = len(cnt[lno - 1])
             cnt[lno - 1] += cnt[lno]
@@ -118,14 +83,51 @@ class TextEditor:
 
     def move_caret(self, direction):
         """Move the caret in the text."""
-        { "End": self.__move_end,
-          "Home": self.__move_home,
+        { "End":   self.__move_end,
+          "Home":  self.__move_home,
           "Right": self.__move_right,
-          "Left": self.__move_left,
-          "Down": self.__move_down,
-          "Up": self.__move_up }[direction]()
+          "Left":  self.__move_left,
+          "Down":  self.__move_down,
+          "Up":    self.__move_up }[direction]()
+
+    def to_string(self):
+        """Return the text as a string."""
+        return "\n".join(self.__cont)
+
+    def lines(self):
+        """Return the text split by lines."""
+        return self.__cont
+
+    def strlen(self):
+        """Return the length of the text."""
+        return len(self.to_string())
+
+    def caret_line(self, new_line = None):
+        """Return the current line."""
+        if new_line is not None:
+            self.__line = new_line
+        return self.__line
+
+    def caret_pos(self, new_pos = None):
+        """Return the caret position."""
+        if new_pos is not None:
+            self.__caret_pos = new_pos
+        return self.__caret_pos
+
+    def add_text(self, text):
+        """Add text to the text."""
+        # split text by newline
+        lines = text.split("\n")
+        for i, line in enumerate(lines):
+            if i == 0:
+                self.__cont[self.__line] += line
+                self.__caret_pos += len(text)
+            else:
+                self.__cont.insert(self.__line + i, line)
+                self.__caret_pos = len(line)
 
     def update_by_key(self, keyname, char):
+        """Update the text by key press."""
         if keyname == "BackSpace": # and cur["caret_pos"] > 0:
             self.__backspace()
         elif keyname in ["Home", "End", "Down", "Up", "Right", "Left"]:
@@ -134,5 +136,3 @@ class TextEditor:
             self.__newline()
         elif char and char.isprintable():
             self.__add_char(char)
-
-
