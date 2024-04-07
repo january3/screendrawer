@@ -4,6 +4,7 @@ from sd.import_export import read_file_as_sdrw, save_file_as_sdrw
 from sd.page import Page
 
 def _check_file(config, objects, pages):
+    """Check against the predefined file structure"""
     if not config == {'bg_color': (0.8, 0.75, 0.65), 'transparent': 0, 'show_wiglets': True, 'bbox': (0, 0, 1920, 1053), 'pen': {'color': (0.1549999999999998, 1.0, 0.7585714285714287), 'line_width': 19.415960693359374, 'transparency': 1, 'fill_color': None, 'font_size': 24, 'font_family': 'Sans', 'font_weight': 'normal', 'brush': 'slanted', 'font_style': 'normal'}, 'pen2': {'color': (1, 1, 0), 'line_width': 40, 'transparency': 0.2, 'fill_color': None, 'font_size': 24, 'font_family': 'Sans', 'font_weight': 'normal', 'brush': 'rounded', 'font_style': 'normal'}, 'page': 0}:
         print("Actual config found:")
         print(config)
@@ -20,6 +21,7 @@ def _check_file(config, objects, pages):
 
 
 def test_read_file_as_sdrw(tmp_path):
+    """Check whether a file can be read correctly"""
 
     test_data_dir = Path(__file__).parent / "data"
     file_in = test_data_dir / "foobar.sdrw"
@@ -50,9 +52,15 @@ def test_write_file_as_sdrw(tmp_path):
     config, objects, pages = read_file_as_sdrw(file_out)
     _check_file(config, objects, pages)
 
-def test_that_objects_can_be_imported():
+def test_that_page_can_be_imported():
     """
     This test checks that objects can actually be imported from a file.
+
+    We use Page().import_page to import the objects, and then check whether 
+    the objects are correctly imported: whether there the number of objects
+    is correct, whether there is a correct number of layers, and whether the
+    current layer is correct. We also manipulate the layers and pages
+    through the Page() interface.
     """
 
     start_page = Page()

@@ -42,8 +42,7 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * clearing up the canvas should clear the whole page, not only the current
-   layer
+ * regression: ctrl-a (select all) no longer works 
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
@@ -69,6 +68,8 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * clearing up the canvas should clear the whole page, not only the current
+   layer
  * unit tests. this is becoming pressing but will be a lot of work
  * extra layers created when importing
  * only current layer gets saved

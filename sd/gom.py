@@ -202,9 +202,7 @@ class GraphicsObjectManager:
 
     def remove_all(self):
         """Clear the list of objects."""
-        self.__history.append(RemoveCommand(self.__page.objects()[:],
-                                            self.__page.objects(),
-                                            page = self.__page))
+        self.__history.append(self.__page.clear())
 
     def command_append(self, command_list):
         """Append a group of commands to the history."""

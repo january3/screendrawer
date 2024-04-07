@@ -2,6 +2,7 @@
 This module contains the Page class, which is a container for objects.
 """
 from .drawable import Drawable, SelectionObject # <remove>
+from .commands import RemoveCommand, CommandGroup # <remove>
 
 
 class Layer:
@@ -92,7 +93,9 @@ class Page:
 
     def objects_all_layers(self):
         """Return all objects on all layers."""
-        return [ obj for layer in self.__layers for obj in layer.objects() ]
+        objects = [ obj for layer in self.__layers for obj in layer.objects() ]
+        print("Returning", len(objects), "objects")
+        return objects
 
     def selection(self):
         """Return the selection object."""
@@ -188,3 +191,16 @@ class Page:
 
         cl = page_dict.get("cur_layer")
         self.__current_layer = cl if cl is not None else 0
+
+    def clear(self):
+        """
+        Remove all objects from all layers.
+
+        Returns a CommandGroup object that can be used to undo the
+        operation.
+        """
+        ret_commands = []
+        for layer in self.__layers:
+            cmd = RemoveCommand(layer.objects()[:], layer.objects(), page = self)
+            ret_commands.append(cmd)
+        return CommandGroup(ret_commands)
