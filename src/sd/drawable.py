@@ -1010,7 +1010,8 @@ class Path(Drawable):
         """Move the path by dx, dy."""
         move_coords(self.coords, dx, dy)
         #move_coords(self.__outline, dx, dy)
-        self.outline_recalculate()
+        #self.outline_recalculate()
+        self.pen.brush().move(dx, dy)
         self.__bb = None
 
     def rotate_end(self):
@@ -1018,7 +1019,8 @@ class Path(Drawable):
         # rotate all coords and outline
         self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
         #self.__outline = coords_rotate(self.__outline, self.rotation, self.rot_origin)
-        self.outline_recalculate()
+        #self.outline_recalculate()
+        self.pen.brush().rotate(self.rotation, self.rot_origin)
         self.rotation   = 0
         self.rot_origin = None
         # recalculate bbox
@@ -1055,7 +1057,6 @@ class Path(Drawable):
         """Set the pen for the path."""
         self.pen = pen.copy()
         self.outline_recalculate()
-
 
     def path_append(self, x, y, pressure = 1):
         """Append a point to the path, calculating the outline of the
