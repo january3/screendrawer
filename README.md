@@ -130,6 +130,11 @@ my own workflow. Here are some of them:
    `Shift-n` and `Shift-p` keys, and delete them with `Shift-d`. While all
    pages are saved in the savefile, only the current page is displayed, and
    export works only on the current page (this might change in the future).
+ * Resizing does not change the width of the paths. This is on purpose (it
+   would be trivial to make it proportional). I actually went quite a long
+   way to make it work this way. One of the reasons is this: when you
+   resize a drawing not proportionally, vertical paths are resized
+   differently from horizontal paths. This looks butt ugly.
  * Applying pens, colors, brushes etc. is wildly inconsistent. The reason
    for that is, again, simplification of my own work flow. So for example,
    changing the brush of the current pen does not change the brush of the
@@ -144,6 +149,7 @@ my own workflow. Here are some of them:
    Also, I tend to press OK without reading the warning. So beware of that.
  * Also, it does not report a visual error if saving did not succeed. Sorry
    about that. Feel free to contribute if this is important to you.
+
 
 
 

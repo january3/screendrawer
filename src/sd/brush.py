@@ -3,6 +3,34 @@ from .utils import path_bbox, calc_normal_outline, smooth_path     # <remove>
 from .utils import calculate_angle2                                # <remove>
 from .utils import coords_rotate, transform_coords                 # <remove>
 
+def calculate_outlines(coords, dx0, dy0, dx1, dy1):
+    """Calculate the left and right outlines."""
+    outline_l, outline_r = [ ], [ ]
+    slant_vec   = (dx0 - dx1, dy0 - dy1)
+    p_prev = coords[0]
+    x, y = coords[0]
+    outline_l.append((x + dx0, y + dy0))
+    outline_r.append((x + dx1, y + dy1))
+    prev_cs_angle = None
+
+    for p in coords[1:]:
+        x, y = p
+        coord_slant_angle = calculate_angle2((x - p_prev[0], y - p_prev[1]), slant_vec)
+
+        # avoid crossing of outlines
+        if prev_cs_angle is not None:
+            if prev_cs_angle * coord_slant_angle < 0:
+                outline_l, outline_r = outline_r, outline_l
+
+        prev_cs_angle = coord_slant_angle
+
+        outline_l.append((x + dx0, y + dy0))
+        outline_r.append((x + dx1, y + dy1))
+        p_prev = p
+
+    return outline_l, outline_r
+
+
 class BrushFactory:
     """
     Factory class for creating brushes.
@@ -140,49 +168,15 @@ class BrushSlanted(Brush):
         #self.outline(coords_rotate(self.outline(), angle, rot_origin))
         self.__slant = coords_rotate(self.__slant, angle, (0, 0))
 
-    def __cord_slant_angle(self, p, p_prev, slant_vec):
-        """Calculate the angle between the slant vector and the current coordinate."""
-        coord_slant_angle = calculate_angle2((p[0] - p_prev[0], p[1] - p_prev[1]), slant_vec)
-        return coord_slant_angle
-
-
     def calculate(self, line_width = 1, coords = None, pressure = None):
         """Recalculate the outline of the brush."""
 
-        outline_l, outline_r = [ ], [ ]
         coords, pressure = smooth_path(coords, pressure, 20)
 
-        # self.__slant is a list of two tupples
         # we need to multiply everything by line_width
         dx0, dy0, dx1, dy1 = [ line_width * x for x in self.__slant[0] + self.__slant[1] ]
-        slant_vec   = (dx0 - dx1, dy0 - dy1)
 
-        p_prev = coords[0]
-        x, y = coords[0]
-        outline_l.append((x + dx0, y + dy0))
-        outline_r.append((x + dx1, y + dy1))
-        prev_cs_angle = None
-
-        i = 0
-        for p in coords[1:]:
-            x, y = p
-            coord_slant_angle = calculate_angle2((x - p_prev[0], y - p_prev[1]), slant_vec)
-
-            # avoid crossing of outlines
-            if prev_cs_angle is not None:
-                if prev_cs_angle * coord_slant_angle < 0:
-                    outline_l, outline_r = outline_r, outline_l
-
-            prev_cs_angle = coord_slant_angle
-
-            outline_l.append((x + dx0, y + dy0))
-            outline_r.append((x + dx1, y + dy1))
-            p_prev = p
-            i += 1
-
-        #outline_l, outline_r = remove_intersections(outline_l, outline_r)
-        #print("calculated outline for n=", len(coords), "points")
-        #print("length left: ", len(outline_l), "length right:", len(outline_r))
+        outline_l, outline_r = calculate_outlines(coords, dx0, dy0, dx1, dy1)
         outline = outline_l + outline_r[::-1]
         self.outline(outline)
 
