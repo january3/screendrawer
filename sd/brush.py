@@ -1,7 +1,7 @@
 """Class for different brushes."""
 from .utils import path_bbox, calc_normal_outline, smooth_path                      # <remove>
 from .utils import pp, remove_intersections, calculate_angle2                      # <remove>
-from math import atan2, degrees # <remove>
+import math
 
 class BrushFactory:
     """
@@ -128,7 +128,7 @@ class BrushSlanted(Brush):
         i = 0
         for p in coords[1:]:
             x, y = p
-            coord_angle = atan2(x - p_prev[0], y - p_prev[1])
+            coord_angle = math.atan2(x - p_prev[0], y - p_prev[1])
 
             coord_slant_angle = calculate_angle2((x - p_prev[0], y - p_prev[1]), slant_vec)
 

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ScreenDrawer"
+version = "0.1.0"
+description = "An app for on-screen drawing"
+authors = [{name = "January Weiner", email = "january3.software@gmail.com"}]
+license = {file = "LICENSE.TXT"}
+readme = "README.md"
+keywords = ["drawing", "visualisation", "on-screen", "screen", "drawing", "app", "tool", "toolkit", "gui", "graphics", "graphics-editor", "editor" ]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+sd = "sd.__main__:main"

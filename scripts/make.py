@@ -4,11 +4,20 @@ import re
 def process_file(input_filename, output_filename):
     placeholder_pattern = re.compile(r'<placeholder (.+?)>')
     
+    output_lines = []
+
+    # add the "#!/usr/bin/env python3" line
+    output_lines.append("#!/usr/bin/env python3\n\n")
+
+    # add the contents of "LICENSE.txt" file
+    with open("LICENSE.txt", 'r') as license_file:
+        for license_line in license_file:
+            output_lines.append(license_line)
+
+    # process the script file to build a single executable file
     with open(input_filename, 'r') as file:
         lines = file.readlines()
-    
-    output_lines = []
-    
+     
     for line in lines:
         placeholder_match = placeholder_pattern.search(line)
         if placeholder_match:
@@ -30,5 +39,5 @@ def process_file(input_filename, output_filename):
         output_file.writelines(output_lines)
 
 # Example usage
-process_file('sd_devel.py', 'sd.py')
+process_file('sd/__main__.py', 'sd.py')
 

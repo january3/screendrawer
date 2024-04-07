@@ -1,28 +1,12 @@
-#!/usr/bin/env python3
+"""
+ScreenDrawer - a simple drawing program that allows you to draw on the screen
 
-##  MIT License
-##
-##  Copyright (c) 2024 January Weiner
-##
-##  Permission is hereby granted, free of charge, to any person obtaining a copy
-##  of this software and associated documentation files (the "Software"), to deal
-##  in the Software without restriction, including without limitation the rights
-##  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-##  copies of the Software, and to permit persons to whom the Software is
-##  furnished to do so, subject to the following conditions:
-##
-##  The above copyright notice and this permission notice shall be included in all
-##  copies or substantial portions of the Software.
-##
-##  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-##  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-##  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-##  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-##  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-##  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-##  SOFTWARE.
+Usage:
+  sd.py [options] [file.sdrw [file.[png, pdf, svg]]]
 
-# ---------------------------------------------------------------------
+See README.md for more information.
+"""
+
 import copy
 import pickle
 import traceback
@@ -76,6 +60,7 @@ from sd.icons import Icons               ###<placeholder sd/icons.py>
 from sd.page import Page                 ###<placeholder sd/page.py>
 from sd.canvas import Canvas             ###<placeholder sd/canvas.py>
 from sd.brush import Brush               ###<placeholder sd/brush.py>
+from sd.grid import Grid                 ###<placeholder sd/grid.py>
 
 
 # ---------------------------------------------------------------------
@@ -316,7 +301,7 @@ class TransparentWindow(Gtk.Window):
 
         if file_name:
             export_image(obj, file_name, file_format,
-                         bg = self.canvas.bg_color(), 
+                         bg = self.canvas.bg_color(),
                          bbox = bbox, transparency = self.canvas.transparent())
 
     def select_image_and_create_pixbuf(self):
@@ -548,4 +533,3 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
 
 if __name__ == "__main__":
     main()
-

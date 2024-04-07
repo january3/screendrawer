@@ -41,6 +41,9 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * rotating / moving of paths recalculates the outline. This is not OK for
+   brushes like no. 3, because the outline has been calculated with certain
+   absolute slant in mind.
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
@@ -66,6 +69,7 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * cleaned up install dir, created toml file for pip install, pip3 install -e . seems now to work
  * switching between layers should autoselect all objects for a visual hint
  * regression: ctrl-a (select all) no longer works 
  * undo for deleting layers
