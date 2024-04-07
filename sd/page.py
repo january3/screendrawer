@@ -35,6 +35,7 @@ class Layer:
             self.__objects.remove(obj)
 
     def export(self):
+        """Exports the layer as a dict"""
         return [ obj.to_dict() for obj in self.__objects ]
 
 class Page:
@@ -120,9 +121,7 @@ class Page:
 
     def prev_layer(self):
         """Switch to the previous layer."""
-        self.__current_layer -= 1
-        if self.__current_layer < 0:
-            self.__current_layer = 0
+        self.__current_layer = max(0, self.__current_layer - 1)
         return self.__current_layer
 
     def layer(self, new_layer = None, pos = None):
@@ -130,7 +129,7 @@ class Page:
         Get or insert the current layer.
 
         Arguments:
-        new_layer -- if not None, insert new_layer and set 
+        new_layer -- if not None, insert new_layer and set
                      the current layer to new_layer.
         pos -- if not None, insert a new layer at pos.
         """
@@ -149,8 +148,7 @@ class Page:
         if layer_no is None:
             return self.__current_layer
 
-        if layer_no < 0:
-            layer_no = 0
+        layer_no = max(0, layer_no)
 
         if layer_no >= len(self.__layers):
             self.__layers.append(Layer())
@@ -172,13 +170,9 @@ class Page:
 
         del self.__layers[layer_no]
 
-        self.__current_layer = layer_no - 1
-
-        # removing last layer
-        if self.__current_layer < 0:
-            self.__current_layer = 0
-        if self.__current_layer >= len(self.__layers):
-            self.__current_layer = len(self.__layers) - 1
+        self.__current_layer = max(0, layer_no - 1)
+        self.__current_layer = min(self.__current_layer,
+                                   len(self.__layers) - 1)
 
         cmd = DeleteLayerCommand(self, layer, pos)
 
@@ -193,12 +187,12 @@ class Page:
     def translate_set(self, new_val):
         """Set the translate"""
         self.__translate = new_val
-        return(self.__translate)
+        return self.__translate
 
     def export(self):
         """Exports the page with all layers as a dict"""
         layers = [ l.export() for l in self.__layers ]
-        ret = { 
+        ret = {
                  "layers": layers,
                  "translate": self.translate(),
                  "cur_layer": self.__current_layer
@@ -216,7 +210,7 @@ class Page:
             print("however, we only have", len(self.__layers), "layers")
             print("creating", len(page_dict["layers"]) - len(self.__layers), "new layers")
             self.__current_layer = 0
-            for i in range(len(page_dict["layers"]) - len(self.__layers)):
+            for _ in range(len(page_dict["layers"]) - len(self.__layers)):
                 self.next_layer()
             self.__current_layer = 0
             for l_list in page_dict["layers"]:

@@ -3,7 +3,6 @@ To do (sorted by priority):
 
  * unit tests. more, more, more
  * add -p PAGE parameter to the command line interface
- * remember canvas translation; separately for each page!
  * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
    files
  * make wiglets movable
@@ -68,6 +67,8 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * undo for deleting layers
+ * remember canvas translation; separately for each page!
  * clearing up the canvas should clear the whole page, not only the current
    layer
  * unit tests. this is becoming pressing but will be a lot of work

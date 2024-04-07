@@ -106,6 +106,7 @@ class DeletePageCommand(Command):
         return self.__page
 
 class DeleteLayerCommand(Command):
+    """Simple class for handling deleting layers of a page."""
     def __init__(self, page, layer, layer_pos):
         """Simple class for handling deleting layers of a page."""
         super().__init__("delete_layer", None)
@@ -125,7 +126,7 @@ class DeleteLayerCommand(Command):
         """Redo the command."""
         if not self.undone():
             return None
-        self.__page.remove_layer(self.__layer_pos)
+        self.__page.delete_layer(self.__layer_pos)
         self.undone_set(False)
         return self.__page
 
@@ -692,7 +693,7 @@ class SetPropCommand(Command):
         super().__init__(mytype, objects.get_primitive())
         self.__prop = prop
         self.__page = page
-        self.__get_prop_func = get_prop_func
+        #self.__get_prop_func = get_prop_func
         self.__set_prop_func = set_prop_func
         self.__undo_dict = { obj: get_prop_func(obj) for obj in self.obj }
 
