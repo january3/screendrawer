@@ -39,7 +39,9 @@ class GraphicsObjectManager:
 
     def delete_page(self):
         """Delete the current page."""
-        self.page_set(self.__page.delete())
+        curpage, cmd = self.__page.delete()
+        self.__history.append(cmd)
+        self.page_set(curpage)
 
     def next_layer(self):
         """Go to the next layer."""
@@ -52,7 +54,8 @@ class GraphicsObjectManager:
 
     def delete_layer(self):
         """Delete the current layer."""
-        self.__page.delete_layer()
+        cmd = self.__page.delete_layer()
+        self.__history.append(cmd)
 
     def page(self):
         """Return the current page."""
@@ -206,7 +209,7 @@ class GraphicsObjectManager:
 
     def command_append(self, command_list):
         """Append a group of commands to the history."""
-        ## append in reverse order
+        ## append in reverse order!
         self.__history.append(CommandGroup(command_list[::-1]))
 
     def selection_group(self):

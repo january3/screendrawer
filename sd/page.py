@@ -3,6 +3,7 @@ This module contains the Page class, which is a container for objects.
 """
 from .drawable import Drawable, SelectionObject # <remove>
 from .commands import RemoveCommand, CommandGroup # <remove>
+from .commands import DeletePageCommand, DeleteLayerCommand # <remove>
 
 
 class Layer:
@@ -80,11 +81,10 @@ class Page:
             print("only one page remaining")
             return self
 
-        if self.__prev:
-            self.__prev.next_set(self.__next)
-        if self.__next:
-            self.__next.prev_set(self.__prev)
-        return self.__prev or self.__next
+        cmd = DeletePageCommand(self, self.__prev, self.__next)
+        ret = self.__prev or self.__next
+
+        return ret, cmd
 
     def objects(self, objects = None):
         """Return or set the list of objects on the page."""
@@ -94,7 +94,6 @@ class Page:
     def objects_all_layers(self):
         """Return all objects on all layers."""
         objects = [ obj for layer in self.__layers for obj in layer.objects() ]
-        print("Returning", len(objects), "objects")
         return objects
 
     def selection(self):
@@ -126,6 +125,25 @@ class Page:
             self.__current_layer = 0
         return self.__current_layer
 
+    def layer(self, new_layer = None, pos = None):
+        """
+        Get or insert the current layer.
+
+        Arguments:
+        new_layer -- if not None, insert new_layer and set 
+                     the current layer to new_layer.
+        pos -- if not None, insert a new layer at pos.
+        """
+        if new_layer is not None:
+            if pos is not None and pos < len(self.__layers):
+                self.__layers.insert(pos, new_layer)
+                self.__current_layer = pos
+            else:
+                self.__layers.append(new_layer)
+                self.__current_layer = len(self.__layers) - 1
+
+        return self.__layers[self.__current_layer]
+
     def layer_no(self, layer_no = None):
         """Get or set the current layer."""
         if layer_no is None:
@@ -140,14 +158,31 @@ class Page:
         self.__current_layer = layer_no
         return self.__current_layer
 
-    def delete_layer(self):
+    def delete_layer(self, layer_no = None):
         """Delete the current layer."""
+
         if len(self.__layers) == 1:
-            return
-        del self.__layers[self.__current_layer]
+            return None
+
+        if layer_no is None or layer_no < 0 or layer_no >= len(self.__layers):
+            layer_no = self.__current_layer
+
+        layer = self.__layers[layer_no]
+        pos   = layer_no
+
+        del self.__layers[layer_no]
+
+        self.__current_layer = layer_no - 1
+
+        # removing last layer
+        if self.__current_layer < 0:
+            self.__current_layer = 0
         if self.__current_layer >= len(self.__layers):
             self.__current_layer = len(self.__layers) - 1
-        return self.__current_layer
+
+        cmd = DeleteLayerCommand(self, layer, pos)
+
+        return cmd
 
     def translate(self, new_val = None):
         """Get or set the translate"""
@@ -203,4 +238,4 @@ class Page:
         for layer in self.__layers:
             cmd = RemoveCommand(layer.objects()[:], layer.objects(), page = self)
             ret_commands.append(cmd)
-        return CommandGroup(ret_commands)
+        return CommandGroup(ret_commands[::-1])
