@@ -25,10 +25,11 @@ def guess_file_format(filename):
 def convert_file(input_file, output_file, file_format = "all", border = None, page = 0):
     """Convert a drawing from the internal format to another."""
     config, objects, pages = read_file_as_sdrw(input_file)
+    print("page = ", page)
 
     if pages:
-        if len(pages) < page:
-            raise ValueError(f"Page number out of range (max. {len(pages)})")
+        if len(pages) <= page:
+            raise ValueError(f"Page number out of range (max. {len(pages) - 1})")
         print("read drawing from", input_file, "with", len(pages), "pages")
         p = Page()
         p.import_page(pages[page])

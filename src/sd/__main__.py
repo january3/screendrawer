@@ -470,10 +470,18 @@ def main():
                         help="""
 Convert screendrawer file to given format (png, pdf, svg) and exit
 (use -o to specify output file, otherwise a default name is used)
-"""
+""",
+                        metavar = "FORMAT"
     )
+    parser.add_argument("-p", "--page", help="Page to convert (default: 1)", 
+                        type=int, default = 1)
 
-    parser.add_argument("-b", "--border", help="Border width for conversion", type=int)
+    parser.add_argument("-b", "--border", 
+                        help="""
+                             Border width for conversion. If not
+                             specified, whole page will be converted.
+                             """, 
+                        type=int)
     parser.add_argument("-o", "--output", help="Output file for conversion")
     parser.add_argument("files", nargs="*")
     args     = parser.parse_args()
@@ -489,7 +497,11 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
         if not args.files:
             print("No input file provided")
             exit(1)
-        convert_file(args.files[0], OUTPUT, args.convert, border = args.border)
+        convert_file(args.files[0], 
+                     OUTPUT, 
+                     args.convert, 
+                     border = args.border, 
+                     page = args.page - 1)
         exit(0)
 
     if args.files:
@@ -497,7 +509,9 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
             print("Too many files provided")
             exit(1)
         elif len(args.files) == 2:
-            convert_file(args.files[0], args.files[1], border = args.border)
+            convert_file(args.files[0], args.files[1], 
+                         border = args.border, 
+                         page = args.page - 1)
             exit(0)
         else:
             savefile = args.files[0]

@@ -12,14 +12,30 @@ MAGIC_NUMBERS = {
     "svg": "<?xml",  # SVG is text, so this is a simplification
 }
 
-def _check_file_format(file_out, fmt):
+# Path to the test binary file
+TEST_DATA_DIR = Path(__file__).parent / "data"
+FILE_IN = TEST_DATA_DIR / "foobar.sdrw"
+ 
+def _check_file_format(cmdline, file_out, fmt):
     """
     Check that the file at file_path is of the expected format
 
     Arguments:
-    file_out: Path to the file to check
-    fmt: Expected format of the file (one of "png", "jpg", "svg", "pdf")
+    cmdline -- the command line to run the script
+    file_out -- the path to the output file
+    fmt -- the expected format of the file
     """
+
+    result = subprocess.run(cmdline,
+                            capture_output=True, text=True)
+
+    # Check the script executed successfully
+    if result.returncode != 0:
+        print("Standard Error Output:", result.stderr)
+        print("Standard Output:", result.stdout)
+        assert False, f"Script failed to run successfully. Return code: {result.returncode}"
+
+
     # check that file exists
     assert file_out.exists(), "Output file was not created"
 
@@ -39,52 +55,34 @@ def _check_file_format(file_out, fmt):
 
 @pytest.mark.parametrize("fmt", ["png", "svg", "pdf"])
 def test_sd_conversion(tmp_path, fmt):
-    # Path to the test binary file
-    test_data_dir = Path(__file__).parent / "data"
-    file_in = test_data_dir / "foobar.sdrw"
-    
+    """Test the script with a valid input file and output format"""
     # Define the output file path
     file_out = tmp_path / ("output." + fmt)
-
-    # Run the script with subprocess.run
-    result = subprocess.run(['python3', EXECUTABLE, str(file_in), str(file_out)], 
-                            capture_output=True, text=True)
-    _check_file_format(file_out, fmt)
+    cmdline = ['python3', EXECUTABLE, str(FILE_IN), str(file_out)] 
+    _check_file_format(cmdline, file_out, fmt)
     
 @pytest.mark.parametrize("fmt", ["png", "svg", "pdf"])
 def test_sd_conversion_with_boundary(tmp_path, fmt):
-    # Path to the test binary file
-    test_data_dir = Path(__file__).parent / "data"
-    file_in = test_data_dir / "foobar.sdrw"
-    
+    """Test -b option"""
     # Define the output file path
     file_out = tmp_path / ("output." + fmt)
-
-    # Run the script with subprocess.run
-    result = subprocess.run(['python3', EXECUTABLE, "-b 10", str(file_in), str(file_out)], 
-                            capture_output=True, text=True)
-    
-    # Check the script executed successfully
-    assert result.returncode == 0, "Script failed to run successfully"
-    _check_file_format(file_out, fmt)
+    cmdline = ['python3', EXECUTABLE, "-b 10", str(FILE_IN), str(file_out)]
+    _check_file_format(cmdline, file_out, fmt)
 
 @pytest.mark.parametrize("fmt", ["png", "svg", "pdf"])
 def test_sd_conversion_explicit_format(tmp_path, fmt):
-    # Path to the test binary file
-    test_data_dir = Path(__file__).parent / "data"
-    file_in = test_data_dir / "foobar.sdrw"
-    
+    """Test -c option"""
     # Define the output file path
-    file_out = tmp_path / "output"
+    file_out = tmp_path / ("output." + fmt)
+    cmdline = ["python3", EXECUTABLE, "-c", fmt, "-o", str(file_out), str(FILE_IN)]
+    _check_file_format(cmdline, file_out, fmt)
 
-    # Run the script with subprocess.run
-    result = subprocess.run(["python3", EXECUTABLE, "-c", fmt, "-o", str(file_out), str(file_in)],
-                            capture_output=True, text=True)
-    
-    # Check the script executed successfully
-    if result.returncode != 0:
-        print("Standard Error Output:", result.stderr)
-        print("Standard Output:", result.stdout)
-        assert False, f"Script failed to run successfully. Return code: {result.returncode}"
 
-    _check_file_format(file_out, fmt)
+@pytest.mark.parametrize("fmt", ["png", "svg", "pdf"])
+def test_sd_conversion_with_page_no(tmp_path, fmt):
+    """Test -p option"""
+    # Define the output file path
+    file_out = tmp_path / ("output." + fmt)
+    cmdline = ["python3", EXECUTABLE, "-p", "2", "-c", fmt, "-o", str(file_out), str(FILE_IN)]
+    _check_file_format(cmdline, file_out, fmt)
+

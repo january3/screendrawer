@@ -10,13 +10,13 @@ def _check_file(config, objects, pages):
         print(config)
         assert False, "Config is incorrect"
 
-    assert len(pages) == 1, "Number of pages is incorrect"
+    assert len(pages) == 2, "Number of pages is incorrect"
     assert "layers" in pages[0], "Layers not found in page"
     layers = pages[0]["layers"]
     assert len(layers) == 3, "Number of layers is incorrect"
     assert len(layers[0]) == 3, "Number of objects in layer 0 is incorrect"
-    assert len(layers[1]) == 5, "Number of objects in layer 1 is incorrect"
-    assert len(layers[2]) == 1, "Number of objects in layer 2 is incorrect"
+    assert len(layers[1]) == 2, "Number of objects in layer 1 is incorrect"
+    assert len(layers[2]) == 2, "Number of objects in layer 2 is incorrect"
     assert objects is None, "Objects should be None"
 
 
@@ -71,20 +71,20 @@ def test_that_page_can_be_imported():
     start_page.import_page(pages[0])
 
     # current layer number
-    assert start_page.layer_no() == 2, "Layer number is incorrect"
+    assert start_page.layer_no() == 2, "Current layer number is incorrect"
     assert start_page.number_of_layers() == 3, "Number of layers is incorrect"
     assert start_page.translate() == (73.44677734375, 22.890167236328125), "Translate is incorrect"
     obj = start_page.objects_all_layers()
-    assert len(obj) == 9, "Number of objects is incorrect"
+    assert len(obj) == 7, "Number of objects is incorrect"
 
     # just the current layer objects
     obj = start_page.objects()
-    assert len(obj) == 1, "Number of objects is incorrect"
+    assert len(obj) == 2, "Number of objects on start page is incorrect"
     start_page.kill_object(obj[0])
-    assert len(obj) == 0, "Number of objects is incorrect"
+    assert len(obj) == 1, "Number of objects on start page is incorrect after killing one object"
     start_page.prev_layer()
     obj = start_page.objects()
-    assert len(obj) == 5, "Number of objects is incorrect"
+    assert len(obj) == 2, "Number of objects is incorrect after switching to previous layer"
     start_page.delete_layer()
     assert start_page.number_of_layers() == 2, "Number of layers is incorrect"
     start_page.prev_layer()
