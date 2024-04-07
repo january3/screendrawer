@@ -49,12 +49,6 @@ Bugs:
    resized (more or less) proportionally, after a few resize operations the
    text size is very small.
  * when drawing very slow the line looks like shit.
- * the undo is, I think, still buggy. 
- * undo remove object places the object in the wrong position in stack - at
-   the end of the stack, instead of the exact position that it was located.
-   Thus, after the undo operation, the stack is not the same as before the
-   operation. This may be a big problem with subsequent undos that actually
-   consider the stack order.
  * rotating the whole selection does not work (b/c the way selection
    behaves)
  * when text is rotated, the algorithm for checking for hover objects does
@@ -64,6 +58,15 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * when brush 3 is rotated, the outline is not recalculated. However, upon
+   save + exit the outline is recalculated which results in a modified
+   outline. Probably the pen should save the rotation. Or maybe the outline
+   should be saved in the object itself.
+ * undo remove object places the object in the wrong position in stack - at
+   the end of the stack, instead of the exact position that it was located.
+   Thus, after the undo operation, the stack is not the same as before the
+   operation. This may be a big problem with subsequent undos that actually
+   consider the stack order.
  * add -p PAGE parameter to the command line interface
  * rotating / moving of paths recalculates the outline. This is not OK for
    brushes like no. 3, because the outline has been calculated with certain

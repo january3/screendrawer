@@ -983,7 +983,8 @@ class Path(Drawable):
         self.__pressure  = pressure or []
         self.__bb        = []
         if outline:
-            print("Warning: outline is not used in Path")
+            print("Warning: setting outline.")
+            self.pen.brush().outline(outline)
         if pressure:
             print("Warning: pressure is not used in Path")
         #self.__brush     = BrushFactory.create_brush(brush)
@@ -1035,7 +1036,7 @@ class Path(Drawable):
         return {
             "type": self.type,
             "coords": self.coords,
-            #"outline": self.__outline,
+            "outline": self.pen.brush().outline(),
             "pressure": self.__pressure,
             "pen": self.pen.to_dict(),
         }
