@@ -11,7 +11,7 @@ from gi.repository import Gdk            # <remove>
 from .pen import Pen                     # <remove>
 from .utils import transform_coords, smooth_path, coords_rotate           # <remove>
 from .utils import is_click_close_to_path, path_bbox, move_coords, flatten_and_unique # <remove>
-from .utils import base64_to_pixbuf, find_obj_in_bbox     # <remove>
+from .utils import find_obj_in_bbox     # <remove>
 from .texteditor import TextEditor      # <remove>
 from .imageobj import ImageObj          # <remove>
 
@@ -357,16 +357,6 @@ class DrawableGroup(Drawable):
             "type": self.type,
             "objects_dict": [ obj.to_dict() for obj in self.objects ],
         }
-
-    def color_set(self, color):
-        """Set the color of the objects in the group."""
-        for obj in self.objects:
-            obj.color_set(color)
-
-    def font_set(self, size, family, weight, style):
-        """Set the font of the objects in the group."""
-        for obj in self.objects:
-            obj.font_set(size, family, weight, style)
 
     def resize_start(self, corner, origin):
         """Start the resizing operation."""
@@ -755,7 +745,7 @@ class Text(Drawable):
         # split content by newline
         # content = content.split("\n")
         self.__text = TextEditor(content)
-        self.bb           = None
+        self.__bb   = None
         self.font_extents = None
         self.__show_caret = False
 
@@ -776,9 +766,9 @@ class Text(Drawable):
 
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the object."""
-        if self.bb is None:
+        if self.__bb is None:
             return False
-        x, y, width, height = self.bb
+        x, y, width, height = self.__bb
         if x <= click_x <= x + width and y <= click_y <= y + height:
             return True
         return False
@@ -815,7 +805,7 @@ class Text(Drawable):
     def resize_end(self):
         """Finish the resizing operation."""
         new_bbox   = self.resizing["bbox"]
-        old_bbox   = self.bb
+        old_bbox   = self.__bb
 
         if not self.font_extents:
             return
@@ -845,8 +835,8 @@ class Text(Drawable):
             if out_of_range_low or out_of_range_up:
                 print("font size out of range")
                 break
-            current_bbox = self.bb
-            print("drawn, bbox is", self.bb)
+            current_bbox = self.__bb
+            print("drawn, bbox is", self.__bb)
             if direction > 0 and (current_bbox[2] >= new_bbox[2] or
                                   current_bbox[3] >= new_bbox[3]):
                 print("increased beyond the new bbox")
@@ -875,10 +865,10 @@ class Text(Drawable):
     def bbox(self, actual = False):
         if self.resizing:
             return self.resizing["bbox"]
-        if not self.bb:
+        if not self.__bb:
             bb = (self.coords[0][0], self.coords[0][1], 50, 50)
         else:
-            bb = self.bb
+            bb = self.__bb
         if self.rotation:
             # first, calculate position bb after rotation relative to the
             # text origin
@@ -924,27 +914,23 @@ class Text(Drawable):
         position = self.coords[0]
         content = self.__text.lines()
         caret_pos = self.__text.caret_pos()
-        pen = self.pen
 
         # get font info
-        cr.select_font_face(pen.font_family,
-                            pen.font_style == "italic" and
+        cr.select_font_face(self.pen.font_family,
+                            self.pen.font_style == "italic" and
                                 cairo.FONT_SLANT_ITALIC or cairo.FONT_SLANT_NORMAL,
-                            pen.font_weight == "bold"  and
+                            self.pen.font_weight == "bold"  and
                                 cairo.FONT_WEIGHT_BOLD  or cairo.FONT_WEIGHT_NORMAL)
-        cr.set_font_size(pen.font_size)
+        cr.set_font_size(self.pen.font_size)
 
-        font_extents      = cr.font_extents()
-        self.font_extents = font_extents
-        ascent, height    = font_extents[0], font_extents[2]
+        self.font_extents = cr.font_extents()
 
         dy   = 0
 
         # new bounding box
-        bb_x = position[0]
-        bb_y = position[1] - ascent
-        bb_w = 0
-        bb_h = 0
+        bb = [position[0],
+              position[1] - self.font_extents[0],
+              0, 0]
 
         if self.rotation:
             cr.save()
@@ -958,12 +944,12 @@ class Text(Drawable):
             #x_bearing, y_bearing, t_width, t_height, x_advance, y_advance
             x_bearing, _, t_width, _, _, _ = cr.text_extents(fragment)
 
-            bb_w = max(bb_w, t_width + x_bearing)
-            bb_h += height
+            bb[2] = max(bb[2], t_width + x_bearing)
+            bb[3] += self.font_extents[2]
 
-            cr.set_font_size(pen.font_size)
+            cr.set_font_size(self.pen.font_size)
             cr.move_to(position[0], position[1] + dy)
-            cr.set_source_rgba(*pen.color, pen.transparency)
+            cr.set_source_rgba(*self.pen.color, self.pen.transparency)
             cr.show_text(fragment)
             cr.stroke()
 
@@ -973,13 +959,14 @@ class Text(Drawable):
                                                         fragment[:caret_pos] + "|")
                 _, _, t_width2, _, _, _ = cr.text_extents("|")
                 cr.set_source_rgb(1, 0, 0)
-                xx0 = position[0] - x_bearing + t_width - 2 * t_width2
-                yy0 = position[1] + dy - ascent
-                self.draw_caret(cr, xx0, yy0, height)
+                self.draw_caret(cr,
+                                position[0] - x_bearing + t_width - 2 * t_width2,
+                                position[1] + dy - self.font_extents[0],
+                                self.font_extents[2])
 
-            dy += height
+            dy += self.font_extents[2]
 
-        self.bb = (bb_x, bb_y, bb_w, bb_h)
+        self.__bb = (bb[0], bb[1], bb[2], bb[3])
 
         if self.rotation:
             cr.restore()

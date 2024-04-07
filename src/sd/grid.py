@@ -9,8 +9,6 @@ class Grid:
     """
     def __init__(self):
         self.__spacing = 10
-        self.__tocks  = 5
-        self.__origin = (0, 0)
         self.__color = (.2, .2, .2, .75)
         self.__line_width = 0.2
 
@@ -60,5 +58,3 @@ class Grid:
                 cr.stroke()
                 i += 1
             y += self.__spacing
-
-

@@ -54,15 +54,15 @@ from sd.gom import GraphicsObjectManager ###<placeholder sd/gom.py>
 from sd.import_export import *           ###<placeholder sd/import_export.py>
 from sd.em import *                      ###<placeholder sd/em.py>
 from sd.menus import *                   ###<placeholder sd/menus.py>
-###<placeholder sd/wiglets.py>
+from sd.wiglets import *                 ###<placeholder sd/wiglets.py>
 from sd.dm import *                      ###<placeholder sd/dm.py>
 from sd.icons import Icons               ###<placeholder sd/icons.py>
 from sd.page import Page                 ###<placeholder sd/page.py>
 from sd.canvas import Canvas             ###<placeholder sd/canvas.py>
 from sd.brush import Brush               ###<placeholder sd/brush.py>
 from sd.grid import Grid                 ###<placeholder sd/grid.py>
-from sd.texteditor import TextEditor       ###<placeholder sd/texteditor.py>
-from sd.imageobj import ImageObj           ###<placeholder sd/imageobj.py>
+from sd.texteditor import TextEditor     ###<placeholder sd/texteditor.py>
+from sd.imageobj import ImageObj         ###<placeholder sd/imageobj.py>
 
 
 # ---------------------------------------------------------------------
