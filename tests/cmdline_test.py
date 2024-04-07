@@ -2,6 +2,7 @@ import subprocess
 import pytest
 from pathlib import Path
 
+EXECUTABLE = "src/sd"
 
 # Mapping of file extensions to expected magic numbers or starting strings
 MAGIC_NUMBERS = {
@@ -46,7 +47,7 @@ def test_sd_conversion(tmp_path, fmt):
     file_out = tmp_path / ("output." + fmt)
 
     # Run the script with subprocess.run
-    result = subprocess.run(['python3', 'sd_devel.py', str(file_in), str(file_out)], 
+    result = subprocess.run(['python3', EXECUTABLE, str(file_in), str(file_out)], 
                             capture_output=True, text=True)
     _check_file_format(file_out, fmt)
     
@@ -60,7 +61,7 @@ def test_sd_conversion_with_boundary(tmp_path, fmt):
     file_out = tmp_path / ("output." + fmt)
 
     # Run the script with subprocess.run
-    result = subprocess.run(['python3', 'sd_devel.py', "-b 10", str(file_in), str(file_out)], 
+    result = subprocess.run(['python3', EXECUTABLE, "-b 10", str(file_in), str(file_out)], 
                             capture_output=True, text=True)
     
     # Check the script executed successfully
@@ -77,7 +78,7 @@ def test_sd_conversion_explicit_format(tmp_path, fmt):
     file_out = tmp_path / "output"
 
     # Run the script with subprocess.run
-    result = subprocess.run(["python3", "sd_devel.py", "-c", fmt, "-o", str(file_out), str(file_in)],
+    result = subprocess.run(["python3", EXECUTABLE, "-c", fmt, "-o", str(file_out), str(file_in)],
                             capture_output=True, text=True)
     
     # Check the script executed successfully

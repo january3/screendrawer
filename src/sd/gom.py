@@ -175,11 +175,6 @@ class GraphicsObjectManager:
             p = p.next(create = False)
         return pages
 
-    def export_objects(self):
-        """Just the objects from the current page."""
-        objects = [ obj.to_dict() for obj in self.__page.objects() ]
-        return objects
-
     def kill_object(self, obj):
         """Directly remove an object from the list of objects."""
         self.__page.kill_object(obj)

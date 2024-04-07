@@ -266,12 +266,6 @@ class EventManager:
             'stroke_decrease':       {'action': dm.stroke_change, 'args': [-1]},
         }
 
-    def get_keybindings(self):
-        """
-        Returns the keybindings dictionary.
-        """
-        return self.__keybindings
-
     def make_default_keybindings(self):
         """
         This dictionary maps key events to actions.

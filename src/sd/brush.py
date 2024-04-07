@@ -1,7 +1,6 @@
 """Class for different brushes."""
 from .utils import path_bbox, calc_normal_outline, smooth_path                      # <remove>
-from .utils import pp, remove_intersections, calculate_angle2                      # <remove>
-import math
+from .utils import calculate_angle2                      # <remove>
 
 class BrushFactory:
     """
@@ -24,8 +23,6 @@ class BrushFactory:
         if brush_type == "marker":
             print("returning marker brush")
             return Brush(rounded = False)
-
-        
 
         return Brush()
 
@@ -76,7 +73,7 @@ class Brush:
         lwd = line_width
 
         if len(coords) < 3:
-            return
+            return None
 
         #print("1.length of coords and pressure:", len(coords), len(pressure))
         coords, pressure = smooth_path(coords, pressure, 20)
@@ -87,8 +84,6 @@ class Brush:
         #outline_l, _ = smooth_path(outline_l, None, 20)
         #outline_r, _ = smooth_path(outline_r, None, 20)
         outline  = outline_l + outline_r[::-1]
-        coords   = coords
-        pressure = pressure
 
         if len(coords) != len(pressure):
             #raise ValueError("Pressure and coords don't match")
@@ -114,7 +109,6 @@ class BrushSlanted(Brush):
 
         outline_l, outline_r = [ ], [ ]
         coords, pressure = smooth_path(coords, pressure, 20)
-        n = len(coords)
 
         dx0, dy0, dx1, dy1 = [ x * line_width for x in self.__slant ]
         slant_vec   = (dx0 - dx1, dy0 - dy1)
@@ -128,8 +122,6 @@ class BrushSlanted(Brush):
         i = 0
         for p in coords[1:]:
             x, y = p
-            coord_angle = math.atan2(x - p_prev[0], y - p_prev[1])
-
             coord_slant_angle = calculate_angle2((x - p_prev[0], y - p_prev[1]), slant_vec)
 
             # avoid crossing of outlines
@@ -152,4 +144,3 @@ class BrushSlanted(Brush):
 
         print("done calculating slanted brush")
         return outline
-

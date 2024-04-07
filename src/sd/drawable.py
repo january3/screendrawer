@@ -70,7 +70,7 @@ class DrawableFactory:
         print("transmuting object to", mode)
 
         if obj.type == "group":
-            # XXX for now, we do not pass transmutations to groups, because
+            # for now, we do not pass transmutations to groups, because
             # we then cannot track the changes.
             return obj
 
@@ -205,10 +205,6 @@ class Drawable:
         self.pen.font_style   = style
 
     # ------------ Drawable modification methods ------------------
-    def origin_remove(self):
-        """Remove the origin point."""
-        self.origin = None
-
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the object."""
         if self.coords is None:
@@ -317,10 +313,12 @@ class DrawableGroup(Drawable):
     Attributes:
         objects (list): The list of objects in the group.
     """
-    def __init__(self, objects = [ ], objects_dict = None, mytype = "group"):
+    def __init__(self, objects, objects_dict = None, mytype = "group"):
 
         if objects_dict:
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
+
+        objects = objects or [ ]
 
         print("Creating DrawableGroup with ", len(objects), "objects")
         super().__init__(mytype, [ (None, None) ], None)
@@ -533,13 +531,6 @@ class SelectionObject(DrawableGroup):
     def clear(self):
         """Clear the selection."""
         self.objects = [ ]
-
-    def toggle(self, obj):
-        """Toggle the selection of an object."""
-        if obj in self.objects:
-            self.objects.remove(obj)
-        else:
-            self.objects.append(obj)
 
     def set(self, objects):
         """Set the selection to a list of objects."""
@@ -1084,6 +1075,10 @@ class Path(Drawable):
         super().__init__("path", coords, pen = pen)
         self.__pressure  = pressure or []
         self.__bb        = []
+        if outline:
+            print("Warning: outline is not used in Path")
+        if pressure:
+            print("Warning: pressure is not used in Path")
         #self.__brush     = BrushFactory.create_brush(brush)
         #self.__brush_type = brush
 
@@ -1092,7 +1087,6 @@ class Path(Drawable):
 
     def outline_recalculate(self):
         """Recalculate the outline of the path."""
-        #self.__outline = 
         self.pen.brush().calculate(self.pen.line_width,
                                  coords = self.coords,
                                  pressure = self.__pressure)
@@ -1242,7 +1236,10 @@ class Path(Drawable):
 
     def draw(self, cr, hover=False, selected=False, outline = False):
         """Draw the path."""
-        if not self.pen.brush().outline() or len(self.pen.brush().outline()) < 4 or len(self.coords) < 3:
+        if not self.pen.brush().outline():
+            return
+
+        if len(self.pen.brush().outline()) < 4 or len(self.coords) < 3:
             return
 
         if self.rotation != 0:
@@ -1460,11 +1457,6 @@ class Shape(Drawable):
 
         if self.rotation != 0:
             cr.restore()
-
-    @classmethod
-    def from_path(cls, path):
-        """Create a shape from a path."""
-        return cls(path.coords, path.pen)
 
     @classmethod
     def from_object(cls, obj):
