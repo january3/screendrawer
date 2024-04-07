@@ -3,9 +3,7 @@ These are the objects that can be displayed. It includes groups, but
 also primitives like boxes, paths and text.
 """
 
-import tempfile                          # <remove>
 import math                              # <remove>
-import base64                            # <remove>
 import cairo                             # <remove>
 import gi                                 # <remove>
 gi.require_version('Gdk', '3.0')        # <remove>
@@ -15,6 +13,7 @@ from .utils import transform_coords, smooth_path, coords_rotate           # <rem
 from .utils import is_click_close_to_path, path_bbox, move_coords, flatten_and_unique # <remove>
 from .utils import base64_to_pixbuf, find_obj_in_bbox     # <remove>
 from .texteditor import TextEditor      # <remove>
+from .imageobj import ImageObj          # <remove>
 
 
 class DrawableFactory:
@@ -617,23 +616,17 @@ class Image(Drawable):
     """Class for Images"""
     def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
 
-        if image_base64:
-            self.image_base64 = image_base64
-            image = base64_to_pixbuf(image_base64)
-        else:
-            self.image_base64 = None
+        self.__image = ImageObj(image, image_base64)
 
-        self.image_size = (image.get_width(), image.get_height())
         self.transform = transform or (1, 1)
 
-        width  = self.image_size[0] * self.transform[0]
-        height = self.image_size[1] * self.transform[1]
+        width, height = self.__image.size()
+        width, height = width * self.transform[0], height * self.transform[1]
 
         coords = [ (coords[0][0], coords[0][1]),
                    (coords[0][0] + width, coords[0][1] + height) ]
         super().__init__("image", coords, pen)
-        self.image = image
-        self._orig_bbox = None
+        self.__orig_bbox = None
 
         if rotation:
             self.rotation = rotation
@@ -660,7 +653,7 @@ class Image(Drawable):
             w_scale, h_scale = self.transform
             cr.scale(w_scale, h_scale)
 
-        Gdk.cairo_set_source_pixbuf(cr, self.image, 0, 0)
+        Gdk.cairo_set_source_pixbuf(cr, self.__image.pixbuf(), 0, 0)
         cr.paint()
 
         cr.restore()
@@ -686,7 +679,7 @@ class Image(Drawable):
 
     def resize_start(self, corner, origin):
         """Start the resizing operation."""
-        self._orig_bbox = self.bbox()
+        self.__orig_bbox = self.bbox()
         self.resizing = {
             "corner": corner,
             "origin": origin,
@@ -701,11 +694,11 @@ class Image(Drawable):
         x1, y1, w1, h1 = bbox
 
         # calculate scale relative to the old bbox
-        print("old bbox is", self._orig_bbox)
+        print("old bbox is", self.__orig_bbox)
         print("new bbox is", bbox)
 
-        w_scale = w1 / self._orig_bbox[2]
-        h_scale = h1 / self._orig_bbox[3]
+        w_scale = w1 / self.__orig_bbox[2]
+        h_scale = h1 / self.__orig_bbox[3]
 
         print("resizing image", w_scale, h_scale)
         print("old transform is", self.resizing["transform"])
@@ -717,8 +710,9 @@ class Image(Drawable):
 
     def resize_end(self):
         """Finish the resizing operation."""
-        self.coords[1] = (self.coords[0][0] + self.image_size[0] * self.transform[0],
-                          self.coords[0][1] + self.image_size[1] * self.transform[1])
+        width, height = self.__image.size()
+        self.coords[1] = (self.coords[0][0] + width * self.transform[0],
+                          self.coords[0][1] + height * self.transform[1])
         self.resizing = None
 
     def rotate_end(self):
@@ -739,20 +733,6 @@ class Image(Drawable):
             return True
         return False
 
-    def encode_base64(self):
-        """Encode the image to base64."""
-        with tempfile.NamedTemporaryFile(delete = True) as temp:
-            self.image.savev(temp.name, "png", [], [])
-            with open(temp.name, "rb") as f:
-                image_base64 = base64.b64encode(f.read()).decode("utf-8")
-        return image_base64
-
-    def base64(self):
-        """Return the base64 encoded image."""
-        if self.image_base64 is None:
-            self.image_base64 = self.encode_base64()
-        return self.image_base64
-
     def to_dict(self):
         """Convert the object to a dictionary."""
 
@@ -763,7 +743,7 @@ class Image(Drawable):
             "image": None,
             "rotation": self.rotation,
             "transform": self.transform,
-            "image_base64": self.base64(),
+            "image_base64": self.__image.base64(),
         }
 
 

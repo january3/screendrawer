@@ -62,6 +62,7 @@ from sd.canvas import Canvas             ###<placeholder sd/canvas.py>
 from sd.brush import Brush               ###<placeholder sd/brush.py>
 from sd.grid import Grid                 ###<placeholder sd/grid.py>
 from .texteditor import TextEditor       ###<placeholder sd/texteditor.py>
+from .imageobj import ImageObj           ###<placeholder sd/imageobj.py>
 
 
 # ---------------------------------------------------------------------
