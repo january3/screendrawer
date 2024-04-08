@@ -354,56 +354,6 @@ def coords_rotate(coords, angle, origin):
         ret.append((x1 + origin[0], y1 + origin[1]))
     return ret
 
-def calc_normal_outline(coords, pressure, line_width, rounded = False):
-    """Calculate the normal outline of a path."""
-    n = len(coords)
-
-    outline_l = []
-    outline_r = []
-
-    for i in range(n - 2):
-        p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
-        nx, ny = normal_vec(p0, p1)
-        mx, my = normal_vec(p1, p2)
-
-        width  = line_width * pressure[i] / 2
-
-        left_segment1_start = (p0[0] + nx * width, p0[1] + ny * width)
-        left_segment1_end   = (p1[0] + nx * width, p1[1] + ny * width)
-        left_segment2_start = (p1[0] + mx * width, p1[1] + my * width)
-        left_segment2_end   = (p2[0] + mx * width, p2[1] + my * width)
-
-        right_segment1_start = (p0[0] - nx * width, p0[1] - ny * width)
-        right_segment1_end   = (p1[0] - nx * width, p1[1] - ny * width)
-        right_segment2_start = (p1[0] - mx * width, p1[1] - my * width)
-        right_segment2_end   = (p2[0] - mx * width, p2[1] - my * width)
-
-        if i == 0:
-        ## append the points for the first coord
-            if rounded:
-                arc_coords = calc_arc_coords( left_segment1_start,
-                                              right_segment1_start,
-                                             p1, 10)
-                outline_r.extend(arc_coords)
-            outline_l.append(left_segment1_start)
-            outline_r.append(right_segment1_start)
-
-        outline_l.append(left_segment1_end)
-        outline_l.append(left_segment2_start)
-        outline_r.append(right_segment1_end)
-        outline_r.append(right_segment2_start)
-
-        if i == n - 3:
-            outline_l.append(left_segment2_end)
-            outline_r.append(right_segment2_end)
-            if rounded:
-                arc_coords = calc_arc_coords( left_segment2_end,
-                                              right_segment2_end,
-                                             p1, 10)
-                outline_l.extend(arc_coords)
-    return outline_l, outline_r
-
-
 def normal_vec(p0, p1):
     """Calculate the normal vector of a line segment."""
     #dx, dy = x1 - x0, y1 - y0

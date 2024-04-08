@@ -989,8 +989,8 @@ class Path(Drawable):
             brush_type = pen.brush_type()
             self.__brush = BrushFactory.create_brush(brush_type)
 
-        if outline:
-            self.__brush.outline(outline)
+       #if outline:
+       #    self.__brush.outline(outline)
 
         if len(self.coords) > 3 and not self.__brush.outline():
             self.outline_recalculate()
@@ -1038,7 +1038,7 @@ class Path(Drawable):
         return {
             "type": self.type,
             "coords": self.coords,
-            "outline": self.__brush.outline(),
+            #"outline": self.__brush.outline(),
             "pressure": self.__pressure,
             "pen": self.pen.to_dict(),
             "brush": self.__brush.to_dict()
@@ -1145,10 +1145,12 @@ class Path(Drawable):
     def draw_standard(self, cr):
         """standard drawing of the path."""
         cr.set_fill_rule(cairo.FillRule.WINDING)
+        #print("draw_standard")
         self.__brush.draw(cr)
 
     def draw(self, cr, hover=False, selected=False, outline = False):
         """Draw the path."""
+        #print("drawing path", self, "with brush", self.__brush, "of type", self.__brush.brush_type())
         if not self.__brush.outline():
             return
 

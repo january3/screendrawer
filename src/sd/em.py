@@ -222,6 +222,7 @@ class EventManager:
             'set_brush_rounded':     {'action': dm.set_brush, 'args': ["rounded"] },
             'set_brush_marker':      {'action': dm.set_brush, 'args': ["marker"] },
             'set_brush_slanted':     {'action': dm.set_brush, 'args': ["slanted"] },
+            'set_brush_pencil':      {'action': dm.set_brush, 'args': ["pencil"] },
 
             'apply_pen_to_bg':       {'action': canvas.apply_pen_to_bg,        'modes': ["move"]},
             'toggle_pens':           {'action': canvas.switch_pens},
@@ -335,6 +336,7 @@ class EventManager:
             '1':                    "set_brush_rounded",
             '2':                    "set_brush_marker",
             '3':                    "set_brush_slanted",
+            '4':                    "set_brush_pencil",
 
             'Shift-p':              "prev_page",
             'Shift-n':              "next_page",

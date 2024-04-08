@@ -29,6 +29,45 @@ To do (sorted by priority):
  * PDFs should be multipage (ha, ha)
 
 Design issues:
+ * the cr.stroke() and cr.fill() are really cpu intensive which is a
+   problem with drawings containing many strokes. One way of dealing with
+   that would be the following: paths can consist of several subpaths. So
+   after release-button, if nothing else changed (mode, pen etc.), then the
+   next click actually extends the current path. This would result in the
+   whole complex drawing to be drawn with one stroke. Downside: ctrl-z
+   would undo the whole drawing; also removing individual subpaths would
+   not be possible.
+
+   Alternatives: 
+    * create a special object, "PathGroup" which would actually do the
+      single stroke or fill command after the paths have drawn themselves.
+      Not sure how that would work.
+    * create a common bus or something scheduling drawing operations. The
+      idea would be that the central drawing functions would collect the
+      draw events, check whether anything changes between them (like color,
+      line width etc.), and then only stroke if necessary.
+    * or, maybe, if the central drawing function sees a bunch of paths, it
+      analyses them (checking whether they have the same brush type, color
+      etc.) and if yes, it draws them in one go. So basically it asks all
+      of them to draw without stroking, and then ask the last of them to do
+      the final stroke. This grouping could even be cached and recalculated
+      only when something substantial changes.
+   All that will not work with brushes that change the color / transparency
+   while drawing (e.g. pencil).
+ * Another idea: caching objects. Basically, most of the objects do not
+   change most of the time. It would be sufficient to create a pixbuf of
+   the objects and then draw the pixbuf until the objects change.
+   Not sure how to implement it, but it looks like a shitload of work. One
+   would probably need to start with recording which objects change from
+   one draw operation to another; and if after, say, three draw operations
+   the objects do not mutate, we cache them until they change. How to
+   detect the change? Maybe by hashing the object properties somehow? so
+   each object calculates its own hash. One very simple possibility of a
+   hash would be to add a 1 to the hash every time the object changes. This
+   would be the objects responsibility.
+   The problem with this approach is stacking. Basically, any object
+   *after* an object that changed should be redrawn.
+
  * the interaction between canvas, gom, dm, em is tangled. 
  * It is not entirely clear where the file is saved. In theory it is, but
    in practice I find myself wondering.
