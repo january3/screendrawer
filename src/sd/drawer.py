@@ -19,22 +19,24 @@ class Drawer:
 
         if not objects:
             print("empty objects")
-            return
+            return None
 
         grp = DrawableGroup(objects)
         bb  = grp.bbox()
         if not bb:
             print("empty bb")
-            return
+            return None
         x, y, width, height = bb
         self.__cache = {
                 "surface": cairo.ImageSurface(cairo.Format.ARGB32, int(width) + 1, int(height) + 1),
+                "objects": objects,
                 "x": x,
                 "y": y,
                 }
         cr_tmp = cairo.Context(self.__cache["surface"])
         cr_tmp.translate(-x, -y)
-        grp.draw(cr_tmp)
+        return cr_tmp
+        #grp.draw(cr_tmp)
 
     def paint_cache(self, cr):
         """
@@ -57,29 +59,45 @@ class Drawer:
         :param mode: The drawing mode.
         """
 
-        newhash = { }
-        active = [ ]
+        modhash = self.__obj_mod_hash
+        active  = [ ]
+        same    = [ ]
+        changed = [ ]
         for obj in objects:
             hover    = obj == hover_obj and mode == "move"
             selected = selection.contains(obj) and mode == "move"
-            if not hover and not selected:
-                newhash[obj] = obj.mod
+
+            if not obj in modhash or modhash[obj] != [ obj.mod, hover, selected ]:
+                changed.append(obj)
             else:
-                active.append(obj)
+                same.append(obj)
 
-        if newhash != self.__obj_mod_hash:
-            self.__obj_mod_hash = newhash
+            modhash[obj] = [ obj.mod, hover, selected ]
+
+        print("changed", len(changed), "same", len(same))
+        if not self.__cache or self.__cache["objects"] != same:
+            print("caching", len(same), "objects")
             self.__cache = None
-        else:
-            if not self.__cache:
-                self.cache(list(newhash.keys()))
+            cr_tmp = self.cache(same)
+            if cr_tmp:
+                self.draw_surface(cr_tmp, same, selection, hover_obj, outline, mode)
 
-        if self.__cache:
-            self.paint_cache(cr)
-        else:
+        if not self.__cache:
             active = objects
+        else:
+            self.paint_cache(cr)
+            print("drawing cache")
+            active = changed
+            print("drawing", len(changed), "changed objects")
 
-        for obj in active:
+        print("drawing", len(active), "objects")
+        self.draw_surface(cr, active, selection, hover_obj, outline, mode)
+
+    def draw_surface(self, cr, objects, selection, hover_obj, outline, mode):
+        """
+        Draw the objects on the page.
+        """
+        for obj in objects:
             hover    = obj == hover_obj and mode == "move"
             selected = selection.contains(obj) and mode == "move"
             obj.draw(cr, hover=hover, selected=selected, outline = outline)
