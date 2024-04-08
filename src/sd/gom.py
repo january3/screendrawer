@@ -339,4 +339,9 @@ class GraphicsObjectManager:
 
     def draw(self, cr, hover_obj = None, mode = None):
         """Draw the objects in the given context. Used also by export functions."""
-        self.__drawer.draw(cr, self.__page.objects(), self.__page.selection(), hover_obj, self.__canvas.outline(), mode)
+        state = {
+                "hover_obj": hover_obj,
+                "mode": mode,
+                "outline": self.__canvas.outline(),
+                }
+        self.__drawer.draw(cr, self.__page, state)

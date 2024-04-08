@@ -210,6 +210,7 @@ class Drawable:
 
     def color_set(self, color):
         """Set the color of the object."""
+        print("color modified")
         self.mod += 1
         self.pen.color_set(color)
 
@@ -1215,24 +1216,14 @@ class Path(Drawable):
         if self.resizing:
             self.draw_simple(cr, bbox=self.resizing["bbox"])
         else:
-            x, y, width, height = self.bbox()
-            if not self.__cache:
-                #print("creating new pixbuf")
-                self.__cache = cairo.ImageSurface(cairo.Format.ARGB32, int(width) + 1, int(height) + 1)
-                cr_tmp = cairo.Context(self.__cache)
-                cr_tmp.set_source_rgba(*self.pen.color, self.pen.transparency)
-                cr_tmp.translate(-x, -y)
-                self.draw_standard(cr_tmp)
-                cr_tmp.fill()
-            cr.set_source_surface(self.__cache, x, y)
-            cr.paint()
-            #self.draw_standard(cr)
+            self.draw_standard(cr)
             if outline:
                 print("drawing outline")
                 cr.set_line_width(0.4)
                 cr.stroke()
                 self.draw_outline(cr)
-
+            else:
+                cr.fill()
 
         if selected:
             cr.set_source_rgba(1, 0, 0)

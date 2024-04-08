@@ -55,6 +55,12 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * the caching mechanism in Drawer is not perfect; when objects are cached,
+   the cache is always on the bottom of the stack. So for example when
+   moving an object underneath, during the move the object is on the top of
+   other objects. Basically, the cache should split the "same" objects into
+   groups depending on their z-position relative to the active (changing)
+   objects and create a cache for each of these groups separately.
  * FIXED: the solution is a Drawer class which keeps a cache surface with
    the objects that are not changing painted upon.
 
