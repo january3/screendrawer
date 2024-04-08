@@ -3,6 +3,7 @@ from .drawable import DrawableGroup                                  # <remove>
 from .drawable import DrawableFactory                                # <remove>
 from .page import Page                                               # <remove>
 from .utils import sort_by_stack                                     # <remove>
+from .drawer import Drawer                                           # <remove>
 
 
 ## ---------------------------------------------------------------------
@@ -23,6 +24,7 @@ class GraphicsObjectManager:
         self.__history    = []
         self.__redo_stack = []
         self.__page = None
+        self.__drawer = Drawer()
         self.page_set(Page())
 
     def page_set(self, page):
@@ -337,8 +339,4 @@ class GraphicsObjectManager:
 
     def draw(self, cr, hover_obj = None, mode = None):
         """Draw the objects in the given context. Used also by export functions."""
-
-        for obj in self.__page.objects_all_layers():
-            hover    = obj == hover_obj and mode == "move"
-            selected = self.__page.selection().contains(obj) and mode == "move"
-            obj.draw(cr, hover=hover, selected=selected, outline = self.__canvas.outline())
+        self.__drawer.draw(cr, self.__page.objects(), self.__page.selection(), hover_obj, self.__canvas.outline(), mode)

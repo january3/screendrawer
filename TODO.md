@@ -29,7 +29,36 @@ To do (sorted by priority):
  * PDFs should be multipage (ha, ha)
 
 Design issues:
- * the cr.stroke() and cr.fill() are really cpu intensive which is a
+ * the interaction between canvas, gom, dm, em is tangled. 
+ * It is not entirely clear where the file is saved. In theory it is, but
+   in practice I find myself wondering.
+ * should the EM also take care of pre- and post-dispatch actions? Like
+   switching to a ceratain mode after or before certain commands
+
+Bugs:
+ * export / conversion with an empty page fails
+ * when pasting the object, the new object should be placed next to the
+   cursor.
+ * when paste an object multiple times, the second and following copies
+   fall on the same position as the first one
+ * when text is grouped with other objects, and the group is resized in
+   unproportional way, then due to the fact that the bb of the text is
+   resized (more or less) proportionally, after a few resize operations the
+   text size is very small.
+ * when drawing very slow the line looks like shit.
+ * rotating the whole selection does not work (b/c the way selection
+   behaves)
+ * when text is rotated, the algorithm for checking for hover objects does
+   not consider the enlarged bounding box
+ * when the bb is smaller than the corner clicking area, bad things happen
+   (it is hard to move the object for example) -> the corner clicking area
+   should be mostly outside of the bb
+
+Done:
+ * FIXED: the solution is a Drawer class which keeps a cache surface with
+   the objects that are not changing painted upon.
+
+   the cr.stroke() and cr.fill() are really cpu intensive which is a
    problem with drawings containing many strokes. One way of dealing with
    that would be the following: paths can consist of several subpaths. So
    after release-button, if nothing else changed (mode, pen etc.), then the
@@ -68,32 +97,11 @@ Design issues:
    The problem with this approach is stacking. Basically, any object
    *after* an object that changed should be redrawn.
 
- * the interaction between canvas, gom, dm, em is tangled. 
- * It is not entirely clear where the file is saved. In theory it is, but
-   in practice I find myself wondering.
- * should the EM also take care of pre- and post-dispatch actions? Like
-   switching to a ceratain mode after or before certain commands
-
-Bugs:
- * export / conversion with an empty page fails
- * when pasting the object, the new object should be placed next to the
-   cursor.
- * when paste an object multiple times, the second and following copies
-   fall on the same position as the first one
- * when text is grouped with other objects, and the group is resized in
-   unproportional way, then due to the fact that the bb of the text is
-   resized (more or less) proportionally, after a few resize operations the
-   text size is very small.
- * when drawing very slow the line looks like shit.
- * rotating the whole selection does not work (b/c the way selection
-   behaves)
- * when text is rotated, the algorithm for checking for hover objects does
-   not consider the enlarged bounding box
- * when the bb is smaller than the corner clicking area, bad things happen
-   (it is hard to move the object for example) -> the corner clicking area
-   should be mostly outside of the bb
-
-Done:
+   Or, maybe, each object should cache its own pixbuf. Or at least the
+   Paths. This might be quicker than redrawing the object every time.
+   The advantage would be simplicity of implementation.  => tried that. It
+   is not effective enough with many objects. That would make sense for
+   few, very complicated paths.
  * I fixed the issue with rotating the brush by scaling / rotating / moving
    the outline instead of recalculating. The side effect is that the
    outline is, well, scaled, which is not what I would like to have: I

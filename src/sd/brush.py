@@ -374,6 +374,8 @@ class BrushPencil(Brush):
         self.__bins = [ ]
         self.__bin_lw = [ ]
         self.__bin_transp = [ ]
+        self.__outline_l = [ ]
+        self.__outline_r = [ ]
 
     def to_dict(self):
         """Return a dictionary representation of the brush."""
