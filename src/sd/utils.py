@@ -438,14 +438,29 @@ def is_click_in_bbox(click_x, click_y, bbox):
 def is_click_in_bbox_corner(click_x, click_y, bbox, threshold):
     """Check if a click is in the corner of a bounding box."""
     x, y, w, h = bbox
+
+    # make sure that the corner capture area leaves enough space for the
+    # grab area in the middle of the bbox
+    if w < 2 * threshold:
+        w += 2 * threshold
+        x -= threshold
+
+    if h < 2 * threshold:
+        h += 2 * threshold
+        y -= threshold
+
     if (abs(click_x - x) < threshold) and (abs(click_y - y) < threshold):
         return "upper_left"
+
     if (abs(x + w - click_x) < threshold) and (abs(click_y - y) < threshold):
         return "upper_right"
+
     if (abs(click_x - x) < threshold) and (abs(y + h - click_y) < threshold):
         return "lower_left"
+
     if (abs(x + w - click_x) < threshold) and (abs(y + h - click_y) < threshold):
         return "lower_right"
+
     return None
 
 def find_corners_next_to_click(click_x, click_y, objects, threshold):

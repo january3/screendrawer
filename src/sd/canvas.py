@@ -89,10 +89,8 @@ class Canvas:
         Draw the objects on the page.
 
         :param objects: The objects to draw.
-        :param selection: The selection.
-        :param hover_obj: The object the mouse is hovering over.
-        :param outline: Whether to draw the outline.
-        :param mode: The drawing mode.
+        :param cr: The context on which to draw.
+        :param tr: The translation (paning).
         """
         pass
 

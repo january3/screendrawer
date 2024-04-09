@@ -51,11 +51,11 @@ Bugs:
    behaves)
  * when text is rotated, the algorithm for checking for hover objects does
    not consider the enlarged bounding box
+
+Done:
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
    should be mostly outside of the bb
-
-Done:
  * regression: bounding box of brush 4 is not calculated correctly
  * regression: ctrl-click for changing line width behaves erratically
  * the caching mechanism in Drawer is not perfect; when objects are cached,
