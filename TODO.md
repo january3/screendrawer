@@ -41,7 +41,8 @@ Bugs:
  * a weird bug appeared once when editing text; something was seriously
    wrong with the text object; text was behaving erratic when moved and
    looked like having two copies (maybe somehow entered twice in
-   gom/page/layer?)
+   gom/page/layer?). [update]: the bug is fairly reproducible upon
+   double-click of a text
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.

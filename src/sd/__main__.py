@@ -122,20 +122,19 @@ class TransparentWindow(Gtk.Window):
 
         # Drawing setup
         self.cursor             = CursorManager(self)
-        self.state              = State(app = self, cursor = self.cursor)
+        self.gom                = GraphicsObjectManager()
+        self.state              = State(app = self, 
+                                        gom = self.gom,
+                                        cursor = self.cursor)
 
         self.clipboard           = Clipboard()
-        self.canvas              = Canvas(self)
-        self.gom                 = GraphicsObjectManager(self, state = self.state)
 
         # dm needs to know about gom because gom manipulates the selection
         # and history (object creation etc)
-        # it needs to know about the cursor to change the cursor if needed
-        # it needs to know about the canvas to get the pen
-        # it needs to know about the app to get the size of the window and
-        # queue up redraws
         self.dm                  = DrawManager(gom = self.gom,  app = self,
                                                state = self.state)
+
+        self.canvas              = Canvas(state = self.state, dm = self.dm)
 
         # em has to know about all that to link actions to methods
         self.em                  = EventManager(gom = self.gom, app = self,
@@ -167,7 +166,7 @@ class TransparentWindow(Gtk.Window):
                         Gdk.EventMask.TOUCH_MASK)
 
         self.connect("key-press-event",      self.em.on_key_press)
-        self.connect("draw",                 self.dm.on_draw)
+        self.connect("draw",                 self.canvas.on_draw)
         self.connect("button-press-event",   self.dm.on_button_press)
         self.connect("button-release-event", self.dm.on_button_release)
         self.connect("motion-notify-event",  self.dm.on_motion_notify)
@@ -184,7 +183,7 @@ class TransparentWindow(Gtk.Window):
     def paste_text(self, clip_text):
         """Enter some text in the current object or create a new object."""
 
-        cobj = self.dm.current_object()
+        cobj = self.state.current_obj()
         if cobj and cobj.type == "text":
             cobj.add_text(clip_text.strip())
         else:
@@ -308,7 +307,7 @@ class TransparentWindow(Gtk.Window):
         if file_name:
             export_image(obj, file_name, file_format,
                          bg = self.state.bg_color(),
-                         bbox = bbox, transparency = self.state.transparent())
+                         bbox = bbox, transparency = self.state.alpha())
 
     def select_image_and_create_pixbuf(self):
         """Select an image file and create a pixbuf from it."""
@@ -348,7 +347,7 @@ class TransparentWindow(Gtk.Window):
 
     def __find_screenshot_box(self):
         """Find a box suitable for selecting a screenshot."""
-        cobj = self.dm.current_object()
+        cobj = self.state.current_obj()
         if cobj and cobj.type == "rectangle":
             return cobj
         for obj in self.gom.selected_objects():
@@ -381,7 +380,7 @@ class TransparentWindow(Gtk.Window):
         if not self.dm.modified():
             return
 
-        if self.dm.current_object(): # not while drawing!
+        if self.state.current_obj(): # not while drawing!
             return
 
         print("Autosaving")
@@ -397,8 +396,8 @@ class TransparentWindow(Gtk.Window):
         print("savefile:", self.savefile)
         config = {
                 'bg_color':    self.state.bg_color(),
-                'transparent': self.state.transparent(),
-                'show_wiglets': self.dm.show_wiglets(),
+                'transparent': self.state.alpha(),
+                'show_wiglets': self.state.show_wiglets(),
                 'bbox':        (0, 0, *self.get_size()),
                 'pen':         self.state.pen().to_dict(),
                 'pen2':        self.state.pen(alternate = True).to_dict(),
@@ -429,11 +428,11 @@ class TransparentWindow(Gtk.Window):
 
         if config and load_config:
             self.state.bg_color(config.get('bg_color') or (.8, .75, .65))
-            self.state.transparent(config.get('transparent') or 0)
+            self.state.alpha(config.get('transparent') or 0)
             show_wiglets = config.get('show_wiglets')
             if show_wiglets is None:
                 show_wiglets = True
-            self.dm.show_wiglets(show_wiglets)
+            self.state.show_wiglets(show_wiglets)
             self.state.pen(pen = Pen.from_dict(config['pen']))
             self.state.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
             self.gom.set_page_number(config.get('page') or 0)
@@ -546,7 +545,7 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
 
     win.show_all()
     win.present()
-    win.cursor.set(win.dm.mode())
+    win.cursor.set(win.state.mode())
     win.stick()
 
     Gtk.main()

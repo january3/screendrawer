@@ -18,11 +18,36 @@ class Canvas:
     """
     Canvas for drawing shapes and text.
     """
-    def __init__(self, status):
-        self.__status = status
+    def __init__(self, state, dm):
+        self.__state = state
         self.__grid = Grid()
+        self.__dm = dm
 
-    def draw(self, cr, tr):
+    def on_draw(self, widget, cr):
+        """Main draw method of the whole app."""
+        page = self.__state.current_page()
+        tr = page.translate()
+
+        cr.save()
+
+        if tr:
+            cr.translate(*tr)
+
+        self.draw_bg(cr, tr)
+        page.draw(cr, self.__state)
+
+        if self.__state.current_obj():
+            self.__state.current_obj().draw(cr)
+
+        if self.__dm.selection_tool():
+            self.__dm.selection_tool().draw(cr)
+
+        cr.restore()
+
+        self.__dm.draw(None, cr)
+
+
+    def draw_bg(self, cr, tr):
         """
         Draw the objects on the page.
 
@@ -32,12 +57,12 @@ class Canvas:
         """
         pass
 
-        bg_color     = self.__status.bg_color()
-        transparency = self.__status.transparent()
-        show_grid    = self.__status.show_grid()
-        size         = self.__status.get_win_size()
+        bg_color     = self.__state.bg_color()
+        transparency = self.__state.alpha()
+        show_grid    = self.__state.show_grid()
+        size         = self.__state.get_win_size()
 
-        cr.set_source_rgba(*self.__bg_color, self.__transparency)
+        cr.set_source_rgba(*bg_color, transparency)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)

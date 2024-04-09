@@ -110,7 +110,7 @@ class EventManager:
         This method is called when a key is pressed.
         """
 
-        dm, app = self.__dm, self.__app
+        state = self.__state
 
         keyname = Gdk.keyval_name(event.keyval)
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
@@ -119,7 +119,7 @@ class EventManager:
         alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
         print("keyname", keyname, "char", char, "ctrl", ctrl, "shift", shift, "alt_l", alt_l)
 
-        mode = dm.mode()
+        mode = state.mode()
 
         keyfull = keyname
 
@@ -136,18 +136,19 @@ class EventManager:
         # first, check whether there is a current object being worked on
         # and whether this object is a text object. In that case, we only
         # call the ctrl keybindings and pass the rest to the text object.
-        cobj = dm.current_object()
+        cobj = state.current_obj()
+
         if cobj and cobj.type == "text" and not(ctrl or keyname == "Escape"):
             print("updating text input")
             cobj.update_by_key(keyname, char)
-            app.queue_draw()
+            state.queue_draw()
             return
 
         # otherwise, we dispatch the key event
         self.dispatch_key_event(keyfull, mode)
 
         # XXX this probably should be somewhere else
-        app.queue_draw()
+        state.queue_draw()
 
 
     def make_actions_dictionary(self, gom, app, dm, state):
@@ -155,15 +156,15 @@ class EventManager:
         This dictionary maps key events to actions.
         """
         self.__actions = {
-            'mode_draw':             {'action': dm.mode, 'args': ["draw"]},
-            'mode_rectangle':              {'action': dm.mode, 'args': ["rectangle"]},
-            'mode_circle':           {'action': dm.mode, 'args': ["circle"]},
-            'mode_move':             {'action': dm.mode, 'args': ["move"]},
-            'mode_text':             {'action': dm.mode, 'args': ["text"]},
-            'mode_select':           {'action': dm.mode, 'args': ["select"]},
-            'mode_eraser':           {'action': dm.mode, 'args': ["eraser"]},
-            'mode_shape':            {'action': dm.mode, 'args': ["shape"]},
-            'mode_colorpicker':      {'action': dm.mode, 'args': ["colorpicker"]},
+            'mode_draw':             {'action': state.mode, 'args': ["draw"]},
+            'mode_rectangle':              {'action': state.mode, 'args': ["rectangle"]},
+            'mode_circle':           {'action': state.mode, 'args': ["circle"]},
+            'mode_move':             {'action': state.mode, 'args': ["move"]},
+            'mode_text':             {'action': state.mode, 'args': ["text"]},
+            'mode_select':           {'action': state.mode, 'args': ["select"]},
+            'mode_eraser':           {'action': state.mode, 'args': ["eraser"]},
+            'mode_shape':            {'action': state.mode, 'args': ["shape"]},
+            'mode_colorpicker':      {'action': state.mode, 'args': ["colorpicker"]},
 
             'finish_text_input':     {'action': dm.finish_text_input},
 
@@ -171,8 +172,8 @@ class EventManager:
             'toggle_outline':        {'action': state.outline_toggle},
 
             'clear_page':            {'action': dm.clear},
-            'toggle_wiglets':        {'action': dm.toggle_wiglets},
-            'toggle_grid':           {'action': dm.toggle_grid},
+            'toggle_wiglets':        {'action': state.toggle_wiglets},
+            'toggle_grid':           {'action': state.toggle_grid},
 
             'show_help_dialog':      {'action': app.show_help_dialog},
             'app_exit':              {'action': app.exit},

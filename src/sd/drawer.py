@@ -9,19 +9,19 @@ def draw_on_surface(cr, objects, selection, state):
 
     for obj in objects:
 
-        hover    = obj == state["hover_obj"] and state["mode"] == "move"
-        selected = selection.contains(obj) and state["mode"] == "move"
+        hover    = obj == state.hover_obj() and state.mode() == "move"
+        selected = selection.contains(obj) and state.mode() == "move"
 
         obj.draw(cr, hover=hover,
                  selected=selected,
-                 outline = state["outline"])
+                 outline = state.outline())
 
 def obj_status(obj, selection, state):
     """Calculate the status of an object."""
 
-    hover_obj = state["hover_obj"]
-    hover    = obj == hover_obj and state["mode"] == "move"
-    selected = selection.contains(obj) and state["mode"] == "move"
+    hover_obj = state.hover_obj()
+    hover    = obj == hover_obj and state.mode() == "move"
+    selected = selection.contains(obj) and state.mode() == "move"
 
     return (obj.mod, hover, selected)
 
@@ -196,10 +196,9 @@ class Drawer:
         Draw the objects on the page.
 
         :param objects: The objects to draw.
-        :param selection: The selection.
-        :param hover_obj: The object the mouse is hovering over.
-        :param outline: Whether to draw the outline.
-        :param mode: The drawing mode.
+        :param cr: The context on which to draw.
+        :param page: The page object.
+        :param state: The state object.
         """
 
         # extract objects from the page provided

@@ -22,12 +22,20 @@ class DrawManager:
     DrawManager must be aware of GOM, because GOM holds all the objects
 
     methods from app used:
-    app.get_size()    # used for wiglets 
-                      Note: dragging the object to the left lower corner
-                      should be actually handled by a "paperbin" wiglet
-    app.queue_draw()  # needed all the time
-    app.mm.object_menu() # used for right click context menu
+    app.mm.object_menu()     # used for right click context menu
+    app.clipboard.set_text() # used for color picker
 
+    methods from state used:
+    state.cursor()
+    state.show_wiglets()
+    state.mode()
+    state.current_obj()
+    state.current_obj_clear()
+    state.queue_draw()
+    state.pen()
+    state.get_win_size()
+    state.hover_obj()
+    state.hover_obj_clear()
 
     methods from gom used:
     gom.set_page_number()
@@ -46,63 +54,26 @@ class DrawManager:
     """
     def __init__(self, gom, app, state):
         self.__state = state
-        self.__current_object = None
         self.__gom = gom
         self.__app = app
         self.__cursor = state.cursor()
-        self.__mode = "draw"
 
         # objects that indicate the state of the drawing area
-        self.__hover = None
         self.__wiglet_active = None
         self.__resizeobj = None
         self.__selection_tool = None
-        self.__current_object = None
         self.__paning = None
         self.__show_wiglets = True
-        self.__wiglets = [ WigletColorSelector(height = app.get_size()[1],
+        self.__wiglets = [ WigletColorSelector(height = state.get_win_size()[1],
                                                func_color = self.set_color,
                                                func_bg = self.__state.bg_color),
-                           WigletToolSelector(func_mode = self.mode),
-                           WigletPageSelector(gom = gom, screen_wh_func = app.get_size,
+                           WigletToolSelector(func_mode = self.__state.mode),
+                           WigletPageSelector(gom = gom, screen_wh_func = state.get_win_size,
                                               set_page_func = gom.set_page_number),
                           ]
 
         # drawing parameters
-        self.__hidden = False
         self.__modified = False
-
-    def toggle_grid(self):
-        """Toggle the wiglets."""
-        self.__state.toggle_grid()
-
-    def toggle_wiglets(self):
-        """Toggle the wiglets."""
-        self.__show_wiglets = not self.__show_wiglets
-
-
-    def show_wiglets(self, value = None):
-        """Show or hide the wiglets."""
-        if value is not None:
-            self.__show_wiglets = value
-        return self.__show_wiglets
-
-    def hide(self, value = None):
-        """Hide or show the drawing."""
-        if not value is None:
-            self.__hidden = value
-        return self.__hidden
-
-    def current_object(self):
-        """Get the current object."""
-        return self.__current_object
-
-    def mode(self, mode = None):
-        """Get or set the mode."""
-        if mode:
-            self.__mode = mode
-            self.__cursor.default(self.__mode)
-        return self.__mode
 
     def modified(self, value = None):
         """Get or set the modified flag."""
@@ -110,27 +81,15 @@ class DrawManager:
             self.__modified = value
         return self.__modified
 
-    def on_draw(self, widget, cr):
+    def draw(self, widget, cr):
         """Handle draw events."""
-        if self.__hidden:
-            return True
+       #if self.__hidden:
+       #    return True
 
-        cr.save()
-
-        self.__gom.draw(cr, self.__hover, self.__mode)
-
-        if self.__current_object:
-            self.__current_object.draw(cr)
-
-        if self.__selection_tool:
-            self.__selection_tool.draw(cr)
-
-        cr.restore()
-
-        if self.__show_wiglets:
+        if self.__state.show_wiglets():
             print("showing wiglets")
             for w in self.__wiglets:
-                w.update_size(*self.__app.get_size())
+                w.update_size(*self.__state.get_win_size())
                 w.draw(cr)
 
         if self.__wiglet_active:
@@ -138,6 +97,9 @@ class DrawManager:
 
         return True
 
+    def selection_tool(self):
+        """Get the selection tool."""
+        return self.__selection_tool
 
     # ---------------------------------------------------------------------
     #                              Event handlers
@@ -153,8 +115,7 @@ class DrawManager:
     def on_right_click(self, event, hover_obj):
         """Handle right click events - context menus."""
         if hover_obj:
-            self.__mode = "move"
-            self.__cursor.default(self.__mode)
+            self.__state.mode("move")
 
             if not self.__gom.selection().contains(hover_obj):
                 self.__gom.selection().set([ hover_obj ])
@@ -168,14 +129,14 @@ class DrawManager:
             self.__app.mm.context_menu().popup(None, None,
                                                None, None,
                                                event.button, event.time)
-        self.__app.queue_draw()
+        self.__state.queue_draw()
 
     # ---------------------------------------------------------------------
 
     def __move_resize_rotate(self, ev):
         """Process events for moving, resizing and rotating objects."""
 
-        if self.__mode != "move":
+        if self.__state.mode() != "move":
             return False
 
         corner_obj, corner = ev.corner()
@@ -220,7 +181,7 @@ class DrawManager:
             self.__resizeobj   = None
             print("starting selection tool")
             self.__selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
-            self.__app.queue_draw()
+            self.__state.queue_draw()
             return True
 
         return False
@@ -229,7 +190,7 @@ class DrawManager:
         """Create an object based on the current mode."""
 
         # not managed by GOM: first create, then decide whether to add to GOM
-        mode = self.__mode
+        mode = self.__state.mode()
 
         if ev.shift() and not ev.ctrl():
             mode = "text"
@@ -240,7 +201,7 @@ class DrawManager:
         obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
 
         if obj:
-            self.__current_object = obj
+            self.__state.current_obj(obj)
         else:
             print("No object created for mode", mode)
 
@@ -255,9 +216,8 @@ class DrawManager:
                         translate = self.__gom.page().translate())
 
         # Ignore clicks when text input is active
-        if self.__current_object:
-            print("Current object exists and has type", self.__current_object.type)
-            if  self.__current_object.type == "text":
+        if self.__state.current_obj():
+            if  self.__state.current_obj().type == "text":
                 print("click, but text input active - finishing it first")
                 self.finish_text_input()
 
@@ -304,7 +264,7 @@ class DrawManager:
 
         # simple click: create modus
         self.create_object(ev)
-        self.__app.queue_draw()
+        self.__state.queue_draw()
 
         return True
 
@@ -313,7 +273,7 @@ class DrawManager:
         if self.__show_wiglets:
             for w in self.__wiglets[::-1]:
                 if w.on_click(event.x, event.y, ev):
-                    self.__app.queue_draw()
+                    self.__state.queue_draw()
                     return True
         return False
 
@@ -340,30 +300,29 @@ class DrawManager:
 
     def __handle_color_picker_on_click(self):
         """Handle color picker on click events."""
-        if not self.__mode == "colorpicker":
+        if not self.__state.mode() == "colorpicker":
             return False
 
         color = get_color_under_cursor()
         self.set_color(color)
         color_hex = rgb_to_hex(color)
         self.__app.clipboard.set_text(color_hex)
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __handle_eraser_on_click(self, ev):
         """Handle eraser on click events."""
-        if not self.__mode == "eraser":
+        if not self.__state.mode() == "eraser":
             return False
 
         hover_obj = ev.hover()
         if not hover_obj:
             return False
 
-        # self.history.append(RemoveCommand([ hover_obj ], self.objects))
         self.__gom.remove_objects([ hover_obj ], clear_selection = True)
         self.__resizeobj   = None
         self.__cursor.revert()
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __handle_text_input_on_click(self, ev):
@@ -373,10 +332,10 @@ class DrawManager:
         if not hover_obj or hover_obj.type != "text":
             return False
 
-        if not self.__mode in ["draw", "text", "move"]:
+        if not self.__state.mode() in ["draw", "text", "move"]:
             return False
 
-        if not ev.double(): #or self.__mode == "text":
+        if not ev.double():
             return False
 
         if ev.shift() or ev.ctrl():
@@ -385,8 +344,8 @@ class DrawManager:
         # only when double clicked with no modifiers - start editing the hover obj
         print("starting text editing existing object")
         hover_obj.move_caret("End")
-        self.__current_object = hover_obj
-        self.__app.queue_draw()
+        self.__state.current_obj(hover_obj)
+        self.__state.queue_draw()
         self.__cursor.set("none")
         return True
 
@@ -420,7 +379,7 @@ class DrawManager:
 
     def __handle_current_object_on_release(self, ev):
         """Handle the current object on mouse release."""
-        obj = self.__current_object
+        obj = self.__state.current_obj()
         if not obj:
             return False
 
@@ -431,7 +390,7 @@ class DrawManager:
             # remove paths that are too small
             if len(obj.coords) < 3:
                 print("removing object of type", obj.type, "because too small")
-                self.__current_object = None
+                self.__state.current_obj_clear()
                 obj = None
 
         # remove objects that are too small
@@ -439,18 +398,18 @@ class DrawManager:
             bb = obj.bbox()
             if bb and obj.type in [ "rectangle", "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
                 print("removing object of type", obj.type, "because too small")
-                self.__current_object = None
+                self.__current_obj_clear()
                 obj = None
 
         if obj:
             self.__gom.add_object(obj)
             # with text, we are not done yet! Need to keep current object
             # such that keyboard events can update it
-            if self.__current_object.type != "text":
+            if self.__state.current_obj().type != "text":
                 self.__gom.selection().clear()
-                self.__current_object = None
+                self.__state.current_obj_clear()
 
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __handle_wiglets_on_release(self):
@@ -460,7 +419,7 @@ class DrawManager:
 
         self.__wiglet_active.event_finish()
         self.__wiglet_active = None
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __handle_selection_on_release(self):
@@ -476,7 +435,7 @@ class DrawManager:
         else:
             self.__gom.selection().clear()
         self.__selection_tool = None
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __handle_drag_on_release(self, event):
@@ -493,7 +452,7 @@ class DrawManager:
 
         obj = self.__resizeobj.obj
 
-        _, height = self.__app.get_size()
+        _, height = self.__state.get_win_size()
         if self.__resizeobj.command_type() == "move" and  event.x < 10 and event.y > height - 10:
             # command group because these are two commands: first move,
             # then remove
@@ -505,7 +464,7 @@ class DrawManager:
             self.__gom.command_append([ self.__resizeobj ])
         self.__resizeobj    = None
         self.__cursor.revert()
-        self.__app.queue_draw()
+        self.__state.queue_draw()
 
         return True
 
@@ -540,30 +499,26 @@ class DrawManager:
     def __on_motion_process_hover(self, ev):
         """Process hover events."""
 
-        if not self.__mode == "move":
+        if not self.__state.mode() == "move":
             return False
 
         object_underneath = ev.hover()
-        #prev_hover        = self.__hover
 
         if object_underneath:
             self.__cursor.set("moving")
-            self.__hover = object_underneath
+            self.__state.hover_obj(object_underneath)
         else:
             self.__cursor.revert()
-            self.__hover = None
+            self.__state.hover_obj_clear()
 
         corner_obj, corner = ev.corner()
 
         if corner_obj and corner_obj.bbox():
             self.__cursor.set(corner)
-            self.__hover = corner_obj
-            self.__app.queue_draw()
+            self.__state.hover_obj(corner_obj)
+            self.__state.queue_draw()
 
-        #if prev_hover != self.__hover:
-        #    self.__app.queue_draw()
-
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __on_motion_update_resize(self, event):
@@ -572,17 +527,17 @@ class DrawManager:
             return False
 
         self.__resizeobj.event_update(event.x, event.y)
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __on_motion_update_object(self, event):
         """Handle on motion update for an object."""
-        obj = self.__current_object or self.__selection_tool
+        obj = self.__state.current_obj() or self.__selection_tool
         if not obj:
             return False
 
         obj.update(event.x, event.y, event.pressure())
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __on_motion_paning(self, event):
@@ -598,7 +553,7 @@ class DrawManager:
         self.__gom.page().translate(tr)
         #self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
         self.__paning = (event.x, event.y)
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __on_motion_wiglet(self, x, y):
@@ -607,7 +562,7 @@ class DrawManager:
             return False
 
         self.__wiglet_active.event_update(x, y)
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
 
@@ -615,19 +570,23 @@ class DrawManager:
     def finish_text_input(self):
         """Clean up current text and finish text input."""
         print("finishing text input")
-        if self.__current_object and self.__current_object.type == "text":
-            self.__current_object.show_caret(False)
-            if self.__current_object.strlen() == 0:
+        obj = self.__state.current_obj()
+
+        if obj and obj.type == "text":
+            obj.show_caret(False)
+
+            if obj.strlen() == 0:
                 print("kill object because empty")
-                self.__gom.kill_object(self.__current_object)
-            self.__current_object = None
+                self.__gom.kill_object(obj)
+
+            self.__state.current_obj_clear()
         self.__cursor.revert()
     # ---------------------------------------------------------------------
 
     def stroke_change(self, direction):
         """Modify the line width or text size."""
         print("Changing stroke", direction)
-        cobj = self.__current_object
+        cobj = self.__state.current_obj()
         if cobj and cobj.type == "text":
             print("Changing text size")
             cobj.stroke_change(direction)
@@ -637,17 +596,19 @@ class DrawManager:
                 obj.stroke_change(direction)
 
         # without a selected object, change the default pen, but only if in the correct mode
-        if self.__mode == "draw":
+        if self.__state.mode() == "draw":
             self.__state.pen().line_width = max(1, self.__state.pen().line_width + direction)
-        elif self.__mode == "text":
+        elif self.__state.mode() == "text":
             self.__state.pen().font_size = max(1, self.__state.pen().font_size + direction)
 
     def set_font(self, font_description):
         """Set the font."""
         self.__state.pen().font_set_from_description(font_description)
         self.__gom.selection_font_set(font_description)
-        if self.__current_object and self.__current_object.type == "text":
-            self.__current_object.pen.font_set_from_description(font_description)
+
+        obj = self.__state.current_obj()
+        if obj and obj.type == "text":
+            obj.pen.font_set_from_description(font_description)
 
 #   def smoothen(self):
 #       """Smoothen the selected object."""
@@ -674,6 +635,6 @@ class DrawManager:
         """Clear the drawing."""
         self.__gom.selection().clear()
         self.__resizeobj      = None
-        self.__current_object = None
+        self.__state.current_obj_clear()
         self.__gom.remove_all()
-        self.__app.queue_draw()
+        self.__state.queue_draw()

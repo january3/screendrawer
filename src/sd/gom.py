@@ -15,11 +15,9 @@ class GraphicsObjectManager:
         _objects (list): The list of objects.
     """
 
-    def __init__(self, app, state):
+    def __init__(self):
 
         # private attr
-        self.__app = app
-        self.__state = state
         self.__history    = []
         self.__redo_stack = []
         self.__page = None
@@ -229,7 +227,8 @@ class GraphicsObjectManager:
     def select_reverse(self):
         """Reverse the selection."""
         self.__page.selection().reverse()
-        self.__app.dm.mode("move")
+        # XXX
+        #self.__state.mode("move")
 
     def select_all(self):
         """Select all objects."""
@@ -238,7 +237,8 @@ class GraphicsObjectManager:
             return
 
         self.__page.selection().all()
-        self.__app.dm.mode("move")
+        # XXX
+        #self.__state.mode("move")
 
     def selection_delete(self):
         """Delete selected objects."""
@@ -268,16 +268,14 @@ class GraphicsObjectManager:
 
     def selection_font_set(self, font_description):
         """Set the font of the selected objects."""
-        # XXX: no undo!
         self.__history.append(SetFontCommand(self.__page.selection(), font_description))
-       #for obj in self.__page.selection().objects:
-       #    obj.pen.font_set_from_description(font_description)
 
+  # XXX! this is not implemented
     def selection_apply_pen(self):
         """Apply the pen to the selected objects."""
-        if not self.__page.selection().is_empty():
-            pen = self.__state.pen()
-            self.__history.append(SetPenCommand(self.__page.selection(), pen))
+  #     if not self.__page.selection().is_empty():
+  #         pen = self.__state.pen()
+  #         self.__history.append(SetPenCommand(self.__page.selection(), pen))
 
     def redo(self):
         """Redo the last action."""
@@ -335,19 +333,4 @@ class GraphicsObjectManager:
         self.__history.append(ZStackCommand(self.__page.selection().objects,
                                             self.__page.objects(), operation, page=self.__page))
 
-    def draw(self, cr, hover_obj = None, mode = None):
-        """Draw the objects in the given context. Used also by export functions."""
 
-        tr = self.__page.translate()
-
-        if tr:
-            cr.translate(*tr)
-
-        #self.__canvas.draw(cr, tr)
- 
-        state = {
-                "hover_obj": hover_obj,
-                "mode": mode,
-                "outline": self.__state.outline(),
-                }
-        self.__page.draw(cr, state)
