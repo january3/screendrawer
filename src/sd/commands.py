@@ -6,7 +6,8 @@ state of the objects they are acting on.
 
 
 from .utils import calc_rotation_angle, sort_by_stack ## <remove>
-from .drawable import DrawableFactory, DrawableGroup ## <remove>
+from .drawable_factory import DrawableFactory ## <remove>
+from .drawable import DrawableGroup ## <remove>
 
 ## ---------------------------------------------------------------------
 ## These are the commands that can be executed on the objects. They should

@@ -3,7 +3,7 @@ To do (sorted by priority):
 
  * unit tests. more, more, more
  * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
-   files
+   files; or, better, create a yaml export option.
  * create a pen wiglet
  * make wiglets movable
  * draw a dustbin wiglet in lower left corner
@@ -41,13 +41,7 @@ Bugs:
    cursor.
  * when paste an object multiple times, the second and following copies
    fall on the same position as the first one
- * when text is grouped with other objects, and the group is resized in
-   unproportional way, then due to the fact that the bb of the text is
-   resized (more or less) proportionally, after a few resize operations the
-   text size is very small.
  * when drawing very slow the line looks like shit.
- * rotating the whole selection does not work (b/c the way selection
-   behaves)
  * when text is rotated, the algorithm for checking for hover objects does
    not consider the enlarged bounding box
 
@@ -356,12 +350,22 @@ Done:
  * grouping
 
 Parked ideas:
+ * rotating the whole selection does not work (b/c the way selection
+   behaves). However, you can group, rotate and ungroup, so I will park
+   that for now.
+ * when text is grouped with other objects, and the group is resized in
+   unproportional way, then due to the fact that the bb of the text is
+   resized (more or less) proportionally, after a few resize operations the
+   text size is very small. -> this might be handled by resizing the text
+   through tranformation rather than font change. However, it is neither
+   easy nor the results are spectacular. I think for now we will park it.
  * import SVG: that would be a nice thing, but it is a lot of work. Also,
    to do it properly it would require specialized libraries.
  * For outlines, split each outline into non-overlapping segments. This is
    much harder than I thought it would be, but fun.
 
 Rejected ideas:
+ * Native SVG format. This is MUCH slower.
  * how about: each object has methods "save_state" (which returns
    everything that is needed to completely restore state) and "restore_state"
    (which restores the state). This would allow to save the state of the

@@ -46,6 +46,7 @@ from sd.utils import *                   ###<placeholder sd/utils.py>
 from sd.commands import *                ###<placeholder sd/commands.py>
 from sd.pen import Pen                   ###<placeholder sd/pen.py>
 from sd.drawable import *                ###<placeholder sd/drawable.py>
+from sd.drawable_factory import *                ###<placeholder sd/drawable.py>
 from sd.events import *                  ###<placeholder sd/events.py>
 from sd.dialogs import *                 ###<placeholder sd/dialogs.py>
 from sd.clipboard import Clipboard       ###<placeholder sd/clipboard.py>
@@ -64,6 +65,7 @@ from sd.grid import Grid                 ###<placeholder sd/grid.py>
 from sd.texteditor import TextEditor     ###<placeholder sd/texteditor.py>
 from sd.imageobj import ImageObj         ###<placeholder sd/imageobj.py>
 from sd.state import State, Setter       ###<placeholder sd/status.py>
+from sd.drawable_primitives import Image, Text, Path, Rectangle, Shape, Circle # <remove>
 
 
 # ---------------------------------------------------------------------

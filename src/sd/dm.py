@@ -2,7 +2,8 @@
 DrawManager is a class that manages the drawing on the canvas.
 """
 
-from .drawable import DrawableFactory, SelectionTool             # <remove>
+from .drawable_factory import DrawableFactory             # <remove>
+from .drawable_primitives import SelectionTool             # <remove>
 from .commands import RemoveCommand, MoveCommand, ResizeCommand, RotateCommand  # <remove>
 from .events   import MouseEvent                                 # <remove>
 from .wiglets  import WigletTransparency, WigletLineWidth        # <remove>

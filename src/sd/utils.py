@@ -505,3 +505,4 @@ def base64_to_pixbuf(image_base64):
     loader.close()  # Finalize the loader
     image = loader.get_pixbuf()  # Get the loaded GdkPixbuf
     return image
+
