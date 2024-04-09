@@ -9,6 +9,7 @@ from gi.repository import Gdk                  # <remove>
 from .pen import Pen                           # <remove>
 from .utils import draw_dot, is_click_in_bbox  # <remove>
 from .icons import Icons                       # <remove>
+from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 
 def draw_rhomb(cr, bbox, fg = (0, 0, 0), bg = (1, 1, 1)):
     """
@@ -74,6 +75,43 @@ class Wiglet:
     def event_finish(self):
         """update on mouse release"""
         raise NotImplementedError("event_finish method not implemented")
+
+class WigletColorPicker(Wiglet):
+    """Invisible wiglet that processes clicks in the color picker mode."""
+    def __init__(self, func_color, clipboard):
+        super().__init__("colorpicker", None)
+
+        self.__func_color = func_color
+        self.__clipboard = clipboard
+                 
+
+    def draw(self, cr):
+        """ignore drawing the widget"""
+
+    def update_size(self, width, height):
+        """ignore resizing"""
+
+    def event_update(self, x, y):
+        """ignore on mouse move"""
+
+    def on_click(self, x, y, ev):
+        """handle the click event"""
+
+        # only works in color picker mode
+        if ev.mode() != "colorpicker":
+            return False
+
+        if ev.shift() or ev.alt() or ev.ctrl():
+            return
+
+        color = get_color_under_cursor()
+        self.__func_color(color)
+
+        color_hex = rgb_to_hex(color)
+        self.__clipboard.set_text(color_hex)
+        #self.__state.queue_draw()
+        return True
+
 
 class WigletTransparency(Wiglet):
     """Wiglet for changing the transparency."""

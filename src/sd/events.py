@@ -15,9 +15,10 @@ class MouseEvent:
     One advantage of using it: the computationaly intensive stuff is
     computed only once and only if it is needed.
     """
-    def __init__(self, event, objects, translate = None):
+    def __init__(self, event, objects, translate = None, mode = None):
         self.event   = event
         self.objects = objects
+        self.__mode = mode
         self.__modifiers = {
                 "shift": (event.state & Gdk.ModifierType.SHIFT_MASK) != 0,
                 "ctrl": (event.state & Gdk.ModifierType.CONTROL_MASK) != 0,
@@ -80,3 +81,7 @@ class MouseEvent:
     def pressure(self):
         """Return the pressure of the pen."""
         return self.__info.get("pressure")
+
+    def mode(self):
+        """Return the mode in which the event happened."""
+        return self.__mode

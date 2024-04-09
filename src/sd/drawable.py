@@ -337,7 +337,7 @@ class DrawableGroup(Drawable):
         if objects_dict:
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
 
-        print("Creating DrawableGroup with ", len(objects), "objects")
+        #print("Creating DrawableGroup with ", len(objects), "objects")
         super().__init__(mytype, [ (None, None) ], None)
         self.objects = objects
 

@@ -5,7 +5,6 @@ DrawManager is a class that manages the drawing on the canvas.
 from .drawable import DrawableFactory, SelectionTool             # <remove>
 from .commands import RemoveCommand, MoveCommand, ResizeCommand, RotateCommand  # <remove>
 from .events   import MouseEvent                                 # <remove>
-from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 from .wiglets  import WigletTransparency, WigletLineWidth        # <remove>
 from .wiglets  import WigletPageSelector, WigletToolSelector, WigletColorSelector   # <remove>
 #from sd.cursor   import CursorManager                            # <remove>
@@ -184,7 +183,8 @@ class DrawManager:
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
         self.__state.modified(True)
         ev = MouseEvent(event, self.__gom.objects(),
-                        translate = self.__gom.page().translate())
+                        translate = self.__gom.page().translate(),
+                        mode = self.__state.mode())
 
         # Ignore clicks when text input is active
         if self.__state.current_obj():
@@ -261,30 +261,13 @@ class DrawManager:
             else:
                 self.__wiglet_active = WigletTransparency((event.x, event.y), self.__state.pen())
                 self.__wiglets.append(self.__wiglet_active)
-            return True
-
-        if self.__handle_color_picker_on_click():
+            self.__state.queue_draw()
             return True
 
         if self.__handle_eraser_on_click(ev):
             return True
 
         return False
-
-    def __handle_color_picker_on_click(self):
-        """Handle color picker on click events."""
-        if not self.__state.mode() == "colorpicker":
-            return False
-
-        color = get_color_under_cursor()
-        # XXX - this is a hack, because we need to inject the setter dependency
-        # just for this one line. How about - color picker is an invisible
-        # wiglet?
-        self.__setter.set_color(color)
-        color_hex = rgb_to_hex(color)
-        self.__app.clipboard.set_text(color_hex)
-        self.__state.queue_draw()
-        return True
 
     def __handle_eraser_on_click(self, ev):
         """Handle eraser on click events."""
@@ -333,7 +316,8 @@ class DrawManager:
         """Handle mouse button release events."""
         print("button release: type:", event.type, "button:", event.button, "state:", event.state)
         ev = MouseEvent(event, self.__gom.objects(),
-                        translate = self.__gom.page().translate())
+                        translate = self.__gom.page().translate(),
+                        mode = self.__state.mode())
 
         if self.__paning:
             self.__paning = None
@@ -452,7 +436,8 @@ class DrawManager:
         """Handle mouse motion events."""
 
         ev = MouseEvent(event, self.__gom.objects(),
-                        translate = self.__gom.page().translate())
+                        translate = self.__gom.page().translate(),
+                        mode = self.__state.mode())
         x, y = ev.pos()
         self.__cursor.update_pos(x, y)
 

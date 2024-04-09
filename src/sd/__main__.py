@@ -140,6 +140,7 @@ class TransparentWindow(Gtk.Window):
                            WigletToolSelector(func_mode = self.state.mode),
                            WigletPageSelector(gom = self.gom, screen_wh_func = self.state.get_win_size,
                                               set_page_func = self.gom.set_page_number),
+                           WigletColorPicker(func_color = self.setter.set_color, clipboard = self.clipboard),
                           ]
 
 

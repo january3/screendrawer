@@ -106,7 +106,6 @@ class Drawer:
         groups = self.__find_groups(objects, selection, state)
 
         if not self.__cache or self.__cache["groups"] != groups:
-            print("regenerating cache")
             self.new_cache(groups, selection, state)
 
     def __find_groups(self, objects, selection, state):
