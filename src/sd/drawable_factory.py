@@ -1,5 +1,5 @@
 """Factory for drawable objects"""
-from .drawable_primitives import Image, Text, Path, Rectangle, Shape, Circle # <remove>
+from .drawable_primitives import Text, Path, Rectangle, Shape, Circle # <remove>
 
 
 class DrawableFactory:
@@ -75,4 +75,3 @@ class DrawableFactory:
             raise ValueError("Unknown mode:", mode)
 
         return obj
-

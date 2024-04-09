@@ -3,15 +3,8 @@ These are the objects that can be displayed. It includes groups, but
 also primitives like boxes, paths and text.
 """
 
-import math                              # <remove>
-import gi                                 # <remove>
-gi.require_version('Gdk', '3.0')        # <remove>
-from gi.repository import Gdk            # <remove>
 from .pen import Pen                     # <remove>
-from .utils import transform_coords, smooth_path, coords_rotate           # <remove>
-from .utils import is_click_close_to_path, path_bbox, move_coords, flatten_and_unique # <remove>
-from .utils import find_obj_in_bbox     # <remove>
-#from .drawable_factory import DrawableFactory # <remove>
+from .utils import flatten_and_unique, move_coords # <remove>
 
 
 class Drawable:
@@ -45,7 +38,7 @@ class Drawable:
         else:
             self.pen    = None
 
-    def update(self, x, y, pressure):
+    def update(self, x, y, pressure): # pylint: disable=unused-argument
         """Called when the mouse moves during drawing."""
         self.mod += 1
 
@@ -184,7 +177,7 @@ class Drawable:
             self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
         self.mod += 1
 
-    def bbox(self, actual = False):
+    def bbox(self, actual = False): # pylint: disable=unused-argument
         """Return the bounding box of the object."""
         if self.resizing:
             return self.resizing["bbox"]
@@ -210,7 +203,7 @@ class Drawable:
     def register_type(cls, obj_type, obj_class):
         """Register a new drawable object class."""
         cls.__registry[obj_type] = obj_class
-        
+
     @classmethod
     def from_dict(cls, d):
         """

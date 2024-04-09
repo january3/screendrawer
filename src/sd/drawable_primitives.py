@@ -2,6 +2,7 @@
 These classes are the primitives for drawing: text, shapes, paths
 """
 
+import math                              # <remove>
 import cairo                             # <remove>
 import gi                                 # <remove>
 gi.require_version('Gdk', '3.0')        # <remove>
@@ -13,7 +14,7 @@ from .texteditor import TextEditor      # <remove>
 from .imageobj import ImageObj          # <remove>
 from .brush import BrushFactory                   #<remove>
 from .utils import transform_coords, smooth_path, coords_rotate           # <remove>
-from .utils import is_click_close_to_path, path_bbox, move_coords, flatten_and_unique # <remove>
+from .utils import is_click_close_to_path, path_bbox, move_coords # <remove>
 from .utils import find_obj_in_bbox     # <remove>
 
 class Image(Drawable):
@@ -200,8 +201,8 @@ class Text(Drawable):
         x0, y0 = bb[0], bb[1]
         x1, y1 = x0 + bb[2], y0 + bb[3]
         if self.rotation:
-            click_x, click_y = coords_rotate([(click_x, click_y)], 
-                                             -self.rotation, 
+            click_x, click_y = coords_rotate([(click_x, click_y)],
+                                             0-self.rotation,
                                              self.rot_origin)[0]
 
         return (x0 - threshold <= click_x <= x1 + threshold and
@@ -427,7 +428,6 @@ class Path(Drawable):
         super().__init__("path", coords, pen = pen)
         self.__pressure  = pressure or []
         self.__bb        = []
-        self.__cache = None
 
         if brush:
             self.__brush = BrushFactory.create_brush(**brush)
@@ -435,8 +435,8 @@ class Path(Drawable):
             brush_type = pen.brush_type()
             self.__brush = BrushFactory.create_brush(brush_type)
 
-       #if outline:
-       #    self.__brush.outline(outline)
+        if outline:
+            print("Warning: outline is not used in Path")
 
         if len(self.coords) > 3 and not self.__brush.outline():
             self.outline_recalculate()
@@ -446,7 +446,6 @@ class Path(Drawable):
         self.__brush.calculate(self.pen.line_width,
                                  coords = self.coords,
                                  pressure = self.__pressure)
-        self.__cache = None
         self.mod += 1
 
     def finish(self):
@@ -456,7 +455,6 @@ class Path(Drawable):
     def update(self, x, y, pressure):
         """Update the path with a new point."""
         self.path_append(x, y, pressure)
-        self.__cache = None
         self.mod += 1
 
     def move(self, dx, dy):
@@ -466,7 +464,6 @@ class Path(Drawable):
         #self.outline_recalculate()
         self.__brush.move(dx, dy)
         self.__bb = None
-        self.__cache = None
         self.mod += 1
 
     def rotate_end(self):
@@ -691,7 +688,7 @@ class Shape(Drawable):
             return True
         return False
 
-    def path_append(self, x, y, pressure = None):
+    def path_append(self, x, y, pressure = None): # pylint: disable=unused-argument
         """Append a new point to the path."""
         self.coords.append((x, y))
         self.bb = None
