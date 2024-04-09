@@ -2,8 +2,6 @@
 DrawManager is a class that manages the drawing on the canvas.
 """
 
-
-import cairo # <remove>
 from .drawable import DrawableFactory, SelectionTool             # <remove>
 from .commands import RemoveCommand, MoveCommand, ResizeCommand, RotateCommand  # <remove>
 from .events   import MouseEvent                                 # <remove>
@@ -234,7 +232,7 @@ class DrawManager:
         """Handle mouse button press events."""
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
         self.__modified = True # better safe than sorry
-        ev = MouseEvent(event, self.__gom.objects(), 
+        ev = MouseEvent(event, self.__gom.objects(),
                         translate = self.__gom.page().translate())
 
         # Ignore clicks when text input is active
@@ -306,6 +304,7 @@ class DrawManager:
 
         # Start changing line width: single click with ctrl pressed
         if ev.ctrl(): # and self.__mode == "draw":
+            print("current line width, transparency:", self.__canvas.pen().line_width, self.__canvas.pen().transparency)
             if not ev.shift():
                 self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__canvas.pen())
             else:
@@ -379,7 +378,7 @@ class DrawManager:
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         print("button release: type:", event.type, "button:", event.button, "state:", event.state)
-        ev = MouseEvent(event, self.__gom.objects(), 
+        ev = MouseEvent(event, self.__gom.objects(),
                         translate = self.__gom.page().translate())
 
         if self.__paning:
@@ -497,12 +496,12 @@ class DrawManager:
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
 
-        ev = MouseEvent(event, self.__gom.objects(), 
+        ev = MouseEvent(event, self.__gom.objects(),
                         translate = self.__gom.page().translate())
         x, y = ev.pos()
         self.__cursor.update_pos(x, y)
 
-        if self.__on_motion_wiglet(x, y):
+        if self.__on_motion_wiglet(event.x, event.y):
             return True
 
         # we are paning
