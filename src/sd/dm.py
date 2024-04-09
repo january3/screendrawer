@@ -28,11 +28,6 @@ class DrawManager:
     app.queue_draw()  # needed all the time
     app.mm.object_menu() # used for right click context menu
 
-    methods from canvas used:
-    canvas.draw()
-    canvas.toggle_grid()
-    canvas.pen()
-    canvas.bg_color()
 
     methods from gom used:
     gom.set_page_number()
@@ -49,12 +44,12 @@ class DrawManager:
     gom.remove_all()
     gom.command_append()
     """
-    def __init__(self, gom, app, cursor, canvas):
-        self.__canvas = canvas
+    def __init__(self, gom, app, state):
+        self.__state = state
         self.__current_object = None
         self.__gom = gom
         self.__app = app
-        self.__cursor = cursor
+        self.__cursor = state.cursor()
         self.__mode = "draw"
 
         # objects that indicate the state of the drawing area
@@ -67,7 +62,7 @@ class DrawManager:
         self.__show_wiglets = True
         self.__wiglets = [ WigletColorSelector(height = app.get_size()[1],
                                                func_color = self.set_color,
-                                               func_bg = self.__canvas.bg_color),
+                                               func_bg = self.__state.bg_color),
                            WigletToolSelector(func_mode = self.mode),
                            WigletPageSelector(gom = gom, screen_wh_func = app.get_size,
                                               set_page_func = gom.set_page_number),
@@ -79,7 +74,7 @@ class DrawManager:
 
     def toggle_grid(self):
         """Toggle the wiglets."""
-        self.__canvas.toggle_grid()
+        self.__state.toggle_grid()
 
     def toggle_wiglets(self):
         """Toggle the wiglets."""
@@ -242,7 +237,7 @@ class DrawManager:
         if not mode in [ "draw", "shape", "rectangle", "circle", "text" ]:
             return False
 
-        obj = DrawableFactory.create_drawable(mode, pen = self.__canvas.pen(), ev=ev)
+        obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
 
         if obj:
             self.__current_object = obj
@@ -328,11 +323,11 @@ class DrawManager:
 
         # Start changing line width: single click with ctrl pressed
         if ev.ctrl(): # and self.__mode == "draw":
-            print("current line width, transparency:", self.__canvas.pen().line_width, self.__canvas.pen().transparency)
+            print("current line width, transparency:", self.__state.pen().line_width, self.__state.pen().transparency)
             if not ev.shift():
-                self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__canvas.pen())
+                self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__state.pen())
             else:
-                self.__wiglet_active = WigletTransparency((event.x, event.y), self.__canvas.pen())
+                self.__wiglet_active = WigletTransparency((event.x, event.y), self.__state.pen())
             return True
 
         if self.__handle_color_picker_on_click():
@@ -636,20 +631,20 @@ class DrawManager:
         if cobj and cobj.type == "text":
             print("Changing text size")
             cobj.stroke_change(direction)
-            self.__canvas.pen().font_size = cobj.pen.font_size
+            self.__state.pen().font_size = cobj.pen.font_size
         else:
             for obj in self.__gom.selected_objects():
                 obj.stroke_change(direction)
 
         # without a selected object, change the default pen, but only if in the correct mode
         if self.__mode == "draw":
-            self.__canvas.pen().line_width = max(1, self.__canvas.pen().line_width + direction)
+            self.__state.pen().line_width = max(1, self.__state.pen().line_width + direction)
         elif self.__mode == "text":
-            self.__canvas.pen().font_size = max(1, self.__canvas.pen().font_size + direction)
+            self.__state.pen().font_size = max(1, self.__state.pen().font_size + direction)
 
     def set_font(self, font_description):
         """Set the font."""
-        self.__canvas.pen().font_set_from_description(font_description)
+        self.__state.pen().font_set_from_description(font_description)
         self.__gom.selection_font_set(font_description)
         if self.__current_object and self.__current_object.type == "text":
             self.__current_object.pen.font_set_from_description(font_description)
@@ -663,15 +658,15 @@ class DrawManager:
     def set_brush(self, brush = None):
         """Set the brush."""
         if brush is not None:
-            print("setting pen", self.__canvas.pen(), "brush to", brush)
-            self.__canvas.pen().brush_type(brush)
-        return self.__canvas.pen().brush_type()
+            print("setting pen", self.__state.pen(), "brush to", brush)
+            self.__state.pen().brush_type(brush)
+        return self.__state.pen().brush_type()
 
     def set_color(self, color = None):
         """Get or set the color."""
         if color is None:
-            return self.__canvas.pen().color
-        self.__canvas.pen().color_set(color)
+            return self.__state.pen().color
+        self.__state.pen().color_set(color)
         self.__gom.selection_color_set(color)
         return color
 

@@ -15,11 +15,11 @@ class GraphicsObjectManager:
         _objects (list): The list of objects.
     """
 
-    def __init__(self, app, canvas):
+    def __init__(self, app, state):
 
         # private attr
         self.__app = app
-        self.__canvas = canvas
+        self.__state = state
         self.__history    = []
         self.__redo_stack = []
         self.__page = None
@@ -276,7 +276,7 @@ class GraphicsObjectManager:
     def selection_apply_pen(self):
         """Apply the pen to the selected objects."""
         if not self.__page.selection().is_empty():
-            pen = self.__canvas.pen()
+            pen = self.__state.pen()
             self.__history.append(SetPenCommand(self.__page.selection(), pen))
 
     def redo(self):
@@ -343,11 +343,11 @@ class GraphicsObjectManager:
         if tr:
             cr.translate(*tr)
 
-        self.__canvas.draw(cr, tr)
+        #self.__canvas.draw(cr, tr)
  
         state = {
                 "hover_obj": hover_obj,
                 "mode": mode,
-                "outline": self.__canvas.outline(),
+                "outline": self.__state.outline(),
                 }
         self.__page.draw(cr, state)

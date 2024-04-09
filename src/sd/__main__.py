@@ -63,6 +63,7 @@ from sd.brush import Brush               ###<placeholder sd/brush.py>
 from sd.grid import Grid                 ###<placeholder sd/grid.py>
 from sd.texteditor import TextEditor     ###<placeholder sd/texteditor.py>
 from sd.imageobj import ImageObj         ###<placeholder sd/imageobj.py>
+from sd.state import State             ###<placeholder sd/status.py>
 
 
 # ---------------------------------------------------------------------
@@ -120,10 +121,12 @@ class TransparentWindow(Gtk.Window):
         GLib.timeout_add(AUTOSAVE_INTERVAL, self.__autosave)
 
         # Drawing setup
+        self.cursor             = CursorManager(self)
+        self.state              = State(app = self, cursor = self.cursor)
+
         self.clipboard           = Clipboard()
         self.canvas              = Canvas(self)
-        self.gom                 = GraphicsObjectManager(self, canvas=self.canvas)
-        self.cursor              = CursorManager(self)
+        self.gom                 = GraphicsObjectManager(self, state = self.state)
 
         # dm needs to know about gom because gom manipulates the selection
         # and history (object creation etc)
@@ -132,11 +135,12 @@ class TransparentWindow(Gtk.Window):
         # it needs to know about the app to get the size of the window and
         # queue up redraws
         self.dm                  = DrawManager(gom = self.gom,  app = self,
-                                               cursor = self.cursor, canvas = self.canvas)
+                                               state = self.state)
 
         # em has to know about all that to link actions to methods
         self.em                  = EventManager(gom = self.gom, app = self,
-                                                dm = self.dm, canvas = self.canvas)
+                                                dm = self.dm, 
+                                                state = self.state)
         self.mm                  = MenuMaker(self.em, self)
 
         # distance for selecting objects
@@ -185,12 +189,12 @@ class TransparentWindow(Gtk.Window):
             cobj.add_text(clip_text.strip())
         else:
             new_text = Text([ self.cursor.pos() ],
-                            pen = self.canvas.pen(), content=clip_text.strip())
+                            pen = self.state.pen(), content=clip_text.strip())
             self.gom.add_object(new_text)
 
     def paste_image(self, clip_img):
         """Create an image object from a pixbuf image."""
-        obj = Image([ self.cursor.pos() ], self.canvas.pen(), clip_img)
+        obj = Image([ self.cursor.pos() ], self.state.pen(), clip_img)
         self.gom.add_object(obj)
 
     def __object_create_copy(self, obj, bb = None):
@@ -251,7 +255,7 @@ class TransparentWindow(Gtk.Window):
         """Select a color for the background using ColorChooser."""
         color = ColorChooser(self, "Select Background Color")
         if color:
-            self.canvas.bg_color((color.red, color.green, color.blue))
+            self.state.bg_color((color.red, color.green, color.blue))
 
     def select_color(self):
         """Select a color for drawing using ColorChooser dialog."""
@@ -261,7 +265,7 @@ class TransparentWindow(Gtk.Window):
 
     def select_font(self):
         """Select a font for drawing using FontChooser dialog."""
-        font_description = FontChooser(self.canvas.pen(), self)
+        font_description = FontChooser(self.state.pen(), self)
 
         if font_description:
             self.dm.set_font(font_description)
@@ -303,8 +307,8 @@ class TransparentWindow(Gtk.Window):
 
         if file_name:
             export_image(obj, file_name, file_format,
-                         bg = self.canvas.bg_color(),
-                         bbox = bbox, transparency = self.canvas.transparent())
+                         bg = self.state.bg_color(),
+                         bbox = bbox, transparency = self.state.transparent())
 
     def select_image_and_create_pixbuf(self):
         """Select an image file and create a pixbuf from it."""
@@ -321,7 +325,7 @@ class TransparentWindow(Gtk.Window):
 
             if pixbuf is not None:
                 pos = self.cursor.pos()
-                img = Image([ pos ], self.canvas.pen(), pixbuf)
+                img = Image([ pos ], self.state.pen(), pixbuf)
                 self.gom.add_object(img)
                 self.queue_draw()
 
@@ -337,7 +341,7 @@ class TransparentWindow(Gtk.Window):
 
         # Create the image and copy the file name to clipboard
         if pixbuf is not None:
-            img = Image([ (bb[0], bb[1]) ], self.canvas.pen(), pixbuf)
+            img = Image([ (bb[0], bb[1]) ], self.state.pen(), pixbuf)
             self.gom.add_object(img)
             self.queue_draw()
             self.clipboard.set_text(filename)
@@ -392,12 +396,12 @@ class TransparentWindow(Gtk.Window):
 
         print("savefile:", self.savefile)
         config = {
-                'bg_color':    self.canvas.bg_color(),
-                'transparent': self.canvas.transparent(),
+                'bg_color':    self.state.bg_color(),
+                'transparent': self.state.transparent(),
                 'show_wiglets': self.dm.show_wiglets(),
                 'bbox':        (0, 0, *self.get_size()),
-                'pen':         self.canvas.pen().to_dict(),
-                'pen2':        self.canvas.pen(alternate = True).to_dict(),
+                'pen':         self.state.pen().to_dict(),
+                'pen2':        self.state.pen(alternate = True).to_dict(),
                 'page':        self.gom.current_page_number()
         }
 
@@ -424,14 +428,14 @@ class TransparentWindow(Gtk.Window):
             self.gom.set_objects(objects)
 
         if config and load_config:
-            self.canvas.bg_color(config.get('bg_color') or (.8, .75, .65))
-            self.canvas.transparent(config.get('transparent') or 0)
+            self.state.bg_color(config.get('bg_color') or (.8, .75, .65))
+            self.state.transparent(config.get('transparent') or 0)
             show_wiglets = config.get('show_wiglets')
             if show_wiglets is None:
                 show_wiglets = True
             self.dm.show_wiglets(show_wiglets)
-            self.canvas.pen(pen = Pen.from_dict(config['pen']))
-            self.canvas.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
+            self.state.pen(pen = Pen.from_dict(config['pen']))
+            self.state.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
             self.gom.set_page_number(config.get('page') or 0)
         if config or objects:
             self.dm.modified(True)

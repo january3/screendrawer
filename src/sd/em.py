@@ -44,14 +44,14 @@ class EventManager:
             cls._instance = super(EventManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, gom, app, dm, canvas):
+    def __init__(self, gom, app, dm, state):
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
             self.__app = app
             self.__dm  = dm
-            self.__canvas = canvas
-            self.make_actions_dictionary(gom, app, dm, canvas)
+            self.__state = state
+            self.make_actions_dictionary(gom, app, dm, state)
             self.make_default_keybindings()
 
     def dispatch_action(self, action_name, **kwargs):
@@ -150,7 +150,7 @@ class EventManager:
         app.queue_draw()
 
 
-    def make_actions_dictionary(self, gom, app, dm, canvas):
+    def make_actions_dictionary(self, gom, app, dm, state):
         """
         This dictionary maps key events to actions.
         """
@@ -167,8 +167,8 @@ class EventManager:
 
             'finish_text_input':     {'action': dm.finish_text_input},
 
-            'cycle_bg_transparency': {'action': canvas.cycle_background},
-            'toggle_outline':        {'action': canvas.outline_toggle},
+            'cycle_bg_transparency': {'action': state.cycle_background},
+            'toggle_outline':        {'action': state.outline_toggle},
 
             'clear_page':            {'action': dm.clear},
             'toggle_wiglets':        {'action': dm.toggle_wiglets},
@@ -224,8 +224,8 @@ class EventManager:
             'set_brush_slanted':     {'action': dm.set_brush, 'args': ["slanted"] },
             'set_brush_pencil':      {'action': dm.set_brush, 'args': ["pencil"] },
 
-            'apply_pen_to_bg':       {'action': canvas.apply_pen_to_bg,        'modes': ["move"]},
-            'toggle_pens':           {'action': canvas.switch_pens},
+            'apply_pen_to_bg':       {'action': state.apply_pen_to_bg,        'modes': ["move"]},
+            'toggle_pens':           {'action': state.switch_pens},
 
             # dialogs
             "export_drawing":        {'action': app.export_drawing},
