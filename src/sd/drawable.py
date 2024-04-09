@@ -799,21 +799,29 @@ class Text(Drawable):
             self.mod += 1
         return self.__show_caret
 
-    def is_close_to_click(self, click_x, click_y, threshold):
-        """Check if a click is close to the object."""
-        if self.__bb is None:
-            return False
-        x, y, width, height = self.__bb
-        if x <= click_x <= x + width and y <= click_y <= y + height:
-            return True
-        return False
-
     def move(self, dx, dy):
         """Move the text object by dx, dy."""
         move_coords(self.coords, dx, dy)
         if self.rotation:
             self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
         self.mod += 1
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the path."""
+        if self.__bb is None:
+            return False
+
+        bb = self.__bb
+        x0, y0 = bb[0], bb[1]
+        x1, y1 = x0 + bb[2], y0 + bb[3]
+        if self.rotation:
+            click_x, click_y = coords_rotate([(click_x, click_y)], 
+                                             -self.rotation, 
+                                             self.rot_origin)[0]
+
+        return (x0 - threshold <= click_x <= x1 + threshold and
+                y0 - threshold <= click_y <= y1 + threshold)
+
 
     def rotate_end(self):
         """Finish the rotation operation."""
@@ -832,7 +840,7 @@ class Text(Drawable):
         self.mod += 1
 
     def resize_update(self, bbox):
-        print("resizing text", bbox)
+        print("resizing text", [ int(x) for x in bbox])
         if bbox[2] < 0:
             bbox = (bbox[0], bbox[1], 10, bbox[3])
         if bbox[3] < 0:
@@ -867,18 +875,18 @@ class Text(Drawable):
         print("resizing text, direction=", direction, "font size is", self.pen.font_size)
         while True:
             self.pen.font_size += direction
-            print("trying font size", self.pen.font_size)
+            #print("trying font size", self.pen.font_size)
             self.draw(cr, False, False)
             out_of_range_low = self.pen.font_size < min_fs and direction < 0
             out_of_range_up  = self.pen.font_size > max_fs and direction > 0
             if out_of_range_low or out_of_range_up:
-                print("font size out of range")
+                #print("font size out of range")
                 break
             current_bbox = self.__bb
-            print("drawn, bbox is", self.__bb)
+            #print("drawn, bbox is", self.__bb)
             if direction > 0 and (current_bbox[2] >= new_bbox[2] or
                                   current_bbox[3] >= new_bbox[3]):
-                print("increased beyond the new bbox")
+                #print("increased beyond the new bbox")
                 break
             if direction < 0 and (current_bbox[2] <= new_bbox[2] and
                                   current_bbox[3] <= new_bbox[3]):
@@ -953,6 +961,7 @@ class Text(Drawable):
 
     def draw(self, cr, hover=False, selected=False, outline=False):
         """Draw the text object."""
+        print("drawing the text")
         position = self.coords[0]
         content = self.__text.lines()
         caret_pos = self.__text.caret_pos()
@@ -964,6 +973,7 @@ class Text(Drawable):
                             self.pen.font_weight == "bold"  and
                                 cairo.FONT_WEIGHT_BOLD  or cairo.FONT_WEIGHT_NORMAL)
         cr.set_font_size(self.pen.font_size)
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
 
         self.font_extents = cr.font_extents()
 
@@ -974,8 +984,15 @@ class Text(Drawable):
               position[1] - self.font_extents[0],
               0, 0]
 
+        cr.save()
+       #if self.resizing:
+       #    cr.translate(self.resizing["bbox"][0], self.resizing["bbox"][1])
+       #    scale_x = self.resizing["bbox"][2] / self.__bb[2]
+       #    scale_y = self.resizing["bbox"][3] / self.__bb[3]
+       #    cr.scale(scale_x, scale_y)
+       #    cr.translate(-self.__bb[0], -self.__bb[1])
+
         if self.rotation:
-            cr.save()
             cr.translate(self.rot_origin[0], self.rot_origin[1])
             cr.rotate(self.rotation)
             cr.translate(-self.rot_origin[0], -self.rot_origin[1])
@@ -991,7 +1008,6 @@ class Text(Drawable):
 
             cr.set_font_size(self.pen.font_size)
             cr.move_to(position[0], position[1] + dy)
-            cr.set_source_rgba(*self.pen.color, self.pen.transparency)
             cr.show_text(fragment)
             cr.stroke()
 
@@ -1010,10 +1026,12 @@ class Text(Drawable):
 
         self.__bb = (bb[0], bb[1], bb[2], bb[3])
 
-        if self.rotation:
-            cr.restore()
-        if selected:
-            self.bbox_draw(cr, lw=1.5)
+        cr.restore()
+
+        if selected or self.resizing:
+            cr.set_source_rgb(1, 0, 0)
+            self.bbox_draw(cr, lw=.5)
+        #self.bbox_draw(cr, lw=1.5)
         if hover:
             self.bbox_draw(cr, lw=.5)
 
