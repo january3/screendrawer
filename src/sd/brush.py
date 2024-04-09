@@ -376,6 +376,7 @@ class BrushPencil(Brush):
         self.__bin_transp = [ ]
         self.__outline_l = [ ]
         self.__outline_r = [ ]
+        self.__coords = [ ]
 
     def to_dict(self):
         """Return a dictionary representation of the brush."""
@@ -386,35 +387,37 @@ class BrushPencil(Brush):
     def move(self, dx, dy):
         """Move the outline."""
         self.outline([ (x + dx, y + dy) for x, y in self.outline() ])
+        self.__coords = [ (x + dx, y + dy) for x, y in self.__coords ]
         self.__outline_l = [ (x + dx, y + dy) for x, y in self.__outline_l ]
         self.__outline_r = [ (x + dx, y + dy) for x, y in self.__outline_r ]
 
     def rotate(self, angle, rot_origin):
         """Rotate the outline."""
         self.outline(coords_rotate(self.outline(),   angle, rot_origin))
+        self.__coords = coords_rotate(self.__coords, angle, rot_origin)
         self.__outline_l = coords_rotate(self.__outline_l, angle, rot_origin)
         self.__outline_r = coords_rotate(self.__outline_r, angle, rot_origin)
 
     def scale(self, old_bbox, new_bbox):
         """Scale the outline."""
         self.outline(transform_coords(self.outline(),   old_bbox, new_bbox))
+        self.__coords = transform_coords(self.__coords, old_bbox, new_bbox)
         self.__outline_l = transform_coords(self.__outline_l, old_bbox, new_bbox)
         self.__outline_r = transform_coords(self.__outline_r, old_bbox, new_bbox)
 
     def draw(self, cr):
         """Draw the brush on the Cairo context."""
         r, g, b, a = get_current_color_and_alpha(cr)
-        if not self.outline() or len(self.outline()) < 4:
+        if not self.__coords or len(self.__coords) < 4:
             return
 
-        if len(self.__pressure) != len(self.outline()):
-            print("Pressure and outline don't match:", len(self.__pressure), len(self.outline()))
+        if len(self.__pressure) != len(self.__coords):
+            print("Pressure and outline don't match:", len(self.__pressure), len(self.__coords))
             return
 
         #print("drawing pencil brush with coords:", len(coords), len(self.__pressure))
 
         bins   = self.__bins
-        coords = self.outline()
         outline_l, outline_r = self.__outline_l, self.__outline_r
         n = len(bins)
 
@@ -449,7 +452,8 @@ class BrushPencil(Brush):
         self.__outline_l = outline_l
         self.__outline_r = outline_r
         self.__pressure  = pressure
-        self.outline(coords)
+        self.__coords    = coords
+        self.outline(outline_l + outline_r[::-1])
 
         nbins = 32
         plength = len(self.__pressure)

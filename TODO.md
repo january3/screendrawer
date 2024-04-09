@@ -36,7 +36,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * regression: ctrl-click for changing line width behaves erratically
  * grid must be cached
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
@@ -57,6 +56,8 @@ Bugs:
    should be mostly outside of the bb
 
 Done:
+ * regression: bounding box of brush 4 is not calculated correctly
+ * regression: ctrl-click for changing line width behaves erratically
  * the caching mechanism in Drawer is not perfect; when objects are cached,
    the cache is always on the bottom of the stack. So for example when
    moving an object underneath, during the move the object is on the top of
