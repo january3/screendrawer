@@ -121,7 +121,7 @@ class TransparentWindow(Gtk.Window):
 
         # Drawing setup
         self.clipboard           = Clipboard()
-        self.canvas              = Canvas()
+        self.canvas              = Canvas(self)
         self.gom                 = GraphicsObjectManager(self, canvas=self.canvas)
         self.cursor              = CursorManager(self)
 

@@ -10,7 +10,6 @@ from .events   import MouseEvent                                 # <remove>
 from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 from .wiglets  import WigletTransparency, WigletLineWidth        # <remove>
 from .wiglets  import WigletPageSelector, WigletToolSelector, WigletColorSelector   # <remove>
-from .grid     import Grid                                       # <remove>
 #from sd.cursor   import CursorManager                            # <remove>
 
 
@@ -31,7 +30,6 @@ class DrawManager:
         self.__app = app
         self.__cursor = cursor
         self.__mode = "draw"
-        self.__grid = Grid()
 
         # objects that indicate the state of the drawing area
         self.__hover = None
@@ -101,14 +99,7 @@ class DrawManager:
         if tr:
             cr.translate(*tr)
 
-        cr.set_source_rgba(*self.__canvas.bg_color(), self.__canvas.transparent())
-        cr.set_operator(cairo.OPERATOR_SOURCE)
-        cr.paint()
-        cr.set_operator(cairo.OPERATOR_OVER)
-
-        if self.__canvas.show_grid():
-            tr = tr or (0, 0)
-            self.__grid.draw(cr, tr, self.__app.get_size())
+        self.__canvas.draw(cr, tr)
 
         self.__gom.draw(cr, self.__hover, self.__mode)
 
