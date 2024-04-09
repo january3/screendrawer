@@ -6,9 +6,12 @@ def draw_on_surface(cr, objects, selection, state):
     """
     Draw the objects on the given graphical context.
     """
+
     for obj in objects:
+
         hover    = obj == state["hover_obj"] and state["mode"] == "move"
         selected = selection.contains(obj) and state["mode"] == "move"
+
         obj.draw(cr, hover=hover,
                  selected=selected,
                  outline = state["outline"])
@@ -19,6 +22,7 @@ def obj_status(obj, selection, state):
     hover_obj = state["hover_obj"]
     hover    = obj == hover_obj and state["mode"] == "move"
     selected = selection.contains(obj) and state["mode"] == "move"
+
     return (obj.mod, hover, selected)
 
 def create_cache_surface(objects):
@@ -37,6 +41,7 @@ def create_cache_surface(objects):
     if not bb:
         return None
 
+    # create a surface that fits the bounding box of the objects
     x, y, width, height = bb
     surface = cairo.ImageSurface(cairo.Format.ARGB32, int(width) + 1, int(height) + 1)
     cr = cairo.Context(surface)
@@ -72,7 +77,6 @@ class Drawer:
         # for each non-empty group of objects that remained the same,
         # generate a cache surface and draw the group on it
         for obj_grp in groups["groups"]:
-            print(cur, obj_grp)
             if not cur or not obj_grp:
                 cur = not cur
                 continue
@@ -82,7 +86,6 @@ class Drawer:
             cr = surface["cr"]
             draw_on_surface(cr, obj_grp, selection, state)
             cur = not cur
-
 
     def update_cache(self, objects, selection, state):
         """
@@ -192,9 +195,17 @@ class Drawer:
         :param mode: The drawing mode.
         """
 
+        # extract objects from the page provided
         objects = page.objects_all_layers()
 
+        # extract the selection object that we need
+        # to determine whether an object in selected state
         selection = page.selection()
+
+        # check if the cache needs to be updated
         self.update_cache(objects, selection, state)
+
+        # draw the cache
         self.draw_cache(cr, selection, state)
+
         return True

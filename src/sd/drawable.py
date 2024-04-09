@@ -210,7 +210,6 @@ class Drawable:
 
     def color_set(self, color):
         """Set the color of the object."""
-        print("color modified")
         self.mod += 1
         self.pen.color_set(color)
 

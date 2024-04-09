@@ -36,6 +36,8 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * regression: ctrl-click for changing line width behaves erratically
+ * grid must be cached
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.

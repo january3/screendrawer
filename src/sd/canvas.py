@@ -18,9 +18,10 @@ class Canvas:
     Canvas for drawing shapes and text.
     """
     def __init__(self):
-        self.__bg_color = (.8, .75, .65)
+        self.__bg_color     = (.8, .75, .65)
         self.__transparency = 0
-        self.__outline = False
+        self.__outline      = False
+        self.__show_grid    = False
 
         self.__pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
         self.__pen2 = Pen(line_width = 40, color = (1, 1, 0),   font_size = 24, transparency = .2)
@@ -31,6 +32,14 @@ class Canvas:
         if pen:
             self.__pen_set(pen, alternate)
         return self.__pen2 if alternate else self.__pen
+
+    def toggle_grid(self):
+        """Toggle the grid."""
+        self.__show_grid = not self.__show_grid
+
+    def show_grid(self):
+        """What is the show grid status."""
+        return self.__show_grid
 
     def __pen_set(self, pen, alternate = False):
         """Set the pen."""

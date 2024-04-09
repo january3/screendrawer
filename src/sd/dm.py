@@ -32,7 +32,6 @@ class DrawManager:
         self.__cursor = cursor
         self.__mode = "draw"
         self.__grid = Grid()
-        self.__show_grid = False
 
         # objects that indicate the state of the drawing area
         self.__hover = None
@@ -53,12 +52,10 @@ class DrawManager:
         # drawing parameters
         self.__hidden = False
         self.__modified = False
-        self.__translate = None
 
-        # defaults for drawing
     def toggle_grid(self):
         """Toggle the wiglets."""
-        self.__show_grid = not self.__show_grid
+        self.__canvas.toggle_grid()
 
     def toggle_wiglets(self):
         """Toggle the wiglets."""
@@ -109,7 +106,7 @@ class DrawManager:
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
 
-        if self.__show_grid:
+        if self.__canvas.show_grid():
             tr = tr or (0, 0)
             self.__grid.draw(cr, tr, self.__app.get_size())
 
@@ -485,7 +482,6 @@ class DrawManager:
         # self.__resizeobj.obj is a copy of the selection group
         # self.__resizeobj.obj.objects is the list of objects in the copy of the selection group
 
-        #
         obj = self.__resizeobj.obj
 
         _, width = self.__app.get_size()
