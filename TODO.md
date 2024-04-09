@@ -36,6 +36,12 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * text bbox is incorrectly reported to the method checking whether text is
+   clicked
+ * a weird bug appeared once when editing text; something was seriously
+   wrong with the text object; text was behaving erratic when moved and
+   looked like having two copies (maybe somehow entered twice in
+   gom/page/layer?)
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
