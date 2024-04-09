@@ -40,9 +40,12 @@ pip3 install pyautogui
 
 *In theory* it should work on other systems as well, but I haven't tested
 it. I tried to used platform independent libraries, but I can't guarantee
-it will work.
+it will work. I have tested it on a Windows installation, and it seems to
+work there as well, but I did not run any thorough tests.
 
 ## Install
+
+### Simple install
 
 It's just a single script.
 
@@ -50,6 +53,22 @@ It's just a single script.
 cp sd.py ~/bin/sd
 chmod a+x ~/bin/sd
 ```
+
+### Install with pip
+
+Run the following command to install the script with pip:
+
+```bash
+pip3 install .
+```
+
+Now, the reason why I primarily use a single script is that I do not
+understand fully the pip build system. It seems to be very complex, and I
+am a bit reluctant to rely on it. However, the sd.py script is the result
+of processing the `sd/*.py` files with the `scripts/make.py` script, so it should
+be equivalent to the pip installation.
+
+### Debian package
 
 Alternatively, get the [latest release](https://github.com/january3/screendrawer/releases/latest) as a
 Debian package or a zip file.
@@ -123,6 +142,14 @@ my own workflow. Here are some of them:
    to change the brush of the existing line, but I sometimes wish to change
    its color. (However, you can always apply the current pen to a selection
    with alt-p).
+ * The app *never* asks for confirmation when saving files. You can always
+   overwrite the file you are saving your screenshot in. It is a feature,
+   because I often want to save the screenshot in the same file, and I
+   am annoyed by the dialog asking me if I want to overwrite the file.
+   Also, I tend to press OK without reading the warning. So beware of that.
+ * Also, it does not report a visual error if saving did not succeed. Sorry
+   about that. Feel free to contribute if this is important to you.
+
 
 
 

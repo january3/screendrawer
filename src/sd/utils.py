@@ -96,7 +96,18 @@ def bezier_point(t, start, control, end):
     return (x, y)
 
 def segment_intersection(p1, p2, p3, p4):
-    """Calculate the intersection of two line segments."""
+    """
+    Calculate the intersection of two line segments.
+    
+    Parameters:
+    - p1, p2: Coordinates of the first line segment's endpoints.
+    - p3, p4: Coordinates of the second line segment's endpoints.
+    
+    Returns:
+    - A tuple (True, (x, y)) if segments intersect, with (x, y) being the intersection point.
+    - A tuple (False, None) if segments do not intersect.
+    """
+
     x1, y1 = p1
     x2, y2 = p2
     x3, y3 = p3
@@ -153,6 +164,15 @@ def remove_intersections(outline_l, outline_r):
                 #outline_r[(i + 1):] = tmp
 
     return out_ret_l, out_ret_r
+
+def calculate_angle2(p0, p1):
+    """Calculate angle between vectors given by p0 and p1"""
+    x1, y1 = p0
+    x2, y2 = p1
+    dot = x1 * x2 + y1 * y2
+    det = x1 * y2 - y1 * x2
+    angle = math.atan2(det, dot)
+    return angle
 
 def calculate_angle(p0, p1, p2):
     """Calculate the angle between the line p0->p1 and p1->p2 in degrees."""
@@ -334,56 +354,6 @@ def coords_rotate(coords, angle, origin):
         ret.append((x1 + origin[0], y1 + origin[1]))
     return ret
 
-def calc_normal_outline(coords, pressure, line_width, rounded = False):
-    """Calculate the normal outline of a path."""
-    n = len(coords)
-
-    outline_l = []
-    outline_r = []
-
-    for i in range(n - 2):
-        p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
-        nx, ny = normal_vec(p0, p1)
-        mx, my = normal_vec(p1, p2)
-
-        width  = line_width * pressure[i] / 2
-
-        left_segment1_start = (p0[0] + nx * width, p0[1] + ny * width)
-        left_segment1_end   = (p1[0] + nx * width, p1[1] + ny * width)
-        left_segment2_start = (p1[0] + mx * width, p1[1] + my * width)
-        left_segment2_end   = (p2[0] + mx * width, p2[1] + my * width)
-
-        right_segment1_start = (p0[0] - nx * width, p0[1] - ny * width)
-        right_segment1_end   = (p1[0] - nx * width, p1[1] - ny * width)
-        right_segment2_start = (p1[0] - mx * width, p1[1] - my * width)
-        right_segment2_end   = (p2[0] - mx * width, p2[1] - my * width)
-
-        if i == 0:
-        ## append the points for the first coord
-            if rounded:
-                arc_coords = calc_arc_coords( left_segment1_start,
-                                              right_segment1_start,
-                                             p1, 10)
-                outline_r.extend(arc_coords)
-            outline_l.append(left_segment1_start)
-            outline_r.append(right_segment1_start)
-
-        outline_l.append(left_segment1_end)
-        outline_l.append(left_segment2_start)
-        outline_r.append(right_segment1_end)
-        outline_r.append(right_segment2_start)
-
-        if i == n - 3:
-            outline_l.append(left_segment2_end)
-            outline_r.append(right_segment2_end)
-            if rounded:
-                arc_coords = calc_arc_coords( left_segment2_end,
-                                              right_segment2_end,
-                                             p1, 10)
-                outline_l.extend(arc_coords)
-    return outline_l, outline_r
-
-
 def normal_vec(p0, p1):
     """Calculate the normal vector of a line segment."""
     #dx, dy = x1 - x0, y1 - y0
@@ -468,14 +438,29 @@ def is_click_in_bbox(click_x, click_y, bbox):
 def is_click_in_bbox_corner(click_x, click_y, bbox, threshold):
     """Check if a click is in the corner of a bounding box."""
     x, y, w, h = bbox
+
+    # make sure that the corner capture area leaves enough space for the
+    # grab area in the middle of the bbox
+    if w < 2 * threshold:
+        w += 2 * threshold
+        x -= threshold
+
+    if h < 2 * threshold:
+        h += 2 * threshold
+        y -= threshold
+
     if (abs(click_x - x) < threshold) and (abs(click_y - y) < threshold):
         return "upper_left"
+
     if (abs(x + w - click_x) < threshold) and (abs(click_y - y) < threshold):
         return "upper_right"
+
     if (abs(click_x - x) < threshold) and (abs(y + h - click_y) < threshold):
         return "lower_left"
+
     if (abs(x + w - click_x) < threshold) and (abs(y + h - click_y) < threshold):
         return "lower_right"
+
     return None
 
 def find_corners_next_to_click(click_x, click_y, objects, threshold):

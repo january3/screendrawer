@@ -3,15 +3,18 @@ These are the objects that can be displayed. It includes groups, but
 also primitives like boxes, paths and text.
 """
 
-import tempfile                          # <remove>
 import math                              # <remove>
-import base64                            # <remove>
 import cairo                             # <remove>
+import gi                                 # <remove>
+gi.require_version('Gdk', '3.0')        # <remove>
 from gi.repository import Gdk            # <remove>
 from .pen import Pen                     # <remove>
 from .utils import transform_coords, smooth_path, coords_rotate           # <remove>
 from .utils import is_click_close_to_path, path_bbox, move_coords, flatten_and_unique # <remove>
-from .utils import base64_to_pixbuf, find_obj_in_bbox     # <remove>
+from .utils import find_obj_in_bbox     # <remove>
+from .texteditor import TextEditor      # <remove>
+from .imageobj import ImageObj          # <remove>
+from .brush import BrushFactory                   #<remove>
 
 
 class DrawableFactory:
@@ -68,7 +71,7 @@ class DrawableFactory:
         print("transmuting object to", mode)
 
         if obj.type == "group":
-            # XXX for now, we do not pass transmutations to groups, because
+            # for now, we do not pass transmutations to groups, because
             # we then cannot track the changes.
             return obj
 
@@ -111,6 +114,7 @@ class Drawable:
         self.rotation     = 0
         self.rot_origin   = None
         self.__filled     = False
+        self.mod          = 0
         if pen:
             self.pen    = pen.copy()
         else:
@@ -118,9 +122,11 @@ class Drawable:
 
     def update(self, x, y, pressure):
         """Called when the mouse moves during drawing."""
+        self.mod += 1
 
     def finish(self):
         """Called when building (drawing, typing etc.) is concluded."""
+        self.mod += 1
 
     def get_primitive(self):
         """This is for allowing to distinguish between primitives and groups."""
@@ -130,10 +136,12 @@ class Drawable:
     def rotate_start(self, origin):
         """Start the rotation operation."""
         self.rot_origin = origin
+        self.mod += 1
 
     def rotate(self, angle, set_angle = False):
         """Rotate the object by the specified angle."""
         # the self.rotation variable is for drawing while rotating
+        self.mod += 1
         if set_angle:
             self.rotation = angle
         else:
@@ -151,29 +159,35 @@ class Drawable:
             "origin": origin,
             "bbox":   self.bbox()
             }
+        self.mod += 1
 
     def resize_update(self, bbox):
         """Update during the resize of the object."""
         self.resizing["bbox"] = bbox
+        self.mod += 1
 
     def resize_end(self):
         """Finish the resizing operation."""
         self.resizing = None
         # not implemented
         print("resize_end not implemented")
+        self.mod += 1
 
     # ------------ Drawable attribute methods ------------------
     def pen_set(self, pen):
         """Set the pen of the object."""
         self.pen = pen.copy()
+        self.mod += 1
 
     def stroke_change(self, direction):
         """Change the stroke size of the object."""
         self.pen.stroke_change(direction)
+        self.mod += 1
 
     def smoothen(self, threshold=20):
         """Smoothen the object."""
         print(f"smoothening not implemented (threshold {threshold})")
+        self.mod += 1
 
     def fill(self):
         """Return the fill status"""
@@ -181,18 +195,22 @@ class Drawable:
 
     def fill_toggle(self):
         """Toggle the fill of the object."""
+        self.mod += 1
         self.__filled = not self.__filled
 
     def fill_set(self, fill):
         """Fill the object with a color."""
+        self.mod += 1
         self.__filled = fill
 
     def line_width_set(self, lw):
         """Set the color of the object."""
+        self.mod += 1
         self.pen.line_width_set(lw)
 
     def color_set(self, color):
         """Set the color of the object."""
+        self.mod += 1
         self.pen.color_set(color)
 
     def font_set(self, size, family, weight, style):
@@ -201,12 +219,9 @@ class Drawable:
         self.pen.font_family  = family
         self.pen.font_weight  = weight
         self.pen.font_style   = style
+        self.mod += 1
 
     # ------------ Drawable modification methods ------------------
-    def origin_remove(self):
-        """Remove the origin point."""
-        self.origin = None
-
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the object."""
         if self.coords is None:
@@ -242,6 +257,7 @@ class Drawable:
         move_coords(self.coords, dx, dy)
         if self.rotation:
             self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
+        self.mod += 1
 
     def bbox(self, actual = False):
         """Return the bounding box of the object."""
@@ -314,8 +330,10 @@ class DrawableGroup(Drawable):
     Attributes:
         objects (list): The list of objects in the group.
     """
-    def __init__(self, objects = [ ], objects_dict = None, mytype = "group"):
+    def __init__(self, objects = None, objects_dict = None, mytype = "group"):
 
+        if objects is None:
+            objects = [ ]
         if objects_dict:
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
 
@@ -338,17 +356,20 @@ class DrawableGroup(Drawable):
         """Toggle the fill of the objects"""
         for obj in self.objects:
             obj.fill_toggle()
+        self.mod += 1
 
     def stroke_change(self, direction):
         """Change the stroke size of the objects in the group."""
         for obj in self.objects:
             obj.stroke_change(direction)
+        self.mod += 1
 
     def transmute_to(self, mode):
         """Transmute all objects within the group to a new type."""
         print("transmuting group to", mode)
         for i in range(len(self.objects)):
             self.objects[i] = DrawableFactory.transmute(self.objects[i], mode)
+        self.mod += 1
 
     def to_dict(self):
         """Convert the group to a dictionary."""
@@ -356,16 +377,6 @@ class DrawableGroup(Drawable):
             "type": self.type,
             "objects_dict": [ obj.to_dict() for obj in self.objects ],
         }
-
-    def color_set(self, color):
-        """Set the color of the objects in the group."""
-        for obj in self.objects:
-            obj.color_set(color)
-
-    def font_set(self, size, family, weight, style):
-        """Set the font of the objects in the group."""
-        for obj in self.objects:
-            obj.font_set(size, family, weight, style)
 
     def resize_start(self, corner, origin):
         """Start the resizing operation."""
@@ -379,6 +390,7 @@ class DrawableGroup(Drawable):
 
         for obj in self.objects:
             obj.resize_start(corner, origin)
+        self.mod += 1
 
     def get_primitive(self):
         """Return the primitives of the objects in the group."""
@@ -390,6 +402,7 @@ class DrawableGroup(Drawable):
         self.rot_origin = origin
         for obj in self.objects:
             obj.rotate_start(origin)
+        self.mod += 1
 
     def rotate(self, angle, set_angle = False):
         """Rotate the objects in the group."""
@@ -399,6 +412,7 @@ class DrawableGroup(Drawable):
             self.rotation += angle
         for obj in self.objects:
             obj.rotate(angle, set_angle)
+        self.mod += 1
 
     def rotate_end(self):
         """Finish the rotation operation."""
@@ -406,6 +420,7 @@ class DrawableGroup(Drawable):
             obj.rotate_end()
         self.rot_origin = None
         self.rotation = 0
+        self.mod += 1
 
     def resize_update(self, bbox):
         """Resize the group of objects. we need to calculate the new
@@ -427,12 +442,14 @@ class DrawableGroup(Drawable):
             obj.resize_update((x2, y2, w2, h2))
 
         self.resizing["bbox"] = bbox
+        self.mod += 1
 
     def resize_end(self):
         """Finish the resizing operation."""
         self.resizing = None
         for obj in self.objects:
             obj.resize_end()
+        self.mod += 1
 
     def length(self):
         """Return the number of objects in the group."""
@@ -460,15 +477,18 @@ class DrawableGroup(Drawable):
         """Add an object to the group."""
         if obj not in self.objects:
             self.objects.append(obj)
+        self.mod += 1
 
     def remove(self, obj):
         """Remove an object from the group."""
         self.objects.remove(obj)
+        self.mod += 1
 
     def move(self, dx, dy):
         """Move the group by dx, dy."""
         for obj in self.objects:
             obj.move(dx, dy)
+        self.mod += 1
 
     def draw(self, cr, hover=False, selected=False, outline=False):
         """Draw the group of objects on the Cairo context."""
@@ -530,13 +550,6 @@ class SelectionObject(DrawableGroup):
     def clear(self):
         """Clear the selection."""
         self.objects = [ ]
-
-    def toggle(self, obj):
-        """Toggle the selection of an object."""
-        if obj in self.objects:
-            self.objects.remove(obj)
-        else:
-            self.objects.append(obj)
 
     def set(self, objects):
         """Set the selection to a list of objects."""
@@ -622,23 +635,17 @@ class Image(Drawable):
     """Class for Images"""
     def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
 
-        if image_base64:
-            self.image_base64 = image_base64
-            image = base64_to_pixbuf(image_base64)
-        else:
-            self.image_base64 = None
+        self.__image = ImageObj(image, image_base64)
 
-        self.image_size = (image.get_width(), image.get_height())
         self.transform = transform or (1, 1)
 
-        width  = self.image_size[0] * self.transform[0]
-        height = self.image_size[1] * self.transform[1]
+        width, height = self.__image.size()
+        width, height = width * self.transform[0], height * self.transform[1]
 
         coords = [ (coords[0][0], coords[0][1]),
                    (coords[0][0] + width, coords[0][1] + height) ]
         super().__init__("image", coords, pen)
-        self.image = image
-        self._orig_bbox = None
+        self.__orig_bbox = None
 
         if rotation:
             self.rotation = rotation
@@ -665,7 +672,7 @@ class Image(Drawable):
             w_scale, h_scale = self.transform
             cr.scale(w_scale, h_scale)
 
-        Gdk.cairo_set_source_pixbuf(cr, self.image, 0, 0)
+        Gdk.cairo_set_source_pixbuf(cr, self.__image.pixbuf(), 0, 0)
         cr.paint()
 
         cr.restore()
@@ -691,13 +698,14 @@ class Image(Drawable):
 
     def resize_start(self, corner, origin):
         """Start the resizing operation."""
-        self._orig_bbox = self.bbox()
+        self.__orig_bbox = self.bbox()
         self.resizing = {
             "corner": corner,
             "origin": origin,
             "bbox":   self.bbox(),
             "transform": self.transform
             }
+        self.mod += 1
 
     def resize_update(self, bbox):
         """Update during the resize of the object."""
@@ -706,11 +714,11 @@ class Image(Drawable):
         x1, y1, w1, h1 = bbox
 
         # calculate scale relative to the old bbox
-        print("old bbox is", self._orig_bbox)
+        print("old bbox is", self.__orig_bbox)
         print("new bbox is", bbox)
 
-        w_scale = w1 / self._orig_bbox[2]
-        h_scale = h1 / self._orig_bbox[3]
+        w_scale = w1 / self.__orig_bbox[2]
+        h_scale = h1 / self.__orig_bbox[3]
 
         print("resizing image", w_scale, h_scale)
         print("old transform is", self.resizing["transform"])
@@ -719,12 +727,15 @@ class Image(Drawable):
         self.coords[1] = (x1 + w1, y1 + h1)
         self.transform = (w_scale * self.resizing["transform"][0],
                           h_scale * self.resizing["transform"][1])
+        self.mod += 1
 
     def resize_end(self):
         """Finish the resizing operation."""
-        self.coords[1] = (self.coords[0][0] + self.image_size[0] * self.transform[0],
-                          self.coords[0][1] + self.image_size[1] * self.transform[1])
+        width, height = self.__image.size()
+        self.coords[1] = (self.coords[0][0] + width * self.transform[0],
+                          self.coords[0][1] + height * self.transform[1])
         self.resizing = None
+        self.mod += 1
 
     def rotate_end(self):
         """Finish the rotation operation."""
@@ -733,6 +744,7 @@ class Image(Drawable):
         new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
         self.move(new_center[0] - center_x, new_center[1] - center_y)
         self.rot_origin = new_center
+        self.mod += 1
 
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the object."""
@@ -744,20 +756,6 @@ class Image(Drawable):
             return True
         return False
 
-    def encode_base64(self):
-        """Encode the image to base64."""
-        with tempfile.NamedTemporaryFile(delete = True) as temp:
-            self.image.savev(temp.name, "png", [], [])
-            with open(temp.name, "rb") as f:
-                image_base64 = base64.b64encode(f.read()).decode("utf-8")
-        return image_base64
-
-    def base64(self):
-        """Return the base64 encoded image."""
-        if self.image_base64 is None:
-            self.image_base64 = self.encode_base64()
-        return self.image_base64
-
     def to_dict(self):
         """Convert the object to a dictionary."""
 
@@ -768,7 +766,7 @@ class Image(Drawable):
             "image": None,
             "rotation": self.rotation,
             "transform": self.transform,
-            "image_base64": self.base64(),
+            "image_base64": self.__image.base64(),
         }
 
 
@@ -778,22 +776,34 @@ class Text(Drawable):
         super().__init__("text", coords, pen)
 
         # split content by newline
-        content = content.split("\n")
-        self.content = content
-        self.line    = 0
-        self.caret_pos    = None
-        self.bb           = None
+        # content = content.split("\n")
+        self.__text = TextEditor(content)
+        self.__bb   = None
         self.font_extents = None
+        self.__show_caret = False
 
         if rotation:
             self.rotation = rotation
             self.rot_origin = rot_origin
 
+    def move_caret(self, direction):
+        """Move the caret."""
+        self.__text.move_caret(direction)
+        self.show_caret(True)
+        self.mod += 1
+
+    def show_caret(self, show = None):
+        """Show the caret."""
+        if show is not None:
+            self.__show_caret = show
+            self.mod += 1
+        return self.__show_caret
+
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the object."""
-        if self.bb is None:
+        if self.__bb is None:
             return False
-        x, y, width, height = self.bb
+        x, y, width, height = self.__bb
         if x <= click_x <= x + width and y <= click_y <= y + height:
             return True
         return False
@@ -803,9 +813,11 @@ class Text(Drawable):
         move_coords(self.coords, dx, dy)
         if self.rotation:
             self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
+        self.mod += 1
 
     def rotate_end(self):
         """Finish the rotation operation."""
+        self.mod += 1
        ## hmm, not sure what this is supposed to do.
        #if self.bb:
        #    center_x, center_y = self.bb[0] + self.bb[2] / 2, self.bb[1] + self.bb[3] / 2
@@ -817,6 +829,7 @@ class Text(Drawable):
         """Change text size up or down."""
         self.pen.font_size += direction
         self.pen.font_size = max(8, min(128, self.pen.font_size))
+        self.mod += 1
 
     def resize_update(self, bbox):
         print("resizing text", bbox)
@@ -826,11 +839,12 @@ class Text(Drawable):
             print("flipping y")
             bbox = (bbox[0], bbox[1], bbox[2], 10)
         self.resizing["bbox"] = bbox
+        self.mod += 1
 
     def resize_end(self):
         """Finish the resizing operation."""
         new_bbox   = self.resizing["bbox"]
-        old_bbox   = self.bb
+        old_bbox   = self.__bb
 
         if not self.font_extents:
             return
@@ -860,8 +874,8 @@ class Text(Drawable):
             if out_of_range_low or out_of_range_up:
                 print("font size out of range")
                 break
-            current_bbox = self.bb
-            print("drawn, bbox is", self.bb)
+            current_bbox = self.__bb
+            print("drawn, bbox is", self.__bb)
             if direction > 0 and (current_bbox[2] >= new_bbox[2] or
                                   current_bbox[3] >= new_bbox[3]):
                 print("increased beyond the new bbox")
@@ -876,6 +890,7 @@ class Text(Drawable):
 
         # first
         self.resizing = None
+        self.mod += 1
 
     def to_dict(self):
         return {
@@ -884,16 +899,16 @@ class Text(Drawable):
             "pen": self.pen.to_dict(),
             "rotation": self.rotation,
             "rot_origin": self.rot_origin,
-            "content": self.as_string()
+            "content": self.__text.to_string()
         }
 
     def bbox(self, actual = False):
         if self.resizing:
             return self.resizing["bbox"]
-        if not self.bb:
+        if not self.__bb:
             bb = (self.coords[0][0], self.coords[0][1], 50, 50)
         else:
-            bb = self.bb
+            bb = self.__bb
         if self.rotation:
             # first, calculate position bb after rotation relative to the
             # text origin
@@ -904,94 +919,23 @@ class Text(Drawable):
 
         return bb
 
-    def as_string(self):
+    def to_string(self):
         """Return the text as a single string."""
-        return "\n".join(self.content)
+        return self.__text.to_string()
 
     def strlen(self):
         """Return the length of the text."""
-        return len(self.as_string())
+        return self.__text.strlen()
 
     def add_text(self, text):
         """Add text to the object."""
-        # split text by newline
-        lines = text.split("\n")
-        for i, line in enumerate(lines):
-            if i == 0:
-                self.content[self.line] += line
-                self.caret_pos += len(text)
-            else:
-                self.content.insert(self.line + i, line)
-                self.caret_pos = len(line)
-
-    def backspace(self):
-        """Remove the last character from the text."""
-        cnt = self.content
-        if self.caret_pos > 0:
-            cnt[self.line] = cnt[self.line][:self.caret_pos - 1] + cnt[self.line][self.caret_pos:]
-            self.caret_pos -= 1
-        elif self.line > 0:
-            self.caret_pos = len(cnt[self.line - 1])
-            cnt[self.line - 1] += cnt[self.line]
-            cnt.pop(self.line)
-            self.line -= 1
-
-    def newline(self):
-        """Add a newline to the text."""
-        self.content.insert(self.line + 1,
-                            self.content[self.line][self.caret_pos:])
-        self.content[self.line] = self.content[self.line][:self.caret_pos]
-        self.line += 1
-        self.caret_pos = 0
-
-    def add_char(self, char):
-        """Add a character to the text."""
-        before_caret = self.content[self.line][:self.caret_pos]
-        after_caret  = self.content[self.line][self.caret_pos:]
-        self.content[self.line] = before_caret + char + after_caret
-        self.caret_pos += 1
-
-    def move_caret(self, direction):
-        """Move the caret in the text."""
-        if direction == "End":
-            self.line = len(self.content) - 1
-            self.caret_pos = len(self.content[self.line])
-        elif direction == "Home":
-            self.line = 0
-            self.caret_pos = 0
-        elif direction == "Right":
-            if self.caret_pos < len(self.content[self.line]):
-                self.caret_pos += 1
-            elif self.line < len(self.content) - 1:
-                self.line += 1
-                self.caret_pos = 0
-        elif direction == "Left":
-            if self.caret_pos > 0:
-                self.caret_pos -= 1
-            elif self.line > 0:
-                self.line -= 1
-                self.caret_pos = len(self.content[self.line])
-        elif direction == "Down":
-            if self.line < len(self.content) - 1:
-                self.line += 1
-                self.caret_pos = min(self.caret_pos, len(self.content[self.line]))
-        elif direction == "Up":
-            if self.line > 0:
-                self.line -= 1
-                self.caret_pos = min(self.caret_pos, len(self.content[self.line]))
-        else:
-            raise ValueError("Invalid direction:", direction)
+        self.__text.add_text(text)
+        self.mod += 1
 
     def update_by_key(self, keyname, char):
         """Update the text object by keypress."""
-        if keyname == "BackSpace": # and cur["caret_pos"] > 0:
-            self.backspace()
-        elif keyname in ["Home", "End", "Down", "Up", "Right", "Left"]:
-            self.move_caret(keyname)
-        elif keyname == "Return":
-            self.newline()
-        elif char and char.isprintable():
-            self.add_char(char)
+        self.__text.update_by_key(keyname, char)
+        self.mod += 1
 
     def draw_caret(self, cr, xx0, yy0, height):
         """Draw the caret."""
@@ -1010,27 +954,25 @@ class Text(Drawable):
     def draw(self, cr, hover=False, selected=False, outline=False):
         """Draw the text object."""
         position = self.coords[0]
-        content, pen, caret_pos = self.content, self.pen, self.caret_pos
+        content = self.__text.lines()
+        caret_pos = self.__text.caret_pos()
 
         # get font info
-        cr.select_font_face(pen.font_family,
-                            pen.font_style == "italic" and
+        cr.select_font_face(self.pen.font_family,
+                            self.pen.font_style == "italic" and
                                 cairo.FONT_SLANT_ITALIC or cairo.FONT_SLANT_NORMAL,
-                            pen.font_weight == "bold"  and
+                            self.pen.font_weight == "bold"  and
                                 cairo.FONT_WEIGHT_BOLD  or cairo.FONT_WEIGHT_NORMAL)
-        cr.set_font_size(pen.font_size)
+        cr.set_font_size(self.pen.font_size)
 
-        font_extents      = cr.font_extents()
-        self.font_extents = font_extents
-        ascent, height    = font_extents[0], font_extents[2]
+        self.font_extents = cr.font_extents()
 
         dy   = 0
 
         # new bounding box
-        bb_x = position[0]
-        bb_y = position[1] - ascent
-        bb_w = 0
-        bb_h = 0
+        bb = [position[0],
+              position[1] - self.font_extents[0],
+              0, 0]
 
         if self.rotation:
             cr.save()
@@ -1044,28 +986,29 @@ class Text(Drawable):
             #x_bearing, y_bearing, t_width, t_height, x_advance, y_advance
             x_bearing, _, t_width, _, _, _ = cr.text_extents(fragment)
 
-            bb_w = max(bb_w, t_width + x_bearing)
-            bb_h += height
+            bb[2] = max(bb[2], t_width + x_bearing)
+            bb[3] += self.font_extents[2]
 
-            cr.set_font_size(pen.font_size)
+            cr.set_font_size(self.pen.font_size)
             cr.move_to(position[0], position[1] + dy)
-            cr.set_source_rgba(*pen.color, pen.transparency)
+            cr.set_source_rgba(*self.pen.color, self.pen.transparency)
             cr.show_text(fragment)
             cr.stroke()
 
             # draw the caret
-            if not caret_pos is None and i == self.line:
+            if self.__show_caret and not caret_pos is None and i == self.__text.caret_line():
                 x_bearing, _, t_width, _, _, _ = cr.text_extents("|" +
                                                         fragment[:caret_pos] + "|")
                 _, _, t_width2, _, _, _ = cr.text_extents("|")
                 cr.set_source_rgb(1, 0, 0)
-                xx0 = position[0] - x_bearing + t_width - 2 * t_width2
-                yy0 = position[1] + dy - ascent
-                self.draw_caret(cr, xx0, yy0, height)
+                self.draw_caret(cr,
+                                position[0] - x_bearing + t_width - 2 * t_width2,
+                                position[1] + dy - self.font_extents[0],
+                                self.font_extents[2])
 
-            dy += height
+            dy += self.font_extents[2]
 
-        self.bb = (bb_x, bb_y, bb_w, bb_h)
+        self.__bb = (bb[0], bb[1], bb[2], bb[3])
 
         if self.rotation:
             cr.restore()
@@ -1077,22 +1020,31 @@ class Text(Drawable):
 class Path(Drawable):
     """ Path is like shape, but not closed and has an outline that depends on
         line width and pressure."""
-    def __init__(self, coords, pen, outline = None, pressure = None):
+    def __init__(self, coords, pen, outline = None, pressure = None, brush = None):
         super().__init__("path", coords, pen = pen)
-        self.__outline   = outline  or []
         self.__pressure  = pressure or []
         self.__bb        = []
-        #self.__brush     = BrushFactory.create_brush(brush)
-        #self.__brush_type = brush
+        self.__cache = None
 
-        if len(self.coords) > 3 and not self.__outline:
+        if brush:
+            self.__brush = BrushFactory.create_brush(**brush)
+        else:
+            brush_type = pen.brush_type()
+            self.__brush = BrushFactory.create_brush(brush_type)
+
+       #if outline:
+       #    self.__brush.outline(outline)
+
+        if len(self.coords) > 3 and not self.__brush.outline():
             self.outline_recalculate()
 
     def outline_recalculate(self):
         """Recalculate the outline of the path."""
-        self.__outline = self.pen.brush().calculate(self.pen.line_width,
+        self.__brush.calculate(self.pen.line_width,
                                  coords = self.coords,
                                  pressure = self.__pressure)
+        self.__cache = None
+        self.mod += 1
 
     def finish(self):
         """Finish the path."""
@@ -1101,18 +1053,26 @@ class Path(Drawable):
     def update(self, x, y, pressure):
         """Update the path with a new point."""
         self.path_append(x, y, pressure)
+        self.__cache = None
+        self.mod += 1
 
     def move(self, dx, dy):
         """Move the path by dx, dy."""
         move_coords(self.coords, dx, dy)
-        move_coords(self.__outline, dx, dy)
+        #move_coords(self.__outline, dx, dy)
+        #self.outline_recalculate()
+        self.__brush.move(dx, dy)
         self.__bb = None
+        self.__cache = None
+        self.mod += 1
 
     def rotate_end(self):
         """Finish the rotation operation."""
         # rotate all coords and outline
         self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
-        self.__outline = coords_rotate(self.__outline, self.rotation, self.rot_origin)
+        #self.__outline = coords_rotate(self.__outline, self.rotation, self.rot_origin)
+        self.__brush.rotate(self.rotation, self.rot_origin)
+        self.outline_recalculate()
         self.rotation   = 0
         self.rot_origin = None
         # recalculate bbox
@@ -1127,9 +1087,10 @@ class Path(Drawable):
         return {
             "type": self.type,
             "coords": self.coords,
-            "outline": self.__outline,
+            #"outline": self.__brush.outline(),
             "pressure": self.__pressure,
             "pen": self.pen.to_dict(),
+            "brush": self.__brush.to_dict()
         }
 
     def stroke_change(self, direction):
@@ -1149,7 +1110,6 @@ class Path(Drawable):
         """Set the pen for the path."""
         self.pen = pen.copy()
         self.outline_recalculate()
-
 
     def path_append(self, x, y, pressure = 1):
         """Append a point to the path, calculating the outline of the
@@ -1181,7 +1141,7 @@ class Path(Drawable):
         if self.resizing:
             return self.resizing["bbox"]
         if not self.__bb:
-            self.__bb = path_bbox(self.__outline or self.coords)
+            self.__bb = path_bbox(self.__brush.outline() or self.coords)
         return self.__bb
 
     def resize_end(self):
@@ -1190,8 +1150,9 @@ class Path(Drawable):
         old_bbox = self.__bb or path_bbox(self.coords)
         self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
         self.outline_recalculate()
+        #self.pen.brush().scale(old_bbox, self.resizing["bbox"])
         self.resizing  = None
-        self.__bb = path_bbox(self.__outline or self.coords)
+        self.__bb = path_bbox(self.__brush.outline() or self.coords)
 
     def draw_outline(self, cr):
         """draws each segment separately and makes a dot at each coord."""
@@ -1216,7 +1177,7 @@ class Path(Drawable):
             return
 
         if bbox:
-            old_bbox = path_bbox(self.__outline or self.coords)
+            old_bbox = path_bbox(self.__brush.outline() or self.coords)
             coords = transform_coords(self.coords, old_bbox, bbox)
         else:
             coords = self.coords
@@ -1229,20 +1190,19 @@ class Path(Drawable):
             cr.line_to(point[0], point[1])
         cr.stroke()
 
-
     def draw_standard(self, cr):
         """standard drawing of the path."""
         cr.set_fill_rule(cairo.FillRule.WINDING)
-
-        cr.move_to(self.__outline[0][0], self.__outline[0][1])
-        for point in self.__outline[1:]:
-            cr.line_to(point[0], point[1])
-        cr.close_path()
-
+        #print("draw_standard")
+        self.__brush.draw(cr)
 
     def draw(self, cr, hover=False, selected=False, outline = False):
         """Draw the path."""
-        if not self.__outline or len(self.__outline) < 4 or len(self.coords) < 3:
+        #print("drawing path", self, "with brush", self.__brush, "of type", self.__brush.brush_type())
+        if not self.__brush.outline():
+            return
+
+        if len(self.__brush.outline()) < 4 or len(self.coords) < 3:
             return
 
         if self.rotation != 0:
@@ -1263,7 +1223,6 @@ class Path(Drawable):
                 self.draw_outline(cr)
             else:
                 cr.fill()
-
 
         if selected:
             cr.set_source_rgba(1, 0, 0)
@@ -1296,15 +1255,18 @@ class Shape(Drawable):
         """Finish the shape."""
         print("finishing shape")
         self.coords, _ = smooth_path(self.coords)
+        self.mod += 1
 
     def update(self, x, y, pressure):
         """Update the shape with a new point."""
         self.path_append(x, y, pressure)
+        self.mod += 1
 
     def move(self, dx, dy):
         """Move the shape by dx, dy."""
         move_coords(self.coords, dx, dy)
         self.bb = None
+        self.mod += 1
 
     def rotate_end(self):
         """finish the rotation"""
@@ -1314,6 +1276,7 @@ class Shape(Drawable):
         self.rot_origin = None
         # recalculate bbox
         self.bb = path_bbox(self.coords)
+        self.mod += 1
 
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the object."""
@@ -1329,6 +1292,7 @@ class Shape(Drawable):
         """Append a new point to the path."""
         self.coords.append((x, y))
         self.bb = None
+        self.mod += 1
 
     def fill_toggle(self):
         """Toggle the fill of the object."""
@@ -1338,6 +1302,7 @@ class Shape(Drawable):
         new_bbox = self.bbox(actual = True)
         self.coords = transform_coords(self.coords, new_bbox, old_bbox)
         self.bb = None
+        self.mod += 1
 
     def bbox(self, actual = False):
         """Calculate the bounding box of the shape."""
@@ -1361,10 +1326,12 @@ class Shape(Drawable):
             "bbox":   bbox,
             "start_bbox": bbox
             }
+        self.mod += 1
 
     def resize_update(self, bbox):
         """Update during the resize of the object."""
         self.resizing["bbox"] = bbox
+        self.mod += 1
 
     def resize_end(self):
         """recalculate the coordinates after resizing"""
@@ -1377,6 +1344,7 @@ class Shape(Drawable):
         else:
             self.bb = path_bbox(self.coords, lw = self.pen.line_width)
         self.bb = path_bbox(self.coords)
+        self.mod += 1
 
     def to_dict(self):
         """Convert the object to a dictionary."""
@@ -1462,11 +1430,6 @@ class Shape(Drawable):
             cr.restore()
 
     @classmethod
-    def from_path(cls, path):
-        """Create a shape from a path."""
-        return cls(path.coords, path.pen)
-
-    @classmethod
     def from_object(cls, obj):
         """Create a shape from an object."""
         print("Shape.from_object", obj)
@@ -1514,6 +1477,7 @@ class Rectangle(Shape):
         self.coords[2] = (x, y)
         self.coords[3] = (x0, y)
         self.coords[4] = (x0, y0)
+        self.mod += 1
 
 
 class Circle(Shape):
@@ -1527,6 +1491,7 @@ class Circle(Shape):
 
     def finish(self):
         """Finish the circle."""
+        self.mod += 1
 
     def update(self, x, y, pressure):
         """
@@ -1560,6 +1525,7 @@ class Circle(Shape):
        #    y = cy + ry * math.sin(i * angle)
        #    coords.append((x, y))
 
+        self.mod += 1
         self.coords = coords
 
 
@@ -1571,11 +1537,13 @@ class Box(Drawable):
 
     def update(self, x, y, pressure):
         self.coords[1] = (x, y)
+        self.mod += 1
 
     def resize_end(self):
         bbox = self.bbox()
         self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
         self.resizing = None
+        self.mod += 1
 
     def rotate_end(self):
         """Ignore rotation"""
@@ -1589,6 +1557,7 @@ class Box(Drawable):
     def resize_update(self, bbox):
         self.resizing["bbox"] = bbox
         self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
+        self.mod += 1
 
     def draw(self, cr, hover=False, selected=False, outline=False):
 

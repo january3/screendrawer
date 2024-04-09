@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
 import re
 
-def process_file(input_filename, output_filename):
+def process_file(input_filename, output_filename, src_dir):
     placeholder_pattern = re.compile(r'<placeholder (.+?)>')
     
-    with open(input_filename, 'r') as file:
-        lines = file.readlines()
-    
     output_lines = []
-    
+
+    # add the "#!/usr/bin/env python3" line
+    output_lines.append("#!/usr/bin/env python3\n\n")
+
+    # add the contents of "LICENSE.txt" file
+    with open("LICENSE.TXT", 'r') as license_file:
+        for license_line in license_file:
+            output_lines.append("## " + license_line)
+
+    # process the script file to build a single executable file
+    with open(src_dir + "/" + input_filename, 'r') as file:
+        lines = file.readlines()
+     
     for line in lines:
         placeholder_match = placeholder_pattern.search(line)
         if placeholder_match:
             # Found a placeholder, now process the specified file
-            file_to_insert = placeholder_match.group(1)
+            file_to_insert = src_dir + "/" + placeholder_match.group(1)
             try:
                 with open(file_to_insert, 'r') as insert_file:
                     for insert_line in insert_file:
@@ -30,5 +39,5 @@ def process_file(input_filename, output_filename):
         output_file.writelines(output_lines)
 
 # Example usage
-process_file('sd_devel.py', 'sd.py')
+process_file('sd/__main__.py', 'sd.py', "src")
 

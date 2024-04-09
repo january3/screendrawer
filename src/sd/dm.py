@@ -2,15 +2,12 @@
 DrawManager is a class that manages the drawing on the canvas.
 """
 
-
-import cairo # <remove>
 from .drawable import DrawableFactory, SelectionTool             # <remove>
 from .commands import RemoveCommand, MoveCommand, ResizeCommand, RotateCommand  # <remove>
 from .events   import MouseEvent                                 # <remove>
 from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 from .wiglets  import WigletTransparency, WigletLineWidth        # <remove>
 from .wiglets  import WigletPageSelector, WigletToolSelector, WigletColorSelector   # <remove>
-from .grid     import Grid                                       # <remove>
 #from sd.cursor   import CursorManager                            # <remove>
 
 
@@ -23,6 +20,34 @@ class DrawManager:
     a resize operation is in progress, whether the view is paned or zoomed etc.
 
     DrawManager must be aware of GOM, because GOM holds all the objects
+
+    methods from app used:
+    app.get_size()    # used for wiglets 
+                      Note: dragging the object to the left lower corner
+                      should be actually handled by a "paperbin" wiglet
+    app.queue_draw()  # needed all the time
+    app.mm.object_menu() # used for right click context menu
+
+    methods from canvas used:
+    canvas.draw()
+    canvas.toggle_grid()
+    canvas.pen()
+    canvas.bg_color()
+
+    methods from gom used:
+    gom.set_page_number()
+    gom.page()
+    gom.draw()
+    gom.selected_objects()
+    gom.selection()
+    gom.remove_objects()
+    gom.selection().set()
+    gom.selection().add()
+    gom.selection().clear()
+    gom.add_object()
+    gom.kill_object()
+    gom.remove_all()
+    gom.command_append()
     """
     def __init__(self, gom, app, cursor, canvas):
         self.__canvas = canvas
@@ -31,8 +56,6 @@ class DrawManager:
         self.__app = app
         self.__cursor = cursor
         self.__mode = "draw"
-        self.__grid = Grid()
-        self.__show_grid = False
 
         # objects that indicate the state of the drawing area
         self.__hover = None
@@ -53,12 +76,10 @@ class DrawManager:
         # drawing parameters
         self.__hidden = False
         self.__modified = False
-        self.__translate = None
 
-        # defaults for drawing
     def toggle_grid(self):
         """Toggle the wiglets."""
-        self.__show_grid = not self.__show_grid
+        self.__canvas.toggle_grid()
 
     def toggle_wiglets(self):
         """Toggle the wiglets."""
@@ -100,17 +121,6 @@ class DrawManager:
             return True
 
         cr.save()
-        if self.__translate:
-            cr.translate(*self.__translate)
-
-        cr.set_source_rgba(*self.__canvas.bg_color(), self.__canvas.transparent())
-        cr.set_operator(cairo.OPERATOR_SOURCE)
-        cr.paint()
-        cr.set_operator(cairo.OPERATOR_OVER)
-
-        if self.__show_grid:
-            tr = self.__translate if self.__translate else (0, 0)
-            self.__grid.draw(cr, tr, self.__app.get_size())
 
         self.__gom.draw(cr, self.__hover, self.__mode)
 
@@ -123,6 +133,7 @@ class DrawManager:
         cr.restore()
 
         if self.__show_wiglets:
+            print("showing wiglets")
             for w in self.__wiglets:
                 w.update_size(*self.__app.get_size())
                 w.draw(cr)
@@ -245,7 +256,8 @@ class DrawManager:
         """Handle mouse button press events."""
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
         self.__modified = True # better safe than sorry
-        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+        ev = MouseEvent(event, self.__gom.objects(),
+                        translate = self.__gom.page().translate())
 
         # Ignore clicks when text input is active
         if self.__current_object:
@@ -316,6 +328,7 @@ class DrawManager:
 
         # Start changing line width: single click with ctrl pressed
         if ev.ctrl(): # and self.__mode == "draw":
+            print("current line width, transparency:", self.__canvas.pen().line_width, self.__canvas.pen().transparency)
             if not ev.shift():
                 self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__canvas.pen())
             else:
@@ -389,7 +402,8 @@ class DrawManager:
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         print("button release: type:", event.type, "button:", event.button, "state:", event.state)
-        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+        ev = MouseEvent(event, self.__gom.objects(),
+                        translate = self.__gom.page().translate())
 
         if self.__paning:
             self.__paning = None
@@ -438,8 +452,6 @@ class DrawManager:
             # with text, we are not done yet! Need to keep current object
             # such that keyboard events can update it
             if self.__current_object.type != "text":
-                #self.__current_object.caret_pos = None
-
                 self.__gom.selection().clear()
                 self.__current_object = None
 
@@ -484,11 +496,10 @@ class DrawManager:
         # self.__resizeobj.obj is a copy of the selection group
         # self.__resizeobj.obj.objects is the list of objects in the copy of the selection group
 
-        #
         obj = self.__resizeobj.obj
 
-        _, width = self.__app.get_size()
-        if self.__resizeobj.command_type() == "move" and  event.x < 10 and event.y > width - 10:
+        _, height = self.__app.get_size()
+        if self.__resizeobj.command_type() == "move" and  event.x < 10 and event.y > height - 10:
             # command group because these are two commands: first move,
             # then remove
             self.__gom.command_append([ self.__resizeobj,
@@ -509,11 +520,12 @@ class DrawManager:
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
 
-        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+        ev = MouseEvent(event, self.__gom.objects(),
+                        translate = self.__gom.page().translate())
         x, y = ev.pos()
         self.__cursor.update_pos(x, y)
 
-        if self.__on_motion_wiglet(x, y):
+        if self.__on_motion_wiglet(event.x, event.y):
             return True
 
         # we are paning
@@ -583,10 +595,13 @@ class DrawManager:
         if not self.__paning:
             return False
 
-        if not self.__translate:
-            self.__translate = (0, 0)
+        tr = self.__gom.page().translate()
+        if not tr:
+            tr = self.__gom.page().translate((0, 0))
         dx, dy = event.x - self.__paning[0], event.y - self.__paning[1]
-        self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
+        tr = (tr[0] + dx, tr[1] + dy)
+        self.__gom.page().translate(tr)
+        #self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
         self.__paning = (event.x, event.y)
         self.__app.queue_draw()
         return True
@@ -606,7 +621,7 @@ class DrawManager:
         """Clean up current text and finish text input."""
         print("finishing text input")
         if self.__current_object and self.__current_object.type == "text":
-            self.__current_object.caret_pos = None
+            self.__current_object.show_caret(False)
             if self.__current_object.strlen() == 0:
                 print("kill object because empty")
                 self.__gom.kill_object(self.__current_object)
@@ -649,8 +664,8 @@ class DrawManager:
         """Set the brush."""
         if brush is not None:
             print("setting pen", self.__canvas.pen(), "brush to", brush)
-            self.__canvas.pen().brush(brush)
-        return self.__canvas.pen().brush()
+            self.__canvas.pen().brush_type(brush)
+        return self.__canvas.pen().brush_type()
 
     def set_color(self, color = None):
         """Get or set the color."""

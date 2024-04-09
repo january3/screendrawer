@@ -1,20 +1,14 @@
 To do (sorted by priority):
 
 
- * remember the last opened tab.
+ * unit tests. more, more, more
  * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
    files
+ * create a pen wiglet
  * make wiglets movable
  * draw a dustbin wiglet in lower left corner
  * clean up font code. Maybe use the Pango.FontDescription class for
    everything - why not?
- * add layers so that we can create a sketch in one layer, then draw in another, and
-   finally remove the first one. Layers could be implemented as
-   DrawableGroup object within the Page class. Page should then keep track
-   of existing layers. The layers list would be independent of any
-   selection information, but the selection object and tool would probably
-   have to be aware of the layers; ctrl-a should only select objects from
-   the current layer.
  * idea for path editing: "thumb" - moving a point on path and dragging
    surrounding points with it in a rubber-like fashion; how many - that depends on current line
    width (so broader line make more points move)
@@ -23,22 +17,16 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
  * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
    to the corresponding pen
- * unit tests. this is becoming pressing but will be a lot of work
  * wiglets for pen / line width / tool. They should be drawinggroup
    objects knowing how to draw themselves and how to react to mouse
  * Help should be actually a new screendrawer window with written on it!
  * how should the color picker and the color selection dialog colaborate?
  * think hard how I want the color setting / pen thing to work
- * implement undo for fonts as well
- * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
  * add a line mode and Line object class
  * show corners of the bounding box
- * an idea: wiglets which are shown (optionally, toggleable) on the left
-   side of the screen, allowing to quickly select colors, line widths,
-   transparency etc.
  * grid
  * horizontal and vertical guides
- * maybe an infinite drawing area? Scrollable like?
+ * PDFs should be multipage (ha, ha)
 
 Design issues:
  * the interaction between canvas, gom, dm, em is tangled. 
@@ -48,6 +36,13 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * text bbox is incorrectly reported to the method checking whether text is
+   clicked
+ * a weird bug appeared once when editing text; something was seriously
+   wrong with the text object; text was behaving erratic when moved and
+   looked like having two copies (maybe somehow entered twice in
+   gom/page/layer?)
+ * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies
@@ -57,25 +52,113 @@ Bugs:
    resized (more or less) proportionally, after a few resize operations the
    text size is very small.
  * when drawing very slow the line looks like shit.
- * the undo is, I think, still buggy. 
+ * rotating the whole selection does not work (b/c the way selection
+   behaves)
+ * when text is rotated, the algorithm for checking for hover objects does
+   not consider the enlarged bounding box
+
+Done:
+ * grid must be cached
+ * when the bb is smaller than the corner clicking area, bad things happen
+   (it is hard to move the object for example) -> the corner clicking area
+   should be mostly outside of the bb
+ * regression: bounding box of brush 4 is not calculated correctly
+ * regression: ctrl-click for changing line width behaves erratically
+ * the caching mechanism in Drawer is not perfect; when objects are cached,
+   the cache is always on the bottom of the stack. So for example when
+   moving an object underneath, during the move the object is on the top of
+   other objects. Basically, the cache should split the "same" objects into
+   groups depending on their z-position relative to the active (changing)
+   objects and create a cache for each of these groups separately.
+ * FIXED: the solution is a Drawer class which keeps a cache surface with
+   the objects that are not changing painted upon.
+
+   the cr.stroke() and cr.fill() are really cpu intensive which is a
+   problem with drawings containing many strokes. One way of dealing with
+   that would be the following: paths can consist of several subpaths. So
+   after release-button, if nothing else changed (mode, pen etc.), then the
+   next click actually extends the current path. This would result in the
+   whole complex drawing to be drawn with one stroke. Downside: ctrl-z
+   would undo the whole drawing; also removing individual subpaths would
+   not be possible.
+
+   Alternatives: 
+    * create a special object, "PathGroup" which would actually do the
+      single stroke or fill command after the paths have drawn themselves.
+      Not sure how that would work.
+    * create a common bus or something scheduling drawing operations. The
+      idea would be that the central drawing functions would collect the
+      draw events, check whether anything changes between them (like color,
+      line width etc.), and then only stroke if necessary.
+    * or, maybe, if the central drawing function sees a bunch of paths, it
+      analyses them (checking whether they have the same brush type, color
+      etc.) and if yes, it draws them in one go. So basically it asks all
+      of them to draw without stroking, and then ask the last of them to do
+      the final stroke. This grouping could even be cached and recalculated
+      only when something substantial changes.
+   All that will not work with brushes that change the color / transparency
+   while drawing (e.g. pencil).
+ * Another idea: caching objects. Basically, most of the objects do not
+   change most of the time. It would be sufficient to create a pixbuf of
+   the objects and then draw the pixbuf until the objects change.
+   Not sure how to implement it, but it looks like a shitload of work. One
+   would probably need to start with recording which objects change from
+   one draw operation to another; and if after, say, three draw operations
+   the objects do not mutate, we cache them until they change. How to
+   detect the change? Maybe by hashing the object properties somehow? so
+   each object calculates its own hash. One very simple possibility of a
+   hash would be to add a 1 to the hash every time the object changes. This
+   would be the objects responsibility.
+   The problem with this approach is stacking. Basically, any object
+   *after* an object that changed should be redrawn.
+
+   Or, maybe, each object should cache its own pixbuf. Or at least the
+   Paths. This might be quicker than redrawing the object every time.
+   The advantage would be simplicity of implementation.  => tried that. It
+   is not effective enough with many objects. That would make sense for
+   few, very complicated paths.
+ * I fixed the issue with rotating the brush by scaling / rotating / moving
+   the outline instead of recalculating. The side effect is that the
+   outline is, well, scaled, which is not what I would like to have: I
+   would prefer to have the "line width" (brush outline) not change with
+   scaling. Basically the only solution I see is to have the 
+ * when brush 3 is rotated, the outline is not recalculated. However, upon
+   save + exit the outline is recalculated which results in a modified
+   outline. Probably the pen should save the rotation. Or maybe the outline
+   should be saved in the object itself.
  * undo remove object places the object in the wrong position in stack - at
    the end of the stack, instead of the exact position that it was located.
    Thus, after the undo operation, the stack is not the same as before the
    operation. This may be a big problem with subsequent undos that actually
    consider the stack order.
- * rotating the whole selection does not work (b/c the way selection
-   behaves)
- * when text is rotated, the algorithm for checking for hover objects does
-   not consider the enlarged bounding box
- * when the bb is smaller than the corner clicking area, bad things happen
-   (it is hard to move the object for example) -> the corner clicking area
-   should be mostly outside of the bb
-
-Done:
+ * add -p PAGE parameter to the command line interface
+ * rotating / moving of paths recalculates the outline. This is not OK for
+   brushes like no. 3, because the outline has been calculated with certain
+   absolute slant in mind.
+ * cleaned up install dir, created toml file for pip install, pip3 install -e . seems now to work
+ * switching between layers should autoselect all objects for a visual hint
+ * regression: ctrl-a (select all) no longer works 
+ * undo for deleting layers
+ * remember canvas translation; separately for each page!
+ * remember the last opened tab.
+ * clearing up the canvas should clear the whole page, not only the current
+   layer
+ * unit tests. this is becoming pressing but will be a lot of work
+ * extra layers created when importing
+ * only current layer gets saved
+ * add layers so that we can create a sketch in one layer, then draw in another, and
+   finally remove the first one. Layers could be implemented as
+   DrawableGroup or Page object within the Page class. Page should then keep track
+   of existing layers. The layers list would be independent of any
+   selection information, but the selection object and tool would probably
+   have to be aware of the layers; ctrl-a should only select objects from
+   the current layer.
+ * remember page number
  * implemented three simple brushes, selectable through 1-3
  * implemented grid (ctrl-g)
  * implement rotating for: Box, Circle (yes, since Circle can be an
    ellipse)
+ * implement undo for fonts as well
  * Replaced "Boxes" with "Rectangles" which are really Shapes (closed
    paths). So I don't need to separately implement rotations for
    Rectangles, which proved to be tricky, esp. for calculating the bounding
@@ -124,13 +207,18 @@ Done:
  * bounding boxes of objects that were reversed during resize are incorrect
  * When exporting, no background is produced
  * wiglet for color 
+ * an idea: wiglets which are shown (optionally, toggleable) on the left
+   side of the screen, allowing to quickly select colors, line widths,
+   transparency etc.
  * paning the draw area
+ * maybe an infinite drawing area? Scrollable like?
  * Drawing Manager
  * when converting via command line, it should be possible to specify a
    border around the actual drawing (so not all screen is exported)
  * implement command line conversion between sdrw and (png, svg, pdf, ...)
    -> this will require detaching the drawing from the window!
  * save selection as...
+ * "apply pen" -> when run, apply the pen to selection (color, width, etc.)
  * implement "copy pen" or "set with pen" thingy. Also, 
  * changing bg color from current pen?
  * implement a way to change the color of the background
@@ -258,6 +346,8 @@ Done:
 Parked ideas:
  * import SVG: that would be a nice thing, but it is a lot of work. Also,
    to do it properly it would require specialized libraries.
+ * For outlines, split each outline into non-overlapping segments. This is
+   much harder than I thought it would be, but fun.
 
 Rejected ideas:
  * how about: each object has methods "save_state" (which returns

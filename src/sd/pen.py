@@ -3,7 +3,6 @@ This module defines the Pen class, which represents a pen with customizable draw
 """
 
 from gi.repository import Pango  # <remove>
-from .brush import BrushFactory                   #<remove>
 
 class Pen:
     """
@@ -63,16 +62,16 @@ class Pen:
         self.font_style        = font_style  or "normal"
         self.font_description  = Pango.FontDescription.from_string(
                 f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}")
-        self.__brush     = BrushFactory.create_brush(brush)
+        #self.__brush     = BrushFactory.create_brush(brush)
         self.__brush_type = brush
 
-    def brush(self, brush_type = None):
+    def brush_type(self, brush_type = None):
         """Get or set the brush property"""
         if brush_type is not None:
-            print("creating new self", self, "brush", brush_type)
-            self.__brush = BrushFactory.create_brush(brush_type)
             self.__brush_type = brush_type
-        return self.__brush
+       #     print("creating new self", self, "brush", brush_type)
+       #     self.__brush = BrushFactory.create_brush(brush_type)
+        return self.__brush_type
 
     def transparency_set(self, transparency):
         """Set pen transparency"""
@@ -164,7 +163,6 @@ class Pen:
 
     def copy(self):
         """Create a copy of the pen"""
-        print("copying pen", self, "brush", self.__brush_type)
         return Pen(self.color, self.line_width, self.transparency, self.fill_color, 
                    self.font_size, self.font_family, self.font_weight, self.font_style,
                    brush = self.__brush_type)
@@ -174,4 +172,4 @@ class Pen:
         """Create a pen object from a dictionary"""
         #def __init__(self, color = (0, 0, 0), line_width = 12, font_size = 12, transparency = 1, fill_color = None, family = "Sans", weight = "normal", style = "normal"):
         return cls(d.get("color"), d.get("line_width"), d.get("transparency"), d.get("fill_color"),
-                   d.get("font_size"), d.get("font_family"), d.get("font_weight"), d.get("font_style"))
+                   d.get("font_size"), d.get("font_family"), d.get("font_weight"), d.get("font_style"), d.get("brush"))

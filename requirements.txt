@@ -1,0 +1,6 @@
+pyautogui
+Pillow
+PyYAML
+pycairo
+appdirs
+PyGObject

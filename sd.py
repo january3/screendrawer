@@ -1,28 +1,35 @@
 #!/usr/bin/env python3
 
-##  MIT License
-##
-##  Copyright (c) 2024 January Weiner
-##
-##  Permission is hereby granted, free of charge, to any person obtaining a copy
-##  of this software and associated documentation files (the "Software"), to deal
-##  in the Software without restriction, including without limitation the rights
-##  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-##  copies of the Software, and to permit persons to whom the Software is
-##  furnished to do so, subject to the following conditions:
-##
-##  The above copyright notice and this permission notice shall be included in all
-##  copies or substantial portions of the Software.
-##
-##  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-##  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-##  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-##  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-##  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-##  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-##  SOFTWARE.
+## MIT License
+## 
+## Copyright (c) 2024 January Weiner
+## 
+## Permission is hereby granted, free of charge, to any person obtaining a copy
+## of this software and associated documentation files (the "Software"), to deal
+## in the Software without restriction, including without limitation the rights
+## to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+## copies of the Software, and to permit persons to whom the Software is
+## furnished to do so, subject to the following conditions:
+## 
+## The above copyright notice and this permission notice shall be included in all
+## copies or substantial portions of the Software.
+## 
+## THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+## IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+## FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+## AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+## LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+## OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+## SOFTWARE.
+"""
+ScreenDrawer - a simple drawing program that allows you to draw on the screen
 
-# ---------------------------------------------------------------------
+Usage:
+  sd.py [options] [file.sdrw [file.[png, pdf, svg]]]
+
+See README.md for more information.
+"""
+
 import copy
 import pickle
 import traceback
@@ -131,7 +138,6 @@ def sort_by_stack(objs, stack):
     # sort the list of objects by their position in the stack
     return sorted(objs, key=stack.index)
 
-
 def distance(p1, p2):
     """Calculate the Euclidean distance between two points."""
     return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
@@ -144,7 +150,18 @@ def bezier_point(t, start, control, end):
     return (x, y)
 
 def segment_intersection(p1, p2, p3, p4):
-    """Calculate the intersection of two line segments."""
+    """
+    Calculate the intersection of two line segments.
+    
+    Parameters:
+    - p1, p2: Coordinates of the first line segment's endpoints.
+    - p3, p4: Coordinates of the second line segment's endpoints.
+    
+    Returns:
+    - A tuple (True, (x, y)) if segments intersect, with (x, y) being the intersection point.
+    - A tuple (False, None) if segments do not intersect.
+    """
+
     x1, y1 = p1
     x2, y2 = p2
     x3, y3 = p3
@@ -165,6 +182,52 @@ def segment_intersection(p1, p2, p3, p4):
 
     return (False, None)  # No intersection
 
+def pp(p):
+    """return point in integers"""
+    return [int(p[0]), int(p[1])]
+
+def remove_intersections(outline_l, outline_r):
+    """Remove intersections between the left and right outlines."""
+    # Does not work yet
+    n = len(outline_l)
+    if n < 2:
+        return outline_l, outline_r
+    if n != len(outline_r):
+        print("outlines of different length")
+        return outline_l, outline_r
+
+    out_ret_l = []
+    out_ret_r = []
+
+    for i in range(n - 1):
+
+        out_ret_l.append(outline_l[i])
+        for j in range(i + 1, n - 1):
+            print("i", i, "left segment: ", pp(outline_l[i]), pp(outline_l[i + 1]))
+            print("j", j, "right segment: ", pp(outline_r[j]), pp(outline_r[j + 1]))
+            intersect, point = segment_intersection(outline_l[i], outline_l[i + 1],
+                                                outline_r[j], outline_r[j + 1])
+            if intersect:
+                print("FOUND Intersection at", point, "i", i, "j", j)
+                #out_ret_l, out_ret_r = out_ret_r, out_ret_l
+
+            out_ret_r.append(outline_r[i])
+                # exchange the remainder between outlines
+                #tmp = outline_l[(i + 1):]
+                #outline_l[(i + 1):] = outline_r[(i + 1):]
+                #outline_r[(i + 1):] = tmp
+
+    return out_ret_l, out_ret_r
+
+def calculate_angle2(p0, p1):
+    """Calculate angle between vectors given by p0 and p1"""
+    x1, y1 = p0
+    x2, y2 = p1
+    dot = x1 * x2 + y1 * y2
+    det = x1 * y2 - y1 * x2
+    angle = math.atan2(det, dot)
+    return angle
+
 def calculate_angle(p0, p1, p2):
     """Calculate the angle between the line p0->p1 and p1->p2 in degrees."""
     a = math.sqrt((p1[0] - p0[0])**2 + (p1[1] - p0[1])**2)
@@ -178,7 +241,6 @@ def calculate_angle(p0, p1, p2):
     angle = math.acos(cos_angle)
     return math.degrees(angle)
 
-
 def midpoint(p1, p2):
     """Calculate the midpoint between two points."""
     return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
@@ -190,9 +252,11 @@ def smooth_path(coords, pressure=None, threshold=20):
         return coords, pressure  # Not enough points to smooth
 
     if pressure and len(pressure) != len(coords):
-        raise ValueError("Pressure and coords must have the same length")
+        #raise ValueError("Pressure and coords must have the same length")
+        print("Pressure and coords must have the same length:", len(pressure), len(coords))
+        return coords, pressure
 
-    print("smoothing path with", len(coords), "points")
+    #print("smoothing path with", len(coords), "points")
     smoothed_coords = [coords[0]]  # Start with the first point
     if pressure:
         new_pressure    = [pressure[0]]
@@ -225,12 +289,7 @@ def smooth_path(coords, pressure=None, threshold=20):
 
             # Generate intermediate points for the cubic Bézier curve
             for t in t_values:
-                t0 = (1 - t) ** 3
-                t1 = 3 * (1 - t) ** 2 * t
-                t2 = 3 * (1 - t) * t ** 2
-                t3 = t ** 3
-                x = t0 * control1[0] + t1 * p1[0] + t2 * control2[0] + t3 * p2[0]
-                y = t0 * control1[1] + t1 * p1[1] + t2 * control2[1] + t3 * p2[1]
+                x, y = calc_bezier_coords(t, p1, p2, control1, control2)
                 if pressure:
                     new_pressure.append((1-t) * prev_pressure + t * next_pressure)
                 smoothed_coords.append((x, y))
@@ -244,6 +303,17 @@ def smooth_path(coords, pressure=None, threshold=20):
     if pressure:
         new_pressure.append(pressure[-1])
     return smoothed_coords, new_pressure
+
+def calc_bezier_coords(t, p1, p2, control1, control2):
+    """Calculate a point on a cubic Bézier curve."""
+    t0 = (1 - t) ** 3
+    t1 = 3 * (1 - t) ** 2 * t
+    t2 = 3 * (1 - t) * t ** 2
+    t3 = t ** 3
+    x = t0 * control1[0] + t1 * p1[0] + t2 * control2[0] + t3 * p2[0]
+    y = t0 * control1[1] + t1 * p1[1] + t2 * control2[1] + t3 * p2[1]
+
+    return x, y
 
 
 def distance_point_to_segment(p, segment):
@@ -269,29 +339,43 @@ def distance_point_to_segment(p, segment):
 
     return math.sqrt((px - projection_x) ** 2 + (py - projection_y) ** 2)
 
-def find_obj_close_to_click(click_x, click_y, objects, threshold):
-    """Find first object that is close to a click."""
-    for obj in objects[::-1]: # loop in reverse order to find the topmost object
-        if not obj is None and obj.is_close_to_click(click_x, click_y, threshold):
-            return obj
+def determine_side_math(p1, p2, p3):
+    """Determine the side of a point p3 relative to a line segment p1->p2."""
+    det = (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
+    return 'left' if det > 0 else 'right'
 
-    return None
+def calc_arc_coords(p1, p2, p3, n = 20):
+    """
+    Calculate the coordinates of an arc between two points.
+    The point p3 is on the opposite side of the arc from the line p1->p2.
+    """
+    x1, y1 = p1
+    x2, y2 = p2
+    p0 = ((x1 + x2) / 2, (y1 + y2) / 2)
+    x0, y0 = p0
+    radius = math.sqrt((x2 - x1)**2 + (y2 - y1)**2) / 2
 
-def find_obj_in_bbox(bbox, objects):
-    """Find objects that are inside a given bounding box."""
-    x, y, w, h = bbox
-    ret = []
-    for obj in objects:
-        x_o, y_o, w_o, h_o = obj.bbox()
-        if w_o < 0:
-            x_o += w_o
-            w_o = -w_o
-        if h_o < 0:
-            y_o += h_o
-            h_o = -h_o
-        if x_o >= x and y_o >= y and x_o + w_o <= x + w and y_o + h_o <= y + h:
-            ret.append(obj)
-    return ret
+    side = determine_side_math(p1, p2, p3)
+
+    # calculate the from p0 to p1
+    a1 = math.atan2(y1 - p0[1], x1 - p0[0])
+    a2 = math.atan2(y2 - p0[1], x2 - p0[0])
+
+    if side == 'left' and a1 > a2:
+        a2 += 2 * math.pi
+    elif side == 'right' and a1 < a2:
+        a1 += 2 * math.pi
+
+    # calculate 20 points on the arc between a1 and a2
+    coords = []
+    for i in range(n):
+        a = a1 + (a2 - a1) * i / (n - 1)
+        x = x0 + radius * math.cos(a)
+        y = y0 + radius * math.sin(a)
+        coords.append((x, y))
+
+    return coords
+
 
 def calc_rotation_angle(origin, p1, p2):
     """
@@ -324,6 +408,56 @@ def coords_rotate(coords, angle, origin):
         ret.append((x1 + origin[0], y1 + origin[1]))
     return ret
 
+def calc_normal_outline(coords, pressure, line_width, rounded = False):
+    """Calculate the normal outline of a path."""
+    n = len(coords)
+
+    outline_l = []
+    outline_r = []
+
+    for i in range(n - 2):
+        p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
+        nx, ny = normal_vec(p0, p1)
+        mx, my = normal_vec(p1, p2)
+
+        width  = line_width * pressure[i] / 2
+
+        left_segment1_start = (p0[0] + nx * width, p0[1] + ny * width)
+        left_segment1_end   = (p1[0] + nx * width, p1[1] + ny * width)
+        left_segment2_start = (p1[0] + mx * width, p1[1] + my * width)
+        left_segment2_end   = (p2[0] + mx * width, p2[1] + my * width)
+
+        right_segment1_start = (p0[0] - nx * width, p0[1] - ny * width)
+        right_segment1_end   = (p1[0] - nx * width, p1[1] - ny * width)
+        right_segment2_start = (p1[0] - mx * width, p1[1] - my * width)
+        right_segment2_end   = (p2[0] - mx * width, p2[1] - my * width)
+
+        if i == 0:
+        ## append the points for the first coord
+            if rounded:
+                arc_coords = calc_arc_coords( left_segment1_start,
+                                              right_segment1_start,
+                                             p1, 10)
+                outline_r.extend(arc_coords)
+            outline_l.append(left_segment1_start)
+            outline_r.append(right_segment1_start)
+
+        outline_l.append(left_segment1_end)
+        outline_l.append(left_segment2_start)
+        outline_r.append(right_segment1_end)
+        outline_r.append(right_segment2_start)
+
+        if i == n - 3:
+            outline_l.append(left_segment2_end)
+            outline_r.append(right_segment2_end)
+            if rounded:
+                arc_coords = calc_arc_coords( left_segment2_end,
+                                              right_segment2_end,
+                                             p1, 10)
+                outline_l.extend(arc_coords)
+    return outline_l, outline_r
+
+
 def normal_vec(p0, p1):
     """Calculate the normal vector of a line segment."""
     #dx, dy = x1 - x0, y1 - y0
@@ -352,15 +486,40 @@ def move_coords(coords, dx, dy):
         coords[i] = (coords[i][0] + dx, coords[i][1] + dy)
     return coords
 
-def path_bbox(coords):
+def path_bbox(coords, lw = 0):
     """Calculate the bounding box of a path."""
     if not coords:
         return (0, 0, 0, 0)
 
-    left, top = min(p[0] for p in coords), min(p[1] for p in coords)
-    width  =    max(p[0] for p in coords) - left
-    height =    max(p[1] for p in coords) - top
+    left = min(p[0] for p in coords) - lw/2
+    top = min(p[1] for p in coords) - lw/2
+    width  =    max(p[0] for p in coords) - left + lw/2
+    height =    max(p[1] for p in coords) - top + lw/2
     return (left, top, width, height)
+
+def find_obj_close_to_click(click_x, click_y, objects, threshold):
+    """Find first object that is close to a click."""
+    for obj in objects[::-1]: # loop in reverse order to find the topmost object
+        if not obj is None and obj.is_close_to_click(click_x, click_y, threshold):
+            return obj
+
+    return None
+
+def find_obj_in_bbox(bbox, objects):
+    """Find objects that are inside a given bounding box."""
+    x, y, w, h = bbox
+    ret = []
+    for obj in objects:
+        x_o, y_o, w_o, h_o = obj.bbox()
+        if w_o < 0:
+            x_o += w_o
+            w_o = -w_o
+        if h_o < 0:
+            y_o += h_o
+            h_o = -h_o
+        if x_o >= x and y_o >= y and x_o + w_o <= x + w and y_o + h_o <= y + h:
+            ret.append(obj)
+    return ret
 
 def is_click_close_to_path(click_x, click_y, path, threshold):
     """Check if a click is close to any segment in the path."""
@@ -497,6 +656,71 @@ class CommandGroup(Command):
             return None
         for cmd in self.__commands:
             cmd.redo()
+        self.undone_set(False)
+        return self.__page
+
+class DeletePageCommand(Command):
+    """
+    Simple class for handling deleting pages.
+
+    """
+    def __init__(self, page, prev_page, next_page):
+        super().__init__("delete_page", None)
+        self.__prev = prev_page
+        self.__next = next_page
+        self.__page = page
+
+        if self.__prev:
+            # set the previous page's next to our next
+            self.__prev.next_set(self.__next)
+        if self.__next:
+            # set the next page's previous to our previous
+            self.__next.prev_set(self.__prev)
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return None
+        if self.__prev:
+            self.__prev.next_set(self.__page)
+        if self.__next:
+            self.__next.prev_set(self.__page)
+        self.undone_set(True)
+        return self.__page
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return None
+        if self.__prev:
+            self.__prev.next_set(self.__next)
+        if self.__next:
+            self.__next.prev_set(self.__prev)
+        self.undone_set(False)
+        return self.__page
+
+class DeleteLayerCommand(Command):
+    """Simple class for handling deleting layers of a page."""
+    def __init__(self, page, layer, layer_pos):
+        """Simple class for handling deleting layers of a page."""
+        super().__init__("delete_layer", None)
+        self.__layer_pos = layer_pos
+        self.__layer = layer
+        self.__page  = page
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return None
+        self.__page.layer(self.__layer, self.__layer_pos)
+        self.undone_set(True)
+        return self.__page
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return None
+        self.__page.delete_layer(self.__layer_pos)
         self.undone_set(False)
         return self.__page
 
@@ -1063,7 +1287,7 @@ class SetPropCommand(Command):
         super().__init__(mytype, objects.get_primitive())
         self.__prop = prop
         self.__page = page
-        self.__get_prop_func = get_prop_func
+        #self.__get_prop_func = get_prop_func
         self.__set_prop_func = set_prop_func
         self.__undo_dict = { obj: get_prop_func(obj) for obj in self.obj }
 
@@ -1181,10 +1405,12 @@ class Pen:
     def __init__(self, color = (0, 0, 0), line_width = 12, transparency = 1,
                  fill_color = None,
                  font_size = 12, font_family = "Sans",
-                 font_weight = "normal", font_style = "normal"):
+                 font_weight = "normal", font_style = "normal",
+                 brush = "rounded"):
         """
         Initializes a new Pen object with the specified drawing properties.
         """
+        print("creating new pen", self, "brush", brush)
         self.color        = color
         self.line_width   = line_width
         self.fill_color   = fill_color
@@ -1196,6 +1422,16 @@ class Pen:
         self.font_style        = font_style  or "normal"
         self.font_description  = Pango.FontDescription.from_string(
                 f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}")
+        self.__brush     = BrushFactory.create_brush(brush)
+        self.__brush_type = brush
+
+    def brush(self, brush_type = None):
+        """Get or set the brush property"""
+        if brush_type is not None:
+            print("creating new self", self, "brush", brush_type)
+            self.__brush = BrushFactory.create_brush(brush_type)
+            self.__brush_type = brush_type
+        return self.__brush
 
     def transparency_set(self, transparency):
         """Set pen transparency"""
@@ -1205,9 +1441,17 @@ class Pen:
         """Set fill color"""
         self.fill_color = color
 
+    def fill_get(self):
+        """Get fill color"""
+        return self.fill_color
+
     def color_set(self, color):
         """Set pen color"""
         self.color = color
+
+    def color_get(self):
+        """Get pen color"""
+        return self.color
 
     def line_width_set(self, line_width):
         """Set pen line width"""
@@ -1265,6 +1509,7 @@ class Pen:
 
     def to_dict(self):
         """Convert pen properties to a dictionary"""
+        print("saving pen with brush", self.__brush_type)
         return {
             "color": self.color,
             "line_width": self.line_width,
@@ -1273,19 +1518,23 @@ class Pen:
             "font_size": self.font_size,
             "font_family": self.font_family,
             "font_weight": self.font_weight,
+            "brush": self.__brush_type,
             "font_style": self.font_style
         }
 
     def copy(self):
         """Create a copy of the pen"""
-        return Pen(self.color, self.line_width, self.transparency, self.fill_color, self.font_size, self.font_family, self.font_weight, self.font_style)
+        print("copying pen", self, "brush", self.__brush_type)
+        return Pen(self.color, self.line_width, self.transparency, self.fill_color, 
+                   self.font_size, self.font_family, self.font_weight, self.font_style,
+                   brush = self.__brush_type)
 
     @classmethod
     def from_dict(cls, d):
         """Create a pen object from a dictionary"""
         #def __init__(self, color = (0, 0, 0), line_width = 12, font_size = 12, transparency = 1, fill_color = None, family = "Sans", weight = "normal", style = "normal"):
         return cls(d.get("color"), d.get("line_width"), d.get("transparency"), d.get("fill_color"),
-                   d.get("font_size"), d.get("font_family"), d.get("font_weight"), d.get("font_style"))
+                   d.get("font_size"), d.get("font_family"), d.get("font_weight"), d.get("font_style"), d.get("brush"))
 """
 These are the objects that can be displayed. It includes groups, but
 also primitives like boxes, paths and text.
@@ -1302,8 +1551,8 @@ class DrawableFactory:
         """
         Create a drawable object of the specified type.
         """
-        shift, ctrl, pressure = ev.shift(), ev.ctrl(), ev.pressure()
         pos = ev.pos()
+        pressure = ev.pressure()
         ret_obj = None
 
         print("create object in mode", mode)
@@ -1318,9 +1567,9 @@ class DrawableFactory:
             print("creating path object")
             ret_obj = Path([ pos ], pen = pen, pressure = [ pressure ])
 
-        elif mode == "box":
-            print("creating box object")
-            ret_obj = Box([ pos, (pos[0], pos[1]) ], pen = pen)
+        elif mode == "rectangle":
+            print("creating rectangle object")
+            ret_obj = Rectangle([ pos ], pen = pen)
 
         elif mode == "shape":
             print("creating shape object")
@@ -1347,7 +1596,7 @@ class DrawableFactory:
         print("transmuting object to", mode)
 
         if obj.type == "group":
-            # XXX for now, we do not pass transmutations to groups, because
+            # for now, we do not pass transmutations to groups, because
             # we then cannot track the changes.
             return obj
 
@@ -1355,8 +1604,8 @@ class DrawableFactory:
             obj = Text.from_object(obj)
         elif mode == "draw":
             obj = Path.from_object(obj)
-        elif mode == "box":
-            obj = Box.from_object(obj)
+        elif mode == "rectangle":
+            obj = Rectangle.from_object(obj)
         elif mode == "shape":
             print("calling Shape.from_object")
             obj = Shape.from_object(obj)
@@ -1383,12 +1632,13 @@ class Drawable:
         pen (Pen): The pen used for drawing the object.
     """
     def __init__(self, mytype, coords, pen):
-        self.type       = mytype
-        self.coords     = coords
-        self.origin     = None
-        self.resizing   = None
-        self.rotation   = 0
-        self.rot_origin = None
+        self.type         = mytype
+        self.coords       = coords
+        self.origin       = None
+        self.resizing     = None
+        self.rotation     = 0
+        self.rot_origin   = None
+        self.__filled     = False
         if pen:
             self.pen    = pen.copy()
         else:
@@ -1453,13 +1703,17 @@ class Drawable:
         """Smoothen the object."""
         print(f"smoothening not implemented (threshold {threshold})")
 
-    def unfill(self):
-        """Remove the fill from the object."""
-        self.pen.fill_set(None)
+    def fill(self):
+        """Return the fill status"""
+        return self.__filled
 
-    def fill(self, color = None):
+    def fill_toggle(self):
+        """Toggle the fill of the object."""
+        self.__filled = not self.__filled
+
+    def fill_set(self, fill):
         """Fill the object with a color."""
-        self.pen.fill_set(color)
+        self.__filled = fill
 
     def line_width_set(self, lw):
         """Set the color of the object."""
@@ -1517,7 +1771,7 @@ class Drawable:
         if self.rotation:
             self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
 
-    def bbox(self):
+    def bbox(self, actual = False):
         """Return the bounding box of the object."""
         if self.resizing:
             return self.resizing["bbox"]
@@ -1526,10 +1780,9 @@ class Drawable:
         height =   max(p[1] for p in self.coords) - top
         return (left, top, width, height)
 
-    def bbox_draw(self, cr, bb=None, lw=0.2):
+    def bbox_draw(self, cr, lw=0.2):
         """Draw the bounding box of the object."""
-        if not bb:
-            bb = self.bbox()
+        bb = self.bbox(actual = True)
         x, y, w, h = bb
         cr.set_line_width(lw)
         cr.rectangle(x, y, w, h)
@@ -1542,12 +1795,18 @@ class Drawable:
     # ------------ Drawable conversion methods ------------------
     @classmethod
     def from_dict(cls, d):
-        """ Create a drawable object from a dictionary. """
+        """
+        Create a drawable object from a dictionary.
+
+        Objects must take all named arguments specified in their
+        dictionary.
+        """
         type_map = {
             "path": Path,
             "polygon": Shape, #back compatibility
             "shape": Shape,
             "circle": Circle,
+            "rectangle": Rectangle,
             "box": Box,
             "image": Image,
             "group": DrawableGroup,
@@ -1559,6 +1818,7 @@ class Drawable:
             raise ValueError("Invalid type:", obj_type)
 
         if "pen" in d:
+            print("Read pen from dict. Pen is", d.get("pen"))
             d["pen"] = Pen.from_dict(d["pen"])
         #print("generating object of type", type, "with data", d)
         return type_map.get(obj_type)(**d)
@@ -1583,13 +1843,14 @@ class DrawableGroup(Drawable):
     Attributes:
         objects (list): The list of objects in the group.
     """
-    def __init__(self, objects = [ ], objects_dict = None, mytype = "group"):
+    def __init__(self, objects, objects_dict = None, mytype = "group"):
 
         if objects_dict:
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
 
+        objects = objects or [ ]
+
         print("Creating DrawableGroup with ", len(objects), "objects")
-        # XXX better if type would be "drawable_group"
         super().__init__(mytype, [ (None, None) ], None)
         self.objects = objects
 
@@ -1603,6 +1864,11 @@ class DrawableGroup(Drawable):
             if obj.is_close_to_click(click_x, click_y, threshold):
                 return True
         return False
+
+    def fill_toggle(self):
+        """Toggle the fill of the objects"""
+        for obj in self.objects:
+            obj.fill_toggle()
 
     def stroke_change(self, direction):
         """Change the stroke size of the objects in the group."""
@@ -1703,18 +1969,18 @@ class DrawableGroup(Drawable):
         """Return the number of objects in the group."""
         return len(self.objects)
 
-    def bbox(self):
+    def bbox(self, actual = False):
         """Return the bounding box of the group."""
         if self.resizing:
             return self.resizing["bbox"]
         if not self.objects:
             return None
 
-        left, top, width, height = self.objects[0].bbox()
+        left, top, width, height = self.objects[0].bbox(actual = actual)
         bottom, right = top + height, left + width
 
         for obj in self.objects[1:]:
-            x, y, w, h = obj.bbox()
+            x, y, w, h = obj.bbox(actual = actual)
             left, top = min(left, x, x + w), min(top, y, y + h)
             bottom, right = max(bottom, y, y + h), max(right, x, x + w)
 
@@ -1941,7 +2207,7 @@ class Image(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.5)
 
-    def bbox(self):
+    def bbox(self, actual = False):
         """Return the bounding box of the object."""
         bb = self._bbox_internal()
         if self.rotation:
@@ -1967,7 +2233,6 @@ class Image(Drawable):
     def resize_update(self, bbox):
         """Update during the resize of the object."""
         self.resizing["bbox"] = bbox
-        coords = self.coords
 
         x1, y1, w1, h1 = bbox
 
@@ -2006,7 +2271,7 @@ class Image(Drawable):
         if bb is None:
             return False
         x, y, width, height = bb
-        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
+        if x <= click_x <= x + width and y <= click_y <= y + height:
             return True
         return False
 
@@ -2060,7 +2325,7 @@ class Text(Drawable):
         if self.bb is None:
             return False
         x, y, width, height = self.bb
-        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
+        if x <= click_x <= x + width and y <= click_y <= y + height:
             return True
         return False
 
@@ -2153,7 +2418,7 @@ class Text(Drawable):
             "content": self.as_string()
         }
 
-    def bbox(self):
+    def bbox(self, actual = False):
         if self.resizing:
             return self.resizing["bbox"]
         if not self.bb:
@@ -2240,13 +2505,11 @@ class Text(Drawable):
         elif direction == "Down":
             if self.line < len(self.content) - 1:
                 self.line += 1
-                if self.caret_pos > len(self.content[self.line]):
-                    self.caret_pos = len(self.content[self.line])
+                self.caret_pos = min(self.caret_pos, len(self.content[self.line]))
         elif direction == "Up":
             if self.line > 0:
                 self.line -= 1
-                if self.caret_pos > len(self.content[self.line]):
-                    self.caret_pos = len(self.content[self.line])
+                self.caret_pos = min(self.caret_pos, len(self.content[self.line]))
         else:
             raise ValueError("Invalid direction:", direction)
 
@@ -2342,17 +2605,231 @@ class Text(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.5)
 
+class Path(Drawable):
+    """ Path is like shape, but not closed and has an outline that depends on
+        line width and pressure."""
+    def __init__(self, coords, pen, outline = None, pressure = None):
+        super().__init__("path", coords, pen = pen)
+        self.__pressure  = pressure or []
+        self.__bb        = []
+        if outline:
+            print("Warning: outline is not used in Path")
+        if pressure:
+            print("Warning: pressure is not used in Path")
+        #self.__brush     = BrushFactory.create_brush(brush)
+        #self.__brush_type = brush
+
+        if len(self.coords) > 3 and not self.pen.brush().outline():
+            self.outline_recalculate()
+
+    def outline_recalculate(self):
+        """Recalculate the outline of the path."""
+        self.pen.brush().calculate(self.pen.line_width,
+                                 coords = self.coords,
+                                 pressure = self.__pressure)
+
+    def finish(self):
+        """Finish the path."""
+        self.outline_recalculate()
+
+    def update(self, x, y, pressure):
+        """Update the path with a new point."""
+        self.path_append(x, y, pressure)
+
+    def move(self, dx, dy):
+        """Move the path by dx, dy."""
+        move_coords(self.coords, dx, dy)
+        #move_coords(self.__outline, dx, dy)
+        self.outline_recalculate()
+        self.__bb = None
+
+    def rotate_end(self):
+        """Finish the rotation operation."""
+        # rotate all coords and outline
+        self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
+        #self.__outline = coords_rotate(self.__outline, self.rotation, self.rot_origin)
+        self.outline_recalculate()
+        self.rotation   = 0
+        self.rot_origin = None
+        # recalculate bbox
+        self.__bb = path_bbox(self.coords)
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the path."""
+        return is_click_close_to_path(click_x, click_y, self.coords, threshold)
+
+    def to_dict(self):
+        """Convert the path to a dictionary."""
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            #"outline": self.__outline,
+            "pressure": self.__pressure,
+            "pen": self.pen.to_dict(),
+        }
+
+    def stroke_change(self, direction):
+        """Change the stroke size."""
+        self.pen.stroke_change(direction)
+        self.outline_recalculate()
+
+    def smoothen(self, threshold=20):
+        """Smoothen the path."""
+        if len(self.coords) < 3:
+            return
+        print("smoothening path")
+        self.coords, self.__pressure = smooth_path(self.coords, self.__pressure, 1)
+        self.outline_recalculate()
+
+    def pen_set(self, pen):
+        """Set the pen for the path."""
+        self.pen = pen.copy()
+        self.outline_recalculate()
+
+
+    def path_append(self, x, y, pressure = 1):
+        """Append a point to the path, calculating the outline of the
+           shape around the path. Only used when path is created to
+           allow for a good preview. Later, the path is smoothed and recalculated."""
+        coords = self.coords
+        width  = self.pen.line_width * pressure
+
+        if len(coords) == 0:
+            self.__pressure.append(pressure)
+            coords.append((x, y))
+            return
+
+        lp = coords[-1]
+        if abs(x - lp[0]) < 1 and abs(y - lp[1]) < 1:
+            return
+
+        self.__pressure.append(pressure)
+        coords.append((x, y))
+        width = width / 2
+
+        if len(coords) < 2:
+            return
+        self.outline_recalculate()
+        self.__bb = None
+
+    def bbox(self, actual = False):
+        """Return the bounding box"""
+        if self.resizing:
+            return self.resizing["bbox"]
+        if not self.__bb:
+            self.__bb = path_bbox(self.pen.brush().outline() or self.coords)
+        return self.__bb
+
+    def resize_end(self):
+        """recalculate the outline after resizing"""
+        #print("length of coords and pressure:", len(self.coords), len(self.__pressure))
+        old_bbox = self.__bb or path_bbox(self.coords)
+        self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
+        self.outline_recalculate()
+        self.resizing  = None
+        self.__bb = path_bbox(self.pen.brush().outline() or self.coords)
+
+    def draw_outline(self, cr):
+        """draws each segment separately and makes a dot at each coord."""
+
+        cr.set_source_rgb(1, 0, 0)
+        cr.set_line_width(0.2)
+        coords = self.coords
+        for i in range(len(coords) - 1):
+            cr.move_to(coords[i][0], coords[i][1])
+            cr.line_to(coords[i + 1][0], coords[i + 1][1])
+            cr.stroke()
+            # make a dot at each coord
+            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+            cr.fill()
+        cr.arc(coords[-1][0], coords[-1][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+        cr.fill()
+
+    def draw_simple(self, cr, bbox=None):
+        """draws the path as a single line. Useful for resizing."""
+
+        if len(self.coords) < 2:
+            return
+
+        if bbox:
+            old_bbox = path_bbox(self.pen.brush().outline() or self.coords)
+            coords = transform_coords(self.coords, old_bbox, bbox)
+        else:
+            coords = self.coords
+
+        cr.set_source_rgb(*self.pen.color)
+        cr.set_line_width(self.pen.line_width)
+
+        cr.move_to(coords[0][0], coords[0][1])
+        for point in coords[1:]:
+            cr.line_to(point[0], point[1])
+        cr.stroke()
+
+
+    def draw_standard(self, cr):
+        """standard drawing of the path."""
+        cr.set_fill_rule(cairo.FillRule.WINDING)
+        self.pen.brush().draw(cr)
+
+    def draw(self, cr, hover=False, selected=False, outline = False):
+        """Draw the path."""
+        if not self.pen.brush().outline():
+            return
+
+        if len(self.pen.brush().outline()) < 4 or len(self.coords) < 3:
+            return
+
+        if self.rotation != 0:
+            cr.save()
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+        if self.resizing:
+            self.draw_simple(cr, bbox=self.resizing["bbox"])
+        else:
+            self.draw_standard(cr)
+            if outline:
+                print("drawing outline")
+                cr.set_line_width(0.4)
+                cr.stroke()
+                self.draw_outline(cr)
+            else:
+                cr.fill()
+
+
+        if selected:
+            cr.set_source_rgba(1, 0, 0)
+            self.bbox_draw(cr, lw=.2)
+
+        if hover:
+            self.bbox_draw(cr, lw=.2)
+
+        if self.rotation != 0:
+            cr.restore()
+
+    @classmethod
+    def from_object(cls, obj):
+        print("Path.from_object", obj)
+        if obj.coords and len(obj.coords) > 2 and obj.pen:
+            return cls(obj.coords, obj.pen)
+        # issue a warning
+        print("Path.from_object: invalid object")
+        return obj
+
+# ----------------------------
 class Shape(Drawable):
     """Class for shapes (closed paths with no outline)."""
-    def __init__(self, coords, pen):
+    def __init__(self, coords, pen, filled = True):
         super().__init__("shape", coords, pen)
         self.bb = None
+        self.fill_set(filled)
 
     def finish(self):
         """Finish the shape."""
         print("finishing shape")
         self.coords, _ = smooth_path(self.coords)
-        #self.outline_recalculate_new()
 
     def update(self, x, y, pressure):
         """Update the shape with a new point."""
@@ -2362,7 +2839,6 @@ class Shape(Drawable):
         """Move the shape by dx, dy."""
         move_coords(self.coords, dx, dy)
         self.bb = None
-
 
     def rotate_end(self):
         """finish the rotation"""
@@ -2379,7 +2855,7 @@ class Shape(Drawable):
         if bb is None:
             return False
         x, y, width, height = bb
-        if click_x >= x and click_x <= x + width and click_y >= y and click_y <= y + height:
+        if x <= click_x <= x + width and y <= click_y <= y + height:
             return True
         return False
 
@@ -2388,20 +2864,62 @@ class Shape(Drawable):
         self.coords.append((x, y))
         self.bb = None
 
-    def bbox(self):
+    def fill_toggle(self):
+        """Toggle the fill of the object."""
+        old_bbox = self.bbox(actual = True)
+        self.bb  = None
+        self.fill_set(not self.fill())
+        new_bbox = self.bbox(actual = True)
+        self.coords = transform_coords(self.coords, new_bbox, old_bbox)
+        self.bb = None
+
+    def bbox(self, actual = False):
         """Calculate the bounding box of the shape."""
         if self.resizing:
-            return self.resizing["bbox"]
-        if not self.bb:
-            self.bb = path_bbox(self.coords)
-        return self.bb
+            bb = self.resizing["bbox"]
+        else:
+            if not self.bb:
+                self.bb = path_bbox(self.coords)
+            bb = self.bb
+        if actual and not self.fill():
+            lw = self.pen.line_width
+            bb = (bb[0] - lw / 2, bb[1] - lw / 2, bb[2] + lw, bb[3] + lw)
+        return bb
+
+    def resize_start(self, corner, origin):
+        """Start the resizing operation."""
+        bbox = path_bbox(self.coords)
+        self.resizing = {
+            "corner": corner,
+            "origin": origin,
+            "bbox":   bbox,
+            "start_bbox": bbox
+            }
+
+    def resize_update(self, bbox):
+        """Update during the resize of the object."""
+        self.resizing["bbox"] = bbox
 
     def resize_end(self):
         """recalculate the coordinates after resizing"""
-        old_bbox = self.bb or path_bbox(self.coords)
-        self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
+        old_bbox = self.resizing["start_bbox"]
+        new_bbox = self.resizing["bbox"]
+        self.coords = transform_coords(self.coords, old_bbox, new_bbox)
         self.resizing  = None
+        if self.fill():
+            self.bb = path_bbox(self.coords)
+        else:
+            self.bb = path_bbox(self.coords, lw = self.pen.line_width)
         self.bb = path_bbox(self.coords)
+
+    def to_dict(self):
+        """Convert the object to a dictionary."""
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "filled": self.fill(),
+            "pen": self.pen.to_dict()
+        }
 
 
     def draw_outline(self, cr):
@@ -2426,13 +2944,18 @@ class Shape(Drawable):
             return
 
         if bbox:
-            old_bbox = path_bbox(self.coords)
+            if self.fill():
+                old_bbox = path_bbox(self.coords)
+            else:
+                old_bbox = path_bbox(self.coords)
+                #old_bbox = path_bbox(self.coords, lw = self.pen.line_width)
             coords = transform_coords(self.coords, old_bbox, bbox)
         else:
             coords = self.coords
 
         cr.set_line_width(0.5)
         cr.move_to(coords[0][0], coords[0][1])
+
         for point in coords[1:]:
             cr.line_to(point[0], point[1])
         cr.close_path()
@@ -2456,8 +2979,11 @@ class Shape(Drawable):
         if outline:
             cr.stroke()
             self.draw_outline(cr)
-        else:
+        elif self.fill():
             cr.fill()
+        else:
+            cr.set_line_width(self.pen.line_width)
+            cr.stroke()
 
         if selected:
             cr.set_source_rgba(1, 0, 0)
@@ -2485,328 +3011,91 @@ class Shape(Drawable):
         print("Shape.from_object: invalid object")
         return obj
 
-class Path(Drawable):
-    """ Path is like shape, but not closed and has an outline that depends on
-        line width and pressure."""
-    def __init__(self, coords, pen, outline = None, pressure = None):
-        super().__init__("path", coords, pen = pen)
-        self.outline   = outline  or []
-        self.pressure  = pressure or []
-        self.outline_l = []
-        self.outline_r = []
-        self.bb        = []
-
-        if len(self.coords) > 3 and not self.outline:
-            self.outline_recalculate_new()
+class Rectangle(Shape):
+    """Class for creating rectangles."""
+    def __init__(self, coords, pen, filled = False):
+        super().__init__(coords, pen, filled)
+        self.coords = coords
+        self.type = "rectangle"
+        # fill up coords to length 4
+        n = 5 - len(coords)
+        if n > 0:
+            self.coords += [(coords[0][0], coords[0][1])] * n
 
     def finish(self):
-        self.outline_recalculate_new()
-        if len(self.coords) != len(self.pressure):
-            raise ValueError("Pressure and coords don't match")
+        """Finish the rectangle."""
+        print("finishing rectangle")
+        #self.coords, _ = smooth_path(self.coords)
 
     def update(self, x, y, pressure):
-        self.path_append(x, y, pressure)
+        """
+        Update the rectangle with a new point.
 
-    def move(self, dx, dy):
-        move_coords(self.coords, dx, dy)
-        move_coords(self.outline, dx, dy)
-        self.bb = None
+        Unlike the shape, we use four points only to define rectangle.
 
-    def rotate_end(self):
-        # rotate all coords and outline
-        self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
-        self.outline = coords_rotate(self.outline, self.rotation, self.rot_origin)
-        self.rotation   = 0
-        self.rot_origin = None
-        # recalculate bbox
-        self.bb = path_bbox(self.coords)
+        We need more than two points, because subsequent transformations
+        may change it to a parallelogram.
+        """
+        x0, y0 = self.coords[0]
+        #if x < x0:
+        #    x, x0 = x0, x
 
-    def is_close_to_click(self, click_x, click_y, threshold):
-        return is_click_close_to_path(click_x, click_y, self.coords, threshold)
+        #if y < y0:
+        #    y, y0 = y0, y
 
-    def to_dict(self):
-        return {
-            "type": self.type,
-            "coords": self.coords,
-            "outline": self.outline,
-            "pressure": self.pressure,
-            "pen": self.pen.to_dict()
-        }
-
-    def stroke_change(self, direction):
-        """Change the stroke size."""
-        self.pen.stroke_change(direction)
-        self.outline_recalculate_new()
-
-    def smoothen(self, threshold=20):
-        """Smoothen the path."""
-        if len(self.coords) < 3:
-            return
-        print("smoothening path")
-        self.coords, self.pressure = smooth_path(self.coords, self.pressure, 1)
-        self.outline_recalculate_new()
-
-    def pen_set(self, pen):
-        """Set the pen for the path."""
-        self.pen = pen.copy()
-        self.outline_recalculate_new()
-
-    def outline_recalculate_new(self, coords = None, pressure = None):
-        """Recalculate the outline of the path."""
-        if not coords:
-            coords = self.coords
-        if not pressure:
-            pressure = self.pressure or [1] * len(coords)
-
-        lwd = self.pen.line_width
-
-        if len(coords) < 3:
-            return
-        print("recalculating outline")
-
-        print("1.length of coords and pressure:", len(coords), len(pressure))
-        coords, pressure = smooth_path(coords, pressure, 20)
-        print("2.length of coords and pressure:", len(coords), len(pressure))
-
-        outline_l = []
-        outline_r = []
-
-        n = len(coords)
-
-        for i in range(n - 2):
-            p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
-            nx, ny = normal_vec(p0, p1)
-            mx, my = normal_vec(p1, p2)
-
-            width  = lwd * pressure[i] / 2
-            #width  = self.line_width / 2
-
-            left_segment1_start = (p0[0] + nx * width, p0[1] + ny * width)
-            left_segment1_end   = (p1[0] + nx * width, p1[1] + ny * width)
-            left_segment2_start = (p1[0] + mx * width, p1[1] + my * width)
-            left_segment2_end   = (p2[0] + mx * width, p2[1] + my * width)
-
-            right_segment1_start = (p0[0] - nx * width, p0[1] - ny * width)
-            right_segment1_end   = (p1[0] - nx * width, p1[1] - ny * width)
-            right_segment2_start = (p1[0] - mx * width, p1[1] - my * width)
-            right_segment2_end   = (p2[0] - mx * width, p2[1] - my * width)
-
-            if i == 0:
-            ## append the points for the first coord
-                outline_l.append(left_segment1_start)
-                outline_r.append(right_segment1_start)
-
-            outline_l.append(left_segment1_end)
-            outline_l.append(left_segment2_start)
-            outline_r.append(right_segment1_end)
-            outline_r.append(right_segment2_start)
-
-            if i == n - 2:
-                print("last segment")
-                outline_l.append(left_segment2_end)
-                outline_r.append(right_segment2_end)
-
-            #self.outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
-            #self.outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
-
-        self.outline_l, _ = smooth_path(outline_l, None, 20)
-        self.outline_r, _ = smooth_path(outline_r, None, 20)
-        self.outline  = outline_l + outline_r[::-1]
-        self.coords   = coords
-        self.pressure = pressure
+        self.coords[0] = (x0, y0)
+        self.coords[1] = (x, y0)
+        self.coords[2] = (x, y)
+        self.coords[3] = (x0, y)
+        self.coords[4] = (x0, y0)
 
 
-    def path_append(self, x, y, pressure = 1):
-        """Append a point to the path, calculating the outline of the
-           shape around the path. Only used when path is created to
-           allow for a good preview. Later, the path is smoothed and recalculated."""
-        coords = self.coords
-        width  = self.pen.line_width * pressure
-
-        if len(coords) == 0:
-            self.pressure.append(pressure)
-            coords.append((x, y))
-            return
-
-        lp = coords[-1]
-        if abs(x - lp[0]) < 1 and abs(y - lp[1]) < 1:
-            return
-
-        self.pressure.append(pressure)
-        coords.append((x, y))
-        width = width / 2
-
-        if len(coords) < 2:
-            return
-
-        p1, p2 = coords[-2], coords[-1]
-        nx, ny = normal_vec(p1, p2)
-
-        if len(coords) == 2:
-            ## append the points for the first coord
-            self.outline_l.append((p1[0] + nx * width, p1[1] + ny * width))
-            self.outline_r.append((p1[0] - nx * width, p1[1] - ny * width))
-
-        self.outline_l.append((p2[0] + nx * width, p2[1] + ny * width))
-        self.outline_r.append((p2[0] - nx * width, p2[1] - ny * width))
-        self.outline = self.outline_l + self.outline_r[::-1]
-        self.bb = None
-
-    # XXX not efficient, this should be done in path_append and modified
-    # upon move.
-    def bbox(self):
-        if self.resizing:
-            return self.resizing["bbox"]
-        if not self.bb:
-            self.bb = path_bbox(self.outline or self.coords)
-        return self.bb
-
-    def resize_end(self):
-        """recalculate the outline after resizing"""
-        print("length of coords and pressure:", len(self.coords), len(self.pressure))
-        old_bbox = self.bb or path_bbox(self.coords)
-        new_coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
-        pressure   = self.pressure
-        self.outline_recalculate_new(coords=new_coords, pressure=pressure)
-        self.resizing  = None
-        self.bb = path_bbox(self.outline or self.coords)
-
-    def draw_outline(self, cr):
-        """draws each segment separately and makes a dot at each coord."""
-
-        coords = self.coords
-        for i in range(len(coords) - 1):
-            cr.move_to(coords[i][0], coords[i][1])
-            cr.line_to(coords[i + 1][0], coords[i + 1][1])
-            cr.stroke()
-            # make a dot at each coord
-            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
-            cr.fill()
-
-
-    def draw_simple(self, cr, bbox=None):
-        """draws the path as a single line. Useful for resizing."""
-
-        if len(self.coords) < 2:
-            return
-
-        if bbox:
-            old_bbox = path_bbox(self.outline or self.coords)
-            coords = transform_coords(self.coords, old_bbox, bbox)
-        else:
-            coords = self.coords
-
-        cr.set_source_rgb(*self.pen.color)
-        cr.set_line_width(0.5)
-        cr.move_to(coords[0][0], coords[0][1])
-        for point in coords[1:]:
-            cr.line_to(point[0], point[1])
-        cr.stroke()
-
-
-    def draw_standard(self, cr):
-        """standard drawing of the path."""
-        cr.set_fill_rule(cairo.FillRule.WINDING)
-
-        cr.move_to(self.outline[0][0], self.outline[0][1])
-        for point in self.outline[1:]:
-            cr.line_to(point[0], point[1])
-        cr.close_path()
-
-
-    def draw(self, cr, hover=False, selected=False, outline = False):
-        """Draw the path."""
-        if len(self.outline) < 4 or len(self.coords) < 3:
-            return
-
-        if self.rotation != 0:
-            cr.save()
-            bb = self.bbox()
-            cr.translate(self.rot_origin[0], self.rot_origin[1])
-            cr.rotate(self.rotation)
-            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
-
-        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
-        if self.resizing:
-            self.draw_simple(cr, bbox=self.resizing["bbox"])
-        else:
-            self.draw_standard(cr)
-            if outline:
-                print("drawing outline")
-                cr.stroke()
-                self.draw_outline(cr)
-            else:
-                cr.fill()
-
-
-        if selected:
-            cr.set_source_rgba(1, 0, 0)
-            self.bbox_draw(cr, lw=.2)
-
-        if hover:
-            self.bbox_draw(cr, lw=.2)
-
-        if self.rotation != 0:
-            cr.restore()
-
-    @classmethod
-    def from_object(cls, obj):
-        print("Path.from_object", obj)
-        if obj.coords and len(obj.coords) > 2 and obj.pen:
-            return cls(obj.coords, obj.pen)
-        # issue a warning
-        print("Path.from_object: invalid object")
-        return obj
-
-
-class Circle(Drawable):
+class Circle(Shape):
     """Class for creating circles."""
-    def __init__(self, coords, pen):
-        super().__init__("circle", coords, pen)
+    def __init__(self, coords, pen, filled = False):
+        super().__init__(coords, pen, filled)
+        self.coords = coords
+        self.type = "circle"
+        self.__bb = [ (coords[0][0], coords[0][1]), (coords[0][0], coords[0][1]) ]
+        # fill up coords to length 4
+
+    def finish(self):
+        """Finish the circle."""
 
     def update(self, x, y, pressure):
-        self.coords[1] = (x, y)
+        """
+        Update the circle with a new point.
+        """
+        x0, y0 = min(self.__bb[0][0], x), min(self.__bb[0][1], y)
+        x1, y1 = max(self.__bb[1][0], x), max(self.__bb[1][1], y)
 
-    def resize_end(self):
-        bbox = self.bbox()
-        self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
-        self.resizing = None
+        n_points = 100
 
-    def resize_update(self, bbox):
-        self.resizing["bbox"] = bbox
-        self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
+        # calculate coords for 100 points on an ellipse contained in the rectangle
+        # given by x0, y0, x1, y1
 
-    def draw(self, cr, hover=False, selected=False, outline=False):
-        if hover:
-            cr.set_line_width(self.pen.line_width + 1)
-        else:
-            cr.set_line_width(self.pen.line_width)
+        # calculate the center of the ellipse
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
 
-        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
-        x1, y1 = self.coords[0]
-        x2, y2 = self.coords[1]
-        w, h = (abs(x1 - x2), abs(y1 - y2))
+        # calculate the radius of the ellipse
+        rx, ry = (x1 - x0) / 2, (y1 - y0) / 2
 
-        if w != 0 and h != 0:
-            x0, y0 = (min(x1, x2), min(y1, y2))
-            #cr.rectangle(x0, y0, w, h)
-            cr.save()
-            cr.translate(x0 + w / 2, y0 + h / 2)
-            cr.scale(w / 2, h / 2)
-            cr.arc(0, 0, 1, 0, 2 * 3.14159)
-            cr.restore()
+        # calculate the angle between two points
+        angle = 2 * math.pi / n_points
 
-            if self.pen.fill_color:
-                cr.fill()
-            else:
-                cr.stroke()
+        # calculate the points
+        coords = []
+        coords = [ (cx + rx * math.cos(i * angle),
+                    cy + ry * math.sin(i * angle)) for i in range(n_points)
+                  ]
 
-        if selected:
-            cr.set_source_rgba(1, 0, 0)
-            self.bbox_draw(cr, lw=.35)
+       #for i in range(n_points):
+       #    x = cx + rx * math.cos(i * angle)
+       #    y = cy + ry * math.sin(i * angle)
+       #    coords.append((x, y))
 
-        if hover:
-            self.bbox_draw(cr, lw=.35)
+        self.coords = coords
+
 
 
 class Box(Drawable):
@@ -2821,6 +3110,15 @@ class Box(Drawable):
         bbox = self.bbox()
         self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
         self.resizing = None
+
+    def rotate_end(self):
+        """Ignore rotation"""
+
+    def rotate_start(self, origin):
+        """Ignore rotation."""
+
+    def rotate(self, angle, set_angle = False):
+        """Ignore rotation."""
 
     def resize_update(self, bbox):
         self.resizing["bbox"] = bbox
@@ -2853,6 +3151,7 @@ class Box(Drawable):
             cr.arc(x0, y0, 10, 0, 2 * 3.14159)  # Draw a circle
             #cr.fill()  # Fill the circle to make a dot
             cr.stroke()
+
         if selected:
             cr.set_source_rgba(1, 0, 0)
             self.bbox_draw(cr, lw=.35)
@@ -3026,12 +3325,15 @@ Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up
 Ctrl-k: Select color                     f: fill with current color       Alt-s: convert drawing(s) to shape(s)
 Ctrl-Shift-k: Select bg color
 Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline                Alt-d: convert shape(s) to drawing(s)
-Ctrl-b: Cycle background transparency
-Ctrl-p: toggle between two pens
-Ctrl-Shift-f: screenshot: for a screenshot, you need at least one rectangle
-object (r mode) in the drawing which serves as the selection area. The
-screenshot will be pasted into the drawing.
+Ctrl-b: Cycle background transparency                                     Alt-p: apply pen to selection
+Ctrl-p: toggle between two pens                                           Alt-Shift-p: apply pen color to background
+Ctrl-g: toggle grid                      1-3: select brush
 
+<b>Taking screenshots:</b>
+Ctrl-Shift-f: screenshot: for a screenshot, if you have at least one rectangle
+object (r mode) in the drawing, then it will serve as the selection area. The
+screenshot will be pasted into the drawing. If there are no rectangles,
+then the whole window will be captured.
 
 <b>Saving / importing:</b>
 Ctrl-i: Import image from a file (jpeg, png)
@@ -3260,7 +3562,7 @@ class Clipboard:
     def on_clipboard_owner_change(self, clipboard, event):
         """Handle clipboard owner change events."""
 
-        print("Owner change, removing internal clipboard")
+        print(f"Owner change ({clipboard}), removing internal clipboard")
         print("reason:", event.reason)
         if self.clipboard_owner:
             self.clipboard_owner = False
@@ -3395,7 +3697,7 @@ class CursorManager:
             "draw":        Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "crosshair":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             "circle":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
-            "box":         Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
+            "rectangle":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             "none":        Gdk.Cursor.new_from_name(window.get_display(), "none"),
             "upper_left":  Gdk.Cursor.new_from_name(window.get_display(), "nw-resize"),
             "upper_right": Gdk.Cursor.new_from_name(window.get_display(), "ne-resize"),
@@ -3456,13 +3758,11 @@ class GraphicsObjectManager:
         self.__history    = []
         self.__redo_stack = []
         self.__page = None
-        self.__selection = None
         self.page_set(Page())
 
     def page_set(self, page):
         """Set the current page."""
         self.__page = page
-        self.__selection = self.__page.selection()
 
     def next_page(self):
         """Go to the next page."""
@@ -3474,7 +3774,23 @@ class GraphicsObjectManager:
 
     def delete_page(self):
         """Delete the current page."""
-        self.page_set(self.__page.delete())
+        curpage, cmd = self.__page.delete()
+        self.__history.append(cmd)
+        self.page_set(curpage)
+
+    def next_layer(self):
+        """Go to the next layer."""
+        print("creating a new layer")
+        self.__page.next_layer()
+
+    def prev_layer(self):
+        """Go to the previous layer."""
+        self.__page.prev_layer()
+
+    def delete_layer(self):
+        """Delete the current layer."""
+        cmd = self.__page.delete_layer()
+        self.__history.append(cmd)
 
     def page(self):
         """Return the current page."""
@@ -3529,7 +3845,7 @@ class GraphicsObjectManager:
 
     def selection(self):
         """Return the selection object."""
-        return self.__selection
+        return self.__page.selection()
 
     def transmute(self, objects, mode):
         """
@@ -3546,7 +3862,7 @@ class GraphicsObjectManager:
         cmd = TransmuteCommand(objects=objects,
                                stack=self.__page.objects(),
                                new_type=mode,
-                               selection_objects=self.__selection.objects,
+                               selection_objects=self.__page.selection().objects,
                                page = self.__page)
         self.__history.append(cmd)
 
@@ -3557,9 +3873,9 @@ class GraphicsObjectManager:
         Args:
             mode ( str ): The mode to transmute to.
         """
-        if self.__selection.is_empty():
+        if self.__page.selection().is_empty():
             return
-        self.transmute(self.__selection.objects, mode)
+        self.transmute(self.__page.selection().objects, mode)
 
     def set_objects(self, objects):
         """Set the list of objects."""
@@ -3570,11 +3886,10 @@ class GraphicsObjectManager:
     def set_pages(self, pages):
         """Set the content of pages."""
         self.__page = Page()
-        self.__page.objects(pages[0]['objects'])
+        self.__page.import_page(pages[0])
         for p in pages[1:]:
             self.__page = self.__page.next()
-            self.__page.objects(p['objects'])
-        self.__selection = self.__page.selection()
+            self.__page.import_page(p)
 
     def add_object(self, obj):
         """Add an object to the list of objects."""
@@ -3591,8 +3906,7 @@ class GraphicsObjectManager:
         # create a list of pages for all pages
         pages = [ ]
         while p:
-            objects = [ obj.to_dict() for obj in p.objects() ]
-            pages.append({ "objects": objects })
+            pages.append(p.export())
             p = p.next(create = False)
         return pages
 
@@ -3607,107 +3921,103 @@ class GraphicsObjectManager:
 
     def selected_objects(self):
         """Return the selected objects."""
-        return self.__selection.objects
+        return self.__page.selection().objects
 
     def remove_selection(self):
         """Remove the selected objects from the list of objects."""
-        if self.__selection.is_empty():
+        if self.__page.selection().is_empty():
             return
-        self.__history.append(RemoveCommand(self.__selection.objects,
+        self.__history.append(RemoveCommand(self.__page.selection().objects,
                                             self.__page.objects(),
                                             page=self.__page))
-        self.__selection.clear()
+        self.__page.selection().clear()
 
     def remove_objects(self, objects, clear_selection = False):
         """Remove an object from the list of objects."""
         self.__history.append(RemoveCommand(objects, self.__page.objects(), page=self.__page))
         if clear_selection:
-            self.__selection.clear()
+            self.__page.selection().clear()
 
     def remove_all(self):
         """Clear the list of objects."""
-        self.__history.append(RemoveCommand(self.__page.objects()[:],
-                                            self.__page.objects(),
-                                            page = self.__page))
+        self.__history.append(self.__page.clear())
 
     def command_append(self, command_list):
         """Append a group of commands to the history."""
-        ## append in reverse order
+        ## append in reverse order!
         self.__history.append(CommandGroup(command_list[::-1]))
 
     def selection_group(self):
         """Group selected objects."""
-        if self.__selection.n() < 2:
+        if self.__page.selection().n() < 2:
             return
-        print("Grouping", self.__selection.n(), "objects")
-        self.__history.append(GroupObjectCommand(self.__selection.objects,
+        print("Grouping", self.__page.selection().n(), "objects")
+        self.__history.append(GroupObjectCommand(self.__page.selection().objects,
                                                  self.__page.objects(),
-                                                 selection_object=self.__selection,
+                                                 selection_object=self.__page.selection(),
                                                  page=self.__page))
 
     def selection_ungroup(self):
         """Ungroup selected objects."""
-        if self.__selection.is_empty():
+        if self.__page.selection().is_empty():
             return
-        self.__history.append(UngroupObjectCommand(self.__selection.objects,
+        self.__history.append(UngroupObjectCommand(self.__page.selection().objects,
                                                    self.__page.objects(),
-                                                   selection_object=self.__selection,
+                                                   selection_object=self.__page.selection(),
                                                    page=self.__page))
 
     def select_reverse(self):
         """Reverse the selection."""
-        self.__selection.reverse()
+        self.__page.selection().reverse()
         self.__app.dm.mode("move")
 
     def select_all(self):
         """Select all objects."""
         if not self.__page.objects():
+            print("no objects found")
             return
 
-        self.__selection.all()
+        self.__page.selection().all()
         self.__app.dm.mode("move")
 
     def selection_delete(self):
         """Delete selected objects."""
         #self.__page.selection_delete()
-        if self.__selection.objects:
-            self.__history.append(RemoveCommand(self.__selection.objects,
+        if self.__page.selection().objects:
+            self.__history.append(RemoveCommand(self.__page.selection().objects,
                                                 self.__page.objects(), page=self.__page))
-            self.__selection.clear()
+            self.__page.selection().clear()
 
     def select_next_object(self):
         """Select the next object."""
-        self.__selection.next()
+        self.__page.selection().next()
 
     def select_previous_object(self):
         """Select the previous object."""
-        self.__selection.previous()
+        self.__page.selection().previous()
 
     def selection_fill(self):
-        """Fill the selected object."""
-        # XXX gom should not call dm directly
-        # this code should be gone!
-        color = self.__canvas.pen().color
-        for obj in self.__selection.objects:
-            obj.fill(color)
+        """Toggle the fill of the selected objects."""
+        for obj in self.__page.selection().objects:
+            obj.fill_toggle()
 
     def selection_color_set(self, color):
         """Set the color of the selected objects."""
-        if not self.__selection.is_empty():
-            self.__history.append(SetColorCommand(self.__selection, color))
+        if not self.__page.selection().is_empty():
+            self.__history.append(SetColorCommand(self.__page.selection(), color))
 
     def selection_font_set(self, font_description):
         """Set the font of the selected objects."""
         # XXX: no undo!
-        self.__history.append(SetFontCommand(self.__selection, font_description))
-       #for obj in self.__selection.objects:
+        self.__history.append(SetFontCommand(self.__page.selection(), font_description))
+       #for obj in self.__page.selection().objects:
        #    obj.pen.font_set_from_description(font_description)
 
     def selection_apply_pen(self):
         """Apply the pen to the selected objects."""
-        if not self.__selection.is_empty():
+        if not self.__page.selection().is_empty():
             pen = self.__canvas.pen()
-            self.__history.append(SetPenCommand(self.__selection, pen))
+            self.__history.append(SetPenCommand(self.__page.selection(), pen))
 
     def redo(self):
         """Redo the last action."""
@@ -3741,9 +4051,9 @@ class GraphicsObjectManager:
 
     def move_selection(self, dx, dy):
         """Move the selected objects by the given amount."""
-        if self.__selection.is_empty():
+        if self.__page.selection().is_empty():
             return
-        self.move_obj(self.__selection.copy(), dx, dy)
+        self.move_obj(self.__page.selection().copy(), dx, dy)
 
     def rotate_obj(self, obj, angle):
         """Rotate the object by the given angle (degrees)."""
@@ -3754,23 +4064,23 @@ class GraphicsObjectManager:
 
     def rotate_selection(self, angle):
         """Rotate the selected objects by the given angle (degrees)."""
-        if self.__selection.is_empty():
+        if self.__page.selection().is_empty():
             return
-        self.rotate_obj(self.__selection, angle)
+        self.rotate_obj(self.__page.selection(), angle)
 
     def selection_zmove(self, operation):
         """move the selected objects long the z-axis."""
-        if self.__selection.is_empty():
+        if self.__page.selection().is_empty():
             return
-        self.__history.append(ZStackCommand(self.__selection.objects,
+        self.__history.append(ZStackCommand(self.__page.selection().objects,
                                             self.__page.objects(), operation, page=self.__page))
 
     def draw(self, cr, hover_obj = None, mode = None):
         """Draw the objects in the given context. Used also by export functions."""
 
-        for obj in self.__page.objects():
+        for obj in self.__page.objects_all_layers():
             hover    = obj == hover_obj and mode == "move"
-            selected = self.__selection.contains(obj) and mode == "move"
+            selected = self.__page.selection().contains(obj) and mode == "move"
             obj.draw(cr, hover=hover, selected=selected, outline = self.__canvas.outline())
 """
 This module provides functions to import and export drawings in various formats.
@@ -3799,7 +4109,9 @@ def convert_file(input_file, output_file, file_format = "all", border = None, pa
         if len(pages) < page:
             raise ValueError(f"Page number out of range (max. {len(pages)})")
         print("read drawing from", input_file, "with", len(pages), "pages")
-        objects = pages[page]['objects']
+        p = Page()
+        p.import_page(pages[page])
+        objects = p.objects_all_layers()
 
     print("read drawing from", input_file, "with", len(objects), "objects")
     objects = DrawableGroup(objects)
@@ -3925,7 +4237,12 @@ def read_file_as_sdrw(filename):
                 print("found pages in savefile")
                 pages = state['pages']
                 for p in pages:
-                    p['objects'] = [ Drawable.from_dict(d) for d in p['objects'] ] or [ ]
+                    # this is for compatibility; newer drawings are saved
+                    # with a "layers" key which is then processed by the
+                    # page import function - best if page takes care of it
+                    if "objects" in p:
+                        p['objects'] = [ Drawable.from_dict(d) for d in p['objects'] ] or [ ]
+                            
             config = state['config']
     except OSError as e:
         print(f"Error saving file due to a file I/O error: {e}")
@@ -4089,7 +4406,7 @@ class EventManager:
         """
         self.__actions = {
             'mode_draw':             {'action': dm.mode, 'args': ["draw"]},
-            'mode_box':              {'action': dm.mode, 'args': ["box"]},
+            'mode_rectangle':              {'action': dm.mode, 'args': ["rectangle"]},
             'mode_circle':           {'action': dm.mode, 'args': ["circle"]},
             'mode_move':             {'action': dm.mode, 'args': ["move"]},
             'mode_text':             {'action': dm.mode, 'args': ["text"]},
@@ -4105,6 +4422,7 @@ class EventManager:
 
             'clear_page':            {'action': dm.clear},
             'toggle_wiglets':        {'action': dm.toggle_wiglets},
+            'toggle_grid':           {'action': dm.toggle_grid},
 
             'show_help_dialog':      {'action': app.show_help_dialog},
             'app_exit':              {'action': app.exit},
@@ -4151,6 +4469,10 @@ class EventManager:
             'set_color_purple':      {'action': dm.set_color, 'args': [COLORS["purple"]]},
             'set_color_grey':        {'action': dm.set_color, 'args': [COLORS["grey"]]},
 
+            'set_brush_rounded':     {'action': dm.set_brush, 'args': ["rounded"] },
+            'set_brush_marker':      {'action': dm.set_brush, 'args': ["marker"] },
+            'set_brush_slanted':     {'action': dm.set_brush, 'args': ["slanted"] },
+
             'apply_pen_to_bg':       {'action': canvas.apply_pen_to_bg,        'modes': ["move"]},
             'toggle_pens':           {'action': canvas.switch_pens},
 
@@ -4178,6 +4500,10 @@ class EventManager:
             'prev_page':              {'action': gom.prev_page},
             'delete_page':            {'action': gom.delete_page},
 
+            'next_layer':             {'action': gom.next_layer},
+            'prev_layer':             {'action': gom.prev_layer},
+            'delete_layer':           {'action': gom.delete_layer},
+
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
 
 #            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
@@ -4202,7 +4528,7 @@ class EventManager:
         """
         self.__keybindings = {
             'm':                    "mode_move",
-            'b':                    "mode_box",
+            'r':                    "mode_rectangle",
             'c':                    "mode_circle",
             'd':                    "mode_draw",
             't':                    "mode_text",
@@ -4224,6 +4550,7 @@ class EventManager:
             'l':                    "clear_page",
             'o':                    "toggle_outline",
             'w':                    "toggle_wiglets",
+            'Ctrl-g':              "toggle_grid",
             'Alt-s':                "transmute_to_shape",
             'Alt-d':                "transmute_to_draw",
             'f':                    "selection_fill",
@@ -4261,9 +4588,16 @@ class EventManager:
             'Shift-y':              "set_color_yellow",
 #            'Shift-p':              "set_color_purple",
 
+            '1':                    "set_brush_rounded",
+            '2':                    "set_brush_marker",
+            '3':                    "set_brush_slanted",
+
             'Shift-p':              "prev_page",
             'Shift-n':              "next_page",
             'Shift-d':              "delete_page",
+            'Ctrl-Shift-p':         "prev_layer",
+            'Ctrl-Shift-n':         "next_layer",
+            'Ctrl-Shift-d':         "delete_layer",
 
             'Ctrl-e':               "export_drawing",
             'Ctrl-Shift-s':         "save_drawing_as",
@@ -4426,6 +4760,29 @@ They are used to provide interactive controls for changing drawing properties
 such as line width, color, and transparency.
 """
 
+def draw_rhomb(cr, bbox, fg = (0, 0, 0), bg = (1, 1, 1)):
+    """
+    Draw a rhombus shape
+    """
+    x0, y0, w, h = bbox
+    cr.set_source_rgb(*bg)
+    cr.move_to(x0, y0 + h/2)
+    cr.line_to(x0 + w/2, y0)
+    cr.line_to(x0 + w, y0 + h/2)
+    cr.line_to(x0 + w/2, y0 + h)
+    cr.close_path()
+    cr.fill()
+
+    cr.set_source_rgb(*fg)
+    cr.set_line_width(1)
+    cr.move_to(x0, y0 + h/2)
+    cr.line_to(x0 + w/2, y0)
+    cr.line_to(x0 + w, y0 + h/2)
+    cr.line_to(x0 + w/2, y0 + h)
+    cr.close_path()
+    cr.stroke()
+
+
 def adjust_color_brightness(rgb, factor):
     """
     Adjust the color brightness.
@@ -4552,7 +4909,7 @@ class WigletPageSelector(Wiglet):
         self.__page_n = self.__gom.number_of_pages()
         self.__height = self.__height_per_page * self.__page_n
         self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
-        self.__current_page = self.__gom.current_page_number()
+        self.__current_page_n = self.__gom.current_page_number()
 
     def on_click(self, x, y, ev):
         """handle the click event"""
@@ -4577,26 +4934,56 @@ class WigletPageSelector(Wiglet):
     def draw(self, cr):
         """draw the widget"""
         self.recalculate()
-        cr.set_source_rgb(0.5, 0.5, 0.5)
-        cr.rectangle(*self.__bbox)
-        cr.fill()
+
+        wpos = self.__bbox[0]
+        hpos = self.__bbox[1]
 
         for i in range(self.__page_n):
-            if i == self.__current_page:
+            cr.set_source_rgb(0.5, 0.5, 0.5)
+            cr.rectangle(wpos, hpos, self.__width, self.__height_per_page)
+            cr.fill()
+
+            if i == self.__current_page_n:
                 cr.set_source_rgb(0, 0, 0)
             else:
                 cr.set_source_rgb(1, 1, 1)
-            cr.rectangle(self.__bbox[0] + 1, self.__bbox[1] + i * self.__height_per_page + 1,
+
+            cr.rectangle(wpos + 1, hpos + 1,
                         self.__width - 2, self.__height_per_page - 2)
             cr.fill()
-            if i == self.__current_page:
+            if i == self.__current_page_n:
                 cr.set_source_rgb(1, 1, 1)
             else:
                 cr.set_source_rgb(0, 0, 0)
             cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
             cr.set_font_size(14)
-            cr.move_to(self.__bbox[0] + 5, self.__bbox[1] + i * self.__height_per_page + 20)
+            cr.move_to(wpos + 5, hpos + 20)
             cr.show_text(str(i + 1))
+
+            hpos += self.__height_per_page
+
+            # draw layer symbols for the current page
+            if i == self.__current_page_n:
+                page = self.__gom.page()
+                n_layers = page.number_of_layers()
+                cur_layer = page.layer_no()
+                cr.set_source_rgb(0.5, 0.5, 0.5)
+                cr.rectangle(wpos, hpos, self.__width, 
+                             n_layers * 5 + 5)
+                cr.fill()
+
+                hpos = hpos + n_layers * 5 + 5
+                for j in range(n_layers):
+                    # draw a small rhombus for each layer
+                    curpos = hpos - j * 5 - 10
+                    if j == cur_layer:
+                        # inverted for the current layer
+                        draw_rhomb(cr, (wpos, curpos, self.__width, 10),
+                                   (1, 1, 1), (0, 0, 0))
+                    else:
+                        draw_rhomb(cr, (wpos, curpos, self.__width, 10))
+
+
 
     def update_size(self, width, height):
         """update the size of the widget"""
@@ -4611,10 +4998,10 @@ class WigletToolSelector(Wiglet):
         self.__width, self.__height = width, height
         self.__icons_only = True
 
-        self.__modes = [ "move", "draw", "shape", "box",
+        self.__modes = [ "move", "draw", "shape", "rectangle",
                         "circle", "text", "eraser", "colorpicker" ]
         self.__modes_dict = { "move": "Move", "draw": "Draw", "shape": "Shape",
-                              "box": "Rectangle", "circle": "Circle", "text": "Text",
+                              "rectangle": "Rectangle", "circle": "Circle", "text": "Text",
                               "eraser": "Eraser", "colorpicker": "Col.Pick" }
 
         if self.__icons_only and width > len(self.__modes) * 35:
@@ -4860,6 +5247,8 @@ class DrawManager:
         self.__app = app
         self.__cursor = cursor
         self.__mode = "draw"
+        self.__grid = Grid()
+        self.__show_grid = False
 
         # objects that indicate the state of the drawing area
         self.__hover = None
@@ -4883,9 +5272,14 @@ class DrawManager:
         self.__translate = None
 
         # defaults for drawing
+    def toggle_grid(self):
+        """Toggle the wiglets."""
+        self.__show_grid = not self.__show_grid
+
     def toggle_wiglets(self):
         """Toggle the wiglets."""
         self.__show_wiglets = not self.__show_wiglets
+
 
     def show_wiglets(self, value = None):
         """Show or hide the wiglets."""
@@ -4919,17 +5313,22 @@ class DrawManager:
     def on_draw(self, widget, cr):
         """Handle draw events."""
         if self.__hidden:
-            print("I am hidden!")
             return True
 
         cr.save()
-        if self.__translate:
-            cr.translate(*self.__translate)
+        tr = self.__gom.page().translate()
+        if tr:
+            cr.translate(*tr)
 
         cr.set_source_rgba(*self.__canvas.bg_color(), self.__canvas.transparent())
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
+
+        if self.__show_grid:
+            tr = tr or (0, 0)
+            self.__grid.draw(cr, tr, self.__app.get_size())
+
         self.__gom.draw(cr, self.__hover, self.__mode)
 
         if self.__current_object:
@@ -5046,7 +5445,7 @@ class DrawManager:
         if ev.shift() and not ev.ctrl():
             mode = "text"
 
-        if not mode in [ "draw", "shape", "box", "circle", "text" ]:
+        if not mode in [ "draw", "shape", "rectangle", "circle", "text" ]:
             return False
 
         obj = DrawableFactory.create_drawable(mode, pen = self.__canvas.pen(), ev=ev)
@@ -5063,7 +5462,8 @@ class DrawManager:
         """Handle mouse button press events."""
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
         self.__modified = True # better safe than sorry
-        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+        ev = MouseEvent(event, self.__gom.objects(), 
+                        translate = self.__gom.page().translate())
 
         # Ignore clicks when text input is active
         if self.__current_object:
@@ -5207,7 +5607,8 @@ class DrawManager:
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         print("button release: type:", event.type, "button:", event.button, "state:", event.state)
-        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+        ev = MouseEvent(event, self.__gom.objects(), 
+                        translate = self.__gom.page().translate())
 
         if self.__paning:
             self.__paning = None
@@ -5246,7 +5647,7 @@ class DrawManager:
         # remove objects that are too small
         if obj:
             bb = obj.bbox()
-            if bb and obj.type in [ "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
+            if bb and obj.type in [ "rectangle", "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
                 print("removing object of type", obj.type, "because too small")
                 self.__current_object = None
                 obj = None
@@ -5327,7 +5728,8 @@ class DrawManager:
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
 
-        ev = MouseEvent(event, self.__gom.objects(), translate = self.__translate)
+        ev = MouseEvent(event, self.__gom.objects(), 
+                        translate = self.__gom.page().translate())
         x, y = ev.pos()
         self.__cursor.update_pos(x, y)
 
@@ -5401,10 +5803,13 @@ class DrawManager:
         if not self.__paning:
             return False
 
-        if not self.__translate:
-            self.__translate = (0, 0)
+        tr = self.__gom.page().translate()
+        if not tr:
+            tr = self.__gom.page().translate((0, 0))
         dx, dy = event.x - self.__paning[0], event.y - self.__paning[1]
-        self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
+        tr = (tr[0] + dx, tr[1] + dy)
+        self.__gom.page().translate(tr)
+        #self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
         self.__paning = (event.x, event.y)
         self.__app.queue_draw()
         return True
@@ -5462,8 +5867,16 @@ class DrawManager:
 #       if self.selection.n() > 0:
 #           for obj in self.selection.objects:
 #               obj.smoothen()
+
+    def set_brush(self, brush = None):
+        """Set the brush."""
+        if brush is not None:
+            print("setting pen", self.__canvas.pen(), "brush to", brush)
+            self.__canvas.pen().brush(brush)
+        return self.__canvas.pen().brush()
+
     def set_color(self, color = None):
-        """Set the color."""
+        """Get or set the color."""
         if color is None:
             return self.__canvas.pen().color
         self.__canvas.pen().color_set(color)
@@ -5490,20 +5903,15 @@ class Icons:
 
     def __new__(cls, *args, **kwargs):
         if cls.__new_instance is None:
-            print("creating new instance of Icons")
             cls.__new_instance = super(Icons, cls).__new__(cls)
-        else:
-            print("returning existing instance of Icons")
         return cls.__new_instance
 
     def __init__(self):
-        print("initializing Icons")
         self._icons = {}
         self._load_icons()
 
     def get(self, name):
         """Get the icon with the given name."""
-        print("getting icon", name)
         if name not in self._icons:
             print("icon not found")
             return None
@@ -5515,7 +5923,7 @@ class Icons:
         """
 
         icons = { "colorpicker": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAYAAABvCO8sAAACm0lEQVRIx7XWT4hVVRgA8N+ZGRuFnkgoEhMTITbZJsEg7I8WVIsQ0UELFxGNk6KbmFYtEqIsApNW4mbmRRRJi+i1UrNCFyahhbkIF9ngFKMp40yMohX2tTkjt/G+8s17c+Bu7v3O/XG+e75zv2SWRkTE9HsppZUds4WllL7GZQxgCVZHxLGOWcKOYSyqlY1YC6lv8hC0NfPi4ihgx3EqY8UxHzqaWMUr2IyfUMv3DuBoVCtvlkxbDKkJ8Aj2YAPOYByrolpZc9Nm6Zv8AQsjoqutic/1I3bhT9yN3jrYW5gbEV0ppZSa3Bz7sDTvhe/xYFQrywvY53gkIhY2Y03V2Bpcwa/4Aidziv+KaiUwgi/L6nEmWC+uZ/BevJjRU9iBg9jfKmwFruEqni48fgz7MJQ30gc4NGM0T1yGCzmND5SEPZdX+Q6ewi8zAvOkroz9hnvqhPbgW5zHaYw0DOYJnfgZO9FdJ3QAYzm+He/i44bAHNyNsxmrN7oLmOlHXiPYC/nE3wn9ajF1FULvK6Su/f/em/6jqPtzWjbgq2kIGLTuCXyUT5HOfOo0BmbsNTyLT/B2GTa0YPtnMTF6f0T0pJTa8fetZK6tBHs519RDnds+/LQMe7/79RMxMbooY3NvFfsXmLEBrMfG+YNx1/N7K6dvwnreO3t95OSliHg0pXQb/mhk16cC9hL68GS/2pWy4KFFAxfi4vDRiFjfSBrrpXQrnqmHVe989VpcHK5lLM0Eg468ut040a82Xrqy2zdPxrmxXRHxRlO/mUKLsVZq61VSpoNzNv3u8tXDGZvXikZr+MYHXfr4xFRhz1m95TspfYPRXNSpFVjCJdxRaBvm4RwWRMSy3MC2BLtRDu1LHh6f+pVMOwc7W923/gMDooiVvplNJAAAAABJRU5ErkJggg==",
-                 "box": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAaCAMAAACTisy7AAACdlBMVEW+gFX///8AAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////7//////v3///////////////////////////////////////////////////////7///////////////////////////////////////+0tLRwcXByc3FxcnB/gH7s7et0dHQAAAANABoPAB0NABwjEDHCrtDy6Pl1dnULABdVAJZeAKVdAKRdAKVfAqZqC7K1hdkMABlcAKJlALJoB7NqCrRnBrFhAKtjAK9hAK+vfNZbAKFmA7Lbw+3ZwOzcxO+agaweAjRTAJJjALGwfNdnBLLRs+f///+rrq0DAQhMAIevfNjPsef/+/b/1pj/zID/zYH/z4PXpVmEUBBrE4phALOvY5n/z4H/zYP/3q3/+O3/rjX/mwf/nQn/nAn/ngr7mRWIJItfALWvTGD/nwf/mwX/vlz/rzj/nQr/ng34lxWHJItgALWvTGH/oAv/v17Qsef/+e7Fptzy9PLx6t/8rTVcAKFkAa9BJFgwNC5BOy7cjRH/ogr/oQr6mRKIJIp0dXMKABdkAK86AGgmAEYzBEmiSlG+W1O9WlO9W1K5Vld4FZtgALTCw8GDc5BmCaxiAK9jALBiALKuS2Lu4fiMQcSALr6BL7+BLruBIJqBHZJ/G5S+W1L9/P717/r07fr07vv05un0o0H0khb0kxj0kxn5mBP/sDj/nwz/rjb/nAf/mwb//Pb/2J7/z4j/0In/z4f/4LGPZS+MAAAAAXRSTlMAQObYZgAAATVJREFUKM9jYMALODi50AA3QpLPytoGGdja2XPAJQUdHJ2ckYCLq5u7EFzSw9PL2wcBfP38A0QQkoFBwSGhMBAWHhEZhSwZHRMQGwcB8QmJSckposiSqWnpMJCRmZWcLcUpLSMjC5PMSc/Nyy8AgsKi4pLSsvKKioJKeYRkVXVNLRDU1Tc0NjW31Na2tikiSbZ3dIJBV3dPb19nZ10/FSQnpE/ELTlp8pSpOCSnTZ8xc9bsOXPBYN58ZMkFC6MXLV6ydNnyFSCwctXqNQhJ5bXr1m/YuDG5FAY2rdkMl1RV27J12/btO3bugoHde+CSDBp79+3ff+DgocNHoODosU64JIOmlpa2zsTj9SdgoBNJEgzggQAFqJInT3Ugg9NtSJJnzp47jwwuXNRHSBoaoQEpY/xJGgDtYfX0n9HvoQAAAABJRU5ErkJggg==",
+                 "rectangle": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAaCAMAAACTisy7AAACdlBMVEW+gFX///8AAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////7//////v3///////////////////////////////////////////////////////7///////////////////////////////////////+0tLRwcXByc3FxcnB/gH7s7et0dHQAAAANABoPAB0NABwjEDHCrtDy6Pl1dnULABdVAJZeAKVdAKRdAKVfAqZqC7K1hdkMABlcAKJlALJoB7NqCrRnBrFhAKtjAK9hAK+vfNZbAKFmA7Lbw+3ZwOzcxO+agaweAjRTAJJjALGwfNdnBLLRs+f///+rrq0DAQhMAIevfNjPsef/+/b/1pj/zID/zYH/z4PXpVmEUBBrE4phALOvY5n/z4H/zYP/3q3/+O3/rjX/mwf/nQn/nAn/ngr7mRWIJItfALWvTGD/nwf/mwX/vlz/rzj/nQr/ng34lxWHJItgALWvTGH/oAv/v17Qsef/+e7Fptzy9PLx6t/8rTVcAKFkAa9BJFgwNC5BOy7cjRH/ogr/oQr6mRKIJIp0dXMKABdkAK86AGgmAEYzBEmiSlG+W1O9WlO9W1K5Vld4FZtgALTCw8GDc5BmCaxiAK9jALBiALKuS2Lu4fiMQcSALr6BL7+BLruBIJqBHZJ/G5S+W1L9/P717/r07fr07vv05un0o0H0khb0kxj0kxn5mBP/sDj/nwz/rjb/nAf/mwb//Pb/2J7/z4j/0In/z4f/4LGPZS+MAAAAAXRSTlMAQObYZgAAATVJREFUKM9jYMALODi50AA3QpLPytoGGdja2XPAJQUdHJ2ckYCLq5u7EFzSw9PL2wcBfP38A0QQkoFBwSGhMBAWHhEZhSwZHRMQGwcB8QmJSckposiSqWnpMJCRmZWcLcUpLSMjC5PMSc/Nyy8AgsKi4pLSsvKKioJKeYRkVXVNLRDU1Tc0NjW31Na2tikiSbZ3dIJBV3dPb19nZ10/FSQnpE/ELTlp8pSpOCSnTZ8xc9bsOXPBYN58ZMkFC6MXLV6ydNnyFSCwctXqNQhJ5bXr1m/YuDG5FAY2rdkMl1RV27J12/btO3bugoHde+CSDBp79+3ff+DgocNHoODosU64JIOmlpa2zsTj9SdgoBNJEgzggQAFqJInT3Ugg9NtSJJnzp47jwwuXNRHSBoaoQEpY/xJGgDtYfX0n9HvoQAAAABJRU5ErkJggg==",
                  "move":"iVBORw0KGgoAAAANSUhEUgAAABwAAAAZCAYAAAAiwE4nAAAFKUlEQVRIx82WfWyV5RnGf8973p6ecvr9QVtKi622sdDSxiGooFCUDzdHYgzOZRMTY/xgLINsSkwUzdRADMZkC8YxNH5MplUajMygVqAM6BCC8Qs0tlAp3dmhHNrz0fac03Peyz/s6QrSQmJcdv/1PHnu57ne676u+84L/+MwAJL0gx4xxlxqrh2Px1PJL6Y+YCQmATYgoB/oBM6O7BNAEDgFHJSkSwU1khSLxQL/bD1YEDyUTTKcjjAgGI4mcRLCSjPklXnIK/NguQzGBRnZdjJvqieSX57R7c1P+wL4xaWwtgHe3fmPgt//+imui6zh8pI+CopOgwy2PYzLlSSZtDkZzGcomolkkCySjscld25OztS8nPLG3Lor5uZSWJkxUHplVn9mofuV8VjbAGm2u7/f6ckNE2B6XYez/I5XLclgjDBGSIZ43E089h17xzHEY+mcOVPAya4KOturad46nVgix7vs8Rrv0oeqbxhXQ4AZ02cECktzckOdvUSjGQnLctLG6mmM8GQM4ckYGr0Yi3qIxdMpLg0wMFDA8eNR3PmTmDYrByAwEWB2ZWVlqKSsmP7OUwSDNe5Ewsa2E+dm6r/VkQxvb7+NvXsWEhyO0KfTFDcEuOuJmcO1CyfvApaNp6FljAkD1NRU08dx/uMvJBzKAaMJ2kBMmdKD2x0npCCNd6fz6Pbl3TfcMmsVsGQix1qpRUNDAyFO4e+38ftLJgQEmHd9G/ev/BMLaodIfjCDfRsG8o619t54sb62U4v6uplhV1Y0KxAO4esp58q6Ty/aUzW1R5la3s2Rwz+hbWdT5hc7625vvLU8fN2Ksu0p0PPZjgJWVFT48oqzs4Lh05z2l4BjXbyLHYtJ3gjzFuyh8aqPOXTwana/sTjrWOv0O+f8qtw3+47S77VHCnBSVVXVYMmUyYQ6/AQC00gmbFyu5DlGMZZzjnlGzSRDZlaIpkWtzGz4lL175rNnY1Pp0fer1y5cddmxEbbZxphwikYUYEpZKYMECIczGR5OG9Vx965F/P21u+g7WwCWc2G2MuBYFBT1cuvyt1j5m40Mfb2P7Y9+Vdv/76gDPCsp2xqpswDy8/MZZohY3E0y6QLL4ZuuSna881N27LqWl164j+6uSjDO+KaSASMkMRDNpqapgMxCtwXcDFSeI1Sm10ucMIND6cRjHjq+rOVvL9+DzzVAm1nPzqNxNv15NR++/zMi4ezv2J4PbEQk7KX5jdsobGhk2bpqbLcFsBU4Zo/NraiYRoRt9IYMe9sW0t4+C1NVyoOv1jK5pYPXXthMT+AaTr5+M4cPzWF+UysNjUfI8EZGTSbH4oP3FtEbuYaVT9aQVeQB6AZeN8bEx5hCam8/ECvKLdXPWa/7TIs2Lm3TyQ5fUtKmaDT63LaWbYMLFsxXoatKV3OvVrhe1DO1G/TZmnlKbsmRXvLqwD2LtTq3Wbuf69JIJCT97vull+Tz+Trq6+t1FSu0tuo9dR3uC0p6RGPC7/cf+cvm5zV79hwVmRrNY40eyHhZby65X5+snqu1hVvU/IejSsSd1JUWSZkXAkyTpHWPrdOc+vna1fJRQtKD50+NkUce7unp+XrD0+tVWXG5pjFXt7NJv3Vv1TM37VfkbDwF9rmkGeP2sSQNDg6q90yvkk5ix3gjagzhPx5oP3BqydLFyucy/bLqSXX+K5A680m6acLBIal4bPkuNmhSeSdOnGj+65bNw/v37xur26of7U9sBOShEVZJSVsvqNuPAJqKIv5f4lttCtvxW3g8aQAAAABJRU5ErkJggg==",
                  "text":"iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAQAAADFASenAAACtklEQVQ4y42US2iTWRiGn5M//RuTXmK1l4xVK0gRb2hxiooywwiKNwQXdlEVQUUUEaSIIIK3zUCHKY6goqAuRzfKaMWFFUXd1GEQaqFQ8JK0SUNsQo1JTW3yuqi1Nhc7z/blPec73/d+xwAE8fGMo5RymjjjbKaYvbTioZ9a8vIK8e63dExx5ZBcIJTHY+AtXsq9xKrCPLVGDWTIZBwOBxqqXrm6w/W5ZCghqrKMDijFhlhLMlL9flns04dAZE14Z0VDoi/sTjb853o8VPTRzWi+QoPISI2i3TFfkpw3bR28JElswn9SkgjkuBxQAnOhp4/j6d5fDAhIAz6jdlo7gOFZ7nxGC0bB1aIuY5LfSSGM0V+Jw5DJmByjEyzog/DN5VmqH7BMWuAOZfIZw6SxjLhDXY7cR78RjjwDccJcCvMTUcQIMV4DCcqBDHVjbyxMBOGhoqhGC5lHJ4tlT/fiGm9OYWbyELuEkZbHEmrSrnPV0VIbAmOlFsbPovn0bhvs+NX/cs3zuws6T7QOH0uVmFjujZMb+y++3uVb/aes1D9lbV1P7scT1zrBk33+H0ARknXL1v6LUhX7GAt6TdJ7RZI826UebmXnSNhIbKAbzbvPCslGnEXyfZxxRapBksrYMj6OcQZJ6WDb+ntppzAbl666fSSluLEBRwYDv2MMwL3sUqPkbuMnLiDVxmdelW5wniD9ud2IMp0Qn7+FuAI3KVxIlbJeDDQCBIs1UssUBBlFTmlZrzNkqTK6sP3AOekdU/KWZqTNz1lfW+8+PaNjbZME3VMbB5HaHlU2T7z4/NedmSJyRcCAJ/IC6hvLzixpgN3AnIntKISAYpsy8B56syf9M/Twv4igadKKPyVpyd/rHkhdk/exEG4Cw7PZ4Vt3PfS6es7Dpskfyw8IcJmXE6FABL9TvwD2d2QO1hAt8wAAAABJRU5ErkJggg==",
                  "eraser":"iVBORw0KGgoAAAANSUhEUgAAABwAAAAaCAYAAACkVDyJAAAFj0lEQVRIx62Wa1CUVRzGn3PevS+wCywXXdmFdVPMuClU462UFEUJrzGNqTM0jFPQ2DSmH5ypkWo0bZokGx0LY6ycIacMAnWUBtAmLxiChHKTqwqoqMCy7L67+/770GqIkKidj+cyv/M85/wvDE8xiIhGW2OMsZHmZU8DYyx1tlzw5E4z9wtygXraelS+Xb0KhcvDj927zHCw7ClgC/w14nebk9vDN8y/1qtSSL4DDsFx5oqf36lGXWacee71qnafA8PB7Mlgy2LDDbb8bStbJqcl3CDGIYKgBABwAhjo9zr9rfmfRcPhYi0AdhIVHWKMMdnjw5ZPnGa+m/fx8pbJi6J7AGLsPgwAJAZwYjf65G6PW8784Rdsh337Y1vqtTFx3czOvPeSOmZHh9kAGsEgTrh8TYuthWbDVIrpj0OMphOdmhi25TUiItnYYa/uTo27+fPWpa06c9AgILFB74XbACgAmMCJrt9Wiht/jFC0dphrliHKIIPMFIYwuOBKG5NCL6zSFOBI2rayReWF9QNoAWAEcAnAi+CEM4066Z2DE90tLZbBJMwNVUAxDoCjC129NaixPhLohTUqBOnsb5uquTXE/iYk5gHgADDJez4ZnGTHa/zx1vdWp617UnsiZobroNMDQBvabpWi1OOCWAYgRvYIWM0zIfZzlR/+6fRRuzNATPJCgoa+2V8dPtInB2dyn+7I1jl4TiWHXA0AfehDBSoCXXDmEBVvHvWX/gNL2fdy5N1Vh7NqXT5qTxzoocxBYGCDTgGfFkzmPp2JjkiEBEmQgggEF1yoQpV4B7e3ERVn34tDPspv3PiCpW/1/vR6f73WPQ30QLwOAKgHYAcj5J8z4Gh1yF09fCQCBQKABInO47y7AQ0FREXZQ7MNH0HZ5yq5+/0tS9o9EcGD9SD0DdlSDmALgAFw0pZe0uOjQotodEXWaqB2E4hz8O4udN1qRKNNosJVw1MbH5ZBIgG8YfARlXFmmxycnGAkDNkfAoZ0MIoprgqwv/ttPIJuzkU8YqcD8GNgHa1o3VqK0itO+knPWYpyuIPCPZggMCVR81qNVhs+wTTlSOt1J7t+S5iuU0uOAF93OwRygGGCy82xvdh054v8l3wn9i6QWWAWOLhMgiRWo/rcKZyc46LDCYylRAFFnQ9VkX/VsQ0mk2lnTs4uZ2rq0saGphudG7J2W2ovVBvUrL9kaujdukWxNhw4HWo+02BYlIzFulAEayRI8MCDSlRKF3GxU6JCI2MpBqCoZ8Sy5YXNZ4zl7tmzx3/9+vW9AL4GEDM4KCb8cbpu/OVLHcKZsw3iLwWlfQP9zoEYPH8hAfEJAMo5eHwzmieVoazDRYfDRquDD7wh53yXUqnUNzQ03Kyvr9cAWA5AUKsVNYnzoo9nZS2uyv0mU/HKPKVBjnZ7NKJjGNivHPyYA47AJjT1jgV2H2i1Wi2ZmZl+FRUVloULF6rS0tJ0BQUFJlEU1QCMoigGHzlSDLv9zqBWpTL1oTccQJId9t1XcbWuhb7UMTZFGEteZkREERERTWvWrGHjx48Pr66u5iUlJVebmpqcGo3mbHJy8hXOeWZ6enrgrFkz7Tt2HHbvyz4p6KEX7LDvb6Ov3h6LsuF9yb4ZM2bYc3JyKDc3l/bu3Xs7Kyur1mg0NgMYyMjIcNhsNjcRieXlF3sE2RIbkFz6Xz3NaEPGGGNERCqV6gOZTPZ6QkLCFKPR6B8VFeVvsVi68/Ly+IoVK5RarRYOh0M4ejTf1+NuPEhUt+6xlA0twPegjLGw2traVQEBAau1Wu10q9Xa3N/fL544ceJZq9UqZmdnGw8dOlRGZH8i2Ij2em0aB2CTt9b1CILQrNPpagD88CQ2PhT4o/WbjLF4AEsBxAK4TURrn1YZe5xG9/+w8W8l9atrgG4MXQAAAABJRU5ErkJggg==",
@@ -5531,15 +5939,52 @@ This module contains the Page class, which is a container for objects.
 """
 
 
-class Page:
+class Layer:
     """
-    A page is a container for objects.
+    A layer is a container for objects.
     """
-    def __init__(self, prev = None):
-        self.__prev    = prev
-        self.__next = None
+    def __init__(self):
         self.__objects = []
         self.__selection = SelectionObject(self.__objects)
+
+    def objects(self, objects = None):
+        """Return or set the list of objects on the layer."""
+        if objects:
+            self.__objects = objects
+            self.__selection = SelectionObject(self.__objects)
+        return self.__objects
+
+    def objects_import(self, object_list):
+        """Import objects from a dict"""
+        self.objects([ Drawable.from_dict(d) for d in object_list ] or [ ])
+
+    def selection(self):
+        """Return the selection object."""
+        return self.__selection
+
+    def kill_object(self, obj):
+        """Directly remove an object from the list of objects."""
+        if obj in self.__objects:
+            self.__objects.remove(obj)
+
+    def export(self):
+        """Exports the layer as a dict"""
+        return [ obj.to_dict() for obj in self.__objects ]
+
+class Page:
+    """
+    A page is a container for layers.
+
+    It serves as an interface between layers and whatever wants to
+    manipulate objects or selection on a layer by choosing the current
+    layer and managing layers.
+    """
+    def __init__(self, prev = None, layers = None):
+        self.__prev    = prev
+        self.__next = None
+        self.__layers = [ layers or Layer() ]
+        self.__current_layer = 0
+        self.__translate = None
 
     def next(self, create = True):
         """
@@ -5570,27 +6015,159 @@ class Page:
             print("only one page remaining")
             return self
 
-        if self.__prev:
-            self.__prev.next_set(self.__next)
-        if self.__next:
-            self.__next.prev_set(self.__prev)
-        return self.__prev or self.__next
+        cmd = DeletePageCommand(self, self.__prev, self.__next)
+        ret = self.__prev or self.__next
+
+        return ret, cmd
 
     def objects(self, objects = None):
         """Return or set the list of objects on the page."""
-        if objects:
-            self.__objects = objects
-            self.__selection = SelectionObject(self.__objects)
-        return self.__objects
+        layer = self.__layers[self.__current_layer]
+        return layer.objects(objects)
+
+    def objects_all_layers(self):
+        """Return all objects on all layers."""
+        objects = [ obj for layer in self.__layers for obj in layer.objects() ]
+        return objects
 
     def selection(self):
         """Return the selection object."""
-        return self.__selection
+        layer = self.__layers[self.__current_layer]
+        return layer.selection()
 
     def kill_object(self, obj):
         """Directly remove an object from the list of objects."""
-        if obj in self.__objects:
-            self.__objects.remove(obj)
+        layer = self.__layers[self.__current_layer]
+        layer.kill_object(obj)
+
+    def number_of_layers(self):
+        """Return the number of layers."""
+        return len(self.__layers)
+
+    def next_layer(self):
+        """Switch to the next layer."""
+        print("appending a new layer")
+        self.__current_layer += 1
+        if self.__current_layer == len(self.__layers):
+            self.__layers.append(Layer())
+        self.__layers[self.__current_layer].selection().all()
+        return self.__current_layer
+
+    def prev_layer(self):
+        """Switch to the previous layer."""
+        self.__current_layer = max(0, self.__current_layer - 1)
+        self.__layers[self.__current_layer].selection().all()
+        return self.__current_layer
+
+    def layer(self, new_layer = None, pos = None):
+        """
+        Get or insert the current layer.
+
+        Arguments:
+        new_layer -- if not None, insert new_layer and set
+                     the current layer to new_layer.
+        pos -- if not None, insert a new layer at pos.
+        """
+        if new_layer is not None:
+            if pos is not None and pos < len(self.__layers):
+                self.__layers.insert(pos, new_layer)
+                self.__current_layer = pos
+            else:
+                self.__layers.append(new_layer)
+                self.__current_layer = len(self.__layers) - 1
+
+        return self.__layers[self.__current_layer]
+
+    def layer_no(self, layer_no = None):
+        """Get or set the current layer."""
+        if layer_no is None:
+            return self.__current_layer
+
+        layer_no = max(0, layer_no)
+
+        if layer_no >= len(self.__layers):
+            self.__layers.append(Layer())
+
+        self.__current_layer = layer_no
+        return self.__current_layer
+
+    def delete_layer(self, layer_no = None):
+        """Delete the current layer."""
+
+        if len(self.__layers) == 1:
+            return None
+
+        if layer_no is None or layer_no < 0 or layer_no >= len(self.__layers):
+            layer_no = self.__current_layer
+
+        layer = self.__layers[layer_no]
+        pos   = layer_no
+
+        del self.__layers[layer_no]
+
+        self.__current_layer = max(0, layer_no - 1)
+        self.__current_layer = min(self.__current_layer,
+                                   len(self.__layers) - 1)
+
+        cmd = DeleteLayerCommand(self, layer, pos)
+
+        return cmd
+
+    def translate(self, new_val = None):
+        """Get or set the translate"""
+        if new_val is not None:
+            self.__translate = new_val
+        return self.__translate
+
+    def translate_set(self, new_val):
+        """Set the translate"""
+        self.__translate = new_val
+        return self.__translate
+
+    def export(self):
+        """Exports the page with all layers as a dict"""
+        layers = [ l.export() for l in self.__layers ]
+        ret = {
+                 "layers": layers,
+                 "translate": self.translate(),
+                 "cur_layer": self.__current_layer
+              }
+        return ret
+
+    def import_page(self, page_dict):
+        """Imports a dict to self"""
+        print("importing pages")
+        self.__translate = page_dict.get("translate")
+        if "objects" in page_dict:
+            self.objects(page_dict["objects"])
+        elif "layers" in page_dict:
+            print(len(page_dict["layers"]), "layers found")
+            print("however, we only have", len(self.__layers), "layers")
+            print("creating", len(page_dict["layers"]) - len(self.__layers), "new layers")
+            self.__current_layer = 0
+            for _ in range(len(page_dict["layers"]) - len(self.__layers)):
+                self.next_layer()
+            self.__current_layer = 0
+            for l_list in page_dict["layers"]:
+                layer = self.__layers[self.__current_layer]
+                layer.objects_import(l_list)
+                self.__current_layer += 1
+
+        cl = page_dict.get("cur_layer")
+        self.__current_layer = cl if cl is not None else 0
+
+    def clear(self):
+        """
+        Remove all objects from all layers.
+
+        Returns a CommandGroup object that can be used to undo the
+        operation.
+        """
+        ret_commands = []
+        for layer in self.__layers:
+            cmd = RemoveCommand(layer.objects()[:], layer.objects(), page = self)
+            ret_commands.append(cmd)
+        return CommandGroup(ret_commands[::-1])
 """
 Canvas for drawing shapes and text.
 
@@ -5662,6 +6239,214 @@ class Canvas:
         if value:
             self.__transparency = value
         return self.__transparency
+
+
+"""Class for different brushes."""
+
+class BrushFactory:
+    """
+    Factory class for creating brushes.
+    """
+    @classmethod
+    def create_brush(cls, brush_type):
+        """
+        Create a brush of the specified type.
+        """
+
+        print("BrushFactory brush type:", brush_type)
+
+        if brush_type == "rounded":
+            return BrushRound()
+
+        if brush_type == "slanted":
+            return BrushSlanted()
+
+        if brush_type == "marker":
+            print("returning marker brush")
+            return Brush(rounded = False)
+
+        return Brush()
+
+class Brush:
+    """Base class for brushes."""
+    def __init__(self, rounded = False):
+        self.__outline = [ ]
+        self.__coords = [ ]
+        self.__pressure = [ ]
+        self.__rounded = rounded
+        self.__outline = [ ]
+
+    def coords(self, coords = None):
+        """Set or get brush coordinates."""
+        if coords is not None:
+            self.__coords = coords
+        return self.__coords
+
+    def outline(self, new_outline = None):
+        """Get brush outline."""
+        if new_outline is not None:
+            self.__outline = new_outline
+        return self.__outline
+
+    def pressure(self, pressure = None):
+        """Set or get brush pressure."""
+        if pressure is not None:
+            self.__pressure = pressure
+        return self.__pressure
+
+    def bbox(self):
+        """Get bounding box of the brush."""
+        return path_bbox(self.__outline)
+
+    def draw(self, cr):
+        """Draw the brush on the Cairo context."""
+        if not self.__outline or len(self.__outline) < 4:
+            return
+        cr.move_to(self.__outline[0][0], self.__outline[0][1])
+        for point in self.__outline[1:]:
+            cr.line_to(point[0], point[1])
+        cr.close_path()
+
+    def calculate(self, line_width, coords, pressure = None):
+        """Recalculate the outline of the brush."""
+        pressure = pressure or [1] * len(coords)
+
+        lwd = line_width
+
+        if len(coords) < 3:
+            return None
+
+        #print("1.length of coords and pressure:", len(coords), len(pressure))
+        coords, pressure = smooth_path(coords, pressure, 20)
+        #print("2.length of coords and pressure:", len(coords), len(pressure))
+
+        outline_l, outline_r = calc_normal_outline(coords, pressure, lwd, self.__rounded)
+
+        #outline_l, _ = smooth_path(outline_l, None, 20)
+        #outline_r, _ = smooth_path(outline_r, None, 20)
+        outline  = outline_l + outline_r[::-1]
+
+        if len(coords) != len(pressure):
+            #raise ValueError("Pressure and coords don't match")
+            print("Pressure and coords don't match:", len(coords), len(pressure))
+        self.__outline = outline
+        return outline
+
+class BrushRound(Brush):
+    """Round brush."""
+    def __init__(self):
+        super().__init__(rounded = True)
+
+class BrushSlanted(Brush):
+    """Slanted brush."""
+    def __init__(self):
+        super().__init__()
+
+        self.__slant = (-0.4, 0.6, 0.3, - 0.6)
+
+    def calculate(self, line_width, coords = None, pressure = None):
+        """Recalculate the outline of the brush."""
+        print("calculating slanted brush")
+
+        outline_l, outline_r = [ ], [ ]
+        coords, pressure = smooth_path(coords, pressure, 20)
+
+        dx0, dy0, dx1, dy1 = [ x * line_width for x in self.__slant ]
+        slant_vec   = (dx0 - dx1, dy0 - dy1)
+
+        p_prev = coords[0]
+        x, y = coords[0]
+        outline_l.append((x + dx0, y + dy0))
+        outline_r.append((x + dx1, y + dy1))
+        prev_cs_angle = None
+
+        i = 0
+        for p in coords[1:]:
+            x, y = p
+            coord_slant_angle = calculate_angle2((x - p_prev[0], y - p_prev[1]), slant_vec)
+
+            # avoid crossing of outlines
+            if prev_cs_angle is not None:
+                if prev_cs_angle * coord_slant_angle < 0:
+                    outline_l, outline_r = outline_r, outline_l
+
+            prev_cs_angle = coord_slant_angle
+
+            outline_l.append((x + dx0, y + dy0))
+            outline_r.append((x + dx1, y + dy1))
+            p_prev = p
+            i += 1
+
+        #outline_l, outline_r = remove_intersections(outline_l, outline_r)
+        print("calculated outline for n=", len(coords), "points")
+        print("length left: ", len(outline_l), "length right:", len(outline_r))
+        outline = outline_l + outline_r[::-1]
+        self.outline(outline)
+
+        print("done calculating slanted brush")
+        return outline
+"""Grid class for drawing a grid on screen"""
+
+class Grid:
+    """
+    Grid object holds information about how tight a grid is, and how it is drawn.
+
+    app is a necessary argument, because Grid needs to know the current size of 
+    the screen to draw the grid properly.
+    """
+    def __init__(self):
+        self.__spacing = 10
+        self.__tocks  = 5
+        self.__origin = (0, 0)
+        self.__color = (.2, .2, .2, .75)
+        self.__line_width = 0.2
+
+    def draw(self, cr, tr, size):
+        """Draw grid in the current cairo context"""
+
+        width, height = size
+        dx, dy = tr
+
+        x0 =  - int(dx / self.__spacing) * self.__spacing
+        y0 =  - int(dy / self.__spacing) * self.__spacing
+
+        cr.set_source_rgba(*self.__color)
+        cr.set_line_width(self.__line_width/2)
+
+        # draw vertical lines
+        x = x0
+        i = 1
+        while x < width + x0:
+            if i == 5:
+                cr.set_line_width(self.__line_width)
+                cr.move_to(x, y0)
+                cr.line_to(x, height + y0)
+                cr.stroke()
+                cr.set_line_width(self.__line_width/2)
+                i = 1
+            else:
+                cr.move_to(x, y0)
+                cr.line_to(x, height + y0)
+                cr.stroke()
+                i += 1
+            x += self.__spacing
+
+        # draw horizontal lines
+        y = y0
+        while y < height + y0:
+            if i == 5:
+                cr.set_line_width(self.__line_width)
+                cr.move_to(x0, y)
+                cr.line_to(width + x0, y)
+                cr.stroke()
+                cr.set_line_width(self.__line_width/2)
+                i = 1
+            else:
+                cr.move_to(x0, y)
+                cr.line_to(width + x0, y)
+                cr.stroke()
+                i += 1
+            y += self.__spacing
 
 
 
@@ -5904,7 +6689,7 @@ class TransparentWindow(Gtk.Window):
 
         if file_name:
             export_image(obj, file_name, file_format,
-                         bg = self.canvas.bg_color(), 
+                         bg = self.canvas.bg_color(),
                          bbox = bbox, transparency = self.canvas.transparent())
 
     def select_image_and_create_pixbuf(self):
@@ -5946,13 +6731,13 @@ class TransparentWindow(Gtk.Window):
     def __find_screenshot_box(self):
         """Find a box suitable for selecting a screenshot."""
         cobj = self.dm.current_object()
-        if cobj and cobj.type == "box":
+        if cobj and cobj.type == "rectangle":
             return cobj
         for obj in self.gom.selected_objects():
-            if obj.type == "box":
+            if obj.type == "rectangle":
                 return obj
         for obj in self.gom.objects()[::-1]:
-            if obj.type == "box":
+            if obj.type == "rectangle":
                 return obj
         return None
 
@@ -5998,7 +6783,8 @@ class TransparentWindow(Gtk.Window):
                 'show_wiglets': self.dm.show_wiglets(),
                 'bbox':        (0, 0, *self.get_size()),
                 'pen':         self.canvas.pen().to_dict(),
-                'pen2':        self.canvas.pen(alternate = True).to_dict()
+                'pen2':        self.canvas.pen(alternate = True).to_dict(),
+                'page':        self.gom.current_page_number()
         }
 
         #objects = self.gom.export_objects()
@@ -6032,6 +6818,7 @@ class TransparentWindow(Gtk.Window):
             self.dm.show_wiglets(show_wiglets)
             self.canvas.pen(pen = Pen.from_dict(config['pen']))
             self.canvas.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
+            self.gom.set_page_number(config.get('page') or 0)
         if config or objects:
             self.dm.modified(True)
             return True
@@ -6044,7 +6831,8 @@ class TransparentWindow(Gtk.Window):
 
 ## ---------------------------------------------------------------------
 
-if __name__ == "__main__":
+def main():
+    """Main function for the application."""
     APP_NAME   = "ScreenDrawer"
     APP_AUTHOR = "JanuaryWeiner"  # Optional; used on Windows
 
@@ -6130,3 +6918,6 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
     win.stick()
 
     Gtk.main()
+
+if __name__ == "__main__":
+    main()

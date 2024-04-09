@@ -222,6 +222,7 @@ class EventManager:
             'set_brush_rounded':     {'action': dm.set_brush, 'args': ["rounded"] },
             'set_brush_marker':      {'action': dm.set_brush, 'args': ["marker"] },
             'set_brush_slanted':     {'action': dm.set_brush, 'args': ["slanted"] },
+            'set_brush_pencil':      {'action': dm.set_brush, 'args': ["pencil"] },
 
             'apply_pen_to_bg':       {'action': canvas.apply_pen_to_bg,        'modes': ["move"]},
             'toggle_pens':           {'action': canvas.switch_pens},
@@ -250,6 +251,10 @@ class EventManager:
             'prev_page':              {'action': gom.prev_page},
             'delete_page':            {'action': gom.delete_page},
 
+            'next_layer':             {'action': gom.next_layer},
+            'prev_layer':             {'action': gom.prev_layer},
+            'delete_layer':           {'action': gom.delete_layer},
+
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
 
 #            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
@@ -261,12 +266,6 @@ class EventManager:
             'stroke_increase':       {'action': dm.stroke_change, 'args': [1]},
             'stroke_decrease':       {'action': dm.stroke_change, 'args': [-1]},
         }
-
-    def get_keybindings(self):
-        """
-        Returns the keybindings dictionary.
-        """
-        return self.__keybindings
 
     def make_default_keybindings(self):
         """
@@ -337,10 +336,14 @@ class EventManager:
             '1':                    "set_brush_rounded",
             '2':                    "set_brush_marker",
             '3':                    "set_brush_slanted",
+            '4':                    "set_brush_pencil",
 
             'Shift-p':              "prev_page",
             'Shift-n':              "next_page",
             'Shift-d':              "delete_page",
+            'Ctrl-Shift-p':         "prev_layer",
+            'Ctrl-Shift-n':         "next_layer",
+            'Ctrl-Shift-d':         "delete_layer",
 
             'Ctrl-e':               "export_drawing",
             'Ctrl-Shift-s':         "save_drawing_as",

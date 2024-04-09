@@ -1,28 +1,12 @@
-#!/usr/bin/env python3
+"""
+ScreenDrawer - a simple drawing program that allows you to draw on the screen
 
-##  MIT License
-##
-##  Copyright (c) 2024 January Weiner
-##
-##  Permission is hereby granted, free of charge, to any person obtaining a copy
-##  of this software and associated documentation files (the "Software"), to deal
-##  in the Software without restriction, including without limitation the rights
-##  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-##  copies of the Software, and to permit persons to whom the Software is
-##  furnished to do so, subject to the following conditions:
-##
-##  The above copyright notice and this permission notice shall be included in all
-##  copies or substantial portions of the Software.
-##
-##  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-##  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-##  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-##  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-##  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-##  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-##  SOFTWARE.
+Usage:
+  sd.py [options] [file.sdrw [file.[png, pdf, svg]]]
 
-# ---------------------------------------------------------------------
+See README.md for more information.
+"""
+
 import copy
 import pickle
 import traceback
@@ -70,12 +54,15 @@ from sd.gom import GraphicsObjectManager ###<placeholder sd/gom.py>
 from sd.import_export import *           ###<placeholder sd/import_export.py>
 from sd.em import *                      ###<placeholder sd/em.py>
 from sd.menus import *                   ###<placeholder sd/menus.py>
-###<placeholder sd/wiglets.py>
+from sd.wiglets import *                 ###<placeholder sd/wiglets.py>
 from sd.dm import *                      ###<placeholder sd/dm.py>
 from sd.icons import Icons               ###<placeholder sd/icons.py>
 from sd.page import Page                 ###<placeholder sd/page.py>
 from sd.canvas import Canvas             ###<placeholder sd/canvas.py>
 from sd.brush import Brush               ###<placeholder sd/brush.py>
+from sd.grid import Grid                 ###<placeholder sd/grid.py>
+from sd.texteditor import TextEditor     ###<placeholder sd/texteditor.py>
+from sd.imageobj import ImageObj         ###<placeholder sd/imageobj.py>
 
 
 # ---------------------------------------------------------------------
@@ -134,7 +121,7 @@ class TransparentWindow(Gtk.Window):
 
         # Drawing setup
         self.clipboard           = Clipboard()
-        self.canvas              = Canvas()
+        self.canvas              = Canvas(self)
         self.gom                 = GraphicsObjectManager(self, canvas=self.canvas)
         self.cursor              = CursorManager(self)
 
@@ -316,7 +303,7 @@ class TransparentWindow(Gtk.Window):
 
         if file_name:
             export_image(obj, file_name, file_format,
-                         bg = self.canvas.bg_color(), 
+                         bg = self.canvas.bg_color(),
                          bbox = bbox, transparency = self.canvas.transparent())
 
     def select_image_and_create_pixbuf(self):
@@ -410,7 +397,8 @@ class TransparentWindow(Gtk.Window):
                 'show_wiglets': self.dm.show_wiglets(),
                 'bbox':        (0, 0, *self.get_size()),
                 'pen':         self.canvas.pen().to_dict(),
-                'pen2':        self.canvas.pen(alternate = True).to_dict()
+                'pen2':        self.canvas.pen(alternate = True).to_dict(),
+                'page':        self.gom.current_page_number()
         }
 
         #objects = self.gom.export_objects()
@@ -444,6 +432,7 @@ class TransparentWindow(Gtk.Window):
             self.dm.show_wiglets(show_wiglets)
             self.canvas.pen(pen = Pen.from_dict(config['pen']))
             self.canvas.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
+            self.gom.set_page_number(config.get('page') or 0)
         if config or objects:
             self.dm.modified(True)
             return True
@@ -456,7 +445,8 @@ class TransparentWindow(Gtk.Window):
 
 ## ---------------------------------------------------------------------
 
-if __name__ == "__main__":
+def main():
+    """Main function for the application."""
     APP_NAME   = "ScreenDrawer"
     APP_AUTHOR = "JanuaryWeiner"  # Optional; used on Windows
 
@@ -480,10 +470,18 @@ if __name__ == "__main__":
                         help="""
 Convert screendrawer file to given format (png, pdf, svg) and exit
 (use -o to specify output file, otherwise a default name is used)
-"""
+""",
+                        metavar = "FORMAT"
     )
+    parser.add_argument("-p", "--page", help="Page to convert (default: 1)", 
+                        type=int, default = 1)
 
-    parser.add_argument("-b", "--border", help="Border width for conversion", type=int)
+    parser.add_argument("-b", "--border", 
+                        help="""
+                             Border width for conversion. If not
+                             specified, whole page will be converted.
+                             """, 
+                        type=int)
     parser.add_argument("-o", "--output", help="Output file for conversion")
     parser.add_argument("files", nargs="*")
     args     = parser.parse_args()
@@ -499,7 +497,11 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
         if not args.files:
             print("No input file provided")
             exit(1)
-        convert_file(args.files[0], OUTPUT, args.convert, border = args.border)
+        convert_file(args.files[0], 
+                     OUTPUT, 
+                     args.convert, 
+                     border = args.border, 
+                     page = args.page - 1)
         exit(0)
 
     if args.files:
@@ -507,7 +509,9 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
             print("Too many files provided")
             exit(1)
         elif len(args.files) == 2:
-            convert_file(args.files[0], args.files[1], border = args.border)
+            convert_file(args.files[0], args.files[1], 
+                         border = args.border, 
+                         page = args.page - 1)
             exit(0)
         else:
             savefile = args.files[0]
@@ -542,3 +546,6 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
     win.stick()
 
     Gtk.main()
+
+if __name__ == "__main__":
+    main()

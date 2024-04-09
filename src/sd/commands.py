@@ -65,6 +65,71 @@ class CommandGroup(Command):
         self.undone_set(False)
         return self.__page
 
+class DeletePageCommand(Command):
+    """
+    Simple class for handling deleting pages.
+
+    """
+    def __init__(self, page, prev_page, next_page):
+        super().__init__("delete_page", None)
+        self.__prev = prev_page
+        self.__next = next_page
+        self.__page = page
+
+        if self.__prev:
+            # set the previous page's next to our next
+            self.__prev.next_set(self.__next)
+        if self.__next:
+            # set the next page's previous to our previous
+            self.__next.prev_set(self.__prev)
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return None
+        if self.__prev:
+            self.__prev.next_set(self.__page)
+        if self.__next:
+            self.__next.prev_set(self.__page)
+        self.undone_set(True)
+        return self.__page
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return None
+        if self.__prev:
+            self.__prev.next_set(self.__next)
+        if self.__next:
+            self.__next.prev_set(self.__prev)
+        self.undone_set(False)
+        return self.__page
+
+class DeleteLayerCommand(Command):
+    """Simple class for handling deleting layers of a page."""
+    def __init__(self, page, layer, layer_pos):
+        """Simple class for handling deleting layers of a page."""
+        super().__init__("delete_layer", None)
+        self.__layer_pos = layer_pos
+        self.__layer = layer
+        self.__page  = page
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return None
+        self.__page.layer(self.__layer, self.__layer_pos)
+        self.undone_set(True)
+        return self.__page
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return None
+        self.__page.delete_layer(self.__layer_pos)
+        self.undone_set(False)
+        return self.__page
+
 class GroupObjectCommand(Command):
     """Simple class for handling grouping objects."""
     def __init__(self, objects, stack, selection_object = None, page = None):
@@ -628,7 +693,7 @@ class SetPropCommand(Command):
         super().__init__(mytype, objects.get_primitive())
         self.__prop = prop
         self.__page = page
-        self.__get_prop_func = get_prop_func
+        #self.__get_prop_func = get_prop_func
         self.__set_prop_func = set_prop_func
         self.__undo_dict = { obj: get_prop_func(obj) for obj in self.obj }
 

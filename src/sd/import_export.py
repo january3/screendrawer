@@ -6,6 +6,7 @@ from os import path # <remove>
 import pickle # <remove>
 import cairo # <remove>
 from sd.drawable import Drawable, DrawableGroup # <remove>
+from sd.page import Page # <remove>
 
 def guess_file_format(filename):
     """Guess the file format from the file extension."""
@@ -24,12 +25,15 @@ def guess_file_format(filename):
 def convert_file(input_file, output_file, file_format = "all", border = None, page = 0):
     """Convert a drawing from the internal format to another."""
     config, objects, pages = read_file_as_sdrw(input_file)
+    print("page = ", page)
 
     if pages:
-        if len(pages) < page:
-            raise ValueError(f"Page number out of range (max. {len(pages)})")
+        if len(pages) <= page:
+            raise ValueError(f"Page number out of range (max. {len(pages) - 1})")
         print("read drawing from", input_file, "with", len(pages), "pages")
-        objects = pages[page]['objects']
+        p = Page()
+        p.import_page(pages[page])
+        objects = p.objects_all_layers()
 
     print("read drawing from", input_file, "with", len(objects), "objects")
     objects = DrawableGroup(objects)
@@ -155,7 +159,12 @@ def read_file_as_sdrw(filename):
                 print("found pages in savefile")
                 pages = state['pages']
                 for p in pages:
-                    p['objects'] = [ Drawable.from_dict(d) for d in p['objects'] ] or [ ]
+                    # this is for compatibility; newer drawings are saved
+                    # with a "layers" key which is then processed by the
+                    # page import function - best if page takes care of it
+                    if "objects" in p:
+                        p['objects'] = [ Drawable.from_dict(d) for d in p['objects'] ] or [ ]
+                            
             config = state['config']
     except OSError as e:
         print(f"Error saving file due to a file I/O error: {e}")

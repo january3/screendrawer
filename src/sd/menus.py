@@ -65,6 +65,13 @@ class MenuMaker:
                 { "label": "Paste         (Ctrl-v)",    "callback": self.on_menu_item_activated, "action": "paste_content" },
                 { "label": "Clear drawing (Ctrl-l)",    "callback": self.on_menu_item_activated, "action": "clear_page" },
                 { "separator": True },
+                { "label": "Next Page     (Shift-n)",    "callback": self.on_menu_item_activated, "action": "next_page" },
+                { "label": "Prev Page     (Shift-p)",    "callback": self.on_menu_item_activated, "action": "prev_page" },
+                { "label": "Delete Page   (Shift-d)",    "callback": self.on_menu_item_activated, "action": "delete_page" },
+                { "label": "Next Layer    (Ctrl-Shift-n)",    "callback": self.on_menu_item_activated, "action": "next_layer" },
+                { "label": "Prev Layer    (Ctrl-Shift-p)",    "callback": self.on_menu_item_activated, "action": "prev_layer" },
+                { "label": "Delete Layer  (Ctrl-Shift-d)",    "callback": self.on_menu_item_activated, "action": "delete_layer" },
+                { "separator": True },
                 { "label": "Bg transparency (Ctrl-b)",  "callback": self.on_menu_item_activated, "action": "cycle_bg_transparency" },
                 { "label": "Tggl outline         [o]",  "callback": self.on_menu_item_activated, "action": "toggle_outline" },
                 { "separator": True },
@@ -114,12 +121,12 @@ class MenuMaker:
         # if there is only one object, remove the group menu item
         if len(objects) == 1:
             print("only one object")
-            menu_items = [m for m in menu_items if not "action" in m or "selection_group" not in m["action"]]
+            menu_items = [m for m in menu_items if "action" not in m or "selection_group" not in m["action"]]
 
         group_found = [o for o in objects if o.type == "group"]
         if not group_found:
             print("no group found")
-            menu_items = [m for m in menu_items if not "action" in m or "selection_ungroup" not in m["action"]]
+            menu_items = [m for m in menu_items if "action" not in m or "selection_ungroup" not in m["action"]]
 
         self.__object_menu = self.build_menu(menu_items)
 
