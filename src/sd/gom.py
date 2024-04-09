@@ -1,5 +1,5 @@
 from .commands import *                                              # <remove>
-from .drawable import DrawableGroup                                  # <remove>
+from .drawable_group import DrawableGroup                                  # <remove>
 from .page import Page                                               # <remove>
 from .utils import sort_by_stack                                     # <remove>
 

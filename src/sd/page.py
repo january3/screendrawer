@@ -1,7 +1,9 @@
 """
 This module contains the Page class, which is a container for objects.
 """
-from .drawable import Drawable, SelectionObject # <remove>
+
+from .drawable import Drawable # <remove>
+from .drawable_group import SelectionObject # <remove>
 from .commands import RemoveCommand, CommandGroup # <remove>
 from .commands import DeletePageCommand, DeleteLayerCommand # <remove>
 from .drawer import Drawer                                           # <remove>

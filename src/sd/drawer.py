@@ -1,6 +1,6 @@
 """Class which draws the actual objects and caches them."""
 import cairo
-from .drawable import DrawableGroup
+from .drawable_group import DrawableGroup
 
 def draw_on_surface(cr, objects, selection, state):
     """

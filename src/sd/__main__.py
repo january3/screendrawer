@@ -31,7 +31,6 @@ import cairo
 import appdirs
 
 import gi
-
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
 
@@ -42,30 +41,32 @@ from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
 # the files are directly, physically inserted in order to get one big fat
 # Python script that can just be copied.
 
-from sd.utils import *                   ###<placeholder sd/utils.py>
-from sd.commands import *                ###<placeholder sd/commands.py>
-from sd.pen import Pen                   ###<placeholder sd/pen.py>
-from sd.drawable import *                ###<placeholder sd/drawable.py>
-from sd.drawable_factory import *                ###<placeholder sd/drawable.py>
-from sd.events import *                  ###<placeholder sd/events.py>
-from sd.dialogs import *                 ###<placeholder sd/dialogs.py>
-from sd.clipboard import Clipboard       ###<placeholder sd/clipboard.py>
-from sd.cursor import CursorManager      ###<placeholder sd/cursor.py>
-from sd.gom import GraphicsObjectManager ###<placeholder sd/gom.py>
-from sd.import_export import *           ###<placeholder sd/import_export.py>
-from sd.em import *                      ###<placeholder sd/em.py>
-from sd.menus import *                   ###<placeholder sd/menus.py>
-from sd.wiglets import *                 ###<placeholder sd/wiglets.py>
-from sd.dm import *                      ###<placeholder sd/dm.py>
-from sd.icons import Icons               ###<placeholder sd/icons.py>
-from sd.page import Page                 ###<placeholder sd/page.py>
-from sd.canvas import Canvas             ###<placeholder sd/canvas.py>
-from sd.brush import Brush               ###<placeholder sd/brush.py>
-from sd.grid import Grid                 ###<placeholder sd/grid.py>
-from sd.texteditor import TextEditor     ###<placeholder sd/texteditor.py>
-from sd.imageobj import ImageObj         ###<placeholder sd/imageobj.py>
-from sd.state import State, Setter       ###<placeholder sd/status.py>
-from sd.drawable_primitives import Image, Text, Path, Rectangle, Shape, Circle # <remove>
+from sd.utils import *                    ###<placeholder sd/utils.py>
+from sd.commands import *                 ###<placeholder sd/commands.py>
+from sd.pen import Pen                    ###<placeholder sd/pen.py>
+from sd.events import *                   ###<placeholder sd/events.py>
+from sd.dialogs import *                  ###<placeholder sd/dialogs.py>
+from sd.clipboard import Clipboard        ###<placeholder sd/clipboard.py>
+from sd.cursor import CursorManager       ###<placeholder sd/cursor.py>
+from sd.gom import GraphicsObjectManager  ###<placeholder sd/gom.py>
+from sd.import_export import *            ###<placeholder sd/import_export.py>
+from sd.em import *                       ###<placeholder sd/em.py>
+from sd.menus import *                    ###<placeholder sd/menus.py>
+from sd.wiglets import *                  ###<placeholder sd/wiglets.py>
+from sd.dm import *                       ###<placeholder sd/dm.py>
+from sd.icons import Icons                ###<placeholder sd/icons.py>
+from sd.page import Page                  ###<placeholder sd/page.py>
+from sd.canvas import Canvas              ###<placeholder sd/canvas.py>
+from sd.brush import Brush                ###<placeholder sd/brush.py>
+from sd.grid import Grid                  ###<placeholder sd/grid.py>
+from sd.texteditor import TextEditor      ###<placeholder sd/texteditor.py>
+from sd.imageobj import ImageObj          ###<placeholder sd/imageobj.py>
+from sd.state import State, Setter        ###<placeholder sd/status.py>
+from sd.drawable import *                 ###<placeholder sd/drawable.py>
+from sd.drawable_factory import *         ###<placeholder sd/drawable.py>
+from sd.drawable_group import DrawableGroup ##<placeholder sd/drawable_group.py>
+from sd.drawable_primitives import Image, Text                    #<placeholder sd/drawable_primitives.py>
+from sd.drawable_primitives import Path, Rectangle, Shape, Circle #<placeholder sd/drawable_primitives.py>
 
 
 # ---------------------------------------------------------------------
