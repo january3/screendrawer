@@ -36,7 +36,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * grid must be cached
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
@@ -53,6 +52,7 @@ Bugs:
    not consider the enlarged bounding box
 
 Done:
+ * grid must be cached
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
    should be mostly outside of the bb

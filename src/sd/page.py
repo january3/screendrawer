@@ -4,6 +4,7 @@ This module contains the Page class, which is a container for objects.
 from .drawable import Drawable, SelectionObject # <remove>
 from .commands import RemoveCommand, CommandGroup # <remove>
 from .commands import DeletePageCommand, DeleteLayerCommand # <remove>
+from .drawer import Drawer                                           # <remove>
 
 
 class Layer:
@@ -52,6 +53,7 @@ class Page:
         self.__layers = [ layers or Layer() ]
         self.__current_layer = 0
         self.__translate = None
+        self.__drawer = Drawer()
 
     def next(self, create = True):
         """
@@ -235,3 +237,8 @@ class Page:
             cmd = RemoveCommand(layer.objects()[:], layer.objects(), page = self)
             ret_commands.append(cmd)
         return CommandGroup(ret_commands[::-1])
+
+    def draw(self, cr, state):
+        """Draw the objects on the page."""
+
+        self.__drawer.draw(cr, self, state)

@@ -57,7 +57,14 @@ def create_cache_surface(objects):
 
 
 class Drawer:
-    """Class which draws the actual objects and caches them."""
+    """Singleton Class which draws the actual objects and caches them."""
+    __new_instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls.__new_instance is None:
+            cls.__new_instance = super(Drawer, cls).__new__(cls)
+        return cls.__new_instance
+
     def __init__(self):
         self.__cache        = None
         self.__obj_mod_hash = { }

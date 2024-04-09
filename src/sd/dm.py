@@ -20,6 +20,34 @@ class DrawManager:
     a resize operation is in progress, whether the view is paned or zoomed etc.
 
     DrawManager must be aware of GOM, because GOM holds all the objects
+
+    methods from app used:
+    app.get_size()    # used for wiglets 
+                      Note: dragging the object to the left lower corner
+                      should be actually handled by a "paperbin" wiglet
+    app.queue_draw()  # needed all the time
+    app.mm.object_menu() # used for right click context menu
+
+    methods from canvas used:
+    canvas.draw()
+    canvas.toggle_grid()
+    canvas.pen()
+    canvas.bg_color()
+
+    methods from gom used:
+    gom.set_page_number()
+    gom.page()
+    gom.draw()
+    gom.selected_objects()
+    gom.selection()
+    gom.remove_objects()
+    gom.selection().set()
+    gom.selection().add()
+    gom.selection().clear()
+    gom.add_object()
+    gom.kill_object()
+    gom.remove_all()
+    gom.command_append()
     """
     def __init__(self, gom, app, cursor, canvas):
         self.__canvas = canvas
@@ -93,11 +121,6 @@ class DrawManager:
             return True
 
         cr.save()
-        tr = self.__gom.page().translate()
-        if tr:
-            cr.translate(*tr)
-
-        self.__canvas.draw(cr, tr)
 
         self.__gom.draw(cr, self.__hover, self.__mode)
 
@@ -110,6 +133,7 @@ class DrawManager:
         cr.restore()
 
         if self.__show_wiglets:
+            print("showing wiglets")
             for w in self.__wiglets:
                 w.update_size(*self.__app.get_size())
                 w.draw(cr)
@@ -474,8 +498,8 @@ class DrawManager:
 
         obj = self.__resizeobj.obj
 
-        _, width = self.__app.get_size()
-        if self.__resizeobj.command_type() == "move" and  event.x < 10 and event.y > width - 10:
+        _, height = self.__app.get_size()
+        if self.__resizeobj.command_type() == "move" and  event.x < 10 and event.y > height - 10:
             # command group because these are two commands: first move,
             # then remove
             self.__gom.command_append([ self.__resizeobj,
