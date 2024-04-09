@@ -15,6 +15,7 @@ class State:
         self.__app = app
         self.__gom = gom
         self.__cursor = cursor
+        self.__modified = True
 
         self.__gr = {
                 "bg_color": (.8, .75, .65),
@@ -63,6 +64,12 @@ class State:
     def current_page(self):
         """Get the current page object from gom."""
         return self.__gom.page()
+
+    def modified(self, value = None):
+        """Get or set the modified flag."""
+        if value is not None:
+            self.__modified = value
+        return self.__modified
 
     # -------------------------------------------------------------------------
     def mode(self, mode = None):
@@ -152,11 +159,11 @@ class State:
         """Queue a draw."""
         self.__app.queue_draw()
 
-    def hide(self, value = None):
+    def hidden(self, value = None):
         """Hide or show the drawing."""
         if not value is None:
-            self.__gr["hidden"] = value
-        return self.__gr["hidden"]
+            self.__show["hidden"] = value
+        return self.__show["hidden"]
 
 # -----------------------------------------------------------------------------
 class Setter:
@@ -239,9 +246,9 @@ class Setter:
 
             self.__state.current_obj_clear()
         self.__cursor.revert()
+
+
     # ---------------------------------------------------------------------
-
-
     def clear(self):
         """Clear the drawing."""
         self.__gom.selection().clear()

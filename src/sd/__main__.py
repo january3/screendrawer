@@ -132,10 +132,10 @@ class TransparentWindow(Gtk.Window):
 
         self.clipboard           = Clipboard()
 
-        setter = Setter(app = self, gom = self.gom, cursor = self.cursor)
+        self.setter = Setter(app = self, gom = self.gom, cursor = self.cursor)
 
         wiglets = [ WigletColorSelector(height = self.state.get_win_size()[1],
-                                               func_color = setter.set_color,
+                                               func_color = self.setter.set_color,
                                                func_bg = self.state.bg_color),
                            WigletToolSelector(func_mode = self.state.mode),
                            WigletPageSelector(gom = self.gom, screen_wh_func = self.state.get_win_size,
@@ -143,20 +143,21 @@ class TransparentWindow(Gtk.Window):
                           ]
 
 
+        # em has to know about all that to link actions to methods
+        em  = EventManager(gom = self.gom, app = self,
+                                state  = self.state,
+                                setter = self.setter)
+        mm  = MenuMaker(em, self)
+
         # dm needs to know about gom because gom manipulates the selection
         # and history (object creation etc)
         self.dm                  = DrawManager(gom = self.gom,  app = self,
-                                               state = self.state, wiglets = wiglets)
+                                               state = self.state, wiglets = wiglets,
+                                               setter = self.setter)
 
         # canvas orchestrates the drawing
-        self.canvas              = Canvas(state = self.state, dm = self.dm)
-
-        # em has to know about all that to link actions to methods
-        self.em                  = EventManager(gom = self.gom, app = self,
-                                                dm = self.dm, 
-                                                state = self.state,
-                                                setter = setter)
-        self.mm                  = MenuMaker(self.em, self)
+        self.canvas              = Canvas(state = self.state, dm = self.dm,
+                                          wiglets = wiglets)
 
         # distance for selecting objects
         self.max_dist   = 15
@@ -181,7 +182,7 @@ class TransparentWindow(Gtk.Window):
                         Gdk.EventMask.POINTER_MOTION_MASK |
                         Gdk.EventMask.TOUCH_MASK)
 
-        self.connect("key-press-event",      self.em.on_key_press)
+        self.connect("key-press-event",      em.on_key_press)
         self.connect("draw",                 self.canvas.on_draw)
         self.connect("button-press-event",   self.dm.on_button_press)
         self.connect("button-release-event", self.dm.on_button_release)
@@ -276,14 +277,14 @@ class TransparentWindow(Gtk.Window):
         """Select a color for drawing using ColorChooser dialog."""
         color = ColorChooser(self)
         if color:
-            self.dm.set_color((color.red, color.green, color.blue))
+            self.setter.set_color((color.red, color.green, color.blue))
 
     def select_font(self):
         """Select a font for drawing using FontChooser dialog."""
         font_description = FontChooser(self.state.pen(), self)
 
         if font_description:
-            self.dm.set_font(font_description)
+            self.setter.set_font(font_description)
 
     def show_help_dialog(self):
         """Show the help dialog."""
@@ -351,7 +352,7 @@ class TransparentWindow(Gtk.Window):
         print("Taking screenshot now")
         frame = (bb[0] - 3, bb[1] - 3, bb[0] + bb[2] + 6, bb[1] + bb[3] + 6)
         pixbuf, filename = get_screenshot(self, *frame)
-        self.dm.hide(False)
+        self.state.hidden(False)
         self.queue_draw()
 
         # Create the image and copy the file name to clipboard
@@ -385,7 +386,7 @@ class TransparentWindow(Gtk.Window):
             bb = obj.bbox()
             print("bbox is", bb)
         #self.hidden = True
-        self.dm.hide(True)
+        self.state.hidden(True)
         self.queue_draw()
         while Gtk.events_pending():
             Gtk.main_iteration_do(False)
@@ -393,7 +394,7 @@ class TransparentWindow(Gtk.Window):
 
     def __autosave(self):
         """Autosave the drawing state."""
-        if not self.dm.modified():
+        if not self.state.modified():
             return
 
         if self.state.current_obj(): # not while drawing!
@@ -401,7 +402,7 @@ class TransparentWindow(Gtk.Window):
 
         print("Autosaving")
         self.__save_state()
-        self.dm.modified(False)
+        self.state.modified(False)
 
     def __save_state(self):
         """Save the current drawing state to a file."""
@@ -431,7 +432,7 @@ class TransparentWindow(Gtk.Window):
         if self.read_file(file_name):
             print("Setting savefile to", file_name)
             self.savefile = file_name
-            self.dm.modified(True)
+            self.state.modified(True)
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
@@ -453,7 +454,7 @@ class TransparentWindow(Gtk.Window):
             self.state.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
             self.gom.set_page_number(config.get('page') or 0)
         if config or objects:
-            self.dm.modified(True)
+            self.state.modified(True)
             return True
         return False
 

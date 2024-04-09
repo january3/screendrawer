@@ -52,12 +52,13 @@ class DrawManager:
     gom.remove_all()
     gom.command_append()
     """
-    def __init__(self, gom, app, state, wiglets):
+    def __init__(self, gom, app, state, wiglets, setter):
         self.__state = state
         self.__gom = gom
         self.__app = app
         self.__cursor = state.cursor()
         self.__wiglets = wiglets
+        self.__setter = setter
 
         # objects that indicate the state of the drawing area
         self.__wiglet_active = None
@@ -66,29 +67,6 @@ class DrawManager:
         self.__paning = None
         self.__show_wiglets = True
         # drawing parameters
-        self.__modified = False
-
-    def modified(self, value = None):
-        """Get or set the modified flag."""
-        if value is not None:
-            self.__modified = value
-        return self.__modified
-
-    def draw(self, widget, cr):
-        """Handle draw events."""
-       #if self.__hidden:
-       #    return True
-
-        if self.__state.show_wiglets():
-            print("showing wiglets")
-            for w in self.__wiglets:
-                w.update_size(*self.__state.get_win_size())
-                w.draw(cr)
-
-        if self.__wiglet_active:
-            self.__wiglet_active.draw(cr)
-
-        return True
 
     def selection_tool(self):
         """Get the selection tool."""
@@ -204,7 +182,7 @@ class DrawManager:
     def on_button_press(self, widget, event):
         """Handle mouse button press events."""
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
-        self.__modified = True # better safe than sorry
+        self.__state.modified(True)
         ev = MouseEvent(event, self.__gom.objects(),
                         translate = self.__gom.page().translate())
 
@@ -279,8 +257,10 @@ class DrawManager:
             print("current line width, transparency:", self.__state.pen().line_width, self.__state.pen().transparency)
             if not ev.shift():
                 self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__state.pen())
+                self.__wiglets.append(self.__wiglet_active)
             else:
                 self.__wiglet_active = WigletTransparency((event.x, event.y), self.__state.pen())
+                self.__wiglets.append(self.__wiglet_active)
             return True
 
         if self.__handle_color_picker_on_click():
@@ -297,7 +277,10 @@ class DrawManager:
             return False
 
         color = get_color_under_cursor()
-        self.set_color(color)
+        # XXX - this is a hack, because we need to inject the setter dependency
+        # just for this one line. How about - color picker is an invisible
+        # wiglet?
+        self.__setter.set_color(color)
         color_hex = rgb_to_hex(color)
         self.__app.clipboard.set_text(color_hex)
         self.__state.queue_draw()
@@ -391,7 +374,7 @@ class DrawManager:
             bb = obj.bbox()
             if bb and obj.type in [ "rectangle", "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
                 print("removing object of type", obj.type, "because too small")
-                self.__current_obj_clear()
+                self.__state.current_obj_clear()
                 obj = None
 
         if obj:
@@ -411,6 +394,7 @@ class DrawManager:
             return False
 
         self.__wiglet_active.event_finish()
+        self.__wiglets.remove(self.__wiglet_active)
         self.__wiglet_active = None
         self.__state.queue_draw()
         return True

@@ -44,12 +44,10 @@ class EventManager:
             cls._instance = super(EventManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, gom, app, dm, state, setter):
+    def __init__(self, gom, app, state, setter):
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
-            self.__app = app
-            self.__dm  = dm
             self.__state = state
             self.__setter = setter
             self.make_actions_dictionary(gom, app, state, setter)

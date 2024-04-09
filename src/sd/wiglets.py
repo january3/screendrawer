@@ -98,6 +98,9 @@ class WigletTransparency(Wiglet):
         ## we want to change the transparency by 0.1 for every 20 pixels
         self.__pen.transparency = max(0, min(1, self.__initial_transparency + dx/500))
 
+    def update_size(self, width, height):
+        """ignoring the update the size of the widget"""
+
     def event_finish(self):
         """update on mouse release"""
 
@@ -124,8 +127,11 @@ class WigletLineWidth(Wiglet):
         self.__pen.line_width = max(1, min(60, self.__initial_width + dx/20))
         return True
 
+    def update_size(self, width, height):
+        """ignoring the update the size of the widget"""
+
     def event_finish(self):
-        pass
+        """ignoring the update on mouse release"""
 
 ## ---------------------------------------------------------------------
 class WigletPageSelector(Wiglet):

@@ -36,6 +36,13 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * regression: ctrl-[shift]-click no longer works, because the "active
+   wiglet" is in dm, whereas wiglet drawing is in canvas. They should be
+   treated like any other wiglets... but they take different precedence.
+   First the "top" wiglets get the choice to use up the click. Then objects
+   on the canvas. Finally - if the canvas is empty under the click - the
+   ctrl-[shift]-click wiglets.
+ * color picker should be really an invisible wiglet able to change the colors
  * text bbox is incorrectly reported to the method checking whether text is
    clicked
  * a weird bug appeared once when editing text; something was seriously
