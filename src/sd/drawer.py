@@ -36,7 +36,7 @@ def create_cache_surface(objects):
         return None
 
     grp = DrawableGroup(objects)
-    bb  = grp.bbox()
+    bb  = grp.bbox(actual = True)
 
     if not bb:
         return None

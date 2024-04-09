@@ -259,14 +259,13 @@ class EventManager:
 
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
 
-#            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
-            'copy_content':          {'action': app.copy_content,        },
-            'cut_content':           {'action': app.cut_content,         'modes': ["move"]},
-            'paste_content':         {'action': app.paste_content},
-            'screenshot':            {'action': app.screenshot},
+            'copy_content':           {'action': app.copy_content,        },
+            'cut_content':            {'action': app.cut_content,         'modes': ["move"]},
+            'paste_content':          {'action': app.paste_content},
+            'screenshot':             {'action': app.screenshot},
 
-            'stroke_increase':       {'action': setter.stroke_change, 'args': [1]},
-            'stroke_decrease':       {'action': setter.stroke_change, 'args': [-1]},
+            'stroke_increase':        {'action': setter.stroke_change, 'args': [1]},
+            'stroke_decrease':        {'action': setter.stroke_change, 'args': [-1]},
         }
 
     def make_default_keybindings(self):

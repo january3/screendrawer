@@ -1280,7 +1280,7 @@ class Shape(Drawable):
 
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the object."""
-        bb = self.bbox()
+        bb = self.bbox(actual = True)
         if bb is None:
             return False
         x, y, width, height = bb
