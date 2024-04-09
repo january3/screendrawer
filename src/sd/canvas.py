@@ -39,7 +39,8 @@ class Canvas:
         self.draw_bg(cr, tr)
         page.draw(cr, self.__state)
 
-        if self.__state.current_obj():
+        cobj = self.__state.current_obj()
+        if cobj and not cobj in page.objects_all_layers():
             self.__state.current_obj().draw(cr)
 
         if self.__dm.selection_tool():

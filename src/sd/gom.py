@@ -156,6 +156,9 @@ class GraphicsObjectManager:
 
     def add_object(self, obj):
         """Add an object to the list of objects."""
+        if obj in self.__page.objects():
+            print("object already in list")
+            return
         self.__history.append(AddCommand(obj, self.__page.objects(), page=self.__page))
 
     def export_pages(self):

@@ -22,8 +22,9 @@ def obj_status(obj, selection, state):
     hover_obj = state.hover_obj()
     hover    = obj == hover_obj and state.mode() == "move"
     selected = selection.contains(obj) and state.mode() == "move"
+    is_cur_obj = obj == state.current_obj()
 
-    return (obj.mod, hover, selected)
+    return (obj.mod, hover, selected, is_cur_obj)
 
 def create_cache_surface(objects):
     """
@@ -141,7 +142,7 @@ class Drawer:
         for obj in objects:
             status = obj_status(obj, selection, state)
 
-            is_same = obj in modhash and modhash[obj] == status
+            is_same = obj in modhash and modhash[obj] == status and not status[3]
 
             if first_is_same is None:
                 first_is_same = is_same
@@ -169,7 +170,6 @@ class Drawer:
         i = 0
 
         for obj_grp in self.__cache["groups"]["groups"]:
-            #print("i=", i, "is_same=", is_same, "objects=", obj_grp)
 
             # ignore empty groups (that might happen in edge cases)
             if not obj_grp:

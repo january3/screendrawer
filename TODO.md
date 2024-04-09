@@ -36,20 +36,8 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * regression: ctrl-[shift]-click no longer works, because the "active
-   wiglet" is in dm, whereas wiglet drawing is in canvas. They should be
-   treated like any other wiglets... but they take different precedence.
-   First the "top" wiglets get the choice to use up the click. Then objects
-   on the canvas. Finally - if the canvas is empty under the click - the
-   ctrl-[shift]-click wiglets.
- * color picker should be really an invisible wiglet able to change the colors
  * text bbox is incorrectly reported to the method checking whether text is
    clicked
- * a weird bug appeared once when editing text; something was seriously
-   wrong with the text object; text was behaving erratic when moved and
-   looked like having two copies (maybe somehow entered twice in
-   gom/page/layer?). [update]: the bug is fairly reproducible upon
-   double-click of a text
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
@@ -66,6 +54,20 @@ Bugs:
    not consider the enlarged bounding box
 
 Done:
+ * a weird bug appeared once when editing text; something was seriously
+   wrong with the text object; text was behaving erratic when moved and
+   looked like having two copies (maybe somehow entered twice in
+   gom/page/layer?). [update]: the bug is fairly reproducible upon
+   double-click of a text [update]: this is because it gets entered twice
+   in the object list, since it becomes curent_obj again when double
+   clicked.
+ * color picker should be really an invisible wiglet able to change the colors
+ * regression: ctrl-[shift]-click no longer works, because the "active
+   wiglet" is in dm, whereas wiglet drawing is in canvas. They should be
+   treated like any other wiglets... but they take different precedence.
+   First the "top" wiglets get the choice to use up the click. Then objects
+   on the canvas. Finally - if the canvas is empty under the click - the
+   ctrl-[shift]-click wiglets.
  * since rectangles and circles incorrectly report their bounding box, the
    result is that they get clipped in the cached surface. This looks
    really, really bad.
