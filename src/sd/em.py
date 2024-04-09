@@ -44,14 +44,15 @@ class EventManager:
             cls._instance = super(EventManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, gom, app, dm, state):
+    def __init__(self, gom, app, dm, state, setter):
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
             self.__app = app
             self.__dm  = dm
             self.__state = state
-            self.make_actions_dictionary(gom, app, dm, state)
+            self.__setter = setter
+            self.make_actions_dictionary(gom, app, state, setter)
             self.make_default_keybindings()
 
     def dispatch_action(self, action_name, **kwargs):
@@ -151,7 +152,7 @@ class EventManager:
         state.queue_draw()
 
 
-    def make_actions_dictionary(self, gom, app, dm, state):
+    def make_actions_dictionary(self, gom, app, state, setter):
         """
         This dictionary maps key events to actions.
         """
@@ -166,12 +167,12 @@ class EventManager:
             'mode_shape':            {'action': state.mode, 'args': ["shape"]},
             'mode_colorpicker':      {'action': state.mode, 'args': ["colorpicker"]},
 
-            'finish_text_input':     {'action': dm.finish_text_input},
+            'finish_text_input':     {'action': setter.finish_text_input},
 
             'cycle_bg_transparency': {'action': state.cycle_background},
             'toggle_outline':        {'action': state.outline_toggle},
 
-            'clear_page':            {'action': dm.clear},
+            'clear_page':            {'action': setter.clear},
             'toggle_wiglets':        {'action': state.toggle_wiglets},
             'toggle_grid':           {'action': state.toggle_grid},
 
@@ -209,21 +210,21 @@ class EventManager:
             'zmove_selection_raise':  {'action': gom.selection_zmove, 'args': [ "raise" ],  'modes': ["move"]},
             'zmove_selection_lower':  {'action': gom.selection_zmove, 'args': [ "lower" ],  'modes': ["move"]},
 
-            'set_color_white':       {'action': dm.set_color, 'args': [COLORS["white"]]},
-            'set_color_black':       {'action': dm.set_color, 'args': [COLORS["black"]]},
-            'set_color_red':         {'action': dm.set_color, 'args': [COLORS["red"]]},
-            'set_color_green':       {'action': dm.set_color, 'args': [COLORS["green"]]},
-            'set_color_blue':        {'action': dm.set_color, 'args': [COLORS["blue"]]},
-            'set_color_yellow':      {'action': dm.set_color, 'args': [COLORS["yellow"]]},
-            'set_color_cyan':        {'action': dm.set_color, 'args': [COLORS["cyan"]]},
-            'set_color_magenta':     {'action': dm.set_color, 'args': [COLORS["magenta"]]},
-            'set_color_purple':      {'action': dm.set_color, 'args': [COLORS["purple"]]},
-            'set_color_grey':        {'action': dm.set_color, 'args': [COLORS["grey"]]},
+            'set_color_white':       {'action': setter.set_color, 'args': [COLORS["white"]]},
+            'set_color_black':       {'action': setter.set_color, 'args': [COLORS["black"]]},
+            'set_color_red':         {'action': setter.set_color, 'args': [COLORS["red"]]},
+            'set_color_green':       {'action': setter.set_color, 'args': [COLORS["green"]]},
+            'set_color_blue':        {'action': setter.set_color, 'args': [COLORS["blue"]]},
+            'set_color_yellow':      {'action': setter.set_color, 'args': [COLORS["yellow"]]},
+            'set_color_cyan':        {'action': setter.set_color, 'args': [COLORS["cyan"]]},
+            'set_color_magenta':     {'action': setter.set_color, 'args': [COLORS["magenta"]]},
+            'set_color_purple':      {'action': setter.set_color, 'args': [COLORS["purple"]]},
+            'set_color_grey':        {'action': setter.set_color, 'args': [COLORS["grey"]]},
 
-            'set_brush_rounded':     {'action': dm.set_brush, 'args': ["rounded"] },
-            'set_brush_marker':      {'action': dm.set_brush, 'args': ["marker"] },
-            'set_brush_slanted':     {'action': dm.set_brush, 'args': ["slanted"] },
-            'set_brush_pencil':      {'action': dm.set_brush, 'args': ["pencil"] },
+            'set_brush_rounded':     {'action': setter.set_brush, 'args': ["rounded"] },
+            'set_brush_marker':      {'action': setter.set_brush, 'args': ["marker"] },
+            'set_brush_slanted':     {'action': setter.set_brush, 'args': ["slanted"] },
+            'set_brush_pencil':      {'action': setter.set_brush, 'args': ["pencil"] },
 
             'apply_pen_to_bg':       {'action': state.apply_pen_to_bg,        'modes': ["move"]},
             'toggle_pens':           {'action': state.switch_pens},
@@ -264,8 +265,8 @@ class EventManager:
             'paste_content':         {'action': app.paste_content},
             'screenshot':            {'action': app.screenshot},
 
-            'stroke_increase':       {'action': dm.stroke_change, 'args': [1]},
-            'stroke_decrease':       {'action': dm.stroke_change, 'args': [-1]},
+            'stroke_increase':       {'action': setter.stroke_change, 'args': [1]},
+            'stroke_decrease':       {'action': setter.stroke_change, 'args': [-1]},
         }
 
     def make_default_keybindings(self):

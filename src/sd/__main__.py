@@ -63,7 +63,7 @@ from sd.brush import Brush               ###<placeholder sd/brush.py>
 from sd.grid import Grid                 ###<placeholder sd/grid.py>
 from sd.texteditor import TextEditor     ###<placeholder sd/texteditor.py>
 from sd.imageobj import ImageObj         ###<placeholder sd/imageobj.py>
-from sd.state import State             ###<placeholder sd/status.py>
+from sd.state import State, Setter       ###<placeholder sd/status.py>
 
 
 # ---------------------------------------------------------------------
@@ -123,23 +123,39 @@ class TransparentWindow(Gtk.Window):
         # Drawing setup
         self.cursor             = CursorManager(self)
         self.gom                = GraphicsObjectManager()
+
+        # we pass the app to the state, because it has the queue_draw
+        # method
         self.state              = State(app = self, 
                                         gom = self.gom,
                                         cursor = self.cursor)
 
         self.clipboard           = Clipboard()
 
+        setter = Setter(app = self, gom = self.gom, cursor = self.cursor)
+
+        wiglets = [ WigletColorSelector(height = self.state.get_win_size()[1],
+                                               func_color = setter.set_color,
+                                               func_bg = self.state.bg_color),
+                           WigletToolSelector(func_mode = self.state.mode),
+                           WigletPageSelector(gom = self.gom, screen_wh_func = self.state.get_win_size,
+                                              set_page_func = self.gom.set_page_number),
+                          ]
+
+
         # dm needs to know about gom because gom manipulates the selection
         # and history (object creation etc)
         self.dm                  = DrawManager(gom = self.gom,  app = self,
-                                               state = self.state)
+                                               state = self.state, wiglets = wiglets)
 
+        # canvas orchestrates the drawing
         self.canvas              = Canvas(state = self.state, dm = self.dm)
 
         # em has to know about all that to link actions to methods
         self.em                  = EventManager(gom = self.gom, app = self,
                                                 dm = self.dm, 
-                                                state = self.state)
+                                                state = self.state,
+                                                setter = setter)
         self.mm                  = MenuMaker(self.em, self)
 
         # distance for selecting objects

@@ -52,11 +52,12 @@ class DrawManager:
     gom.remove_all()
     gom.command_append()
     """
-    def __init__(self, gom, app, state):
+    def __init__(self, gom, app, state, wiglets):
         self.__state = state
         self.__gom = gom
         self.__app = app
         self.__cursor = state.cursor()
+        self.__wiglets = wiglets
 
         # objects that indicate the state of the drawing area
         self.__wiglet_active = None
@@ -64,14 +65,6 @@ class DrawManager:
         self.__selection_tool = None
         self.__paning = None
         self.__show_wiglets = True
-        self.__wiglets = [ WigletColorSelector(height = state.get_win_size()[1],
-                                               func_color = self.set_color,
-                                               func_bg = self.__state.bg_color),
-                           WigletToolSelector(func_mode = self.__state.mode),
-                           WigletPageSelector(gom = gom, screen_wh_func = state.get_win_size,
-                                              set_page_func = gom.set_page_number),
-                          ]
-
         # drawing parameters
         self.__modified = False
 
@@ -564,77 +557,3 @@ class DrawManager:
         self.__wiglet_active.event_update(x, y)
         self.__state.queue_draw()
         return True
-
-
-    # ---------------------------------------------------------------------
-    def finish_text_input(self):
-        """Clean up current text and finish text input."""
-        print("finishing text input")
-        obj = self.__state.current_obj()
-
-        if obj and obj.type == "text":
-            obj.show_caret(False)
-
-            if obj.strlen() == 0:
-                print("kill object because empty")
-                self.__gom.kill_object(obj)
-
-            self.__state.current_obj_clear()
-        self.__cursor.revert()
-    # ---------------------------------------------------------------------
-
-    def stroke_change(self, direction):
-        """Modify the line width or text size."""
-        print("Changing stroke", direction)
-        cobj = self.__state.current_obj()
-        if cobj and cobj.type == "text":
-            print("Changing text size")
-            cobj.stroke_change(direction)
-            self.__state.pen().font_size = cobj.pen.font_size
-        else:
-            for obj in self.__gom.selected_objects():
-                obj.stroke_change(direction)
-
-        # without a selected object, change the default pen, but only if in the correct mode
-        if self.__state.mode() == "draw":
-            self.__state.pen().line_width = max(1, self.__state.pen().line_width + direction)
-        elif self.__state.mode() == "text":
-            self.__state.pen().font_size = max(1, self.__state.pen().font_size + direction)
-
-    def set_font(self, font_description):
-        """Set the font."""
-        self.__state.pen().font_set_from_description(font_description)
-        self.__gom.selection_font_set(font_description)
-
-        obj = self.__state.current_obj()
-        if obj and obj.type == "text":
-            obj.pen.font_set_from_description(font_description)
-
-#   def smoothen(self):
-#       """Smoothen the selected object."""
-#       if self.selection.n() > 0:
-#           for obj in self.selection.objects:
-#               obj.smoothen()
-
-    def set_brush(self, brush = None):
-        """Set the brush."""
-        if brush is not None:
-            print("setting pen", self.__state.pen(), "brush to", brush)
-            self.__state.pen().brush_type(brush)
-        return self.__state.pen().brush_type()
-
-    def set_color(self, color = None):
-        """Get or set the color."""
-        if color is None:
-            return self.__state.pen().color
-        self.__state.pen().color_set(color)
-        self.__gom.selection_color_set(color)
-        return color
-
-    def clear(self):
-        """Clear the drawing."""
-        self.__gom.selection().clear()
-        self.__resizeobj      = None
-        self.__state.current_obj_clear()
-        self.__gom.remove_all()
-        self.__state.queue_draw()

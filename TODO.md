@@ -38,6 +38,9 @@ Design issues:
 Bugs:
  * text bbox is incorrectly reported to the method checking whether text is
    clicked
+ * since rectangles and circles incorrectly report their bounding box, the
+   result is that they get clipped in the cached surface. This looks
+   really, really bad.
  * a weird bug appeared once when editing text; something was seriously
    wrong with the text object; text was behaving erratic when moved and
    looked like having two copies (maybe somehow entered twice in
