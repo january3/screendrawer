@@ -66,7 +66,8 @@ from sd.drawable import *                 ###<placeholder sd/drawable.py>
 from sd.drawable_factory import *         ###<placeholder sd/drawable.py>
 from sd.drawable_group import DrawableGroup ##<placeholder sd/drawable_group.py>
 from sd.drawable_primitives import Image, Text                    #<placeholder sd/drawable_primitives.py>
-from sd.drawable_primitives import Path, Rectangle, Shape, Circle #<placeholder sd/drawable_primitives.py>
+from sd.drawable_primitives import Rectangle, Shape, Circle #<placeholder sd/drawable_primitives.py>
+from sd.drawable_paths import Path                          #<placeholder sd/drawable_paths.py>
 
 
 # ---------------------------------------------------------------------

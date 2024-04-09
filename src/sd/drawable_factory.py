@@ -1,5 +1,6 @@
 """Factory for drawable objects"""
-from .drawable_primitives import Text, Path, Rectangle, Shape, Circle # <remove>
+from .drawable_primitives import Text, Rectangle, Shape, Circle # <remove>
+from .drawable_paths import Path # <remove>
 
 
 class DrawableFactory:
