@@ -1,6 +1,6 @@
 """Class for different brushes."""
 import gi                                                          # <remove>
-gi.require_version('Gtk', '3.0')                                   # <remove>
+gi.require_version('Gtk', '3.0')                                   # <remove> pylint: disable=wrong-import-position
 
 import cairo                                                       # <remove>
 from .utils import path_bbox, smooth_path                          # <remove>
@@ -165,6 +165,21 @@ class BrushFactory:
     """
     Factory class for creating brushes.
     """
+    @classmethod
+    def all_brushes(cls, **kwargs):
+        """
+        Create dict of all brushes.
+        """
+
+        brushes = {
+                "rounded": BrushRound(**kwargs),
+                "slanted": BrushSlanted(**kwargs),
+                "marker": BrushMarker(**kwargs),
+                "pencil": BrushPencil(**kwargs),
+                }
+
+        return brushes
+
     @classmethod
     def create_brush(cls, brush_type = "marker", **kwargs):
         """

@@ -64,8 +64,6 @@ class Canvas:
 
         return True
 
-
-
     def draw_bg(self, cr, tr):
         """
         Draw the objects on the page.
