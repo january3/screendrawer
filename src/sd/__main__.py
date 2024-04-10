@@ -500,7 +500,7 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
                         metavar = "FORMAT"
     )
     parser.add_argument("-p", "--page", help="Page to convert (default: 1)", 
-                        type=int, default = 1)
+                        type=int)
 
     parser.add_argument("-b", "--border", 
                         help="""
@@ -511,6 +511,12 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
     parser.add_argument("-o", "--output", help="Output file for conversion")
     parser.add_argument("files", nargs="*")
     args     = parser.parse_args()
+
+    page_no = None
+
+    if args.page is not None:
+        page_no = args.page - 1
+
 
     if args.convert:
         if not args.convert in [ "png", "pdf", "svg" ]:
@@ -523,11 +529,12 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
         if not args.files:
             print("No input file provided")
             exit(1)
+
         convert_file(args.files[0], 
                      OUTPUT, 
                      args.convert, 
                      border = args.border, 
-                     page = args.page - 1)
+                     page_no = page_no)
         exit(0)
 
     if args.files:
@@ -537,7 +544,7 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
         elif len(args.files) == 2:
             convert_file(args.files[0], args.files[1], 
                          border = args.border, 
-                         page = args.page - 1)
+                         page_no = page_no)
             exit(0)
         else:
             savefile = args.files[0]

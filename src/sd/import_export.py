@@ -29,17 +29,55 @@ def guess_file_format(filename):
         raise ValueError("Unrecognized file extension")
     return file_format
 
-def convert_file(input_file, output_file, file_format = "all", border = None, page = 0):
+def convert_file(input_file, output_file, file_format = "all", border = None, page_no = None):
     """Convert a drawing from the internal format to another."""
+    print("page_no = ", page_no)
+
+    if file_format == "all":
+        if output_file is None:
+            raise ValueError("No output file format provided")
+        file_format = guess_file_format(output_file)
+    else:
+        if output_file is None:
+            # create a file name with the same name but different extension
+            output_file = path.splitext(input_file)[0] + "." + file_format
+
     config, objects, pages = read_file_as_sdrw(input_file)
-    print("page = ", page)
+
+    # if there is only one page, we can use the regular converter for pdfs
+    if page_no is None and pages and len(pages) == 1:
+        page_no = 0
+
+    # also when we have objects, and not pages, we can use the regular
+    # converter for pdfs
+    if not pages:
+        page_no = 0
+
+    if file_format in [ "png", "jpeg", "svg" ] or (file_format == "pdf"
+                                                   and page_no is not None):
+        convert_file_to_image(input_file, output_file, file_format, border, page_no)
+    elif file_format == "yaml":
+        print("Exporting to yaml")
+        export_file_as_yaml(output_file, config, objects=objects.to_dict())
+    elif file_format == "pdf":
+        convert_to_multipage_pdf(input_file, output_file, border)
+    else:
+        raise NotImplementedError("Conversion to " + file_format + " is not implemented")
+
+def convert_file_to_image(input_file, output_file, file_format = "png", border = None, page_no = 0):
+    """Convert a drawing to an image file: png, jpeg, svg."""
+    if page_no is None:
+        page_no = 0
+
+    # yeah so we read the file twice, shoot me
+    config, objects, pages = read_file_as_sdrw(input_file)
 
     if pages:
-        if len(pages) <= page:
+        if len(pages) <= page_no:
             raise ValueError(f"Page number out of range (max. {len(pages) - 1})")
         print("read drawing from", input_file, "with", len(pages), "pages")
         p = Page()
-        p.import_page(pages[page])
+        p.import_page(pages[page_no])
         objects = p.objects_all_layers()
 
     print("read drawing from", input_file, "with", len(objects), "objects")
@@ -53,24 +91,65 @@ def convert_file(input_file, output_file, file_format = "all", border = None, pa
     bg           = config.get("bg_color", (1, 1, 1))
     transparency = config.get("transparent", 1.0)
 
-    if file_format == "all":
-        if output_file is None:
-            raise ValueError("No output file format provided")
-        file_format = guess_file_format(output_file)
-    else:
-        if output_file is None:
-            # create a file name with the same name but different extension
-            output_file = path.splitext(input_file)[0] + "." + file_format
+    export_image(objects,
+                 output_file, file_format,
+                 bg = bg, bbox = bbox,
+                 transparency = transparency)
 
-    if file_format == "yaml":
-        print("Exporting to yaml")
-        export_file_as_yaml(output_file, config, objects=objects.to_dict())
-    else:
-        export_image(objects,
-                     output_file, file_format,
-                     bg = bg, bbox = bbox,
-                     transparency = transparency)
+def convert_to_multipage_pdf(input_file, output_file, border = None):
+    """Convert a drawing to a multipage PDF file."""
+    print("Converting to multipage PDF")
+    config, _, pages = read_file_as_sdrw(input_file)
+    if not pages:
+        raise ValueError("No multiple pages found in the input file")
 
+    page_obj = []
+
+    for p in pages:
+        page = Page()
+        page.import_page(p)
+        obj_grp = DrawableGroup(page.objects_all_layers())
+        page_obj.append(obj_grp)
+
+    if not border:
+        border = 0
+
+    # determine the max bounding box
+    bbox = None
+
+    width, height = None, None
+    for i, o in enumerate(page_obj):
+        bb = o.bbox()
+        print("Bounding box for page:", i, bb)
+        if not width or not height:
+            width, height = bb[2], bb[3]
+            continue
+        width = max(width, bb[2])
+        height = max(height, bb[3])
+
+    bg           = config.get("bg_color", (1, 1, 1))
+    transparency = config.get("transparent", 1.0)
+
+    width, height = int(width + 2 * border), int(height + 2 * border)
+
+    surface = cairo.PDFSurface(output_file, width, height)
+    cr = cairo.Context(surface)
+
+    cr.set_source_rgba(*bg, transparency)
+    cr.paint()
+
+    nobj = len(page_obj)
+
+    for i, o in enumerate(page_obj):
+        bb = o.bbox()
+
+        cr.save()
+        cr.translate(border - bb[0], border - bb[1])
+        o.draw(cr)
+        cr.restore()
+        if i < nobj - 1:
+            surface.show_page()
+    surface.finish()
 
 def export_image(objects, filename,
                  file_format = "all",
@@ -117,7 +196,7 @@ def export_image(objects, filename,
 
     cr = cairo.Context(surface)
     # translate to the top left corner of the bounding box
-    cr.translate(-bbox[0], -bbox[1])
+    cr.translate(bbox[0], bbox[1])
 
     cr.set_source_rgba(*bg, transparency)
     cr.paint()

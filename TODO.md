@@ -1,8 +1,7 @@
 To do (sorted by priority):
 
 
- * PDFs should be multipage (ha, ha) -> this is really easy, use
-   surface.show_page()! or even cr.show_page()
+ * clean up import-export code
  * sort out the remove / add / group / set commands. some are taking
    objects, some are taking object lists, some are taking drawable groups.
    Inconsistent!
@@ -39,6 +38,9 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * incorrect bounding box when exporting with text (see mk.sdrw) => oh no,
+   this is actually due to paning? => oh no, we are already dealing with
+   it?
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
@@ -49,6 +51,8 @@ Bugs:
    not consider the enlarged bounding box
 
 Done:
+ * PDFs should be multipage (ha, ha) -> this is really easy, use
+   surface.show_page()! or even cr.show_page()
  * end of a pencil line should be rounded.
  * brush-like brush with a tapered end and round start ("taper")
  * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
