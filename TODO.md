@@ -1,14 +1,14 @@
 To do (sorted by priority):
 
 
+ * PDFs should be multipage (ha, ha) -> this is really easy, use
+   surface.show_page()! or even cr.show_page()
  * sort out the remove / add / group / set commands. some are taking
    objects, some are taking object lists, some are taking drawable groups.
    Inconsistent!
  * unit tests. more, more, more
- * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
-   files; or, better, create a yaml export option.
+ * different pencils should have different cursors
  * create a pen wiglet
- * make wiglets movable
  * draw a dustbin wiglet in lower left corner
  * clean up font code. Maybe use the Pango.FontDescription class for
    everything - why not?
@@ -29,7 +29,7 @@ To do (sorted by priority):
  * show corners of the bounding box
  * grid
  * horizontal and vertical guides
- * PDFs should be multipage (ha, ha)
+ * make wiglets movable
 
 Design issues:
  * the interaction between canvas, gom, dm, em is tangled. 
@@ -49,6 +49,10 @@ Bugs:
    not consider the enlarged bounding box
 
 Done:
+ * end of a pencil line should be rounded.
+ * brush-like brush with a tapered end and round start ("taper")
+ * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
+   files; or, better, create a yaml export option.
  * text bbox is incorrectly reported to the method checking whether text is
    clicked
  * a weird bug appeared once when editing text; something was seriously

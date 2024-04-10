@@ -167,6 +167,22 @@ def remove_intersections(outline_l, outline_r):
 
     return out_ret_l, out_ret_r
 
+def calculate_length(coords):
+    """Sum up the lengths of the segments in a path."""
+    length = 0
+    for i in range(len(coords) - 1):
+        length += distance(coords[i], coords[i + 1])
+    return length
+
+def first_point_after_length(coords, length):
+    """Return the index of the first point after a given length."""
+    total_length = 0
+    for i in range(len(coords) - 1):
+        total_length += distance(coords[i], coords[i + 1])
+        if total_length >= length:
+            return i + 1
+    return len(coords) - 1
+
 def calculate_angle2(p0, p1):
     """Calculate angle between vectors given by p0 and p1"""
     x1, y1 = p0

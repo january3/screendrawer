@@ -7,6 +7,8 @@ from .utils import path_bbox, smooth_path                          # <remove>
 from .utils import calculate_angle2                                # <remove>
 from .utils import coords_rotate, transform_coords                 # <remove>
 from .utils import calc_arc_coords, normal_vec                     # <remove>
+from .utils import calculate_length, distance                      # <remove>
+from .utils import first_point_after_length                        # <remove>
 
 def get_current_color_and_alpha(ctx):
     """Get the current color and alpha from the Cairo context."""
@@ -124,7 +126,7 @@ def point_mean(p1, p2):
     """Calculate the mean of two points."""
     return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
 
-def calc_normal_outline2(coords, pressure, line_width, rounded = False):
+def calc_normal_outline2(coords, pressure, line_width, rounded = True):
     """
     Calculate the normal outline of a path.
 
@@ -135,6 +137,7 @@ def calc_normal_outline2(coords, pressure, line_width, rounded = False):
     outline_l = []
     outline_r = []
 
+    print("calculating for coords:", len(coords), "pressure:", len(pressure))
     for i in range(n - 2):
         p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
         width  = line_width * pressure[i] / 2
@@ -146,7 +149,8 @@ def calc_normal_outline2(coords, pressure, line_width, rounded = False):
         ## append the points for the first coord
             if rounded:
                 arc_coords = calc_arc_coords(l_seg1_s, r_seg1_s, p1, 10)
-                outline_r.extend(arc_coords)
+                outline_r.extend(arc_coords[:5][::-1])
+                outline_l.extend(arc_coords[5:])
             outline_l.append(l_seg1_s)
             outline_r.append(r_seg1_s)
 
@@ -157,9 +161,50 @@ def calc_normal_outline2(coords, pressure, line_width, rounded = False):
             outline_l.append(l_seg2_e)
             outline_r.append(r_seg2_e)
             if rounded:
+                print("rounding")
                 arc_coords = calc_arc_coords(l_seg2_e, r_seg2_e, p1, 10)
-                outline_l.extend(arc_coords)
+                outline_r.extend(arc_coords[:5])
+                outline_l.extend(arc_coords[5:][::-1])
     return outline_l, outline_r
+
+def calc_normal_outline3(coords, pressure, line_width, taper_pos, taper_length):
+    """Calculate the normal outline of a path."""
+    n = len(coords)
+
+    outline_l = []
+    outline_r = []
+
+    taper_l_cur = 0
+
+    for i in range(n - 2):
+        p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
+        if i >= taper_pos:
+            taper_l_cur += distance(p0, p1)
+            if taper_l_cur > taper_length:
+                taper_l_cur = taper_length
+            width  = line_width * pressure[i] / 2 * (1 - taper_l_cur / taper_length)
+        else:
+            width  = line_width * pressure[i] / 2
+
+        l_seg1_s, r_seg1_s, l_seg1_e, r_seg1_e = calc_segments(p0, p1, width)
+        l_seg2_s, r_seg2_s, l_seg2_e, r_seg2_e = calc_segments(p1, p2, width)
+
+        if i == 0:
+        ## append the points for the first coord
+            arc_coords = calc_arc_coords(l_seg1_s, r_seg1_s, p1, 10)
+            outline_r.extend(arc_coords)
+            outline_l.append(l_seg1_s)
+            outline_r.append(r_seg1_s)
+
+        outline_l.append(l_seg1_e)
+        outline_l.append(l_seg2_s)
+        outline_r.append(r_seg1_e)
+        outline_r.append(r_seg2_s)
+
+        if i == n - 3:
+            outline_l.append(point_mean(l_seg2_e, r_seg2_e))
+    return outline_l, outline_r
+
 
 class BrushFactory:
     """
@@ -174,8 +219,9 @@ class BrushFactory:
         brushes = {
                 "rounded": BrushRound(**kwargs),
                 "slanted": BrushSlanted(**kwargs),
-                "marker": BrushMarker(**kwargs),
-                "pencil": BrushPencil(**kwargs),
+                "marker":  BrushMarker(**kwargs),
+                "pencil":  BrushPencil(**kwargs),
+                "tapered": BrushTapered(**kwargs),
                 }
 
         return brushes
@@ -202,7 +248,11 @@ class BrushFactory:
             print("returning pencil brush")
             return BrushPencil(**kwargs)
 
-        return Brush()
+        if brush_type == "tapered":
+            print("returning tapered brush")
+            return BrushTapered(**kwargs)
+
+        raise NotImplementedError("Brush type not implemented")
 
 class Brush:
     """Base class for brushes."""
@@ -298,6 +348,56 @@ class Brush:
         self.__outline = outline
         return outline
 
+class BrushTapered(Brush):
+    """Tapered brush."""
+    def __init__(self, outline = None):
+        super().__init__(rounded = False, brush_type = "tapered",
+                         outline = outline)
+
+    def calculate(self, line_width, coords, pressure = None):
+        """Recalculate the outline of the brush."""
+
+        if coords is not None and pressure is not None:
+            if len(coords) != len(pressure):
+                raise ValueError("Pressure and coords don't match")
+
+        pressure = pressure or [1] * len(coords)
+
+        lwd = line_width
+
+        if len(coords) < 4:
+            return None
+
+        n_taper = 5
+        if len(coords) < n_taper:
+            n_taper = len(coords) - 2
+
+        length_to_taper = calculate_length(coords[:(len(coords) - n_taper)])
+        tot_length = calculate_length(coords)
+
+        #print("1.length of coords and pressure:", len(coords), len(pressure))
+        coords, pressure = smooth_path(coords, pressure, 20)
+        #print("2.length of coords and pressure:", len(coords), len(pressure))
+
+        taper_pos = first_point_after_length(coords, length_to_taper)
+        print("length to taper:", int(length_to_taper), int(tot_length), "taper pos:", taper_pos, "/", len(coords))
+        taper_length = calculate_length(coords[taper_pos:])
+
+
+        #outline_l, outline_r = calc_normal_outline(coords, pressure, lwd, True)
+        outline_l, outline_r = calc_normal_outline3(coords, pressure, lwd, 
+                                                    taper_pos, taper_length)
+
+        #outline_l, _ = smooth_path(outline_l, None, 20)
+        #outline_r, _ = smooth_path(outline_r, None, 20)
+        outline  = outline_l + outline_r[::-1]
+
+        if len(coords) != len(pressure):
+            #raise ValueError("Pressure and coords don't match")
+            print("Pressure and coords don't match:", len(coords), len(pressure))
+        self.outline(outline)
+        return outline
+
 class BrushMarker(Brush):
     """Marker brush."""
     def __init__(self, outline = None):
@@ -373,7 +473,7 @@ class BrushPencil(Brush):
         n = len(bins)
 
         for i in range(n):
-            cr.set_source_rgba(r, g, b, a * self.__bin_transp[i])
+            cr.set_source_rgba(r, g, b, a)# * self.__bin_transp[i])
             cr.set_line_width(self.__bin_lw[i])
             for j in bins[i]:
                 cr.move_to(outline_l[j][0], outline_l[j][1])
@@ -401,7 +501,7 @@ class BrushPencil(Brush):
         coords, pressure = smooth_path(coords, pressure, 20)
         #print("2.length of coords and pressure:", len(coords), len(pressure))
 
-        outline_l, outline_r = calc_normal_outline2(coords, pressure, lwd, False)
+        outline_l, outline_r = calc_normal_outline2(coords, pressure, lwd, True)
        #print("outline lengths:", len(outline_l), len(outline_r))
 
         self.__outline_l = outline_l
@@ -411,8 +511,9 @@ class BrushPencil(Brush):
         self.outline(outline_l + outline_r[::-1])
 
         nbins = 32
-        plength = len(self.__pressure)
-        self.__bins, binsize = find_intervals(self.__pressure[:(plength - 1)], nbins)
+        pp = [pressure[0]] * 5 + pressure + [pressure[-1]] * 5
+        plength = len(pp)
+        self.__bins, binsize = find_intervals(pp[:(plength - 1)], nbins)
 
         self.__bin_lw = [ lwd * (0.75 + 0.25 * i * binsize) for i in range(1, nbins + 1) ]
         self.__bin_transp = [ 0.25 + 0.75 * binsize * i for i in range(1, nbins + 1) ]

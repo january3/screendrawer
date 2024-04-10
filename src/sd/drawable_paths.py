@@ -206,7 +206,6 @@ class Path(Drawable):
         else:
             self.draw_standard(cr)
             if outline:
-                print("drawing outline")
                 cr.set_line_width(0.4)
                 cr.stroke()
                 self.draw_outline(cr)

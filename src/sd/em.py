@@ -225,6 +225,7 @@ class EventManager:
             'set_brush_marker':      {'action': setter.set_brush, 'args': ["marker"] },
             'set_brush_slanted':     {'action': setter.set_brush, 'args': ["slanted"] },
             'set_brush_pencil':      {'action': setter.set_brush, 'args': ["pencil"] },
+            'set_brush_tapered':     {'action': setter.set_brush, 'args': ["tapered"] },
 
             'apply_pen_to_bg':       {'action': state.apply_pen_to_bg,        'modes': ["move"]},
             'toggle_pens':           {'action': state.switch_pens},
@@ -338,6 +339,7 @@ class EventManager:
             '2':                    "set_brush_marker",
             '3':                    "set_brush_slanted",
             '4':                    "set_brush_pencil",
+            '5':                    "set_brush_tapered",
 
             'Shift-p':              "prev_page",
             'Shift-n':              "next_page",
