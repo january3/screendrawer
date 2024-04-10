@@ -8,7 +8,7 @@ To do (sorted by priority):
    objects, some are taking object lists, some are taking drawable groups.
    Inconsistent!
  * unit tests. more, more, more
- * different pencils should have different cursors
+ * different brushes should have different cursors
  * create a pen wiglet
  * draw a dustbin wiglet in lower left corner
  * clean up font code. Maybe use the Pango.FontDescription class for
@@ -24,6 +24,7 @@ To do (sorted by priority):
  * wiglets for pen / line width / tool. They should be drawinggroup
    objects knowing how to draw themselves and how to react to mouse
  * Help should be actually a new screendrawer window with written on it!
+ * welcome screen as screendrawer pages
  * how should the color picker and the color selection dialog colaborate?
  * think hard how I want the color setting / pen thing to work
  * add a line mode and Line object class
@@ -40,20 +41,21 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * incorrect bounding box when exporting with text (see mk.sdrw) => oh no,
-   this is actually due to paning? => oh no, we are already dealing with
-   it?
+ * sometimes when editing text the release-button event does not seem to be
+   properly processed and when exiting with "Esc", the object is being
+   moved even though mouse button is not down.
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies
    fall on the same position as the first one
  * when drawing very slow the line looks like shit.
- * when text is rotated, the algorithm for checking for hover objects does
-   not consider the enlarged bounding box
 
 Done:
  * clean up import-export code
+ * incorrect bounding box when exporting with text (see mk.sdrw) => oh no,
+   this is actually due to paning? => oh no, we are already dealing with
+   it?
  * PDFs should be multipage (ha, ha) -> this is really easy, use
    surface.show_page()! or even cr.show_page()
  * end of a pencil line should be rounded.
@@ -62,6 +64,8 @@ Done:
    files; or, better, create a yaml export option.
  * text bbox is incorrectly reported to the method checking whether text is
    clicked
+ * when text is rotated, the algorithm for checking for hover objects does
+   not consider the enlarged bounding box
  * a weird bug appeared once when editing text; something was seriously
    wrong with the text object; text was behaving erratic when moved and
    looked like having two copies (maybe somehow entered twice in
