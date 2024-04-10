@@ -5,6 +5,8 @@ Basically, this class is responsible for creating and managing the cursor for th
 It has methods to set the cursor to different modes.
 """
 
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gdk         # <remove>
 from .icons import Icons            # <remove>
 

@@ -2,6 +2,8 @@
 This module holds the MenuMaker class, which is a singleton class that creates menus.
 """
 
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gtk # <remove>
 
 class MenuMaker:

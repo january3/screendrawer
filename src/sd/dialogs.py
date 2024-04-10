@@ -3,6 +3,8 @@ Dialogs for the ScreenDrawer application.
 """
 
 import os # <remove>
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gtk # <remove>
 from .pen import Pen # <remove>
 

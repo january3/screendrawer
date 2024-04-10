@@ -1,4 +1,6 @@
 ## ---------------------------------------------------------------------
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gtk, Gdk # <remove>
 from .drawable_group import DrawableGroup # <remove>
 from .utils import img_object_copy # <remove>

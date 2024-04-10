@@ -1,6 +1,8 @@
 """Class which draws the actual objects and caches them."""
-import cairo
-from .drawable_group import DrawableGroup
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
+import cairo                                  # <remove>
+from .drawable_group import DrawableGroup     # <remove>
 
 def draw_on_surface(cr, objects, selection, state):
     """

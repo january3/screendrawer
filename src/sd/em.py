@@ -14,6 +14,8 @@ happens.
 
 import traceback # <remove>
 from sys import exc_info # <remove>
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gdk # <remove>
 
 COLORS = {

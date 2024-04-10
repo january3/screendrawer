@@ -3,8 +3,8 @@
 import os                                    # <remove>
 import sys                                   # <remove>
 import gi                                    # <remove>
-from sd.utils import base64_to_pixbuf        # <remove>
 gi.require_version('Gtk', '3.0')             # <remove>
+from sd.utils import base64_to_pixbuf        # <remove>
 
 
 class Icons:

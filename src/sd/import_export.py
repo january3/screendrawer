@@ -3,16 +3,16 @@ This module provides functions to import and export drawings in various formats.
 """
 
 from os import path # <remove>
-import pickle # <remove>
-import cairo # <remove>
+import pickle       # <remove>
 
-import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
+from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib # <remove> pylint: disable=wrong-import-position
 
-from sd.drawable import Drawable # <remove>
+import cairo                                # <remove>
+from sd.drawable import Drawable            # <remove>
 from sd.drawable_group import DrawableGroup # <remove>
-from sd.page import Page # <remove>
+from sd.page import Page                    # <remove>
 
 def guess_file_format(filename):
     """Guess the file format from the file extension."""

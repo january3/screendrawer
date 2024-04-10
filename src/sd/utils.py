@@ -7,9 +7,11 @@ import base64                                                       #<remove>
 import tempfile                                                     #<remove>
 import warnings                                                     #<remove>
 from io import BytesIO                                              # <remove>
-import cairo                                                        #<remove>
-import gi                                                           #<remove>
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove> pylint: disable=wrong-import-position
+gi.require_version('Gdk', '3.0')                           # <remove> pylint: disable=wrong-import-position
 from gi.repository import Gdk, GdkPixbuf                            #<remove>
+import cairo                                                        #<remove>
 import appdirs                                                      #<remove>
 import pyautogui                                                    #<remove>
 from PIL import ImageGrab                                           #<remove>

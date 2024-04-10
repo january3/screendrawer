@@ -52,10 +52,10 @@ class DrawManager:
     gom.remove_all()
     gom.command_append()
     """
-    def __init__(self, gom, app, state, wiglets, setter):
+    def __init__(self, gom, mm, state, wiglets, setter):
         self.__state = state
         self.__gom = gom
-        self.__app = app
+        self.__mm = mm
         self.__cursor = state.cursor()
         self.__wiglets = wiglets
         self.__setter = setter
@@ -93,11 +93,11 @@ class DrawManager:
 
             # XXX - this should happen directly?
             sel_objects = self.__gom.selected_objects()
-            self.__app.mm.object_menu(sel_objects).popup(None, None,
+            self.__mm.object_menu(sel_objects).popup(None, None,
                                                          None, None,
                                                          event.button, event.time)
         else:
-            self.__app.mm.context_menu().popup(None, None,
+            self.__mm.context_menu().popup(None, None,
                                                None, None,
                                                event.button, event.time)
         self.__state.queue_draw()

@@ -2,6 +2,8 @@
 This module defines the Pen class, which represents a pen with customizable drawing properties.
 """
 
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Pango  # <remove>
 
 class Pen:

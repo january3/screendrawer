@@ -54,7 +54,6 @@ import cairo
 import appdirs
 
 import gi
-
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
 
@@ -408,56 +407,6 @@ def coords_rotate(coords, angle, origin):
         ret.append((x1 + origin[0], y1 + origin[1]))
     return ret
 
-def calc_normal_outline(coords, pressure, line_width, rounded = False):
-    """Calculate the normal outline of a path."""
-    n = len(coords)
-
-    outline_l = []
-    outline_r = []
-
-    for i in range(n - 2):
-        p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
-        nx, ny = normal_vec(p0, p1)
-        mx, my = normal_vec(p1, p2)
-
-        width  = line_width * pressure[i] / 2
-
-        left_segment1_start = (p0[0] + nx * width, p0[1] + ny * width)
-        left_segment1_end   = (p1[0] + nx * width, p1[1] + ny * width)
-        left_segment2_start = (p1[0] + mx * width, p1[1] + my * width)
-        left_segment2_end   = (p2[0] + mx * width, p2[1] + my * width)
-
-        right_segment1_start = (p0[0] - nx * width, p0[1] - ny * width)
-        right_segment1_end   = (p1[0] - nx * width, p1[1] - ny * width)
-        right_segment2_start = (p1[0] - mx * width, p1[1] - my * width)
-        right_segment2_end   = (p2[0] - mx * width, p2[1] - my * width)
-
-        if i == 0:
-        ## append the points for the first coord
-            if rounded:
-                arc_coords = calc_arc_coords( left_segment1_start,
-                                              right_segment1_start,
-                                             p1, 10)
-                outline_r.extend(arc_coords)
-            outline_l.append(left_segment1_start)
-            outline_r.append(right_segment1_start)
-
-        outline_l.append(left_segment1_end)
-        outline_l.append(left_segment2_start)
-        outline_r.append(right_segment1_end)
-        outline_r.append(right_segment2_start)
-
-        if i == n - 3:
-            outline_l.append(left_segment2_end)
-            outline_r.append(right_segment2_end)
-            if rounded:
-                arc_coords = calc_arc_coords( left_segment2_end,
-                                              right_segment2_end,
-                                             p1, 10)
-                outline_l.extend(arc_coords)
-    return outline_l, outline_r
-
-
 def normal_vec(p0, p1):
     """Calculate the normal vector of a line segment."""
     #dx, dy = x1 - x0, y1 - y0
@@ -542,14 +491,29 @@ def is_click_in_bbox(click_x, click_y, bbox):
 def is_click_in_bbox_corner(click_x, click_y, bbox, threshold):
     """Check if a click is in the corner of a bounding box."""
     x, y, w, h = bbox
+
+    # make sure that the corner capture area leaves enough space for the
+    # grab area in the middle of the bbox
+    if w < 2 * threshold:
+        w += 2 * threshold
+        x -= threshold
+
+    if h < 2 * threshold:
+        h += 2 * threshold
+        y -= threshold
+
     if (abs(click_x - x) < threshold) and (abs(click_y - y) < threshold):
         return "upper_left"
+
     if (abs(x + w - click_x) < threshold) and (abs(click_y - y) < threshold):
         return "upper_right"
+
     if (abs(click_x - x) < threshold) and (abs(y + h - click_y) < threshold):
         return "lower_left"
+
     if (abs(x + w - click_x) < threshold) and (abs(y + h - click_y) < threshold):
         return "lower_right"
+
     return None
 
 def find_corners_next_to_click(click_x, click_y, objects, threshold):
@@ -594,6 +558,7 @@ def base64_to_pixbuf(image_base64):
     loader.close()  # Finalize the loader
     image = loader.get_pixbuf()  # Get the loaded GdkPixbuf
     return image
+
 """
 This module contains the commands that can be executed on the objects. They
 should be undoable and redoable. It is their responsibility to update the
@@ -1410,7 +1375,6 @@ class Pen:
         """
         Initializes a new Pen object with the specified drawing properties.
         """
-        print("creating new pen", self, "brush", brush)
         self.color        = color
         self.line_width   = line_width
         self.fill_color   = fill_color
@@ -1422,16 +1386,16 @@ class Pen:
         self.font_style        = font_style  or "normal"
         self.font_description  = Pango.FontDescription.from_string(
                 f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}")
-        self.__brush     = BrushFactory.create_brush(brush)
+        #self.__brush     = BrushFactory.create_brush(brush)
         self.__brush_type = brush
 
-    def brush(self, brush_type = None):
+    def brush_type(self, brush_type = None):
         """Get or set the brush property"""
         if brush_type is not None:
-            print("creating new self", self, "brush", brush_type)
-            self.__brush = BrushFactory.create_brush(brush_type)
             self.__brush_type = brush_type
-        return self.__brush
+       #     print("creating new self", self, "brush", brush_type)
+       #     self.__brush = BrushFactory.create_brush(brush_type)
+        return self.__brush_type
 
     def transparency_set(self, transparency):
         """Set pen transparency"""
@@ -1509,7 +1473,6 @@ class Pen:
 
     def to_dict(self):
         """Convert pen properties to a dictionary"""
-        print("saving pen with brush", self.__brush_type)
         return {
             "color": self.color,
             "line_width": self.line_width,
@@ -1524,7 +1487,6 @@ class Pen:
 
     def copy(self):
         """Create a copy of the pen"""
-        print("copying pen", self, "brush", self.__brush_type)
         return Pen(self.color, self.line_width, self.transparency, self.fill_color, 
                    self.font_size, self.font_family, self.font_weight, self.font_style,
                    brush = self.__brush_type)
@@ -1535,1642 +1497,6 @@ class Pen:
         #def __init__(self, color = (0, 0, 0), line_width = 12, font_size = 12, transparency = 1, fill_color = None, family = "Sans", weight = "normal", style = "normal"):
         return cls(d.get("color"), d.get("line_width"), d.get("transparency"), d.get("fill_color"),
                    d.get("font_size"), d.get("font_family"), d.get("font_weight"), d.get("font_style"), d.get("brush"))
-"""
-These are the objects that can be displayed. It includes groups, but
-also primitives like boxes, paths and text.
-"""
-
-
-
-class DrawableFactory:
-    """
-    Factory class for creating drawable objects.
-    """
-    @classmethod
-    def create_drawable(cls, mode, pen, ev):
-        """
-        Create a drawable object of the specified type.
-        """
-        pos = ev.pos()
-        pressure = ev.pressure()
-        ret_obj = None
-
-        print("create object in mode", mode)
-        #if mode == "text" or (mode == "draw" and shift_click and no_active_area):
-
-        if mode == "text":
-            print("creating text object")
-            ret_obj = Text([ pos ], pen = pen, content = "")
-            ret_obj.move_caret("Home")
-
-        elif mode == "draw":
-            print("creating path object")
-            ret_obj = Path([ pos ], pen = pen, pressure = [ pressure ])
-
-        elif mode == "rectangle":
-            print("creating rectangle object")
-            ret_obj = Rectangle([ pos ], pen = pen)
-
-        elif mode == "shape":
-            print("creating shape object")
-            ret_obj = Shape([ pos ], pen = pen)
-
-        elif mode == "circle":
-            print("creating circle object")
-            ret_obj = Circle([ pos, (pos[0], pos[1]) ], pen = pen)
-
-        else:
-            raise ValueError("Unknown mode:", mode)
-
-        return ret_obj
-
-    @classmethod
-    def transmute(cls, obj, mode):
-        """
-        Transmute an object into another type.
-
-        For groups, the behaviour is special: rather than converting the group
-        into a single object, we convert all objects within the group into the
-        new type by calling the transmute_to method of the group object.
-        """
-        print("transmuting object to", mode)
-
-        if obj.type == "group":
-            # for now, we do not pass transmutations to groups, because
-            # we then cannot track the changes.
-            return obj
-
-        if mode == "text":
-            obj = Text.from_object(obj)
-        elif mode == "draw":
-            obj = Path.from_object(obj)
-        elif mode == "rectangle":
-            obj = Rectangle.from_object(obj)
-        elif mode == "shape":
-            print("calling Shape.from_object")
-            obj = Shape.from_object(obj)
-        elif mode == "circle":
-            obj = Circle.from_object(obj)
-        else:
-            raise ValueError("Unknown mode:", mode)
-
-        return obj
-
-class Drawable:
-    """
-    Base class for drawable objects.
-
-    This class represents a drawable object that can be displayed on a canvas.
-
-    Attributes:
-        type (str): The type of the drawable object.
-        coords (list of tuples): The coordinates of the object's shape.
-        origin (tuple): The original position of the object (when resizing etc).
-        resizing (dict): The state of the object's resizing operation.
-        rotation (float): The rotation angle of the object in radians.
-        rot_origin (tuple): The origin of the rotation operation.
-        pen (Pen): The pen used for drawing the object.
-    """
-    def __init__(self, mytype, coords, pen):
-        self.type         = mytype
-        self.coords       = coords
-        self.origin       = None
-        self.resizing     = None
-        self.rotation     = 0
-        self.rot_origin   = None
-        self.__filled     = False
-        if pen:
-            self.pen    = pen.copy()
-        else:
-            self.pen    = None
-
-    def update(self, x, y, pressure):
-        """Called when the mouse moves during drawing."""
-
-    def finish(self):
-        """Called when building (drawing, typing etc.) is concluded."""
-
-    def get_primitive(self):
-        """This is for allowing to distinguish between primitives and groups."""
-        return self
-
-    # ------------ Drawable rotation methods ------------------
-    def rotate_start(self, origin):
-        """Start the rotation operation."""
-        self.rot_origin = origin
-
-    def rotate(self, angle, set_angle = False):
-        """Rotate the object by the specified angle."""
-        # the self.rotation variable is for drawing while rotating
-        if set_angle:
-            self.rotation = angle
-        else:
-            self.rotation += angle
-
-    def rotate_end(self):
-        """Finish the rotation operation."""
-        raise NotImplementedError("rotate_end method not implemented")
-
-    # ------------ Drawable resizing methods ------------------
-    def resize_start(self, corner, origin):
-        """Start the resizing operation."""
-        self.resizing = {
-            "corner": corner,
-            "origin": origin,
-            "bbox":   self.bbox()
-            }
-
-    def resize_update(self, bbox):
-        """Update during the resize of the object."""
-        self.resizing["bbox"] = bbox
-
-    def resize_end(self):
-        """Finish the resizing operation."""
-        self.resizing = None
-        # not implemented
-        print("resize_end not implemented")
-
-    # ------------ Drawable attribute methods ------------------
-    def pen_set(self, pen):
-        """Set the pen of the object."""
-        self.pen = pen.copy()
-
-    def stroke_change(self, direction):
-        """Change the stroke size of the object."""
-        self.pen.stroke_change(direction)
-
-    def smoothen(self, threshold=20):
-        """Smoothen the object."""
-        print(f"smoothening not implemented (threshold {threshold})")
-
-    def fill(self):
-        """Return the fill status"""
-        return self.__filled
-
-    def fill_toggle(self):
-        """Toggle the fill of the object."""
-        self.__filled = not self.__filled
-
-    def fill_set(self, fill):
-        """Fill the object with a color."""
-        self.__filled = fill
-
-    def line_width_set(self, lw):
-        """Set the color of the object."""
-        self.pen.line_width_set(lw)
-
-    def color_set(self, color):
-        """Set the color of the object."""
-        self.pen.color_set(color)
-
-    def font_set(self, size, family, weight, style):
-        """Set the font of the object."""
-        self.pen.font_size    = size
-        self.pen.font_family  = family
-        self.pen.font_weight  = weight
-        self.pen.font_style   = style
-
-    # ------------ Drawable modification methods ------------------
-    def origin_remove(self):
-        """Remove the origin point."""
-        self.origin = None
-
-    def is_close_to_click(self, click_x, click_y, threshold):
-        """Check if a click is close to the object."""
-        if self.coords is None:
-            return False
-        if len(self.coords) == 1:
-            x, y = self.coords[0]
-            return (x - threshold <= click_x <= x + threshold and
-                    y - threshold <= click_y <= y + threshold)
-
-        x1, y1 = self.coords[0]
-        x2, y2 = self.coords[1]
-
-        x1, x2 = min(x1, x2), max(x1, x2)
-        y1, y2 = min(y1, y2), max(y1, y2)
-
-        ## by default, we just check whether the click is close to the bounding box
-        # path = [ (x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1) ]
-        ## return is_click_close_to_path(click_x, click_y, path, threshold)
-        # we return True if click is within the bbox
-        return (x1 - threshold <= click_x <= x2 + threshold and
-                y1 - threshold <= click_y <= y2 + threshold)
-
-    def to_dict(self):
-        """Convert the object to a dictionary."""
-        return {
-            "type": self.type,
-            "coords": self.coords,
-            "pen": self.pen.to_dict()
-        }
-
-    def move(self, dx, dy):
-        """Move the object by dx, dy."""
-        move_coords(self.coords, dx, dy)
-        if self.rotation:
-            self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
-
-    def bbox(self, actual = False):
-        """Return the bounding box of the object."""
-        if self.resizing:
-            return self.resizing["bbox"]
-        left, top = min(p[0] for p in self.coords), min(p[1] for p in self.coords)
-        width =    max(p[0] for p in self.coords) - left
-        height =   max(p[1] for p in self.coords) - top
-        return (left, top, width, height)
-
-    def bbox_draw(self, cr, lw=0.2):
-        """Draw the bounding box of the object."""
-        bb = self.bbox(actual = True)
-        x, y, w, h = bb
-        cr.set_line_width(lw)
-        cr.rectangle(x, y, w, h)
-        cr.stroke()
-
-    def draw(self, cr, hover=False, selected=False, outline=False):
-        """Draw the object on the Cairo context."""
-        raise NotImplementedError("draw method not implemented")
-
-    # ------------ Drawable conversion methods ------------------
-    @classmethod
-    def from_dict(cls, d):
-        """
-        Create a drawable object from a dictionary.
-
-        Objects must take all named arguments specified in their
-        dictionary.
-        """
-        type_map = {
-            "path": Path,
-            "polygon": Shape, #back compatibility
-            "shape": Shape,
-            "circle": Circle,
-            "rectangle": Rectangle,
-            "box": Box,
-            "image": Image,
-            "group": DrawableGroup,
-            "text": Text
-        }
-
-        obj_type = d.pop("type")
-        if obj_type not in type_map:
-            raise ValueError("Invalid type:", obj_type)
-
-        if "pen" in d:
-            print("Read pen from dict. Pen is", d.get("pen"))
-            d["pen"] = Pen.from_dict(d["pen"])
-        #print("generating object of type", type, "with data", d)
-        return type_map.get(obj_type)(**d)
-
-    @classmethod
-    def from_object(cls, obj):
-        """
-        Transmute Drawable object into another class.
-
-        The default method doesn't do much, but subclasses can override it to
-        allow conversions between different types of objects.
-        """
-        print("generic from_obj method called")
-        return obj
-
-
-class DrawableGroup(Drawable):
-    """
-    Class for creating groups of drawable objects or other groups.
-    Most of the time it just passes events around.
-
-    Attributes:
-        objects (list): The list of objects in the group.
-    """
-    def __init__(self, objects, objects_dict = None, mytype = "group"):
-
-        if objects_dict:
-            objects = [ Drawable.from_dict(d) for d in objects_dict ]
-
-        objects = objects or [ ]
-
-        print("Creating DrawableGroup with ", len(objects), "objects")
-        super().__init__(mytype, [ (None, None) ], None)
-        self.objects = objects
-
-    def contains(self, obj):
-        """Check if the group contains the object."""
-        return obj in self.objects
-
-    def is_close_to_click(self, click_x, click_y, threshold):
-        """Check if a click is close to one of the objects."""
-        for obj in self.objects:
-            if obj.is_close_to_click(click_x, click_y, threshold):
-                return True
-        return False
-
-    def fill_toggle(self):
-        """Toggle the fill of the objects"""
-        for obj in self.objects:
-            obj.fill_toggle()
-
-    def stroke_change(self, direction):
-        """Change the stroke size of the objects in the group."""
-        for obj in self.objects:
-            obj.stroke_change(direction)
-
-    def transmute_to(self, mode):
-        """Transmute all objects within the group to a new type."""
-        print("transmuting group to", mode)
-        for i in range(len(self.objects)):
-            self.objects[i] = DrawableFactory.transmute(self.objects[i], mode)
-
-    def to_dict(self):
-        """Convert the group to a dictionary."""
-        return {
-            "type": self.type,
-            "objects_dict": [ obj.to_dict() for obj in self.objects ],
-        }
-
-    def color_set(self, color):
-        """Set the color of the objects in the group."""
-        for obj in self.objects:
-            obj.color_set(color)
-
-    def font_set(self, size, family, weight, style):
-        """Set the font of the objects in the group."""
-        for obj in self.objects:
-            obj.font_set(size, family, weight, style)
-
-    def resize_start(self, corner, origin):
-        """Start the resizing operation."""
-        self.resizing = {
-            "corner": corner,
-            "origin": origin,
-            "bbox":   self.bbox(),
-            "orig_bbox": self.bbox(),
-            "objects": { obj: obj.bbox() for obj in self.objects }
-            }
-
-        for obj in self.objects:
-            obj.resize_start(corner, origin)
-
-    def get_primitive(self):
-        """Return the primitives of the objects in the group."""
-        primitives = [ obj.get_primitive() for obj in self.objects ]
-        return flatten_and_unique(primitives)
-
-    def rotate_start(self, origin):
-        """Start the rotation operation."""
-        self.rot_origin = origin
-        for obj in self.objects:
-            obj.rotate_start(origin)
-
-    def rotate(self, angle, set_angle = False):
-        """Rotate the objects in the group."""
-        if set_angle:
-            self.rotation = angle
-        else:
-            self.rotation += angle
-        for obj in self.objects:
-            obj.rotate(angle, set_angle)
-
-    def rotate_end(self):
-        """Finish the rotation operation."""
-        for obj in self.objects:
-            obj.rotate_end()
-        self.rot_origin = None
-        self.rotation = 0
-
-    def resize_update(self, bbox):
-        """Resize the group of objects. we need to calculate the new
-           bounding box for each object within the group"""
-        orig_bbox = self.resizing["orig_bbox"]
-
-        scale_x, scale_y = bbox[2] / orig_bbox[2], bbox[3] / orig_bbox[3]
-
-        for obj in self.objects:
-            obj_bb = self.resizing["objects"][obj]
-
-            x, y, w, h = obj_bb
-            w2, h2 = w * scale_x, h * scale_y
-
-            x2 = bbox[0] + (x - orig_bbox[0]) * scale_x
-            y2 = bbox[1] + (y - orig_bbox[1]) * scale_y
-
-            ## recalculate the new bbox of the object within our new bb
-            obj.resize_update((x2, y2, w2, h2))
-
-        self.resizing["bbox"] = bbox
-
-    def resize_end(self):
-        """Finish the resizing operation."""
-        self.resizing = None
-        for obj in self.objects:
-            obj.resize_end()
-
-    def length(self):
-        """Return the number of objects in the group."""
-        return len(self.objects)
-
-    def bbox(self, actual = False):
-        """Return the bounding box of the group."""
-        if self.resizing:
-            return self.resizing["bbox"]
-        if not self.objects:
-            return None
-
-        left, top, width, height = self.objects[0].bbox(actual = actual)
-        bottom, right = top + height, left + width
-
-        for obj in self.objects[1:]:
-            x, y, w, h = obj.bbox(actual = actual)
-            left, top = min(left, x, x + w), min(top, y, y + h)
-            bottom, right = max(bottom, y, y + h), max(right, x, x + w)
-
-        width, height = right - left, bottom - top
-        return (left, top, width, height)
-
-    def add(self, obj):
-        """Add an object to the group."""
-        if obj not in self.objects:
-            self.objects.append(obj)
-
-    def remove(self, obj):
-        """Remove an object from the group."""
-        self.objects.remove(obj)
-
-    def move(self, dx, dy):
-        """Move the group by dx, dy."""
-        for obj in self.objects:
-            obj.move(dx, dy)
-
-    def draw(self, cr, hover=False, selected=False, outline=False):
-        """Draw the group of objects on the Cairo context."""
-        for obj in self.objects:
-            obj.draw(cr, hover=False, selected=selected)
-
-        cr.set_source_rgb(0, 0, 0)
-
-        if self.rotation:
-            cr.save()
-            x, y = self.rot_origin[0], self.rot_origin[1]
-            cr.translate(x, y)
-            cr.rotate(self.rotation)
-            cr.translate(-x, -y)
-
-        if selected:
-            cr.set_source_rgb(1, 0, 0)
-            self.bbox_draw(cr, lw=.5)
-        if hover:
-            self.bbox_draw(cr, lw=.5)
-
-        if self.rotation:
-            cr.restore()
-
-class SelectionObject(DrawableGroup):
-    """
-    Class for handling the selection of objects.
-
-    It is an extension of the DrawableGroup class, with additional methods for
-    selecting and manipulating objects. Note that more often than not, the
-    methods in this class need to have access to the global list of all
-    object (e.g. to inverse a selection).
-
-    Attributes:
-        objects (list): The list of selected objects.
-        _all_objects (list): The list of all objects in the canvas.
-    """
-
-    def __init__(self, all_objects):
-        super().__init__([ ], None, mytype = "selection_object")
-
-        print("Selection Object with ", len(all_objects), "objects")
-        self._all_objects = all_objects
-
-    def copy(self):
-        """Return a copy of the selection object."""
-        # the copy can be used for undo operations
-        print("copying selection to a new selection object")
-        return DrawableGroup(self.objects[:])
-
-    def n(self):
-        """Return the number of objects in the selection."""
-        return len(self.objects)
-
-    def is_empty(self):
-        """Check if the selection is empty."""
-        return not self.objects
-
-    def clear(self):
-        """Clear the selection."""
-        self.objects = [ ]
-
-    def toggle(self, obj):
-        """Toggle the selection of an object."""
-        if obj in self.objects:
-            self.objects.remove(obj)
-        else:
-            self.objects.append(obj)
-
-    def set(self, objects):
-        """Set the selection to a list of objects."""
-        print("setting selection to", objects)
-        self.objects = objects
-
-    def add(self, obj):
-        """Add an object to the selection."""
-        print("adding object to selection:", obj, "selection is", self.objects)
-        if not obj in self.objects:
-            self.objects.append(obj)
-
-    def all(self):
-        """Select all objects."""
-        print("selecting everything")
-        self.objects = self._all_objects[:]
-        print("selection has now", len(self.objects), "objects")
-        print("all objects have", len(self._all_objects), "objects")
-
-    def next(self):
-        """
-        Return a selection object with the next object in the list,
-        relative to the current selection.
-        """
-
-        all_objects = self._all_objects
-
-        if not all_objects:
-            return
-
-        if not self.objects:
-            self.objects = [ all_objects[0] ]
-            return
-
-        idx = all_objects.index(self.objects[-1])
-        idx += 1
-        if idx >= len(all_objects):
-            idx = 0
-
-        self.objects = [ all_objects[idx] ]
-
-
-    def prev(self):
-        """
-        Return a selection object with the previous object in the list,
-        relative to the current selection.
-        """
-
-        all_objects = self._all_objects
-
-        if not all_objects:
-            return
-
-        if not self.objects:
-            self.objects = [ all_objects[-1] ]
-            return
-
-        idx = all_objects.index(self.objects[-1])
-        idx -= 1
-        if idx < 0:
-            idx = len(all_objects) - 1
-        self.objects = [ all_objects[idx] ]
-
-
-    def reverse(self):
-        """
-        Return a selection object with the objects in reverse order.
-        """
-        if not self.objects:
-            print("no selection yet, selecting everything")
-            self.objects = self._all_objects[:]
-            return
-
-        new_sel = [ ]
-        for obj in self._all_objects:
-            if not self.contains(obj):
-                new_sel.append(obj)
-
-        self.objects = new_sel
-
-
-class Image(Drawable):
-    """Class for Images"""
-    def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
-
-        if image_base64:
-            self.image_base64 = image_base64
-            image = base64_to_pixbuf(image_base64)
-        else:
-            self.image_base64 = None
-
-        self.image_size = (image.get_width(), image.get_height())
-        self.transform = transform or (1, 1)
-
-        width  = self.image_size[0] * self.transform[0]
-        height = self.image_size[1] * self.transform[1]
-
-        coords = [ (coords[0][0], coords[0][1]),
-                   (coords[0][0] + width, coords[0][1] + height) ]
-        super().__init__("image", coords, pen)
-        self.image = image
-        self._orig_bbox = None
-
-        if rotation:
-            self.rotation = rotation
-            self.rotate_start((coords[0][0] + width / 2, coords[0][1] + height / 2))
-
-    def _bbox_internal(self):
-        """Return the bounding box of the object."""
-        x, y = self.coords[0]
-        w, h = self.coords[1]
-        return (x, y, w - x, h - y)
-
-    def draw(self, cr, hover=False, selected=False, outline=False):
-        """Draw the object on the Cairo context."""
-        cr.save()
-
-        if self.rotation:
-            cr.translate(self.rot_origin[0], self.rot_origin[1])
-            cr.rotate(self.rotation)
-            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
-
-        cr.translate(self.coords[0][0], self.coords[0][1])
-
-        if self.transform:
-            w_scale, h_scale = self.transform
-            cr.scale(w_scale, h_scale)
-
-        Gdk.cairo_set_source_pixbuf(cr, self.image, 0, 0)
-        cr.paint()
-
-        cr.restore()
-
-        cr.set_source_rgb(*self.pen.color)
-        if selected:
-            self.bbox_draw(cr, lw=1.5)
-        if hover:
-            self.bbox_draw(cr, lw=.5)
-
-    def bbox(self, actual = False):
-        """Return the bounding box of the object."""
-        bb = self._bbox_internal()
-        if self.rotation:
-            # first, calculate position bb after rotation relative to the
-            # text origin
-            x, y, w, h = bb
-            x1, y1 = x + w, y + h
-            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)], self.rotation, self.rot_origin)
-            bb = path_bbox(bb)
-
-        return bb
-
-    def resize_start(self, corner, origin):
-        """Start the resizing operation."""
-        self._orig_bbox = self.bbox()
-        self.resizing = {
-            "corner": corner,
-            "origin": origin,
-            "bbox":   self.bbox(),
-            "transform": self.transform
-            }
-
-    def resize_update(self, bbox):
-        """Update during the resize of the object."""
-        self.resizing["bbox"] = bbox
-
-        x1, y1, w1, h1 = bbox
-
-        # calculate scale relative to the old bbox
-        print("old bbox is", self._orig_bbox)
-        print("new bbox is", bbox)
-
-        w_scale = w1 / self._orig_bbox[2]
-        h_scale = h1 / self._orig_bbox[3]
-
-        print("resizing image", w_scale, h_scale)
-        print("old transform is", self.resizing["transform"])
-
-        self.coords[0] = (x1, y1)
-        self.coords[1] = (x1 + w1, y1 + h1)
-        self.transform = (w_scale * self.resizing["transform"][0],
-                          h_scale * self.resizing["transform"][1])
-
-    def resize_end(self):
-        """Finish the resizing operation."""
-        self.coords[1] = (self.coords[0][0] + self.image_size[0] * self.transform[0],
-                          self.coords[0][1] + self.image_size[1] * self.transform[1])
-        self.resizing = None
-
-    def rotate_end(self):
-        """Finish the rotation operation."""
-        bb = self._bbox_internal()
-        center_x, center_y = bb[0] + bb[2] / 2, bb[1] + bb[3] / 2
-        new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
-        self.move(new_center[0] - center_x, new_center[1] - center_y)
-        self.rot_origin = new_center
-
-    def is_close_to_click(self, click_x, click_y, threshold):
-        """Check if a click is close to the object."""
-        bb = self.bbox()
-        if bb is None:
-            return False
-        x, y, width, height = bb
-        if x <= click_x <= x + width and y <= click_y <= y + height:
-            return True
-        return False
-
-    def encode_base64(self):
-        """Encode the image to base64."""
-        with tempfile.NamedTemporaryFile(delete = True) as temp:
-            self.image.savev(temp.name, "png", [], [])
-            with open(temp.name, "rb") as f:
-                image_base64 = base64.b64encode(f.read()).decode("utf-8")
-        return image_base64
-
-    def base64(self):
-        """Return the base64 encoded image."""
-        if self.image_base64 is None:
-            self.image_base64 = self.encode_base64()
-        return self.image_base64
-
-    def to_dict(self):
-        """Convert the object to a dictionary."""
-
-        return {
-            "type": self.type,
-            "coords": self.coords,
-            "pen": self.pen.to_dict(),
-            "image": None,
-            "rotation": self.rotation,
-            "transform": self.transform,
-            "image_base64": self.base64(),
-        }
-
-
-class Text(Drawable):
-    """Class for Text objects"""
-    def __init__(self, coords, pen, content, rotation = None, rot_origin = None):
-        super().__init__("text", coords, pen)
-
-        # split content by newline
-        content = content.split("\n")
-        self.content = content
-        self.line    = 0
-        self.caret_pos    = None
-        self.bb           = None
-        self.font_extents = None
-
-        if rotation:
-            self.rotation = rotation
-            self.rot_origin = rot_origin
-
-    def is_close_to_click(self, click_x, click_y, threshold):
-        """Check if a click is close to the object."""
-        if self.bb is None:
-            return False
-        x, y, width, height = self.bb
-        if x <= click_x <= x + width and y <= click_y <= y + height:
-            return True
-        return False
-
-    def move(self, dx, dy):
-        """Move the text object by dx, dy."""
-        move_coords(self.coords, dx, dy)
-        if self.rotation:
-            self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
-
-    def rotate_end(self):
-        """Finish the rotation operation."""
-       ## hmm, not sure what this is supposed to do.
-       #if self.bb:
-       #    center_x, center_y = self.bb[0] + self.bb[2] / 2, self.bb[1] + self.bb[3] / 2
-       #    new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
-       #    self.move(new_center[0] - center_x, new_center[1] - center_y)
-       #self.rot_origin = new_center
-
-    def stroke_change(self, direction):
-        """Change text size up or down."""
-        self.pen.font_size += direction
-        self.pen.font_size = max(8, min(128, self.pen.font_size))
-
-    def resize_update(self, bbox):
-        print("resizing text", bbox)
-        if bbox[2] < 0:
-            bbox = (bbox[0], bbox[1], 10, bbox[3])
-        if bbox[3] < 0:
-            print("flipping y")
-            bbox = (bbox[0], bbox[1], bbox[2], 10)
-        self.resizing["bbox"] = bbox
-
-    def resize_end(self):
-        """Finish the resizing operation."""
-        new_bbox   = self.resizing["bbox"]
-        old_bbox   = self.bb
-
-        if not self.font_extents:
-            return
-
-        # create a surface with the new size
-        surface = cairo.ImageSurface(cairo.Format.ARGB32,
-                                     2 * math.ceil(new_bbox[2]),
-                                     2 * math.ceil(new_bbox[3]))
-        cr = cairo.Context(surface)
-        min_fs, max_fs = 8, 154
-
-        if new_bbox[2] < old_bbox[2] or new_bbox[3] < old_bbox[3]:
-            direction = -1
-        else:
-            direction = 1
-
-        self.coords = [ (0, 0), (old_bbox[2], old_bbox[3]) ]
-        # loop while font size not larger than max_fs and not smaller than
-        # min_fs
-        print("resizing text, direction=", direction, "font size is", self.pen.font_size)
-        while True:
-            self.pen.font_size += direction
-            print("trying font size", self.pen.font_size)
-            self.draw(cr, False, False)
-            out_of_range_low = self.pen.font_size < min_fs and direction < 0
-            out_of_range_up  = self.pen.font_size > max_fs and direction > 0
-            if out_of_range_low or out_of_range_up:
-                print("font size out of range")
-                break
-            current_bbox = self.bb
-            print("drawn, bbox is", self.bb)
-            if direction > 0 and (current_bbox[2] >= new_bbox[2] or
-                                  current_bbox[3] >= new_bbox[3]):
-                print("increased beyond the new bbox")
-                break
-            if direction < 0 and (current_bbox[2] <= new_bbox[2] and
-                                  current_bbox[3] <= new_bbox[3]):
-                break
-
-        self.coords[0] = (new_bbox[0], new_bbox[1] + self.font_extents[0])
-        print("final coords are", self.coords)
-        print("font extents are", self.font_extents)
-
-        # first
-        self.resizing = None
-
-    def to_dict(self):
-        return {
-            "type": self.type,
-            "coords": self.coords,
-            "pen": self.pen.to_dict(),
-            "rotation": self.rotation,
-            "rot_origin": self.rot_origin,
-            "content": self.as_string()
-        }
-
-    def bbox(self, actual = False):
-        if self.resizing:
-            return self.resizing["bbox"]
-        if not self.bb:
-            bb = (self.coords[0][0], self.coords[0][1], 50, 50)
-        else:
-            bb = self.bb
-        if self.rotation:
-            # first, calculate position bb after rotation relative to the
-            # text origin
-            x, y, w, h = bb
-            x1, y1 = x + w, y + h
-            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)], self.rotation, self.rot_origin)
-            bb = path_bbox(bb)
-
-        return bb
-
-    def as_string(self):
-        """Return the text as a single string."""
-        return "\n".join(self.content)
-
-    def strlen(self):
-        """Return the length of the text."""
-        return len(self.as_string())
-
-    def add_text(self, text):
-        """Add text to the object."""
-        # split text by newline
-        lines = text.split("\n")
-        for i, line in enumerate(lines):
-            if i == 0:
-                self.content[self.line] += line
-                self.caret_pos += len(text)
-            else:
-                self.content.insert(self.line + i, line)
-                self.caret_pos = len(line)
-
-    def backspace(self):
-        """Remove the last character from the text."""
-        cnt = self.content
-        if self.caret_pos > 0:
-            cnt[self.line] = cnt[self.line][:self.caret_pos - 1] + cnt[self.line][self.caret_pos:]
-            self.caret_pos -= 1
-        elif self.line > 0:
-            self.caret_pos = len(cnt[self.line - 1])
-            cnt[self.line - 1] += cnt[self.line]
-            cnt.pop(self.line)
-            self.line -= 1
-
-    def newline(self):
-        """Add a newline to the text."""
-        self.content.insert(self.line + 1,
-                            self.content[self.line][self.caret_pos:])
-        self.content[self.line] = self.content[self.line][:self.caret_pos]
-        self.line += 1
-        self.caret_pos = 0
-
-    def add_char(self, char):
-        """Add a character to the text."""
-        before_caret = self.content[self.line][:self.caret_pos]
-        after_caret  = self.content[self.line][self.caret_pos:]
-        self.content[self.line] = before_caret + char + after_caret
-        self.caret_pos += 1
-
-    def move_caret(self, direction):
-        """Move the caret in the text."""
-        if direction == "End":
-            self.line = len(self.content) - 1
-            self.caret_pos = len(self.content[self.line])
-        elif direction == "Home":
-            self.line = 0
-            self.caret_pos = 0
-        elif direction == "Right":
-            if self.caret_pos < len(self.content[self.line]):
-                self.caret_pos += 1
-            elif self.line < len(self.content) - 1:
-                self.line += 1
-                self.caret_pos = 0
-        elif direction == "Left":
-            if self.caret_pos > 0:
-                self.caret_pos -= 1
-            elif self.line > 0:
-                self.line -= 1
-                self.caret_pos = len(self.content[self.line])
-        elif direction == "Down":
-            if self.line < len(self.content) - 1:
-                self.line += 1
-                self.caret_pos = min(self.caret_pos, len(self.content[self.line]))
-        elif direction == "Up":
-            if self.line > 0:
-                self.line -= 1
-                self.caret_pos = min(self.caret_pos, len(self.content[self.line]))
-        else:
-            raise ValueError("Invalid direction:", direction)
-
-    def update_by_key(self, keyname, char):
-        """Update the text object by keypress."""
-        if keyname == "BackSpace": # and cur["caret_pos"] > 0:
-            self.backspace()
-        elif keyname in ["Home", "End", "Down", "Up", "Right", "Left"]:
-            self.move_caret(keyname)
-        elif keyname == "Return":
-            self.newline()
-        elif char and char.isprintable():
-            self.add_char(char)
-
-    def draw_caret(self, cr, xx0, yy0, height):
-        """Draw the caret."""
-        # draw the caret
-        cr.set_line_width(1)
-        cr.move_to(xx0, yy0)
-        cr.line_to(xx0, yy0 + height)
-        cr.stroke()
-        cr.move_to(xx0 - 3, yy0)
-        cr.line_to(xx0 + 3, yy0)
-        cr.stroke()
-        cr.move_to(xx0 - 3, yy0 + height)
-        cr.line_to(xx0 + 3, yy0 + height)
-        cr.stroke()
-
-    def draw(self, cr, hover=False, selected=False, outline=False):
-        """Draw the text object."""
-        position = self.coords[0]
-        content, pen, caret_pos = self.content, self.pen, self.caret_pos
-
-        # get font info
-        cr.select_font_face(pen.font_family,
-                            pen.font_style == "italic" and
-                                cairo.FONT_SLANT_ITALIC or cairo.FONT_SLANT_NORMAL,
-                            pen.font_weight == "bold"  and
-                                cairo.FONT_WEIGHT_BOLD  or cairo.FONT_WEIGHT_NORMAL)
-        cr.set_font_size(pen.font_size)
-
-        font_extents      = cr.font_extents()
-        self.font_extents = font_extents
-        ascent, height    = font_extents[0], font_extents[2]
-
-        dy   = 0
-
-        # new bounding box
-        bb_x = position[0]
-        bb_y = position[1] - ascent
-        bb_w = 0
-        bb_h = 0
-
-        if self.rotation:
-            cr.save()
-            cr.translate(self.rot_origin[0], self.rot_origin[1])
-            cr.rotate(self.rotation)
-            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
-
-        for i in range(len(content)):
-            fragment = content[i]
-
-            #x_bearing, y_bearing, t_width, t_height, x_advance, y_advance
-            x_bearing, _, t_width, _, _, _ = cr.text_extents(fragment)
-
-            bb_w = max(bb_w, t_width + x_bearing)
-            bb_h += height
-
-            cr.set_font_size(pen.font_size)
-            cr.move_to(position[0], position[1] + dy)
-            cr.set_source_rgba(*pen.color, pen.transparency)
-            cr.show_text(fragment)
-            cr.stroke()
-
-            # draw the caret
-            if not caret_pos is None and i == self.line:
-                x_bearing, _, t_width, _, _, _ = cr.text_extents("|" +
-                                                        fragment[:caret_pos] + "|")
-                _, _, t_width2, _, _, _ = cr.text_extents("|")
-                cr.set_source_rgb(1, 0, 0)
-                xx0 = position[0] - x_bearing + t_width - 2 * t_width2
-                yy0 = position[1] + dy - ascent
-                self.draw_caret(cr, xx0, yy0, height)
-
-            dy += height
-
-        self.bb = (bb_x, bb_y, bb_w, bb_h)
-
-        if self.rotation:
-            cr.restore()
-        if selected:
-            self.bbox_draw(cr, lw=1.5)
-        if hover:
-            self.bbox_draw(cr, lw=.5)
-
-class Path(Drawable):
-    """ Path is like shape, but not closed and has an outline that depends on
-        line width and pressure."""
-    def __init__(self, coords, pen, outline = None, pressure = None):
-        super().__init__("path", coords, pen = pen)
-        self.__pressure  = pressure or []
-        self.__bb        = []
-        if outline:
-            print("Warning: outline is not used in Path")
-        if pressure:
-            print("Warning: pressure is not used in Path")
-        #self.__brush     = BrushFactory.create_brush(brush)
-        #self.__brush_type = brush
-
-        if len(self.coords) > 3 and not self.pen.brush().outline():
-            self.outline_recalculate()
-
-    def outline_recalculate(self):
-        """Recalculate the outline of the path."""
-        self.pen.brush().calculate(self.pen.line_width,
-                                 coords = self.coords,
-                                 pressure = self.__pressure)
-
-    def finish(self):
-        """Finish the path."""
-        self.outline_recalculate()
-
-    def update(self, x, y, pressure):
-        """Update the path with a new point."""
-        self.path_append(x, y, pressure)
-
-    def move(self, dx, dy):
-        """Move the path by dx, dy."""
-        move_coords(self.coords, dx, dy)
-        #move_coords(self.__outline, dx, dy)
-        self.outline_recalculate()
-        self.__bb = None
-
-    def rotate_end(self):
-        """Finish the rotation operation."""
-        # rotate all coords and outline
-        self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
-        #self.__outline = coords_rotate(self.__outline, self.rotation, self.rot_origin)
-        self.outline_recalculate()
-        self.rotation   = 0
-        self.rot_origin = None
-        # recalculate bbox
-        self.__bb = path_bbox(self.coords)
-
-    def is_close_to_click(self, click_x, click_y, threshold):
-        """Check if a click is close to the path."""
-        return is_click_close_to_path(click_x, click_y, self.coords, threshold)
-
-    def to_dict(self):
-        """Convert the path to a dictionary."""
-        return {
-            "type": self.type,
-            "coords": self.coords,
-            #"outline": self.__outline,
-            "pressure": self.__pressure,
-            "pen": self.pen.to_dict(),
-        }
-
-    def stroke_change(self, direction):
-        """Change the stroke size."""
-        self.pen.stroke_change(direction)
-        self.outline_recalculate()
-
-    def smoothen(self, threshold=20):
-        """Smoothen the path."""
-        if len(self.coords) < 3:
-            return
-        print("smoothening path")
-        self.coords, self.__pressure = smooth_path(self.coords, self.__pressure, 1)
-        self.outline_recalculate()
-
-    def pen_set(self, pen):
-        """Set the pen for the path."""
-        self.pen = pen.copy()
-        self.outline_recalculate()
-
-
-    def path_append(self, x, y, pressure = 1):
-        """Append a point to the path, calculating the outline of the
-           shape around the path. Only used when path is created to
-           allow for a good preview. Later, the path is smoothed and recalculated."""
-        coords = self.coords
-        width  = self.pen.line_width * pressure
-
-        if len(coords) == 0:
-            self.__pressure.append(pressure)
-            coords.append((x, y))
-            return
-
-        lp = coords[-1]
-        if abs(x - lp[0]) < 1 and abs(y - lp[1]) < 1:
-            return
-
-        self.__pressure.append(pressure)
-        coords.append((x, y))
-        width = width / 2
-
-        if len(coords) < 2:
-            return
-        self.outline_recalculate()
-        self.__bb = None
-
-    def bbox(self, actual = False):
-        """Return the bounding box"""
-        if self.resizing:
-            return self.resizing["bbox"]
-        if not self.__bb:
-            self.__bb = path_bbox(self.pen.brush().outline() or self.coords)
-        return self.__bb
-
-    def resize_end(self):
-        """recalculate the outline after resizing"""
-        #print("length of coords and pressure:", len(self.coords), len(self.__pressure))
-        old_bbox = self.__bb or path_bbox(self.coords)
-        self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
-        self.outline_recalculate()
-        self.resizing  = None
-        self.__bb = path_bbox(self.pen.brush().outline() or self.coords)
-
-    def draw_outline(self, cr):
-        """draws each segment separately and makes a dot at each coord."""
-
-        cr.set_source_rgb(1, 0, 0)
-        cr.set_line_width(0.2)
-        coords = self.coords
-        for i in range(len(coords) - 1):
-            cr.move_to(coords[i][0], coords[i][1])
-            cr.line_to(coords[i + 1][0], coords[i + 1][1])
-            cr.stroke()
-            # make a dot at each coord
-            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
-            cr.fill()
-        cr.arc(coords[-1][0], coords[-1][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
-        cr.fill()
-
-    def draw_simple(self, cr, bbox=None):
-        """draws the path as a single line. Useful for resizing."""
-
-        if len(self.coords) < 2:
-            return
-
-        if bbox:
-            old_bbox = path_bbox(self.pen.brush().outline() or self.coords)
-            coords = transform_coords(self.coords, old_bbox, bbox)
-        else:
-            coords = self.coords
-
-        cr.set_source_rgb(*self.pen.color)
-        cr.set_line_width(self.pen.line_width)
-
-        cr.move_to(coords[0][0], coords[0][1])
-        for point in coords[1:]:
-            cr.line_to(point[0], point[1])
-        cr.stroke()
-
-
-    def draw_standard(self, cr):
-        """standard drawing of the path."""
-        cr.set_fill_rule(cairo.FillRule.WINDING)
-        self.pen.brush().draw(cr)
-
-    def draw(self, cr, hover=False, selected=False, outline = False):
-        """Draw the path."""
-        if not self.pen.brush().outline():
-            return
-
-        if len(self.pen.brush().outline()) < 4 or len(self.coords) < 3:
-            return
-
-        if self.rotation != 0:
-            cr.save()
-            cr.translate(self.rot_origin[0], self.rot_origin[1])
-            cr.rotate(self.rotation)
-            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
-
-        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
-        if self.resizing:
-            self.draw_simple(cr, bbox=self.resizing["bbox"])
-        else:
-            self.draw_standard(cr)
-            if outline:
-                print("drawing outline")
-                cr.set_line_width(0.4)
-                cr.stroke()
-                self.draw_outline(cr)
-            else:
-                cr.fill()
-
-
-        if selected:
-            cr.set_source_rgba(1, 0, 0)
-            self.bbox_draw(cr, lw=.2)
-
-        if hover:
-            self.bbox_draw(cr, lw=.2)
-
-        if self.rotation != 0:
-            cr.restore()
-
-    @classmethod
-    def from_object(cls, obj):
-        print("Path.from_object", obj)
-        if obj.coords and len(obj.coords) > 2 and obj.pen:
-            return cls(obj.coords, obj.pen)
-        # issue a warning
-        print("Path.from_object: invalid object")
-        return obj
-
-# ----------------------------
-class Shape(Drawable):
-    """Class for shapes (closed paths with no outline)."""
-    def __init__(self, coords, pen, filled = True):
-        super().__init__("shape", coords, pen)
-        self.bb = None
-        self.fill_set(filled)
-
-    def finish(self):
-        """Finish the shape."""
-        print("finishing shape")
-        self.coords, _ = smooth_path(self.coords)
-
-    def update(self, x, y, pressure):
-        """Update the shape with a new point."""
-        self.path_append(x, y, pressure)
-
-    def move(self, dx, dy):
-        """Move the shape by dx, dy."""
-        move_coords(self.coords, dx, dy)
-        self.bb = None
-
-    def rotate_end(self):
-        """finish the rotation"""
-        # rotate all coords and outline
-        self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
-        self.rotation   = 0
-        self.rot_origin = None
-        # recalculate bbox
-        self.bb = path_bbox(self.coords)
-
-    def is_close_to_click(self, click_x, click_y, threshold):
-        """Check if a click is close to the object."""
-        bb = self.bbox()
-        if bb is None:
-            return False
-        x, y, width, height = bb
-        if x <= click_x <= x + width and y <= click_y <= y + height:
-            return True
-        return False
-
-    def path_append(self, x, y, pressure = None):
-        """Append a new point to the path."""
-        self.coords.append((x, y))
-        self.bb = None
-
-    def fill_toggle(self):
-        """Toggle the fill of the object."""
-        old_bbox = self.bbox(actual = True)
-        self.bb  = None
-        self.fill_set(not self.fill())
-        new_bbox = self.bbox(actual = True)
-        self.coords = transform_coords(self.coords, new_bbox, old_bbox)
-        self.bb = None
-
-    def bbox(self, actual = False):
-        """Calculate the bounding box of the shape."""
-        if self.resizing:
-            bb = self.resizing["bbox"]
-        else:
-            if not self.bb:
-                self.bb = path_bbox(self.coords)
-            bb = self.bb
-        if actual and not self.fill():
-            lw = self.pen.line_width
-            bb = (bb[0] - lw / 2, bb[1] - lw / 2, bb[2] + lw, bb[3] + lw)
-        return bb
-
-    def resize_start(self, corner, origin):
-        """Start the resizing operation."""
-        bbox = path_bbox(self.coords)
-        self.resizing = {
-            "corner": corner,
-            "origin": origin,
-            "bbox":   bbox,
-            "start_bbox": bbox
-            }
-
-    def resize_update(self, bbox):
-        """Update during the resize of the object."""
-        self.resizing["bbox"] = bbox
-
-    def resize_end(self):
-        """recalculate the coordinates after resizing"""
-        old_bbox = self.resizing["start_bbox"]
-        new_bbox = self.resizing["bbox"]
-        self.coords = transform_coords(self.coords, old_bbox, new_bbox)
-        self.resizing  = None
-        if self.fill():
-            self.bb = path_bbox(self.coords)
-        else:
-            self.bb = path_bbox(self.coords, lw = self.pen.line_width)
-        self.bb = path_bbox(self.coords)
-
-    def to_dict(self):
-        """Convert the object to a dictionary."""
-        return {
-            "type": self.type,
-            "coords": self.coords,
-            "filled": self.fill(),
-            "pen": self.pen.to_dict()
-        }
-
-
-    def draw_outline(self, cr):
-        """draws each segment separately and makes a dot at each coord."""
-        coords = self.coords
-
-        for i in range(len(coords) - 1):
-            cr.move_to(coords[i][0], coords[i][1])
-            cr.line_to(coords[i + 1][0], coords[i + 1][1])
-            cr.stroke()
-            # make a dot at each coord
-            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
-            cr.fill()
-        cr.move_to(coords[-1][0], coords[-1][1])
-        cr.line_to(coords[0][0], coords[0][1])
-        cr.stroke()
-
-    def draw_simple(self, cr, bbox=None):
-        """draws the path as a single line. Useful for resizing."""
-
-        if len(self.coords) < 3:
-            return
-
-        if bbox:
-            if self.fill():
-                old_bbox = path_bbox(self.coords)
-            else:
-                old_bbox = path_bbox(self.coords)
-                #old_bbox = path_bbox(self.coords, lw = self.pen.line_width)
-            coords = transform_coords(self.coords, old_bbox, bbox)
-        else:
-            coords = self.coords
-
-        cr.set_line_width(0.5)
-        cr.move_to(coords[0][0], coords[0][1])
-
-        for point in coords[1:]:
-            cr.line_to(point[0], point[1])
-        cr.close_path()
-
-
-    def draw(self, cr, hover=False, selected=False, outline = False):
-        """Draw the shape on the Cairo context."""
-        if len(self.coords) < 3:
-            return
-
-        if self.rotation != 0:
-            cr.save()
-            cr.translate(self.rot_origin[0], self.rot_origin[1])
-            cr.rotate(self.rotation)
-            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
-
-        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
-        res_bb = self.resizing and self.resizing["bbox"] or None
-        self.draw_simple(cr, res_bb)
-
-        if outline:
-            cr.stroke()
-            self.draw_outline(cr)
-        elif self.fill():
-            cr.fill()
-        else:
-            cr.set_line_width(self.pen.line_width)
-            cr.stroke()
-
-        if selected:
-            cr.set_source_rgba(1, 0, 0)
-            self.bbox_draw(cr, lw=.2)
-
-        if hover:
-            self.bbox_draw(cr, lw=.2)
-
-        if self.rotation != 0:
-            cr.restore()
-
-    @classmethod
-    def from_path(cls, path):
-        """Create a shape from a path."""
-        return cls(path.coords, path.pen)
-
-    @classmethod
-    def from_object(cls, obj):
-        """Create a shape from an object."""
-        print("Shape.from_object", obj)
-        if obj.coords and len(obj.coords) > 2 and obj.pen:
-            return cls(obj.coords, obj.pen)
-
-        # issue a warning
-        print("Shape.from_object: invalid object")
-        return obj
-
-class Rectangle(Shape):
-    """Class for creating rectangles."""
-    def __init__(self, coords, pen, filled = False):
-        super().__init__(coords, pen, filled)
-        self.coords = coords
-        self.type = "rectangle"
-        # fill up coords to length 4
-        n = 5 - len(coords)
-        if n > 0:
-            self.coords += [(coords[0][0], coords[0][1])] * n
-
-    def finish(self):
-        """Finish the rectangle."""
-        print("finishing rectangle")
-        #self.coords, _ = smooth_path(self.coords)
-
-    def update(self, x, y, pressure):
-        """
-        Update the rectangle with a new point.
-
-        Unlike the shape, we use four points only to define rectangle.
-
-        We need more than two points, because subsequent transformations
-        may change it to a parallelogram.
-        """
-        x0, y0 = self.coords[0]
-        #if x < x0:
-        #    x, x0 = x0, x
-
-        #if y < y0:
-        #    y, y0 = y0, y
-
-        self.coords[0] = (x0, y0)
-        self.coords[1] = (x, y0)
-        self.coords[2] = (x, y)
-        self.coords[3] = (x0, y)
-        self.coords[4] = (x0, y0)
-
-
-class Circle(Shape):
-    """Class for creating circles."""
-    def __init__(self, coords, pen, filled = False):
-        super().__init__(coords, pen, filled)
-        self.coords = coords
-        self.type = "circle"
-        self.__bb = [ (coords[0][0], coords[0][1]), (coords[0][0], coords[0][1]) ]
-        # fill up coords to length 4
-
-    def finish(self):
-        """Finish the circle."""
-
-    def update(self, x, y, pressure):
-        """
-        Update the circle with a new point.
-        """
-        x0, y0 = min(self.__bb[0][0], x), min(self.__bb[0][1], y)
-        x1, y1 = max(self.__bb[1][0], x), max(self.__bb[1][1], y)
-
-        n_points = 100
-
-        # calculate coords for 100 points on an ellipse contained in the rectangle
-        # given by x0, y0, x1, y1
-
-        # calculate the center of the ellipse
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-
-        # calculate the radius of the ellipse
-        rx, ry = (x1 - x0) / 2, (y1 - y0) / 2
-
-        # calculate the angle between two points
-        angle = 2 * math.pi / n_points
-
-        # calculate the points
-        coords = []
-        coords = [ (cx + rx * math.cos(i * angle),
-                    cy + ry * math.sin(i * angle)) for i in range(n_points)
-                  ]
-
-       #for i in range(n_points):
-       #    x = cx + rx * math.cos(i * angle)
-       #    y = cy + ry * math.sin(i * angle)
-       #    coords.append((x, y))
-
-        self.coords = coords
-
-
-
-class Box(Drawable):
-    """Class for creating a box."""
-    def __init__(self, coords, pen):
-        super().__init__("box", coords, pen)
-
-    def update(self, x, y, pressure):
-        self.coords[1] = (x, y)
-
-    def resize_end(self):
-        bbox = self.bbox()
-        self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
-        self.resizing = None
-
-    def rotate_end(self):
-        """Ignore rotation"""
-
-    def rotate_start(self, origin):
-        """Ignore rotation."""
-
-    def rotate(self, angle, set_angle = False):
-        """Ignore rotation."""
-
-    def resize_update(self, bbox):
-        self.resizing["bbox"] = bbox
-        self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
-
-    def draw(self, cr, hover=False, selected=False, outline=False):
-
-        if hover:
-            cr.set_line_width(self.pen.line_width + 1)
-        else:
-            cr.set_line_width(self.pen.line_width)
-
-        x1, y1 = self.coords[0]
-        x2, y2 = self.coords[1]
-        w, h = (abs(x1 - x2), abs(y1 - y2))
-        x0, y0 = (min(x1, x2), min(y1, y2))
-
-        if self.pen.fill_color:
-            cr.set_source_rgba(*self.pen.fill_color, self.pen.transparency)
-            cr.rectangle(x0, y0, w, h)
-            cr.fill()
-            cr.stroke()
-        else:
-            cr.set_source_rgba(*self.pen.color, self.pen.transparency)
-            cr.rectangle(x0, y0, w, h)
-            cr.stroke()
-
-        if selected:
-            cr.set_line_width(0.5)
-            cr.arc(x0, y0, 10, 0, 2 * 3.14159)  # Draw a circle
-            #cr.fill()  # Fill the circle to make a dot
-            cr.stroke()
-
-        if selected:
-            cr.set_source_rgba(1, 0, 0)
-            self.bbox_draw(cr, lw=.35)
-
-        if hover:
-            self.bbox_draw(cr, lw=.35)
-
-class SelectionTool(Box):
-    """Class for creating a box."""
-    def __init__(self, coords, pen = None):
-        if not pen:
-            pen = Pen(line_width = 0.2, color = (1, 0, 0))
-        super().__init__(coords, pen)
-
-    def objects_in_selection(self, objects):
-        """Return a list of objects that are in the selection."""
-        bb  = self.bbox()
-        obj = find_obj_in_bbox(bb, objects)
-        return obj
 """
 This module contains the MouseEvent class.
 It is used to handle mouse events in the drawing area.
@@ -3186,9 +1512,10 @@ class MouseEvent:
     One advantage of using it: the computationaly intensive stuff is
     computed only once and only if it is needed.
     """
-    def __init__(self, event, objects, translate = None):
+    def __init__(self, event, objects, translate = None, mode = None):
         self.event   = event
         self.objects = objects
+        self.__mode = mode
         self.__modifiers = {
                 "shift": (event.state & Gdk.ModifierType.SHIFT_MASK) != 0,
                 "ctrl": (event.state & Gdk.ModifierType.CONTROL_MASK) != 0,
@@ -3251,6 +1578,10 @@ class MouseEvent:
     def pressure(self):
         """Return the pressure of the pen."""
         return self.__info.get("pressure")
+
+    def mode(self):
+        """Return the mode in which the event happened."""
+        return self.__mode
 """
 Dialogs for the ScreenDrawer application.
 """
@@ -3616,7 +1947,7 @@ class Clipboard:
             sel = selection
 
         if sel.type == "text":
-            text = sel.as_string()
+            text = sel.to_string()
             print("Copying text", text)
             # just copy the text
             clipboard.set_text(text, -1)
@@ -3750,11 +2081,9 @@ class GraphicsObjectManager:
         _objects (list): The list of objects.
     """
 
-    def __init__(self, app, canvas):
+    def __init__(self):
 
         # private attr
-        self.__app = app
-        self.__canvas = canvas
         self.__history    = []
         self.__redo_stack = []
         self.__page = None
@@ -3893,6 +2222,9 @@ class GraphicsObjectManager:
 
     def add_object(self, obj):
         """Add an object to the list of objects."""
+        if obj in self.__page.objects():
+            print("object already in list")
+            return
         self.__history.append(AddCommand(obj, self.__page.objects(), page=self.__page))
 
     def export_pages(self):
@@ -3909,11 +2241,6 @@ class GraphicsObjectManager:
             pages.append(p.export())
             p = p.next(create = False)
         return pages
-
-    def export_objects(self):
-        """Just the objects from the current page."""
-        objects = [ obj.to_dict() for obj in self.__page.objects() ]
-        return objects
 
     def kill_object(self, obj):
         """Directly remove an object from the list of objects."""
@@ -3969,7 +2296,8 @@ class GraphicsObjectManager:
     def select_reverse(self):
         """Reverse the selection."""
         self.__page.selection().reverse()
-        self.__app.dm.mode("move")
+        # XXX
+        #self.__state.mode("move")
 
     def select_all(self):
         """Select all objects."""
@@ -3978,7 +2306,8 @@ class GraphicsObjectManager:
             return
 
         self.__page.selection().all()
-        self.__app.dm.mode("move")
+        # XXX
+        #self.__state.mode("move")
 
     def selection_delete(self):
         """Delete selected objects."""
@@ -4008,16 +2337,14 @@ class GraphicsObjectManager:
 
     def selection_font_set(self, font_description):
         """Set the font of the selected objects."""
-        # XXX: no undo!
         self.__history.append(SetFontCommand(self.__page.selection(), font_description))
-       #for obj in self.__page.selection().objects:
-       #    obj.pen.font_set_from_description(font_description)
 
+  # XXX! this is not implemented
     def selection_apply_pen(self):
         """Apply the pen to the selected objects."""
-        if not self.__page.selection().is_empty():
-            pen = self.__canvas.pen()
-            self.__history.append(SetPenCommand(self.__page.selection(), pen))
+  #     if not self.__page.selection().is_empty():
+  #         pen = self.__state.pen()
+  #         self.__history.append(SetPenCommand(self.__page.selection(), pen))
 
     def redo(self):
         """Redo the last action."""
@@ -4075,16 +2402,12 @@ class GraphicsObjectManager:
         self.__history.append(ZStackCommand(self.__page.selection().objects,
                                             self.__page.objects(), operation, page=self.__page))
 
-    def draw(self, cr, hover_obj = None, mode = None):
-        """Draw the objects in the given context. Used also by export functions."""
 
-        for obj in self.__page.objects_all_layers():
-            hover    = obj == hover_obj and mode == "move"
-            selected = self.__page.selection().contains(obj) and mode == "move"
-            obj.draw(cr, hover=hover, selected=selected, outline = self.__canvas.outline())
 """
 This module provides functions to import and export drawings in various formats.
 """
+
+
 
 
 def guess_file_format(filename):
@@ -4104,10 +2427,11 @@ def guess_file_format(filename):
 def convert_file(input_file, output_file, file_format = "all", border = None, page = 0):
     """Convert a drawing from the internal format to another."""
     config, objects, pages = read_file_as_sdrw(input_file)
+    print("page = ", page)
 
     if pages:
-        if len(pages) < page:
-            raise ValueError(f"Page number out of range (max. {len(pages)})")
+        if len(pages) <= page:
+            raise ValueError(f"Page number out of range (max. {len(pages) - 1})")
         print("read drawing from", input_file, "with", len(pages), "pages")
         p = Page()
         p.import_page(pages[page])
@@ -4294,14 +2618,13 @@ class EventManager:
             cls._instance = super(EventManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, gom, app, dm, canvas):
+    def __init__(self, gom, app, state, setter):
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
-            self.__app = app
-            self.__dm  = dm
-            self.__canvas = canvas
-            self.make_actions_dictionary(gom, app, dm, canvas)
+            self.__state = state
+            self.__setter = setter
+            self.make_actions_dictionary(gom, app, state, setter)
             self.make_default_keybindings()
 
     def dispatch_action(self, action_name, **kwargs):
@@ -4360,7 +2683,7 @@ class EventManager:
         This method is called when a key is pressed.
         """
 
-        dm, app = self.__dm, self.__app
+        state = self.__state
 
         keyname = Gdk.keyval_name(event.keyval)
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
@@ -4369,7 +2692,7 @@ class EventManager:
         alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
         print("keyname", keyname, "char", char, "ctrl", ctrl, "shift", shift, "alt_l", alt_l)
 
-        mode = dm.mode()
+        mode = state.mode()
 
         keyfull = keyname
 
@@ -4386,43 +2709,44 @@ class EventManager:
         # first, check whether there is a current object being worked on
         # and whether this object is a text object. In that case, we only
         # call the ctrl keybindings and pass the rest to the text object.
-        cobj = dm.current_object()
+        cobj = state.current_obj()
+
         if cobj and cobj.type == "text" and not(ctrl or keyname == "Escape"):
             print("updating text input")
             cobj.update_by_key(keyname, char)
-            app.queue_draw()
+            state.queue_draw()
             return
 
         # otherwise, we dispatch the key event
         self.dispatch_key_event(keyfull, mode)
 
         # XXX this probably should be somewhere else
-        app.queue_draw()
+        state.queue_draw()
 
 
-    def make_actions_dictionary(self, gom, app, dm, canvas):
+    def make_actions_dictionary(self, gom, app, state, setter):
         """
         This dictionary maps key events to actions.
         """
         self.__actions = {
-            'mode_draw':             {'action': dm.mode, 'args': ["draw"]},
-            'mode_rectangle':              {'action': dm.mode, 'args': ["rectangle"]},
-            'mode_circle':           {'action': dm.mode, 'args': ["circle"]},
-            'mode_move':             {'action': dm.mode, 'args': ["move"]},
-            'mode_text':             {'action': dm.mode, 'args': ["text"]},
-            'mode_select':           {'action': dm.mode, 'args': ["select"]},
-            'mode_eraser':           {'action': dm.mode, 'args': ["eraser"]},
-            'mode_shape':            {'action': dm.mode, 'args': ["shape"]},
-            'mode_colorpicker':      {'action': dm.mode, 'args': ["colorpicker"]},
+            'mode_draw':             {'action': state.mode, 'args': ["draw"]},
+            'mode_rectangle':              {'action': state.mode, 'args': ["rectangle"]},
+            'mode_circle':           {'action': state.mode, 'args': ["circle"]},
+            'mode_move':             {'action': state.mode, 'args': ["move"]},
+            'mode_text':             {'action': state.mode, 'args': ["text"]},
+            'mode_select':           {'action': state.mode, 'args': ["select"]},
+            'mode_eraser':           {'action': state.mode, 'args': ["eraser"]},
+            'mode_shape':            {'action': state.mode, 'args': ["shape"]},
+            'mode_colorpicker':      {'action': state.mode, 'args': ["colorpicker"]},
 
-            'finish_text_input':     {'action': dm.finish_text_input},
+            'finish_text_input':     {'action': setter.finish_text_input},
 
-            'cycle_bg_transparency': {'action': canvas.cycle_background},
-            'toggle_outline':        {'action': canvas.outline_toggle},
+            'cycle_bg_transparency': {'action': state.cycle_background},
+            'toggle_outline':        {'action': state.outline_toggle},
 
-            'clear_page':            {'action': dm.clear},
-            'toggle_wiglets':        {'action': dm.toggle_wiglets},
-            'toggle_grid':           {'action': dm.toggle_grid},
+            'clear_page':            {'action': setter.clear},
+            'toggle_wiglets':        {'action': state.toggle_wiglets},
+            'toggle_grid':           {'action': state.toggle_grid},
 
             'show_help_dialog':      {'action': app.show_help_dialog},
             'app_exit':              {'action': app.exit},
@@ -4458,23 +2782,24 @@ class EventManager:
             'zmove_selection_raise':  {'action': gom.selection_zmove, 'args': [ "raise" ],  'modes': ["move"]},
             'zmove_selection_lower':  {'action': gom.selection_zmove, 'args': [ "lower" ],  'modes': ["move"]},
 
-            'set_color_white':       {'action': dm.set_color, 'args': [COLORS["white"]]},
-            'set_color_black':       {'action': dm.set_color, 'args': [COLORS["black"]]},
-            'set_color_red':         {'action': dm.set_color, 'args': [COLORS["red"]]},
-            'set_color_green':       {'action': dm.set_color, 'args': [COLORS["green"]]},
-            'set_color_blue':        {'action': dm.set_color, 'args': [COLORS["blue"]]},
-            'set_color_yellow':      {'action': dm.set_color, 'args': [COLORS["yellow"]]},
-            'set_color_cyan':        {'action': dm.set_color, 'args': [COLORS["cyan"]]},
-            'set_color_magenta':     {'action': dm.set_color, 'args': [COLORS["magenta"]]},
-            'set_color_purple':      {'action': dm.set_color, 'args': [COLORS["purple"]]},
-            'set_color_grey':        {'action': dm.set_color, 'args': [COLORS["grey"]]},
+            'set_color_white':       {'action': setter.set_color, 'args': [COLORS["white"]]},
+            'set_color_black':       {'action': setter.set_color, 'args': [COLORS["black"]]},
+            'set_color_red':         {'action': setter.set_color, 'args': [COLORS["red"]]},
+            'set_color_green':       {'action': setter.set_color, 'args': [COLORS["green"]]},
+            'set_color_blue':        {'action': setter.set_color, 'args': [COLORS["blue"]]},
+            'set_color_yellow':      {'action': setter.set_color, 'args': [COLORS["yellow"]]},
+            'set_color_cyan':        {'action': setter.set_color, 'args': [COLORS["cyan"]]},
+            'set_color_magenta':     {'action': setter.set_color, 'args': [COLORS["magenta"]]},
+            'set_color_purple':      {'action': setter.set_color, 'args': [COLORS["purple"]]},
+            'set_color_grey':        {'action': setter.set_color, 'args': [COLORS["grey"]]},
 
-            'set_brush_rounded':     {'action': dm.set_brush, 'args': ["rounded"] },
-            'set_brush_marker':      {'action': dm.set_brush, 'args': ["marker"] },
-            'set_brush_slanted':     {'action': dm.set_brush, 'args': ["slanted"] },
+            'set_brush_rounded':     {'action': setter.set_brush, 'args': ["rounded"] },
+            'set_brush_marker':      {'action': setter.set_brush, 'args': ["marker"] },
+            'set_brush_slanted':     {'action': setter.set_brush, 'args': ["slanted"] },
+            'set_brush_pencil':      {'action': setter.set_brush, 'args': ["pencil"] },
 
-            'apply_pen_to_bg':       {'action': canvas.apply_pen_to_bg,        'modes': ["move"]},
-            'toggle_pens':           {'action': canvas.switch_pens},
+            'apply_pen_to_bg':       {'action': state.apply_pen_to_bg,        'modes': ["move"]},
+            'toggle_pens':           {'action': state.switch_pens},
 
             # dialogs
             "export_drawing":        {'action': app.export_drawing},
@@ -4506,21 +2831,14 @@ class EventManager:
 
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
 
-#            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
-            'copy_content':          {'action': app.copy_content,        },
-            'cut_content':           {'action': app.cut_content,         'modes': ["move"]},
-            'paste_content':         {'action': app.paste_content},
-            'screenshot':            {'action': app.screenshot},
+            'copy_content':           {'action': app.copy_content,        },
+            'cut_content':            {'action': app.cut_content,         'modes': ["move"]},
+            'paste_content':          {'action': app.paste_content},
+            'screenshot':             {'action': app.screenshot},
 
-            'stroke_increase':       {'action': dm.stroke_change, 'args': [1]},
-            'stroke_decrease':       {'action': dm.stroke_change, 'args': [-1]},
+            'stroke_increase':        {'action': setter.stroke_change, 'args': [1]},
+            'stroke_decrease':        {'action': setter.stroke_change, 'args': [-1]},
         }
-
-    def get_keybindings(self):
-        """
-        Returns the keybindings dictionary.
-        """
-        return self.__keybindings
 
     def make_default_keybindings(self):
         """
@@ -4591,6 +2909,7 @@ class EventManager:
             '1':                    "set_brush_rounded",
             '2':                    "set_brush_marker",
             '3':                    "set_brush_slanted",
+            '4':                    "set_brush_pencil",
 
             'Shift-p':              "prev_page",
             'Shift-n':              "next_page",
@@ -4695,6 +3014,13 @@ class MenuMaker:
                 { "label": "Paste         (Ctrl-v)",    "callback": self.on_menu_item_activated, "action": "paste_content" },
                 { "label": "Clear drawing (Ctrl-l)",    "callback": self.on_menu_item_activated, "action": "clear_page" },
                 { "separator": True },
+                { "label": "Next Page     (Shift-n)",    "callback": self.on_menu_item_activated, "action": "next_page" },
+                { "label": "Prev Page     (Shift-p)",    "callback": self.on_menu_item_activated, "action": "prev_page" },
+                { "label": "Delete Page   (Shift-d)",    "callback": self.on_menu_item_activated, "action": "delete_page" },
+                { "label": "Next Layer    (Ctrl-Shift-n)",    "callback": self.on_menu_item_activated, "action": "next_layer" },
+                { "label": "Prev Layer    (Ctrl-Shift-p)",    "callback": self.on_menu_item_activated, "action": "prev_layer" },
+                { "label": "Delete Layer  (Ctrl-Shift-d)",    "callback": self.on_menu_item_activated, "action": "delete_layer" },
+                { "separator": True },
                 { "label": "Bg transparency (Ctrl-b)",  "callback": self.on_menu_item_activated, "action": "cycle_bg_transparency" },
                 { "label": "Tggl outline         [o]",  "callback": self.on_menu_item_activated, "action": "toggle_outline" },
                 { "separator": True },
@@ -4744,12 +3070,12 @@ class MenuMaker:
         # if there is only one object, remove the group menu item
         if len(objects) == 1:
             print("only one object")
-            menu_items = [m for m in menu_items if not "action" in m or "selection_group" not in m["action"]]
+            menu_items = [m for m in menu_items if "action" not in m or "selection_group" not in m["action"]]
 
         group_found = [o for o in objects if o.type == "group"]
         if not group_found:
             print("no group found")
-            menu_items = [m for m in menu_items if not "action" in m or "selection_ungroup" not in m["action"]]
+            menu_items = [m for m in menu_items if "action" not in m or "selection_ungroup" not in m["action"]]
 
         self.__object_menu = self.build_menu(menu_items)
 
@@ -4825,6 +3151,43 @@ class Wiglet:
         """update on mouse release"""
         raise NotImplementedError("event_finish method not implemented")
 
+class WigletColorPicker(Wiglet):
+    """Invisible wiglet that processes clicks in the color picker mode."""
+    def __init__(self, func_color, clipboard):
+        super().__init__("colorpicker", None)
+
+        self.__func_color = func_color
+        self.__clipboard = clipboard
+                 
+
+    def draw(self, cr):
+        """ignore drawing the widget"""
+
+    def update_size(self, width, height):
+        """ignore resizing"""
+
+    def event_update(self, x, y):
+        """ignore on mouse move"""
+
+    def on_click(self, x, y, ev):
+        """handle the click event"""
+
+        # only works in color picker mode
+        if ev.mode() != "colorpicker":
+            return False
+
+        if ev.shift() or ev.alt() or ev.ctrl():
+            return
+
+        color = get_color_under_cursor()
+        self.__func_color(color)
+
+        color_hex = rgb_to_hex(color)
+        self.__clipboard.set_text(color_hex)
+        #self.__state.queue_draw()
+        return True
+
+
 class WigletTransparency(Wiglet):
     """Wiglet for changing the transparency."""
     def __init__(self, coords, pen):
@@ -4833,23 +3196,23 @@ class WigletTransparency(Wiglet):
         if not pen or not isinstance(pen, Pen):
             raise ValueError("Pen is not defined or not of class Pen")
 
-        self.pen      = pen
-        self._last_pt = coords[0]
-        self._initial_transparency = pen.transparency
-        print("initial transparency:", self._initial_transparency)
+        self.__pen      = pen
+        self.__initial_transparency = pen.transparency
+        print("initial transparency:", self.__initial_transparency)
 
     def draw(self, cr):
         """draw the widget"""
-        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+        cr.set_source_rgba(*self.__pen.color, self.__pen.transparency)
         draw_dot(cr, *self.coords, 50)
 
     def event_update(self, x, y):
         """update on mouse move"""
         dx = x - self.coords[0]
-        #print("changing transparency", dx)
         ## we want to change the transparency by 0.1 for every 20 pixels
-        self.pen.transparency = max(0, min(1, self._initial_transparency + dx/500))
-        #print("new transparency:", self.pen.transparency)
+        self.__pen.transparency = max(0, min(1, self.__initial_transparency + dx/500))
+
+    def update_size(self, width, height):
+        """ignoring the update the size of the widget"""
 
     def event_finish(self):
         """update on mouse release"""
@@ -4864,22 +3227,24 @@ class WigletLineWidth(Wiglet):
 
         if not pen or not isinstance(pen, Pen):
             raise ValueError("Pen is not defined or not of class Pen")
-        self.pen      = pen
-        self._last_pt = coords[0]
-        self._initial_width = pen.line_width
+        self.__pen      = pen
+        self.__initial_width = pen.line_width
 
     def draw(self, cr):
-        cr.set_source_rgb(*self.pen.color)
-        draw_dot(cr, *self.coords, self.pen.line_width)
+        cr.set_source_rgb(*self.__pen.color)
+        draw_dot(cr, *self.coords, self.__pen.line_width)
 
     def event_update(self, x, y):
         dx = x - self.coords[0]
         print("changing line width", dx)
-        self.pen.line_width = max(1, min(60, self._initial_width + dx/20))
+        self.__pen.line_width = max(1, min(60, self.__initial_width + dx/20))
         return True
 
+    def update_size(self, width, height):
+        """ignoring the update the size of the widget"""
+
     def event_finish(self):
-        pass
+        """ignoring the update on mouse release"""
 
 ## ---------------------------------------------------------------------
 class WigletPageSelector(Wiglet):
@@ -5230,7 +3595,6 @@ DrawManager is a class that manages the drawing on the canvas.
 
 
 
-
 class DrawManager:
     """
     DrawManager is a class that manages the drawing canvas.
@@ -5239,116 +3603,57 @@ class DrawManager:
     a resize operation is in progress, whether the view is paned or zoomed etc.
 
     DrawManager must be aware of GOM, because GOM holds all the objects
+
+    methods from app used:
+    app.mm.object_menu()     # used for right click context menu
+    app.clipboard.set_text() # used for color picker
+
+    methods from state used:
+    state.cursor()
+    state.show_wiglets()
+    state.mode()
+    state.current_obj()
+    state.current_obj_clear()
+    state.queue_draw()
+    state.pen()
+    state.get_win_size()
+    state.hover_obj()
+    state.hover_obj_clear()
+
+    methods from gom used:
+    gom.set_page_number()
+    gom.page()
+    gom.draw()
+    gom.selected_objects()
+    gom.selection()
+    gom.remove_objects()
+    gom.selection().set()
+    gom.selection().add()
+    gom.selection().clear()
+    gom.add_object()
+    gom.kill_object()
+    gom.remove_all()
+    gom.command_append()
     """
-    def __init__(self, gom, app, cursor, canvas):
-        self.__canvas = canvas
-        self.__current_object = None
+    def __init__(self, gom, mm, state, wiglets, setter):
+        self.__state = state
         self.__gom = gom
-        self.__app = app
-        self.__cursor = cursor
-        self.__mode = "draw"
-        self.__grid = Grid()
-        self.__show_grid = False
+        self.__mm = mm
+        self.__cursor = state.cursor()
+        self.__wiglets = wiglets
+        self.__setter = setter
 
         # objects that indicate the state of the drawing area
-        self.__hover = None
         self.__wiglet_active = None
         self.__resizeobj = None
         self.__selection_tool = None
-        self.__current_object = None
         self.__paning = None
         self.__show_wiglets = True
-        self.__wiglets = [ WigletColorSelector(height = app.get_size()[1],
-                                               func_color = self.set_color,
-                                               func_bg = self.__canvas.bg_color),
-                           WigletToolSelector(func_mode = self.mode),
-                           WigletPageSelector(gom = gom, screen_wh_func = app.get_size,
-                                              set_page_func = gom.set_page_number),
-                          ]
-
         # drawing parameters
-        self.__hidden = False
-        self.__modified = False
-        self.__translate = None
 
-        # defaults for drawing
-    def toggle_grid(self):
-        """Toggle the wiglets."""
-        self.__show_grid = not self.__show_grid
-
-    def toggle_wiglets(self):
-        """Toggle the wiglets."""
-        self.__show_wiglets = not self.__show_wiglets
-
-
-    def show_wiglets(self, value = None):
-        """Show or hide the wiglets."""
-        if value is not None:
-            self.__show_wiglets = value
-        return self.__show_wiglets
-
-    def hide(self, value = None):
-        """Hide or show the drawing."""
-        if not value is None:
-            self.__hidden = value
-        return self.__hidden
-
-    def current_object(self):
-        """Get the current object."""
-        return self.__current_object
-
-    def mode(self, mode = None):
-        """Get or set the mode."""
-        if mode:
-            self.__mode = mode
-            self.__cursor.default(self.__mode)
-        return self.__mode
-
-    def modified(self, value = None):
-        """Get or set the modified flag."""
-        if value is not None:
-            self.__modified = value
-        return self.__modified
-
-    def on_draw(self, widget, cr):
-        """Handle draw events."""
-        if self.__hidden:
-            return True
-
-        cr.save()
-        tr = self.__gom.page().translate()
-        if tr:
-            cr.translate(*tr)
-
-        cr.set_source_rgba(*self.__canvas.bg_color(), self.__canvas.transparent())
-        cr.set_operator(cairo.OPERATOR_SOURCE)
-        cr.paint()
-        cr.set_operator(cairo.OPERATOR_OVER)
-
-        if self.__show_grid:
-            tr = tr or (0, 0)
-            self.__grid.draw(cr, tr, self.__app.get_size())
-
-        self.__gom.draw(cr, self.__hover, self.__mode)
-
-        if self.__current_object:
-            self.__current_object.draw(cr)
-
-        if self.__selection_tool:
-            self.__selection_tool.draw(cr)
-
-        cr.restore()
-
-        if self.__show_wiglets:
-            for w in self.__wiglets:
-                w.update_size(*self.__app.get_size())
-                w.draw(cr)
-
-        if self.__wiglet_active:
-            self.__wiglet_active.draw(cr)
-
-        return True
-
+    def selection_tool(self):
+        """Get the selection tool."""
+        return self.__selection_tool
 
     # ---------------------------------------------------------------------
     #                              Event handlers
@@ -5364,29 +3669,28 @@ class DrawManager:
     def on_right_click(self, event, hover_obj):
         """Handle right click events - context menus."""
         if hover_obj:
-            self.__mode = "move"
-            self.__cursor.default(self.__mode)
+            self.__state.mode("move")
 
             if not self.__gom.selection().contains(hover_obj):
                 self.__gom.selection().set([ hover_obj ])
 
             # XXX - this should happen directly?
             sel_objects = self.__gom.selected_objects()
-            self.__app.mm.object_menu(sel_objects).popup(None, None,
+            self.__mm.object_menu(sel_objects).popup(None, None,
                                                          None, None,
                                                          event.button, event.time)
         else:
-            self.__app.mm.context_menu().popup(None, None,
+            self.__mm.context_menu().popup(None, None,
                                                None, None,
                                                event.button, event.time)
-        self.__app.queue_draw()
+        self.__state.queue_draw()
 
     # ---------------------------------------------------------------------
 
     def __move_resize_rotate(self, ev):
         """Process events for moving, resizing and rotating objects."""
 
-        if self.__mode != "move":
+        if self.__state.mode() != "move":
             return False
 
         corner_obj, corner = ev.corner()
@@ -5431,7 +3735,7 @@ class DrawManager:
             self.__resizeobj   = None
             print("starting selection tool")
             self.__selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
-            self.__app.queue_draw()
+            self.__state.queue_draw()
             return True
 
         return False
@@ -5440,7 +3744,7 @@ class DrawManager:
         """Create an object based on the current mode."""
 
         # not managed by GOM: first create, then decide whether to add to GOM
-        mode = self.__mode
+        mode = self.__state.mode()
 
         if ev.shift() and not ev.ctrl():
             mode = "text"
@@ -5448,10 +3752,10 @@ class DrawManager:
         if not mode in [ "draw", "shape", "rectangle", "circle", "text" ]:
             return False
 
-        obj = DrawableFactory.create_drawable(mode, pen = self.__canvas.pen(), ev=ev)
+        obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
 
         if obj:
-            self.__current_object = obj
+            self.__state.current_obj(obj)
         else:
             print("No object created for mode", mode)
 
@@ -5461,14 +3765,14 @@ class DrawManager:
     def on_button_press(self, widget, event):
         """Handle mouse button press events."""
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
-        self.__modified = True # better safe than sorry
-        ev = MouseEvent(event, self.__gom.objects(), 
-                        translate = self.__gom.page().translate())
+        self.__state.modified(True)
+        ev = MouseEvent(event, self.__gom.objects(),
+                        translate = self.__gom.page().translate(),
+                        mode = self.__state.mode())
 
         # Ignore clicks when text input is active
-        if self.__current_object:
-            print("Current object exists and has type", self.__current_object.type)
-            if  self.__current_object.type == "text":
+        if self.__state.current_obj():
+            if  self.__state.current_obj().type == "text":
                 print("click, but text input active - finishing it first")
                 self.finish_text_input()
 
@@ -5515,7 +3819,7 @@ class DrawManager:
 
         # simple click: create modus
         self.create_object(ev)
-        self.__app.queue_draw()
+        self.__state.queue_draw()
 
         return True
 
@@ -5524,7 +3828,7 @@ class DrawManager:
         if self.__show_wiglets:
             for w in self.__wiglets[::-1]:
                 if w.on_click(event.x, event.y, ev):
-                    self.__app.queue_draw()
+                    self.__state.queue_draw()
                     return True
         return False
 
@@ -5534,13 +3838,14 @@ class DrawManager:
 
         # Start changing line width: single click with ctrl pressed
         if ev.ctrl(): # and self.__mode == "draw":
+            print("current line width, transparency:", self.__state.pen().line_width, self.__state.pen().transparency)
             if not ev.shift():
-                self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__canvas.pen())
+                self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__state.pen())
+                self.__wiglets.append(self.__wiglet_active)
             else:
-                self.__wiglet_active = WigletTransparency((event.x, event.y), self.__canvas.pen())
-            return True
-
-        if self.__handle_color_picker_on_click():
+                self.__wiglet_active = WigletTransparency((event.x, event.y), self.__state.pen())
+                self.__wiglets.append(self.__wiglet_active)
+            self.__state.queue_draw()
             return True
 
         if self.__handle_eraser_on_click(ev):
@@ -5548,32 +3853,19 @@ class DrawManager:
 
         return False
 
-    def __handle_color_picker_on_click(self):
-        """Handle color picker on click events."""
-        if not self.__mode == "colorpicker":
-            return False
-
-        color = get_color_under_cursor()
-        self.set_color(color)
-        color_hex = rgb_to_hex(color)
-        self.__app.clipboard.set_text(color_hex)
-        self.__app.queue_draw()
-        return True
-
     def __handle_eraser_on_click(self, ev):
         """Handle eraser on click events."""
-        if not self.__mode == "eraser":
+        if not self.__state.mode() == "eraser":
             return False
 
         hover_obj = ev.hover()
         if not hover_obj:
             return False
 
-        # self.history.append(RemoveCommand([ hover_obj ], self.objects))
         self.__gom.remove_objects([ hover_obj ], clear_selection = True)
         self.__resizeobj   = None
         self.__cursor.revert()
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __handle_text_input_on_click(self, ev):
@@ -5583,10 +3875,10 @@ class DrawManager:
         if not hover_obj or hover_obj.type != "text":
             return False
 
-        if not self.__mode in ["draw", "text", "move"]:
+        if not self.__state.mode() in ["draw", "text", "move"]:
             return False
 
-        if not ev.double(): #or self.__mode == "text":
+        if not ev.double():
             return False
 
         if ev.shift() or ev.ctrl():
@@ -5595,8 +3887,8 @@ class DrawManager:
         # only when double clicked with no modifiers - start editing the hover obj
         print("starting text editing existing object")
         hover_obj.move_caret("End")
-        self.__current_object = hover_obj
-        self.__app.queue_draw()
+        self.__state.current_obj(hover_obj)
+        self.__state.queue_draw()
         self.__cursor.set("none")
         return True
 
@@ -5607,8 +3899,9 @@ class DrawManager:
     def on_button_release(self, widget, event):
         """Handle mouse button release events."""
         print("button release: type:", event.type, "button:", event.button, "state:", event.state)
-        ev = MouseEvent(event, self.__gom.objects(), 
-                        translate = self.__gom.page().translate())
+        ev = MouseEvent(event, self.__gom.objects(),
+                        translate = self.__gom.page().translate(),
+                        mode = self.__state.mode())
 
         if self.__paning:
             self.__paning = None
@@ -5630,7 +3923,7 @@ class DrawManager:
 
     def __handle_current_object_on_release(self, ev):
         """Handle the current object on mouse release."""
-        obj = self.__current_object
+        obj = self.__state.current_obj()
         if not obj:
             return False
 
@@ -5641,7 +3934,7 @@ class DrawManager:
             # remove paths that are too small
             if len(obj.coords) < 3:
                 print("removing object of type", obj.type, "because too small")
-                self.__current_object = None
+                self.__state.current_obj_clear()
                 obj = None
 
         # remove objects that are too small
@@ -5649,20 +3942,18 @@ class DrawManager:
             bb = obj.bbox()
             if bb and obj.type in [ "rectangle", "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
                 print("removing object of type", obj.type, "because too small")
-                self.__current_object = None
+                self.__state.current_obj_clear()
                 obj = None
 
         if obj:
             self.__gom.add_object(obj)
             # with text, we are not done yet! Need to keep current object
             # such that keyboard events can update it
-            if self.__current_object.type != "text":
-                #self.__current_object.caret_pos = None
-
+            if self.__state.current_obj().type != "text":
                 self.__gom.selection().clear()
-                self.__current_object = None
+                self.__state.current_obj_clear()
 
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __handle_wiglets_on_release(self):
@@ -5671,8 +3962,9 @@ class DrawManager:
             return False
 
         self.__wiglet_active.event_finish()
+        self.__wiglets.remove(self.__wiglet_active)
         self.__wiglet_active = None
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __handle_selection_on_release(self):
@@ -5688,7 +3980,7 @@ class DrawManager:
         else:
             self.__gom.selection().clear()
         self.__selection_tool = None
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __handle_drag_on_release(self, event):
@@ -5703,11 +3995,10 @@ class DrawManager:
         # self.__resizeobj.obj is a copy of the selection group
         # self.__resizeobj.obj.objects is the list of objects in the copy of the selection group
 
-        #
         obj = self.__resizeobj.obj
 
-        _, width = self.__app.get_size()
-        if self.__resizeobj.command_type() == "move" and  event.x < 10 and event.y > width - 10:
+        _, height = self.__state.get_win_size()
+        if self.__resizeobj.command_type() == "move" and  event.x < 10 and event.y > height - 10:
             # command group because these are two commands: first move,
             # then remove
             self.__gom.command_append([ self.__resizeobj,
@@ -5718,7 +4009,7 @@ class DrawManager:
             self.__gom.command_append([ self.__resizeobj ])
         self.__resizeobj    = None
         self.__cursor.revert()
-        self.__app.queue_draw()
+        self.__state.queue_draw()
 
         return True
 
@@ -5728,12 +4019,13 @@ class DrawManager:
     def on_motion_notify(self, widget, event):
         """Handle mouse motion events."""
 
-        ev = MouseEvent(event, self.__gom.objects(), 
-                        translate = self.__gom.page().translate())
+        ev = MouseEvent(event, self.__gom.objects(),
+                        translate = self.__gom.page().translate(),
+                        mode = self.__state.mode())
         x, y = ev.pos()
         self.__cursor.update_pos(x, y)
 
-        if self.__on_motion_wiglet(x, y):
+        if self.__on_motion_wiglet(event.x, event.y):
             return True
 
         # we are paning
@@ -5753,30 +4045,26 @@ class DrawManager:
     def __on_motion_process_hover(self, ev):
         """Process hover events."""
 
-        if not self.__mode == "move":
+        if not self.__state.mode() == "move":
             return False
 
         object_underneath = ev.hover()
-        #prev_hover        = self.__hover
 
         if object_underneath:
             self.__cursor.set("moving")
-            self.__hover = object_underneath
+            self.__state.hover_obj(object_underneath)
         else:
             self.__cursor.revert()
-            self.__hover = None
+            self.__state.hover_obj_clear()
 
         corner_obj, corner = ev.corner()
 
         if corner_obj and corner_obj.bbox():
             self.__cursor.set(corner)
-            self.__hover = corner_obj
-            self.__app.queue_draw()
+            self.__state.hover_obj(corner_obj)
+            self.__state.queue_draw()
 
-        #if prev_hover != self.__hover:
-        #    self.__app.queue_draw()
-
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __on_motion_update_resize(self, event):
@@ -5785,17 +4073,17 @@ class DrawManager:
             return False
 
         self.__resizeobj.event_update(event.x, event.y)
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __on_motion_update_object(self, event):
         """Handle on motion update for an object."""
-        obj = self.__current_object or self.__selection_tool
+        obj = self.__state.current_obj() or self.__selection_tool
         if not obj:
             return False
 
         obj.update(event.x, event.y, event.pressure())
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __on_motion_paning(self, event):
@@ -5811,7 +4099,7 @@ class DrawManager:
         self.__gom.page().translate(tr)
         #self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
         self.__paning = (event.x, event.y)
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
 
     def __on_motion_wiglet(self, x, y):
@@ -5820,76 +4108,8 @@ class DrawManager:
             return False
 
         self.__wiglet_active.event_update(x, y)
-        self.__app.queue_draw()
+        self.__state.queue_draw()
         return True
-
-
-    # ---------------------------------------------------------------------
-    def finish_text_input(self):
-        """Clean up current text and finish text input."""
-        print("finishing text input")
-        if self.__current_object and self.__current_object.type == "text":
-            self.__current_object.caret_pos = None
-            if self.__current_object.strlen() == 0:
-                print("kill object because empty")
-                self.__gom.kill_object(self.__current_object)
-            self.__current_object = None
-        self.__cursor.revert()
-    # ---------------------------------------------------------------------
-
-    def stroke_change(self, direction):
-        """Modify the line width or text size."""
-        print("Changing stroke", direction)
-        cobj = self.__current_object
-        if cobj and cobj.type == "text":
-            print("Changing text size")
-            cobj.stroke_change(direction)
-            self.__canvas.pen().font_size = cobj.pen.font_size
-        else:
-            for obj in self.__gom.selected_objects():
-                obj.stroke_change(direction)
-
-        # without a selected object, change the default pen, but only if in the correct mode
-        if self.__mode == "draw":
-            self.__canvas.pen().line_width = max(1, self.__canvas.pen().line_width + direction)
-        elif self.__mode == "text":
-            self.__canvas.pen().font_size = max(1, self.__canvas.pen().font_size + direction)
-
-    def set_font(self, font_description):
-        """Set the font."""
-        self.__canvas.pen().font_set_from_description(font_description)
-        self.__gom.selection_font_set(font_description)
-        if self.__current_object and self.__current_object.type == "text":
-            self.__current_object.pen.font_set_from_description(font_description)
-
-#   def smoothen(self):
-#       """Smoothen the selected object."""
-#       if self.selection.n() > 0:
-#           for obj in self.selection.objects:
-#               obj.smoothen()
-
-    def set_brush(self, brush = None):
-        """Set the brush."""
-        if brush is not None:
-            print("setting pen", self.__canvas.pen(), "brush to", brush)
-            self.__canvas.pen().brush(brush)
-        return self.__canvas.pen().brush()
-
-    def set_color(self, color = None):
-        """Get or set the color."""
-        if color is None:
-            return self.__canvas.pen().color
-        self.__canvas.pen().color_set(color)
-        self.__gom.selection_color_set(color)
-        return color
-
-    def clear(self):
-        """Clear the drawing."""
-        self.__gom.selection().clear()
-        self.__resizeobj      = None
-        self.__current_object = None
-        self.__gom.remove_all()
-        self.__app.queue_draw()
 ## singleton class for serving icon pixbufs
 
 
@@ -5939,6 +4159,7 @@ This module contains the Page class, which is a container for objects.
 """
 
 
+
 class Layer:
     """
     A layer is a container for objects.
@@ -5985,6 +4206,7 @@ class Page:
         self.__layers = [ layers or Layer() ]
         self.__current_layer = 0
         self.__translate = None
+        self.__drawer = Drawer()
 
     def next(self, create = True):
         """
@@ -6168,6 +4390,11 @@ class Page:
             cmd = RemoveCommand(layer.objects()[:], layer.objects(), page = self)
             ret_commands.append(cmd)
         return CommandGroup(ret_commands[::-1])
+
+    def draw(self, cr, state):
+        """Draw the objects on the page."""
+
+        self.__drawer.draw(cr, self, state)
 """
 Canvas for drawing shapes and text.
 
@@ -6186,69 +4413,236 @@ class Canvas:
     """
     Canvas for drawing shapes and text.
     """
-    def __init__(self):
-        self.__bg_color = (.8, .75, .65)
-        self.__transparency = 0
-        self.__outline = False
+    def __init__(self, state, dm, wiglets):
+        self.__state = state
+        self.__grid = Grid()
+        self.__dm = dm
+        self.__wiglets = wiglets
 
-        self.__pen  = Pen(line_width = 4,  color = (0.2, 0, 0), font_size = 24, transparency  = 1)
-        self.__pen2 = Pen(line_width = 40, color = (1, 1, 0),   font_size = 24, transparency = .2)
+    def on_draw(self, widget, cr):
+        """Main draw method of the whole app."""
+        if self.__state.hidden():
+            return
+        page = self.__state.current_page()
+        tr = page.translate()
 
+        cr.save()
 
-    def pen(self, alternate = False, pen = None):
-        """Get or set the pen."""
-        if pen:
-            self.__pen_set(pen, alternate)
-        return self.__pen2 if alternate else self.__pen
+        if tr:
+            cr.translate(*tr)
 
-    def __pen_set(self, pen, alternate = False):
-        """Set the pen."""
-        if alternate:
-            self.__pen2 = pen
-        else:
-            self.__pen = pen
+        self.draw_bg(cr, tr)
+        page.draw(cr, self.__state)
 
-    def switch_pens(self):
-        """Switch between pens."""
-        self.__pen, self.__pen2 = self.__pen2, self.__pen
+        cobj = self.__state.current_obj()
+        if cobj and not cobj in page.objects_all_layers():
+            self.__state.current_obj().draw(cr)
 
-    def apply_pen_to_bg(self):
-        """Apply the pen to the background."""
-        self.__bg_color = self.__pen.color
+        if self.__dm.selection_tool():
+            self.__dm.selection_tool().draw(cr)
 
-    def cycle_background(self):
-        """Cycle through background transparency."""
-        self.__transparency = {1: 0, 0: 0.5, 0.5: 1}[self.__transparency]
+        cr.restore()
 
-    def outline(self):
-        """Get the outline mode."""
-        return self.__outline
+        #self.__dm.draw(None, cr)
 
-    def outline_toggle(self):
-        """Toggle outline mode."""
-        self.__outline = not self.__outline
+        if self.__state.show_wiglets():
+            for w in self.__wiglets:
+                w.update_size(*self.__state.get_win_size())
+                w.draw(cr)
 
-    def bg_color(self, color=None):
-        """Get or set the background color."""
-        if color:
-            self.__bg_color = color
-        return self.__bg_color
+       # XXX this does not work.
+       #if self.__wiglet_active:
+       #    self.__wiglet_active.draw(cr)
 
-    def transparent(self, value=None):
-        """Get or set the transparency."""
-        if value:
-            self.__transparency = value
-        return self.__transparency
+        return True
 
 
+
+    def draw_bg(self, cr, tr):
+        """
+        Draw the objects on the page.
+
+        :param objects: The objects to draw.
+        :param cr: The context on which to draw.
+        :param tr: The translation (paning).
+        """
+        pass
+
+        bg_color     = self.__state.bg_color()
+        transparency = self.__state.alpha()
+        show_grid    = self.__state.show_grid()
+        size         = self.__state.get_win_size()
+
+        cr.set_source_rgba(*bg_color, transparency)
+        cr.set_operator(cairo.OPERATOR_SOURCE)
+        cr.paint()
+        cr.set_operator(cairo.OPERATOR_OVER)
+
+        if show_grid:
+            tr = tr or (0, 0)
+            self.__grid.draw(cr, tr, size)
 """Class for different brushes."""
+
+
+def get_current_color_and_alpha(ctx):
+    """Get the current color and alpha from the Cairo context."""
+    pattern = ctx.get_source()
+    if isinstance(pattern, cairo.SolidPattern):
+        r, g, b, a = pattern.get_rgba()
+        return r, g, b, a
+    # For non-solid patterns, return a default or indicate it's not solid
+    return None, None, None, None  # Or raise an exception or another appropriate response
+
+def find_intervals(values, n_bins):
+    """
+    Divide the range [0, 1] into n_bins and return a list of bins with 
+    indices of values falling into each bin.
+    """
+
+    # Calculate the bin size
+    bin_size = 1 / n_bins
+
+    # Initialize bins as a list of empty lists
+    bins = [[] for _ in range(n_bins)]
+
+    # Assign each value to a bin
+    for i, value in enumerate(values):
+        if value == 1:  # Handle the edge case where value is exactly 1
+            bins[-1].append(i)
+        else:
+            bin_index = int(value / bin_size)
+            bins[bin_index].append(i)
+
+    return bins, bin_size
+
+def calculate_slant_outlines(coords, dx0, dy0, dx1, dy1):
+    """Calculate the left and right outlines."""
+    outline_l, outline_r = [ ], [ ]
+    slant_vec   = (dx0 - dx1, dy0 - dy1)
+    p_prev = coords[0]
+    x, y = coords[0]
+    outline_l.append((x + dx0, y + dy0))
+    outline_r.append((x + dx1, y + dy1))
+    prev_cs_angle = None
+
+    for p in coords[1:]:
+        x, y = p
+        coord_slant_angle = calculate_angle2((x - p_prev[0], y - p_prev[1]), slant_vec)
+
+        # avoid crossing of outlines
+        if prev_cs_angle is not None:
+            if prev_cs_angle * coord_slant_angle < 0:
+                outline_l, outline_r = outline_r, outline_l
+
+        prev_cs_angle = coord_slant_angle
+
+        outline_l.append((x + dx0, y + dy0))
+        outline_r.append((x + dx1, y + dy1))
+        p_prev = p
+
+    return outline_l, outline_r
+
+
+def normal_vec_scaled(p0, p1, width):
+    """Calculate the normal vector of a line segment."""
+    nx, ny = normal_vec(p0, p1)
+    nx, ny = nx * width, ny * width
+    return nx, ny
+
+def calc_segments(p0, p1, width):
+    """Calculate the segments of an outline."""
+    nx, ny = normal_vec_scaled(p0, p1, width)
+
+    l_seg_s = (p0[0] + nx, p0[1] + ny)
+    r_seg_s = (p0[0] - nx, p0[1] - ny)
+    l_seg_e = (p1[0] + nx, p1[1] + ny)
+    r_seg_e = (p1[0] - nx, p1[1] - ny)
+
+    return l_seg_s, r_seg_s, l_seg_e, r_seg_e
+
+
+def calc_normal_outline(coords, pressure, line_width, rounded = False):
+    """Calculate the normal outline of a path."""
+    n = len(coords)
+
+    outline_l = []
+    outline_r = []
+
+    for i in range(n - 2):
+        p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
+        width  = line_width * pressure[i] / 2
+
+        l_seg1_s, r_seg1_s, l_seg1_e, r_seg1_e = calc_segments(p0, p1, width)
+        l_seg2_s, r_seg2_s, l_seg2_e, r_seg2_e = calc_segments(p1, p2, width)
+
+        if i == 0:
+        ## append the points for the first coord
+            if rounded:
+                arc_coords = calc_arc_coords(l_seg1_s, r_seg1_s, p1, 10)
+                outline_r.extend(arc_coords)
+            outline_l.append(l_seg1_s)
+            outline_r.append(r_seg1_s)
+
+        outline_l.append(l_seg1_e)
+        outline_l.append(l_seg2_s)
+        outline_r.append(r_seg1_e)
+        outline_r.append(r_seg2_s)
+
+        if i == n - 3:
+            outline_l.append(l_seg2_e)
+            outline_r.append(r_seg2_e)
+            if rounded:
+                arc_coords = calc_arc_coords(l_seg2_e, r_seg2_e, p1, 10)
+                outline_l.extend(arc_coords)
+    return outline_l, outline_r
+
+def point_mean(p1, p2):
+    """Calculate the mean of two points."""
+    return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
+
+def calc_normal_outline2(coords, pressure, line_width, rounded = False):
+    """
+    Calculate the normal outline of a path.
+
+    This one is used in the pencil brush.
+    """
+    n = len(coords)
+
+    outline_l = []
+    outline_r = []
+
+    for i in range(n - 2):
+        p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
+        width  = line_width * pressure[i] / 2
+
+        l_seg1_s, r_seg1_s, l_seg1_e, r_seg1_e = calc_segments(p0, p1, width)
+        l_seg2_s, r_seg2_s, l_seg2_e, r_seg2_e = calc_segments(p1, p2, width)
+
+        if i == 0:
+        ## append the points for the first coord
+            if rounded:
+                arc_coords = calc_arc_coords(l_seg1_s, r_seg1_s, p1, 10)
+                outline_r.extend(arc_coords)
+            outline_l.append(l_seg1_s)
+            outline_r.append(r_seg1_s)
+
+        outline_l.append(point_mean(l_seg1_e, l_seg2_s))
+        outline_r.append(point_mean(r_seg1_e, r_seg2_s))
+
+        if i == n - 3:
+            outline_l.append(l_seg2_e)
+            outline_r.append(r_seg2_e)
+            if rounded:
+                arc_coords = calc_arc_coords(l_seg2_e, r_seg2_e, p1, 10)
+                outline_l.extend(arc_coords)
+    return outline_l, outline_r
 
 class BrushFactory:
     """
     Factory class for creating brushes.
     """
     @classmethod
-    def create_brush(cls, brush_type):
+    def create_brush(cls, brush_type = "marker", **kwargs):
         """
         Create a brush of the specified type.
         """
@@ -6256,25 +4650,41 @@ class BrushFactory:
         print("BrushFactory brush type:", brush_type)
 
         if brush_type == "rounded":
-            return BrushRound()
+            return BrushRound(**kwargs)
 
         if brush_type == "slanted":
-            return BrushSlanted()
+            return BrushSlanted(**kwargs)
 
         if brush_type == "marker":
             print("returning marker brush")
-            return Brush(rounded = False)
+            return BrushMarker(**kwargs)
+
+        if brush_type == "pencil":
+            print("returning pencil brush")
+            return BrushPencil(**kwargs)
 
         return Brush()
 
 class Brush:
     """Base class for brushes."""
-    def __init__(self, rounded = False):
-        self.__outline = [ ]
+    def __init__(self, rounded = False, brush_type = "marker", outline = None):
+        self.__outline = outline or [ ]
         self.__coords = [ ]
         self.__pressure = [ ]
         self.__rounded = rounded
         self.__outline = [ ]
+        self.__brush_type = brush_type
+
+    def to_dict(self):
+        """Return a dictionary representation of the brush."""
+        return {
+                "brush_type": self.__brush_type,
+               # "outline": self.__outline,
+               }
+
+    def brush_type(self):
+        """Get brush type."""
+        return self.__brush_type
 
     def coords(self, coords = None):
         """Set or get brush coordinates."""
@@ -6307,8 +4717,25 @@ class Brush:
             cr.line_to(point[0], point[1])
         cr.close_path()
 
+    def move(self, dx, dy):
+        """Move the outline."""
+        self.__outline = [ (x + dx, y + dy) for x, y in self.__outline ]
+
+    def rotate(self, angle, rot_origin):
+        """Rotate the outline."""
+        self.__outline = coords_rotate(self.__outline, angle, rot_origin)
+
+    def scale(self, old_bbox, new_bbox):
+        """Scale the outline."""
+        self.__outline = transform_coords(self.__outline, old_bbox, new_bbox)
+
     def calculate(self, line_width, coords, pressure = None):
         """Recalculate the outline of the brush."""
+
+        if coords is not None and pressure is not None:
+            if len(coords) != len(pressure):
+                raise ValueError("Pressure and coords don't match")
+
         pressure = pressure or [1] * len(coords)
 
         lwd = line_width
@@ -6332,58 +4759,161 @@ class Brush:
         self.__outline = outline
         return outline
 
+class BrushMarker(Brush):
+    """Marker brush."""
+    def __init__(self, outline = None):
+        super().__init__(rounded = False, brush_type = "marker",
+                         outline = outline)
+
 class BrushRound(Brush):
     """Round brush."""
-    def __init__(self):
-        super().__init__(rounded = True)
+    def __init__(self, outline = None):
+        super().__init__(rounded = True, brush_type = "rounded",
+                         outline = outline)
+
+class BrushPencil(Brush):
+    """
+    Pencil brush, v2.
+
+    This is more or less an experimental pencil.
+
+    This version attempts to draw with the same stroke, but to draw
+    """
+    def __init__(self, outline = None, bins = None): # pylint: disable=unused-argument
+        super().__init__(rounded = True, brush_type = "pencil",
+                         outline = outline)
+        self.__pressure  = [ ]
+        self.__bins = [ ]
+        self.__bin_lw = [ ]
+        self.__bin_transp = [ ]
+        self.__outline_l = [ ]
+        self.__outline_r = [ ]
+        self.__coords = [ ]
+
+    def to_dict(self):
+        """Return a dictionary representation of the brush."""
+        return {
+                "brush_type": self.brush_type(),
+               }
+
+    def move(self, dx, dy):
+        """Move the outline."""
+        self.outline([ (x + dx, y + dy) for x, y in self.outline() ])
+        self.__coords = [ (x + dx, y + dy) for x, y in self.__coords ]
+        self.__outline_l = [ (x + dx, y + dy) for x, y in self.__outline_l ]
+        self.__outline_r = [ (x + dx, y + dy) for x, y in self.__outline_r ]
+
+    def rotate(self, angle, rot_origin):
+        """Rotate the outline."""
+        self.outline(coords_rotate(self.outline(),   angle, rot_origin))
+        self.__coords = coords_rotate(self.__coords, angle, rot_origin)
+        self.__outline_l = coords_rotate(self.__outline_l, angle, rot_origin)
+        self.__outline_r = coords_rotate(self.__outline_r, angle, rot_origin)
+
+    def scale(self, old_bbox, new_bbox):
+        """Scale the outline."""
+        self.outline(transform_coords(self.outline(),   old_bbox, new_bbox))
+        self.__coords = transform_coords(self.__coords, old_bbox, new_bbox)
+        self.__outline_l = transform_coords(self.__outline_l, old_bbox, new_bbox)
+        self.__outline_r = transform_coords(self.__outline_r, old_bbox, new_bbox)
+
+    def draw(self, cr):
+        """Draw the brush on the Cairo context."""
+        r, g, b, a = get_current_color_and_alpha(cr)
+        if not self.__coords or len(self.__coords) < 4:
+            return
+
+        if len(self.__pressure) != len(self.__coords):
+            print("Pressure and outline don't match:", len(self.__pressure), len(self.__coords))
+            return
+
+        #print("drawing pencil brush with coords:", len(coords), len(self.__pressure))
+
+        bins   = self.__bins
+        outline_l, outline_r = self.__outline_l, self.__outline_r
+        n = len(bins)
+
+        for i in range(n):
+            cr.set_source_rgba(r, g, b, a * self.__bin_transp[i])
+            cr.set_line_width(self.__bin_lw[i])
+            for j in bins[i]:
+                cr.move_to(outline_l[j][0], outline_l[j][1])
+                cr.line_to(outline_l[j + 1][0], outline_l[j + 1][1])
+                cr.line_to(outline_r[j + 1][0], outline_r[j + 1][1])
+                cr.line_to(outline_r[j][0], outline_r[j][1])
+                cr.close_path()
+            cr.fill()
+
+    def calculate(self, line_width, coords, pressure = None):
+        """Recalculate the outline of the brush."""
+
+        if coords is not None and pressure is not None:
+            if len(coords) != len(pressure):
+                raise ValueError("Pressure and coords don't match")
+
+        pressure = pressure or [1] * len(coords)
+
+        lwd = line_width
+
+        if len(coords) < 3:
+            return None
+
+        #print("1.length of coords and pressure:", len(coords), len(pressure))
+        coords, pressure = smooth_path(coords, pressure, 20)
+        #print("2.length of coords and pressure:", len(coords), len(pressure))
+
+        outline_l, outline_r = calc_normal_outline2(coords, pressure, lwd, False)
+       #print("outline lengths:", len(outline_l), len(outline_r))
+
+        self.__outline_l = outline_l
+        self.__outline_r = outline_r
+        self.__pressure  = pressure
+        self.__coords    = coords
+        self.outline(outline_l + outline_r[::-1])
+
+        nbins = 32
+        plength = len(self.__pressure)
+        self.__bins, binsize = find_intervals(self.__pressure[:(plength - 1)], nbins)
+
+        self.__bin_lw = [ lwd * (0.75 + 0.25 * i * binsize) for i in range(1, nbins + 1) ]
+        self.__bin_transp = [ 0.25 + 0.75 * binsize * i for i in range(1, nbins + 1) ]
+
+        return self.outline()
+
 
 class BrushSlanted(Brush):
     """Slanted brush."""
-    def __init__(self):
-        super().__init__()
+    def __init__(self, slant = None):
+        super().__init__(brush_type = "slanted")
 
-        self.__slant = (-0.4, 0.6, 0.3, - 0.6)
+        self.__slant = slant or [(-0.4, 0.6), (0.3, - 0.6)]
 
-    def calculate(self, line_width, coords = None, pressure = None):
+    def to_dict(self):
+        """Return a dictionary representation of the brush."""
+        return { "brush_type": self.brush_type(), "slant": self.__slant }
+
+    def rotate(self, angle, rot_origin):
+        """Rotate the outline."""
+        #self.outline(coords_rotate(self.outline(), angle, rot_origin))
+        self.__slant = coords_rotate(self.__slant, angle, (0, 0))
+
+    def calculate(self, line_width = 1, coords = None, pressure = None):
         """Recalculate the outline of the brush."""
-        print("calculating slanted brush")
 
-        outline_l, outline_r = [ ], [ ]
+        if coords is not None and pressure is not None:
+            if len(coords) != len(pressure):
+                raise ValueError("Pressure and coords don't match")
+
         coords, pressure = smooth_path(coords, pressure, 20)
 
-        dx0, dy0, dx1, dy1 = [ x * line_width for x in self.__slant ]
-        slant_vec   = (dx0 - dx1, dy0 - dy1)
+        # we need to multiply everything by line_width
+        dx0, dy0, dx1, dy1 = [ line_width * x for x in self.__slant[0] + self.__slant[1] ]
 
-        p_prev = coords[0]
-        x, y = coords[0]
-        outline_l.append((x + dx0, y + dy0))
-        outline_r.append((x + dx1, y + dy1))
-        prev_cs_angle = None
-
-        i = 0
-        for p in coords[1:]:
-            x, y = p
-            coord_slant_angle = calculate_angle2((x - p_prev[0], y - p_prev[1]), slant_vec)
-
-            # avoid crossing of outlines
-            if prev_cs_angle is not None:
-                if prev_cs_angle * coord_slant_angle < 0:
-                    outline_l, outline_r = outline_r, outline_l
-
-            prev_cs_angle = coord_slant_angle
-
-            outline_l.append((x + dx0, y + dy0))
-            outline_r.append((x + dx1, y + dy1))
-            p_prev = p
-            i += 1
-
-        #outline_l, outline_r = remove_intersections(outline_l, outline_r)
-        print("calculated outline for n=", len(coords), "points")
-        print("length left: ", len(outline_l), "length right:", len(outline_r))
+        outline_l, outline_r = calculate_slant_outlines(coords, dx0, dy0, dx1, dy1)
         outline = outline_l + outline_r[::-1]
         self.outline(outline)
 
-        print("done calculating slanted brush")
+        #print("done calculating slanted brush")
         return outline
 """Grid class for drawing a grid on screen"""
 
@@ -6395,17 +4925,48 @@ class Grid:
     the screen to draw the grid properly.
     """
     def __init__(self):
-        self.__spacing = 10
-        self.__tocks  = 5
-        self.__origin = (0, 0)
+        self.__spacing = 50
+        self.__small_ticks = 5
         self.__color = (.2, .2, .2, .75)
         self.__line_width = 0.2
+        self.__cache = None
+        self.__state = [ (0, 0), (100, 100) ]
+
+    def __cache_new(self, tr, size):
+        """Cache the grid for the current size"""
+
+        x, y = tr
+        width, height = size
+
+        surface = cairo.ImageSurface(cairo.Format.ARGB32, int(width) + 1, int(height) + 1)
+        cr = cairo.Context(surface)
+        cr.translate(x, y)
+        self.__cache = {
+                "surface": surface,
+                "cr": cr,
+                "x": x,
+                "y": y,
+                }
+        self.__draw(cr, tr, size)
 
     def draw(self, cr, tr, size):
+        """Draw the grid on the screen"""
+
+        if self.__cache is None or self.__state != [tr, size]:
+            self.__cache_new(tr, size)
+            self.__state = [tr, size]
+
+        cr.set_source_surface(self.__cache["surface"], 
+                              -self.__cache["x"], 
+                              -self.__cache["y"])
+        cr.paint()
+
+    def __draw(self, cr, tr, size):
         """Draw grid in the current cairo context"""
 
         width, height = size
         dx, dy = tr
+        ticks = self.__small_ticks
 
         x0 =  - int(dx / self.__spacing) * self.__spacing
         y0 =  - int(dy / self.__spacing) * self.__spacing
@@ -6417,7 +4978,7 @@ class Grid:
         x = x0
         i = 1
         while x < width + x0:
-            if i == 5:
+            if i == ticks:
                 cr.set_line_width(self.__line_width)
                 cr.move_to(x, y0)
                 cr.line_to(x, height + y0)
@@ -6429,12 +4990,12 @@ class Grid:
                 cr.line_to(x, height + y0)
                 cr.stroke()
                 i += 1
-            x += self.__spacing
+            x += self.__spacing / ticks
 
         # draw horizontal lines
         y = y0
         while y < height + y0:
-            if i == 5:
+            if i == ticks:
                 cr.set_line_width(self.__line_width)
                 cr.move_to(x0, y)
                 cr.line_to(width + x0, y)
@@ -6446,9 +5007,3056 @@ class Grid:
                 cr.line_to(width + x0, y)
                 cr.stroke()
                 i += 1
-            y += self.__spacing
+            y += self.__spacing / ticks
+"""
+Class for editing text.
+"""
+
+class TextEditor:
+    """
+    Class for editing text.
+    """
+
+    def __init__(self, text = ""):
+        self.__cont = text.split("\n")
+        self.__line = 0
+        self.__caret_pos = 0
+
+    def __backspace(self):
+        """Remove the last character from the text."""
+        cnt = self.__cont
+        lno = self.__line
+        cpos = self.__caret_pos
+
+        if cpos > 0:
+            cnt[lno] = cnt[lno][:cpos - 1] + cnt[lno][cpos:]
+            self.__caret_pos -= 1
+        elif lno > 0:
+            self.__caret_pos = len(cnt[lno - 1])
+            cnt[lno - 1] += cnt[lno]
+            cnt.pop(lno)
+            self.__line -= 1
+
+    def __newline(self):
+        """Add a newline to the text."""
+        self.__cont.insert(self.__line + 1,
+                            self.__cont[self.__line][self.__caret_pos:])
+        self.__cont[self.__line] = self.__cont[self.__line][:self.__caret_pos]
+        self.__line += 1
+        self.__caret_pos = 0
+
+    def __add_char(self, char):
+        """Add a character to the text."""
+        lno, cpos = self.__line, self.__caret_pos
+        before_caret = self.__cont[lno][:cpos]
+        after_caret  = self.__cont[lno][cpos:]
+        self.__cont[lno] = before_caret + char + after_caret
+        self.__caret_pos += 1
+
+    def __move_end(self):
+        """Move the caret to the end of the last line."""
+        self.__line = len(self.__cont) - 1
+        self.__caret_pos = len(self.__cont[self.__line])
+
+    def __move_home(self):
+        """Move the caret to the beginning of the first line."""
+        self.__line = 0
+        self.__caret_pos = 0
+
+    def __move_right(self):
+        """Move the caret to the right."""
+        if self.__caret_pos < len(self.__cont[self.__line]):
+            self.__caret_pos += 1
+        elif self.__line < len(self.__cont) - 1:
+            self.__line += 1
+            self.__caret_pos = 0
+
+    def __move_left(self):
+        """Move the caret to the left."""
+        if self.__caret_pos > 0:
+            self.__caret_pos -= 1
+        elif self.__line > 0:
+            self.__line -= 1
+            self.__caret_pos = len(self.__cont[self.__line])
+
+    def __move_down(self):
+        """Move the caret down."""
+        if self.__line < len(self.__cont) - 1:
+            self.__line += 1
+            self.__caret_pos = min(self.__caret_pos, len(self.__cont[self.__line]))
+
+    def __move_up(self):
+        """Move the caret up."""
+        if self.__line > 0:
+            self.__line -= 1
+            self.__caret_pos = min(self.__caret_pos, len(self.__cont[self.__line]))
+
+    def move_caret(self, direction):
+        """Move the caret in the text."""
+        { "End":   self.__move_end,
+          "Home":  self.__move_home,
+          "Right": self.__move_right,
+          "Left":  self.__move_left,
+          "Down":  self.__move_down,
+          "Up":    self.__move_up }[direction]()
+
+    def to_string(self):
+        """Return the text as a string."""
+        return "\n".join(self.__cont)
+
+    def lines(self):
+        """Return the text split by lines."""
+        return self.__cont
+
+    def strlen(self):
+        """Return the length of the text."""
+        return len(self.to_string())
+
+    def caret_line(self, new_line = None):
+        """Return the current line."""
+        if new_line is not None:
+            self.__line = new_line
+        return self.__line
+
+    def caret_pos(self, new_pos = None):
+        """Return the caret position."""
+        if new_pos is not None:
+            self.__caret_pos = new_pos
+        return self.__caret_pos
+
+    def add_text(self, text):
+        """Add text to the text."""
+        # split text by newline
+        lines = text.split("\n")
+        for i, line in enumerate(lines):
+            if i == 0:
+                self.__cont[self.__line] += line
+                self.__caret_pos += len(text)
+            else:
+                self.__cont.insert(self.__line + i, line)
+                self.__caret_pos = len(line)
+
+    def update_by_key(self, keyname, char):
+        """Update the text by key press."""
+        if keyname == "BackSpace": # and cur["caret_pos"] > 0:
+            self.__backspace()
+        elif keyname in ["Home", "End", "Down", "Up", "Right", "Left"]:
+            self.move_caret(keyname)
+        elif keyname == "Return":
+            self.__newline()
+        elif char and char.isprintable():
+            self.__add_char(char)
+"""
+Very simple class that holds the pixbuf along with some additional
+information.
+"""
 
 
+class ImageObj:
+    """Simple class to hold an image object."""
+    def __init__(self, pixbuf, base64):
+
+        if base64:
+            self.__base64 = base64
+            pixbuf = base64_to_pixbuf(base64)
+        else:
+            self.__base64 = None
+
+        self.__pixbuf = pixbuf
+        self.__size = (pixbuf.get_width(), pixbuf.get_height())
+
+    def pixbuf(self):
+        """Return the pixbuf."""
+        return self.__pixbuf
+
+    def size(self):
+        """Return the size of the image."""
+        return self.__size
+
+    def encode_base64(self):
+        """Encode the image to base64."""
+        with tempfile.NamedTemporaryFile(delete = True) as temp:
+            self.__pixbuf.savev(temp.name, "png", [], [])
+            with open(temp.name, "rb") as f:
+                image_base64 = base64.b64encode(f.read()).decode("utf-8")
+        return image_base64
+
+    def base64(self):
+        """Return the base64 encoded image."""
+        if self.__base64 is None:
+            self.__base64 = self.encode_base64()
+        return self.__base64
+
+
+"""Status singleton class for holding key app information."""
+
+class State:
+    """Singleton class for holding key app information."""
+    __new_instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls.__new_instance:
+            cls.__new_instance = super(State, cls).__new__(cls)
+        return cls.__new_instance
+
+    def __init__(self, app, gom, cursor):
+        self.__mode = 'draw'
+        self.__app = app
+        self.__gom = gom
+        self.__cursor = cursor
+        self.__modified = True
+
+        self.__gr = {
+                "bg_color": (.8, .75, .65),
+                "transparency": 0,
+                "outline": False,
+                }
+
+        self.__show = {
+                "hidden": False,
+                "grid": False,
+                "wiglets": True,
+                }
+
+        self.__objs = {
+                "hover": None,
+                "current": None,
+                "resize": None,
+                }
+
+        self.__pens = [ Pen(line_width = 4,  color = (0.2, 0, 0),
+                            font_size = 24, transparency  = 1),
+                        Pen(line_width = 40, color = (1, 1, 0),
+                            font_size = 24, transparency = .2) ]
+
+    # -------------------------------------------------------------------------
+    def current_obj(self, obj = None):
+        """Get or set the current object."""
+        if obj:
+            self.__objs["current"] = obj
+        return self.__objs["current"]
+
+    def current_obj_clear(self):
+        """Clear the current object."""
+        self.__objs["current"] = None
+
+    def hover_obj(self, obj = None):
+        """Get or set the hover object."""
+        if obj:
+            self.__objs["hover"] = obj
+        return self.__objs["hover"]
+
+    def hover_obj_clear(self):
+        """Clear the hover object."""
+        self.__objs["hover"] = None
+
+    def current_page(self):
+        """Get the current page object from gom."""
+        return self.__gom.page()
+
+    def modified(self, value = None):
+        """Get or set the modified flag."""
+        if value is not None:
+            self.__modified = value
+        return self.__modified
+
+    # -------------------------------------------------------------------------
+    def mode(self, mode = None):
+        """Get or set the cursor mode."""
+        if mode:
+            self.__mode = mode
+            self.__cursor.default(mode)
+        return self.__mode
+
+    # -------------------------------------------------------------------------
+    def cursor(self):
+        """expose the cursor manager."""
+        return self.__cursor
+
+    # -------------------------------------------------------------------------
+    def show_grid(self):
+        """What is the show grid status."""
+        return self.__show["grid"]
+
+    def toggle_grid(self):
+        """Toggle the grid."""
+        self.__show["grid"] = not self.__show["grid"]
+
+    def show_wiglets(self, value = None):
+        """Show or hide the wiglets."""
+        if value is not None:
+            self.__show["wiglets"] = value
+        return self.__show["wiglets"]
+
+    def toggle_wiglets(self):
+        """Toggle the wiglets."""
+        self.__show["wiglets"] = not self.__show["wiglets"]
+
+    # -------------------------------------------------------------------------
+    def __pen_set(self, pen, alternate = False):
+        """Set the pen."""
+        if alternate:
+            self.__pens[1] = pen
+        else:
+            self.__pens[0] = pen
+
+    def pen(self, alternate = False, pen = None):
+        """Get or set the pen."""
+        if pen:
+            self.__pen_set(pen, alternate)
+        return self.__pens[1] if alternate else self.__pens[0]
+
+    def switch_pens(self):
+        """Switch between pens."""
+        self.__pens = [self.__pens[1], self.__pens[0]]
+
+    def apply_pen_to_bg(self):
+        """Apply the pen to the background."""
+        self.__gr["bg_color"] = self.__pens[0].color
+    # -------------------------------------------------------------------------
+
+    def cycle_background(self):
+        """Cycle through background transparency."""
+        self.__gr["transparency"] = {1: 0, 0: 0.5, 0.5: 1}[self.__gr["transparency"]]
+
+    def alpha(self, value=None):
+        """Get or set the transparency."""
+        if value:
+            self.__gr["transparency"] = value
+        return self.__gr["transparency"]
+
+    def outline(self):
+        """Get the outline mode."""
+        return self.__gr["outline"]
+
+    def outline_toggle(self):
+        """Toggle outline mode."""
+        self.__gr["outline"] = not self.__gr["outline"]
+
+    def bg_color(self, color=None):
+        """Get or set the background color."""
+        if color:
+            self.__gr["bg_color"] = color
+        return self.__gr["bg_color"]
+
+    # -------------------------------------------------------------------------
+    def get_win_size(self):
+        """Get the window size."""
+        return self.__app.get_size()
+
+    def queue_draw(self):
+        """Queue a draw."""
+        self.__app.queue_draw()
+
+    def hidden(self, value = None):
+        """Hide or show the drawing."""
+        if not value is None:
+            self.__show["hidden"] = value
+        return self.__show["hidden"]
+
+# -----------------------------------------------------------------------------
+class Setter:
+    """
+    Class for setting the state.
+
+
+    The purpose is to pack a bunch of setter methods into a single class
+    so that the state class doesn't get too cluttered.
+    """
+    __new_instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls.__new_instance:
+            cls.__new_instance = super(Setter, cls).__new__(cls)
+        return cls.__new_instance
+
+    def __init__(self, app, gom, cursor):
+        self.__state = State(app, gom, cursor)
+        self.__app = app
+        self.__gom = gom
+        self.__cursor = cursor
+
+
+    # -------------------------------------------------------------------------
+    def set_font(self, font_description):
+        """Set the font."""
+        self.__state.pen().font_set_from_description(font_description)
+        self.__gom.selection_font_set(font_description)
+
+        obj = self.__state.current_obj()
+        if obj and obj.type == "text":
+            obj.pen.font_set_from_description(font_description)
+
+    def set_brush(self, brush = None):
+        """Set the brush."""
+        if brush is not None:
+            print("setting pen", self.__state.pen(), "brush to", brush)
+            self.__state.pen().brush_type(brush)
+        return self.__state.pen().brush_type()
+
+    def set_color(self, color = None):
+        """Get or set the color."""
+        if color is None:
+            return self.__state.pen().color
+        self.__state.pen().color_set(color)
+        self.__gom.selection_color_set(color)
+        return color
+
+    def stroke_change(self, direction):
+        """Modify the line width or text size."""
+        print("Changing stroke", direction)
+        cobj = self.__state.current_obj()
+        if cobj and cobj.type == "text":
+            print("Changing text size")
+            cobj.stroke_change(direction)
+            self.__state.pen().font_size = cobj.pen.font_size
+        else:
+            for obj in self.__gom.selected_objects():
+                obj.stroke_change(direction)
+
+        # without a selected object, change the default pen, but only if in the correct mode
+        if self.__state.mode() == "draw":
+            self.__state.pen().line_width = max(1, self.__state.pen().line_width + direction)
+        elif self.__state.mode() == "text":
+            self.__state.pen().font_size = max(1, self.__state.pen().font_size + direction)
+
+    # ---------------------------------------------------------------------
+    def finish_text_input(self):
+        """Clean up current text and finish text input."""
+        print("finishing text input")
+        obj = self.__state.current_obj()
+
+        if obj and obj.type == "text":
+            obj.show_caret(False)
+
+            if obj.strlen() == 0:
+                print("kill object because empty")
+                self.__gom.kill_object(obj)
+
+            self.__state.current_obj_clear()
+        self.__cursor.revert()
+
+
+    # ---------------------------------------------------------------------
+    def clear(self):
+        """Clear the drawing."""
+        self.__gom.selection().clear()
+        #self.__resizeobj      = None
+        self.__state.current_obj_clear()
+        self.__gom.remove_all()
+        self.__state.queue_draw()
+"""
+These are the objects that can be displayed. It includes groups, but
+also primitives like boxes, paths and text.
+"""
+
+
+
+class DrawableRoot:
+    """
+    Dummy class for the root of the drawable object hierarchy.
+    """
+    def __init__(self, mytype, coords):
+        self.type = mytype
+        self.coords = coords
+        self.mod  = 0
+        self.origin       = None
+        self.resizing     = None
+        self.rotation     = 0
+        self.rot_origin   = None
+
+    def update(self, x, y, pressure): # pylint: disable=unused-argument
+        """Called when the mouse moves during drawing."""
+        self.mod += 1
+
+    def finish(self):
+        """Called when building (drawing, typing etc.) is concluded."""
+        self.mod += 1
+
+    def get_primitive(self):
+        """This is for allowing to distinguish between primitives and groups."""
+        return self
+
+    # ------------ Drawable rotation methods ------------------
+    def rotate_start(self, origin):
+        """Start the rotation operation."""
+        self.rot_origin = origin
+        self.mod += 1
+
+    def rotate(self, angle, set_angle = False):
+        """Rotate the object by the specified angle."""
+        # the self.rotation variable is for drawing while rotating
+        self.mod += 1
+        if set_angle:
+            self.rotation = angle
+        else:
+            self.rotation += angle
+
+    def rotate_end(self):
+        """Finish the rotation operation."""
+        raise NotImplementedError("rotate_end method not implemented")
+
+    # ------------ Drawable resizing methods ------------------
+    def resize_start(self, corner, origin):
+        """Start the resizing operation."""
+        self.resizing = {
+            "corner": corner,
+            "origin": origin,
+            "bbox":   self.bbox()
+            }
+        self.mod += 1
+
+    def resize_update(self, bbox):
+        """Update during the resize of the object."""
+        self.resizing["bbox"] = bbox
+        self.mod += 1
+
+    def resize_end(self):
+        """Finish the resizing operation."""
+        self.resizing = None
+        # not implemented
+        print("resize_end not implemented")
+        self.mod += 1
+
+    def bbox(self, actual = False): # pylint: disable=unused-argument
+        """Return the bounding box of the object."""
+        if self.resizing:
+            return self.resizing["bbox"]
+        left, top = min(p[0] for p in self.coords), min(p[1] for p in self.coords)
+        width =    max(p[0] for p in self.coords) - left
+        height =   max(p[1] for p in self.coords) - top
+        return (left, top, width, height)
+
+    def bbox_draw(self, cr, lw=0.2):
+        """Draw the bounding box of the object."""
+        bb = self.bbox(actual = True)
+        x, y, w, h = bb
+        cr.set_line_width(lw)
+        cr.rectangle(x, y, w, h)
+        cr.stroke()
+
+    def move(self, dx, dy):
+        """Move the object by dx, dy."""
+        move_coords(self.coords, dx, dy)
+        if self.rotation:
+            self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
+        self.mod += 1
+
+class Drawable(DrawableRoot):
+    """
+    Base class for drawable objects.
+
+    This class represents a drawable object that can be displayed on a canvas.
+
+    Attributes:
+        type (str): The type of the drawable object.
+        coords (list of tuples): The coordinates of the object's shape.
+        origin (tuple): The original position of the object (when resizing etc).
+        resizing (dict): The state of the object's resizing operation.
+        rotation (float): The rotation angle of the object in radians.
+        rot_origin (tuple): The origin of the rotation operation.
+        pen (Pen): The pen used for drawing the object.
+    """
+    __registry = { }
+
+    def __init__(self, mytype, coords, pen):
+        super().__init__(mytype, coords)
+
+        self.__filled     = False
+        if pen:
+            self.pen    = pen.copy()
+        else:
+            self.pen    = None
+
+    # ------------ Drawable attribute methods ------------------
+    def pen_set(self, pen):
+        """Set the pen of the object."""
+        self.pen = pen.copy()
+        self.mod += 1
+
+    def stroke_change(self, direction):
+        """Change the stroke size of the object."""
+        self.pen.stroke_change(direction)
+        self.mod += 1
+
+    def smoothen(self, threshold=20):
+        """Smoothen the object."""
+        print(f"smoothening not implemented (threshold {threshold})")
+        self.mod += 1
+
+    def fill(self):
+        """Return the fill status"""
+        return self.__filled
+
+    def fill_toggle(self):
+        """Toggle the fill of the object."""
+        self.mod += 1
+        self.__filled = not self.__filled
+
+    def fill_set(self, fill):
+        """Fill the object with a color."""
+        self.mod += 1
+        self.__filled = fill
+
+    def line_width_set(self, lw):
+        """Set the color of the object."""
+        self.mod += 1
+        self.pen.line_width_set(lw)
+
+    def color_set(self, color):
+        """Set the color of the object."""
+        self.mod += 1
+        self.pen.color_set(color)
+
+    def font_set(self, size, family, weight, style):
+        """Set the font of the object."""
+        self.pen.font_size    = size
+        self.pen.font_family  = family
+        self.pen.font_weight  = weight
+        self.pen.font_style   = style
+        self.mod += 1
+
+    # ------------ Drawable modification methods ------------------
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the object."""
+        if self.coords is None:
+            return False
+        if len(self.coords) == 1:
+            x, y = self.coords[0]
+            return (x - threshold <= click_x <= x + threshold and
+                    y - threshold <= click_y <= y + threshold)
+
+        x1, y1 = self.coords[0]
+        x2, y2 = self.coords[1]
+
+        x1, x2 = min(x1, x2), max(x1, x2)
+        y1, y2 = min(y1, y2), max(y1, y2)
+
+        # we return True if click is within the bbox
+        return (x1 - threshold <= click_x <= x2 + threshold and
+                y1 - threshold <= click_y <= y2 + threshold)
+
+    def to_dict(self):
+        """Convert the object to a dictionary."""
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "pen": self.pen.to_dict()
+        }
+
+    def draw(self, cr, hover=False, selected=False, outline=False):
+        """Draw the object on the Cairo context."""
+        raise NotImplementedError("draw method not implemented")
+
+    # ------------ Drawable conversion methods ------------------
+    @classmethod
+    def register_type(cls, obj_type, obj_class):
+        """Register a new drawable object class."""
+        cls.__registry[obj_type] = obj_class
+
+    @classmethod
+    def from_dict(cls, d):
+        """
+        Create a drawable object from a dictionary.
+
+        Objects must take all named arguments specified in their
+        dictionary.
+        """
+
+        type_map = cls.__registry
+
+        obj_type = d.pop("type")
+        if obj_type not in type_map:
+            raise ValueError("Invalid type:", obj_type)
+
+        if "pen" in d:
+            d["pen"] = Pen.from_dict(d["pen"])
+
+        return type_map.get(obj_type)(**d)
+"""Class which draws the actual objects and caches them."""
+
+def draw_on_surface(cr, objects, selection, state):
+    """
+    Draw the objects on the given graphical context.
+    """
+
+    for obj in objects:
+
+        hover    = obj == state.hover_obj() and state.mode() == "move"
+        selected = selection.contains(obj) and state.mode() == "move"
+
+        obj.draw(cr, hover=hover,
+                 selected=selected,
+                 outline = state.outline())
+
+def obj_status(obj, selection, state):
+    """Calculate the status of an object."""
+
+    hover_obj = state.hover_obj()
+    hover    = obj == hover_obj and state.mode() == "move"
+    selected = selection.contains(obj) and state.mode() == "move"
+    is_cur_obj = obj == state.current_obj()
+
+    return (obj.mod, hover, selected, is_cur_obj)
+
+def create_cache_surface(objects):
+    """
+    Create a cache surface.
+
+    :param objects: The objects to cache.
+    """
+
+    if not objects:
+        return None
+
+    grp = DrawableGroup(objects)
+    bb  = grp.bbox(actual = True)
+
+    if not bb:
+        return None
+
+    # create a surface that fits the bounding box of the objects
+    x, y, width, height = bb
+    surface = cairo.ImageSurface(cairo.Format.ARGB32, int(width) + 1, int(height) + 1)
+    cr = cairo.Context(surface)
+    cr.translate(-x, -y)
+    ret = {
+            "surface": surface,
+            "cr": cr,
+            "x": x,
+            "y": y,
+            }
+    return ret
+
+
+
+class Drawer:
+    """Singleton Class which draws the actual objects and caches them."""
+    __new_instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls.__new_instance is None:
+            cls.__new_instance = super(Drawer, cls).__new__(cls)
+        return cls.__new_instance
+
+    def __init__(self):
+        self.__cache        = None
+        self.__obj_mod_hash = { }
+
+    def new_cache(self, groups, selection, state):
+        """
+        Generate the new cache when the objects have changed.
+
+        :param groups: The groups of objects to cache.
+        """
+
+        self.__cache = { "groups": groups,
+                         "surfaces": [ ],}
+
+        cur = groups["first_is_same"]
+
+        # for each non-empty group of objects that remained the same,
+        # generate a cache surface and draw the group on it
+        for obj_grp in groups["groups"]:
+            if not cur or not obj_grp:
+                cur = not cur
+                continue
+
+            surface = create_cache_surface(obj_grp)
+            self.__cache["surfaces"].append(surface)
+            cr = surface["cr"]
+            draw_on_surface(cr, obj_grp, selection, state)
+            cur = not cur
+
+    def update_cache(self, objects, selection, state):
+        """
+        Update the cache.
+
+        :param objects: The objects to update.
+        :param selection: The selection.
+        :param state: The state.
+        """
+
+        groups = self.__find_groups(objects, selection, state)
+
+        if not self.__cache or self.__cache["groups"] != groups:
+            self.new_cache(groups, selection, state)
+
+    def __find_groups(self, objects, selection, state):
+        """
+        Method to detect which objects changed from the previous time.
+        These objects are then split into groups separated by objects that
+        did change, so when drawing, the stacking order is maintained
+        despite cacheing.
+
+        :param objects: The objects to find groups for.
+        :param selection: The selection object to determine whether an
+                           object is selected (selected state is drawn
+                           differently, so that counts as a change).
+        :param state: The state object, holding information about the
+                      drawing mode and hover object.
+        
+        Two values are returned. First, a list of groups, alternating
+        between groups that have changed and groups that haven't. Second,
+        a boolean indicating whether the first group contains objects
+        that have changed.
+        """
+        modhash = self.__obj_mod_hash
+
+        cur_grp       = [ ]
+        groups        = [ cur_grp ]
+        first_is_same = None
+
+        is_same = True
+        prev    = None
+
+        # The goal of this method is to ensure correct stacking order
+        # of the drawn active objects and cached groups.
+        for obj in objects:
+            status = obj_status(obj, selection, state)
+
+            is_same = obj in modhash and modhash[obj] == status and not status[3]
+
+            if first_is_same is None:
+                first_is_same = is_same
+
+            # previous group type was different
+            if prev is not None and prev != is_same:
+                cur_grp = [ ]
+                groups.append(cur_grp)
+
+            cur_grp.append(obj)
+
+            modhash[obj] = status
+            prev = is_same
+
+        ret = { "groups": groups, "first_is_same": first_is_same }
+        return ret
+
+    def draw_cache(self, cr, selection, state):
+        """
+        Process the cache. Draw the cached objects as surfaces and the rest
+        normally.
+        """
+
+        is_same = self.__cache["groups"]["first_is_same"]
+        i = 0
+
+        for obj_grp in self.__cache["groups"]["groups"]:
+
+            # ignore empty groups (that might happen in edge cases)
+            if not obj_grp:
+                is_same = not is_same
+                continue
+
+            # objects in this group have changed: draw it normally on the surface
+            if not is_same:
+                draw_on_surface(cr, obj_grp, selection, state)
+                is_same = not is_same
+                continue
+
+            # objects in this group remained the same: draw the cached surface
+            if is_same:
+                surface = self.__cache["surfaces"][i]
+                cr.set_source_surface(surface["surface"], surface["x"], surface["y"])
+                cr.paint()
+                i += 1
+                is_same = not is_same
+
+    def draw(self, cr, page, state):
+        """
+        Draw the objects on the page.
+
+        :param objects: The objects to draw.
+        :param cr: The context on which to draw.
+        :param page: The page object.
+        :param state: The state object.
+        """
+
+        # extract objects from the page provided
+        objects = page.objects_all_layers()
+
+        # extract the selection object that we need
+        # to determine whether an object in selected state
+        selection = page.selection()
+
+        # check if the cache needs to be updated
+        self.update_cache(objects, selection, state)
+
+        # draw the cache
+        self.draw_cache(cr, selection, state)
+
+        return True
+"""Factory for drawable objects"""
+
+
+class DrawableFactory:
+    """
+    Factory class for creating drawable objects.
+    """
+    @classmethod
+    def create_drawable(cls, mode, pen, ev):
+        """
+        Create a drawable object of the specified type.
+        """
+        pos = ev.pos()
+        pressure = ev.pressure()
+        ret_obj = None
+
+        print("create object in mode", mode)
+        #if mode == "text" or (mode == "draw" and shift_click and no_active_area):
+
+        if mode == "text":
+            print("creating text object")
+            ret_obj = Text([ pos ], pen = pen, content = "")
+            ret_obj.move_caret("Home")
+
+        elif mode == "draw":
+            print("creating path object")
+            ret_obj = Path([ pos ], pen = pen, pressure = [ pressure ])
+
+        elif mode == "rectangle":
+            print("creating rectangle object")
+            ret_obj = Rectangle([ pos ], pen = pen)
+
+        elif mode == "shape":
+            print("creating shape object")
+            ret_obj = Shape([ pos ], pen = pen)
+
+        elif mode == "circle":
+            print("creating circle object")
+            ret_obj = Circle([ pos, (pos[0], pos[1]) ], pen = pen)
+
+        else:
+            raise ValueError("Unknown mode:", mode)
+
+        return ret_obj
+
+    @classmethod
+    def transmute(cls, obj, mode):
+        """
+        Transmute an object into another type.
+
+        For groups, the behaviour is special: rather than converting the group
+        into a single object, we convert all objects within the group into the
+        new type by calling the transmute_to method of the group object.
+        """
+        print("transmuting object to", mode)
+
+        if obj.type == "group":
+            # for now, we do not pass transmutations to groups, because
+            # we then cannot track the changes.
+            return obj
+
+        if mode == "text":
+            obj = Text.from_object(obj)
+        elif mode == "draw":
+            obj = Path.from_object(obj)
+        elif mode == "rectangle":
+            obj = Rectangle.from_object(obj)
+        elif mode == "shape":
+            print("calling Shape.from_object")
+            obj = Shape.from_object(obj)
+        elif mode == "circle":
+            obj = Circle.from_object(obj)
+        else:
+            raise ValueError("Unknown mode:", mode)
+
+        return obj
+"""
+Classes that represent groups of drawable objects.
+"""
+
+
+class DrawableGroup(Drawable):
+    """
+    Class for creating groups of drawable objects or other groups.
+    Most of the time it just passes events around.
+
+    Attributes:
+        objects (list): The list of objects in the group.
+    """
+    def __init__(self, objects = None, objects_dict = None, mytype = "group"):
+
+        if objects is None:
+            objects = [ ]
+        if objects_dict:
+            objects = [ Drawable.from_dict(d) for d in objects_dict ]
+
+        #print("Creating DrawableGroup with ", len(objects), "objects")
+        super().__init__(mytype, [ (None, None) ], None)
+        self.objects = objects
+
+    def contains(self, obj):
+        """Check if the group contains the object."""
+        return obj in self.objects
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to one of the objects."""
+        for obj in self.objects:
+            if obj.is_close_to_click(click_x, click_y, threshold):
+                return True
+        return False
+
+    def fill_toggle(self):
+        """Toggle the fill of the objects"""
+        for obj in self.objects:
+            obj.fill_toggle()
+        self.mod += 1
+
+    def stroke_change(self, direction):
+        """Change the stroke size of the objects in the group."""
+        for obj in self.objects:
+            obj.stroke_change(direction)
+        self.mod += 1
+
+    def transmute_to(self, mode):
+        """Transmute all objects within the group to a new type."""
+        print("transmuting group to", mode)
+       #for i in range(len(self.objects)):
+       #    self.objects[i] = DrawableFactory.transmute(self.objects[i], mode)
+        self.mod += 1
+
+    def to_dict(self):
+        """Convert the group to a dictionary."""
+        return {
+            "type": self.type,
+            "objects_dict": [ obj.to_dict() for obj in self.objects ],
+        }
+
+    def resize_start(self, corner, origin):
+        """Start the resizing operation."""
+        self.resizing = {
+            "corner": corner,
+            "origin": origin,
+            "bbox":   self.bbox(),
+            "orig_bbox": self.bbox(),
+            "objects": { obj: obj.bbox() for obj in self.objects }
+            }
+
+        for obj in self.objects:
+            obj.resize_start(corner, origin)
+        self.mod += 1
+
+    def get_primitive(self):
+        """Return the primitives of the objects in the group."""
+        primitives = [ obj.get_primitive() for obj in self.objects ]
+        return flatten_and_unique(primitives)
+
+    def rotate_start(self, origin):
+        """Start the rotation operation."""
+        self.rot_origin = origin
+        for obj in self.objects:
+            obj.rotate_start(origin)
+        self.mod += 1
+
+    def rotate(self, angle, set_angle = False):
+        """Rotate the objects in the group."""
+        if set_angle:
+            self.rotation = angle
+        else:
+            self.rotation += angle
+        for obj in self.objects:
+            obj.rotate(angle, set_angle)
+        self.mod += 1
+
+    def rotate_end(self):
+        """Finish the rotation operation."""
+        for obj in self.objects:
+            obj.rotate_end()
+        self.rot_origin = None
+        self.rotation = 0
+        self.mod += 1
+
+    def resize_update(self, bbox):
+        """Resize the group of objects. we need to calculate the new
+           bounding box for each object within the group"""
+        orig_bbox = self.resizing["orig_bbox"]
+
+        scale_x, scale_y = bbox[2] / orig_bbox[2], bbox[3] / orig_bbox[3]
+
+        for obj in self.objects:
+            obj_bb = self.resizing["objects"][obj]
+
+            x, y, w, h = obj_bb
+            w2, h2 = w * scale_x, h * scale_y
+
+            x2 = bbox[0] + (x - orig_bbox[0]) * scale_x
+            y2 = bbox[1] + (y - orig_bbox[1]) * scale_y
+
+            ## recalculate the new bbox of the object within our new bb
+            obj.resize_update((x2, y2, w2, h2))
+
+        self.resizing["bbox"] = bbox
+        self.mod += 1
+
+    def resize_end(self):
+        """Finish the resizing operation."""
+        self.resizing = None
+        for obj in self.objects:
+            obj.resize_end()
+        self.mod += 1
+
+    def length(self):
+        """Return the number of objects in the group."""
+        return len(self.objects)
+
+    def bbox(self, actual = False):
+        """Return the bounding box of the group."""
+        if self.resizing:
+            return self.resizing["bbox"]
+        if not self.objects:
+            return None
+
+        left, top, width, height = self.objects[0].bbox(actual = actual)
+        bottom, right = top + height, left + width
+
+        for obj in self.objects[1:]:
+            x, y, w, h = obj.bbox(actual = actual)
+            left, top = min(left, x, x + w), min(top, y, y + h)
+            bottom, right = max(bottom, y, y + h), max(right, x, x + w)
+
+        width, height = right - left, bottom - top
+        return (left, top, width, height)
+
+    def add(self, obj):
+        """Add an object to the group."""
+        if obj not in self.objects:
+            self.objects.append(obj)
+        self.mod += 1
+
+    def remove(self, obj):
+        """Remove an object from the group."""
+        self.objects.remove(obj)
+        self.mod += 1
+
+    def move(self, dx, dy):
+        """Move the group by dx, dy."""
+        for obj in self.objects:
+            obj.move(dx, dy)
+        self.mod += 1
+
+    def draw(self, cr, hover=False, selected=False, outline=False):
+        """Draw the group of objects on the Cairo context."""
+        for obj in self.objects:
+            obj.draw(cr, hover=False, selected=selected)
+
+        cr.set_source_rgb(0, 0, 0)
+
+        if self.rotation:
+            cr.save()
+            x, y = self.rot_origin[0], self.rot_origin[1]
+            cr.translate(x, y)
+            cr.rotate(self.rotation)
+            cr.translate(-x, -y)
+
+        if selected:
+            cr.set_source_rgb(1, 0, 0)
+            self.bbox_draw(cr, lw=.5)
+        if hover:
+            self.bbox_draw(cr, lw=.5)
+
+        if self.rotation:
+            cr.restore()
+
+class SelectionObject(DrawableGroup):
+    """
+    Class for handling the selection of objects.
+
+    It is an extension of the DrawableGroup class, with additional methods for
+    selecting and manipulating objects. Note that more often than not, the
+    methods in this class need to have access to the global list of all
+    object (e.g. to inverse a selection).
+
+    Attributes:
+        objects (list): The list of selected objects.
+        _all_objects (list): The list of all objects in the canvas.
+    """
+
+    def __init__(self, all_objects):
+        super().__init__([ ], None, mytype = "selection_object")
+
+        print("Selection Object with ", len(all_objects), "objects")
+        self._all_objects = all_objects
+
+    def copy(self):
+        """Return a copy of the selection object."""
+        # the copy can be used for undo operations
+        print("copying selection to a new selection object")
+        return DrawableGroup(self.objects[:])
+
+    def n(self):
+        """Return the number of objects in the selection."""
+        return len(self.objects)
+
+    def is_empty(self):
+        """Check if the selection is empty."""
+        return not self.objects
+
+    def clear(self):
+        """Clear the selection."""
+        self.objects = [ ]
+
+    def set(self, objects):
+        """Set the selection to a list of objects."""
+        print("setting selection to", objects)
+        self.objects = objects
+
+    def add(self, obj):
+        """Add an object to the selection."""
+        print("adding object to selection:", obj, "selection is", self.objects)
+        if not obj in self.objects:
+            self.objects.append(obj)
+
+    def all(self):
+        """Select all objects."""
+        print("selecting everything")
+        self.objects = self._all_objects[:]
+        print("selection has now", len(self.objects), "objects")
+        print("all objects have", len(self._all_objects), "objects")
+
+    def next(self):
+        """
+        Return a selection object with the next object in the list,
+        relative to the current selection.
+        """
+
+        all_objects = self._all_objects
+
+        if not all_objects:
+            return
+
+        if not self.objects:
+            self.objects = [ all_objects[0] ]
+            return
+
+        idx = all_objects.index(self.objects[-1])
+        idx += 1
+        if idx >= len(all_objects):
+            idx = 0
+
+        self.objects = [ all_objects[idx] ]
+
+
+    def prev(self):
+        """
+        Return a selection object with the previous object in the list,
+        relative to the current selection.
+        """
+
+        all_objects = self._all_objects
+
+        if not all_objects:
+            return
+
+        if not self.objects:
+            self.objects = [ all_objects[-1] ]
+            return
+
+        idx = all_objects.index(self.objects[-1])
+        idx -= 1
+        if idx < 0:
+            idx = len(all_objects) - 1
+        self.objects = [ all_objects[idx] ]
+
+
+    def reverse(self):
+        """
+        Return a selection object with the objects in reverse order.
+        """
+        if not self.objects:
+            print("no selection yet, selecting everything")
+            self.objects = self._all_objects[:]
+            return
+
+        new_sel = [ ]
+        for obj in self._all_objects:
+            if not self.contains(obj):
+                new_sel.append(obj)
+
+        self.objects = new_sel
+
+Drawable.register_type("group", DrawableGroup)
+"""
+These classes are the primitives for drawing: text, shapes, paths
+"""
+
+
+
+class Image(Drawable):
+    """Class for Images"""
+    def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
+
+        self.__image = ImageObj(image, image_base64)
+
+        self.transform = transform or (1, 1)
+
+        width, height = self.__image.size()
+        width, height = width * self.transform[0], height * self.transform[1]
+
+        coords = [ (coords[0][0], coords[0][1]),
+                   (coords[0][0] + width, coords[0][1] + height) ]
+        super().__init__("image", coords, pen)
+        self.__orig_bbox = None
+
+        if rotation:
+            self.rotation = rotation
+            self.rotate_start((coords[0][0] + width / 2, coords[0][1] + height / 2))
+
+    def _bbox_internal(self):
+        """Return the bounding box of the object."""
+        x, y = self.coords[0]
+        w, h = self.coords[1]
+        return (x, y, w - x, h - y)
+
+    def draw(self, cr, hover=False, selected=False, outline=False):
+        """Draw the object on the Cairo context."""
+        cr.save()
+
+        if self.rotation:
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
+        cr.translate(self.coords[0][0], self.coords[0][1])
+
+        if self.transform:
+            w_scale, h_scale = self.transform
+            cr.scale(w_scale, h_scale)
+
+        Gdk.cairo_set_source_pixbuf(cr, self.__image.pixbuf(), 0, 0)
+        cr.paint()
+
+        cr.restore()
+
+        cr.set_source_rgb(*self.pen.color)
+        if selected:
+            self.bbox_draw(cr, lw=1.5)
+        if hover:
+            self.bbox_draw(cr, lw=.5)
+
+    def bbox(self, actual = False):
+        """Return the bounding box of the object."""
+        bb = self._bbox_internal()
+        if self.rotation:
+            # first, calculate position bb after rotation relative to the
+            # text origin
+            x, y, w, h = bb
+            x1, y1 = x + w, y + h
+            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)], self.rotation, self.rot_origin)
+            bb = path_bbox(bb)
+
+        return bb
+
+    def resize_start(self, corner, origin):
+        """Start the resizing operation."""
+        self.__orig_bbox = self.bbox()
+        self.resizing = {
+            "corner": corner,
+            "origin": origin,
+            "bbox":   self.bbox(),
+            "transform": self.transform
+            }
+        self.mod += 1
+
+    def resize_update(self, bbox):
+        """Update during the resize of the object."""
+        self.resizing["bbox"] = bbox
+
+        x1, y1, w1, h1 = bbox
+
+        # calculate scale relative to the old bbox
+        print("old bbox is", self.__orig_bbox)
+        print("new bbox is", bbox)
+
+        w_scale = w1 / self.__orig_bbox[2]
+        h_scale = h1 / self.__orig_bbox[3]
+
+        print("resizing image", w_scale, h_scale)
+        print("old transform is", self.resizing["transform"])
+
+        self.coords[0] = (x1, y1)
+        self.coords[1] = (x1 + w1, y1 + h1)
+        self.transform = (w_scale * self.resizing["transform"][0],
+                          h_scale * self.resizing["transform"][1])
+        self.mod += 1
+
+    def resize_end(self):
+        """Finish the resizing operation."""
+        width, height = self.__image.size()
+        self.coords[1] = (self.coords[0][0] + width * self.transform[0],
+                          self.coords[0][1] + height * self.transform[1])
+        self.resizing = None
+        self.mod += 1
+
+    def rotate_end(self):
+        """Finish the rotation operation."""
+        bb = self._bbox_internal()
+        center_x, center_y = bb[0] + bb[2] / 2, bb[1] + bb[3] / 2
+        new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
+        self.move(new_center[0] - center_x, new_center[1] - center_y)
+        self.rot_origin = new_center
+        self.mod += 1
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the object."""
+        bb = self.bbox()
+        if bb is None:
+            return False
+        x, y, width, height = bb
+        if x <= click_x <= x + width and y <= click_y <= y + height:
+            return True
+        return False
+
+    def to_dict(self):
+        """Convert the object to a dictionary."""
+
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "pen": self.pen.to_dict(),
+            "image": None,
+            "rotation": self.rotation,
+            "transform": self.transform,
+            "image_base64": self.__image.base64(),
+        }
+
+
+class Text(Drawable):
+    """Class for Text objects"""
+    def __init__(self, coords, pen, content, rotation = None, rot_origin = None):
+        super().__init__("text", coords, pen)
+
+        # split content by newline
+        # content = content.split("\n")
+        self.__text = TextEditor(content)
+        self.__bb   = None
+        self.font_extents = None
+        self.__show_caret = False
+
+        if rotation:
+            self.rotation = rotation
+            self.rot_origin = rot_origin
+
+    def move_caret(self, direction):
+        """Move the caret."""
+        self.__text.move_caret(direction)
+        self.show_caret(True)
+        self.mod += 1
+
+    def show_caret(self, show = None):
+        """Show the caret."""
+        if show is not None:
+            self.__show_caret = show
+            self.mod += 1
+        return self.__show_caret
+
+    def move(self, dx, dy):
+        """Move the text object by dx, dy."""
+        move_coords(self.coords, dx, dy)
+        if self.rotation:
+            self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
+        self.mod += 1
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the path."""
+        if self.__bb is None:
+            return False
+
+        bb = self.__bb
+        x0, y0 = bb[0], bb[1]
+        x1, y1 = x0 + bb[2], y0 + bb[3]
+        if self.rotation:
+            click_x, click_y = coords_rotate([(click_x, click_y)],
+                                             0-self.rotation,
+                                             self.rot_origin)[0]
+
+        return (x0 - threshold <= click_x <= x1 + threshold and
+                y0 - threshold <= click_y <= y1 + threshold)
+
+
+    def rotate_end(self):
+        """Finish the rotation operation."""
+        self.mod += 1
+       ## hmm, not sure what this is supposed to do.
+       #if self.bb:
+       #    center_x, center_y = self.bb[0] + self.bb[2] / 2, self.bb[1] + self.bb[3] / 2
+       #    new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
+       #    self.move(new_center[0] - center_x, new_center[1] - center_y)
+       #self.rot_origin = new_center
+
+    def stroke_change(self, direction):
+        """Change text size up or down."""
+        self.pen.font_size += direction
+        self.pen.font_size = max(8, min(128, self.pen.font_size))
+        self.mod += 1
+
+    def resize_update(self, bbox):
+        print("resizing text", [ int(x) for x in bbox])
+        if bbox[2] < 0:
+            bbox = (bbox[0], bbox[1], 10, bbox[3])
+        if bbox[3] < 0:
+            print("flipping y")
+            bbox = (bbox[0], bbox[1], bbox[2], 10)
+        self.resizing["bbox"] = bbox
+        self.mod += 1
+
+    def resize_end(self):
+        """Finish the resizing operation."""
+        new_bbox   = self.resizing["bbox"]
+        old_bbox   = self.__bb
+
+        if not self.font_extents:
+            return
+
+        # create a surface with the new size
+        surface = cairo.ImageSurface(cairo.Format.ARGB32,
+                                     2 * math.ceil(new_bbox[2]),
+                                     2 * math.ceil(new_bbox[3]))
+        cr = cairo.Context(surface)
+        min_fs, max_fs = 8, 154
+
+        if new_bbox[2] < old_bbox[2] or new_bbox[3] < old_bbox[3]:
+            direction = -1
+        else:
+            direction = 1
+
+        self.coords = [ (0, 0), (old_bbox[2], old_bbox[3]) ]
+        # loop while font size not larger than max_fs and not smaller than
+        # min_fs
+        print("resizing text, direction=", direction, "font size is", self.pen.font_size)
+        while True:
+            self.pen.font_size += direction
+            #print("trying font size", self.pen.font_size)
+            self.draw(cr, False, False)
+            out_of_range_low = self.pen.font_size < min_fs and direction < 0
+            out_of_range_up  = self.pen.font_size > max_fs and direction > 0
+            if out_of_range_low or out_of_range_up:
+                #print("font size out of range")
+                break
+            current_bbox = self.__bb
+            #print("drawn, bbox is", self.__bb)
+            if direction > 0 and (current_bbox[2] >= new_bbox[2] or
+                                  current_bbox[3] >= new_bbox[3]):
+                #print("increased beyond the new bbox")
+                break
+            if direction < 0 and (current_bbox[2] <= new_bbox[2] and
+                                  current_bbox[3] <= new_bbox[3]):
+                break
+
+        self.coords[0] = (new_bbox[0], new_bbox[1] + self.font_extents[0])
+        print("final coords are", self.coords)
+        print("font extents are", self.font_extents)
+
+        # first
+        self.resizing = None
+        self.mod += 1
+
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "pen": self.pen.to_dict(),
+            "rotation": self.rotation,
+            "rot_origin": self.rot_origin,
+            "content": self.__text.to_string()
+        }
+
+    def bbox(self, actual = False):
+        if self.resizing:
+            return self.resizing["bbox"]
+        if not self.__bb:
+            bb = (self.coords[0][0], self.coords[0][1], 50, 50)
+        else:
+            bb = self.__bb
+        if self.rotation:
+            # first, calculate position bb after rotation relative to the
+            # text origin
+            x, y, w, h = bb
+            x1, y1 = x + w, y + h
+            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)], self.rotation, self.rot_origin)
+            bb = path_bbox(bb)
+
+        return bb
+
+    def to_string(self):
+        """Return the text as a single string."""
+        return self.__text.to_string()
+
+    def strlen(self):
+        """Return the length of the text."""
+        return self.__text.strlen()
+
+    def add_text(self, text):
+        """Add text to the object."""
+        self.__text.add_text(text)
+        self.mod += 1
+
+    def update_by_key(self, keyname, char):
+        """Update the text object by keypress."""
+        self.__text.update_by_key(keyname, char)
+        self.mod += 1
+
+    def draw_caret(self, cr, xx0, yy0, height):
+        """Draw the caret."""
+        # draw the caret
+        cr.set_line_width(1)
+        cr.move_to(xx0, yy0)
+        cr.line_to(xx0, yy0 + height)
+        cr.stroke()
+        cr.move_to(xx0 - 3, yy0)
+        cr.line_to(xx0 + 3, yy0)
+        cr.stroke()
+        cr.move_to(xx0 - 3, yy0 + height)
+        cr.line_to(xx0 + 3, yy0 + height)
+        cr.stroke()
+
+    def draw(self, cr, hover=False, selected=False, outline=False):
+        """Draw the text object."""
+        position = self.coords[0]
+        content = self.__text.lines()
+        caret_pos = self.__text.caret_pos()
+
+        # get font info
+        cr.select_font_face(self.pen.font_family,
+                            self.pen.font_style == "italic" and
+                                cairo.FONT_SLANT_ITALIC or cairo.FONT_SLANT_NORMAL,
+                            self.pen.font_weight == "bold"  and
+                                cairo.FONT_WEIGHT_BOLD  or cairo.FONT_WEIGHT_NORMAL)
+        cr.set_font_size(self.pen.font_size)
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+
+        self.font_extents = cr.font_extents()
+
+        dy   = 0
+
+        # new bounding box
+        bb = [position[0],
+              position[1] - self.font_extents[0],
+              0, 0]
+
+        cr.save()
+       #if self.resizing:
+       #    cr.translate(self.resizing["bbox"][0], self.resizing["bbox"][1])
+       #    scale_x = self.resizing["bbox"][2] / self.__bb[2]
+       #    scale_y = self.resizing["bbox"][3] / self.__bb[3]
+       #    cr.scale(scale_x, scale_y)
+       #    cr.translate(-self.__bb[0], -self.__bb[1])
+
+        if self.rotation:
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
+        for i, fragment in enumerate(content):
+
+            #x_bearing, y_bearing, t_width, t_height, x_advance, y_advance
+            x_bearing, _, t_width, _, _, _ = cr.text_extents(fragment)
+
+            bb[2] = max(bb[2], t_width + x_bearing)
+            bb[3] += self.font_extents[2]
+
+            cr.set_font_size(self.pen.font_size)
+            cr.move_to(position[0], position[1] + dy)
+            cr.show_text(fragment)
+            cr.stroke()
+
+            # draw the caret
+            if self.__show_caret and not caret_pos is None and i == self.__text.caret_line():
+                x_bearing, _, t_width, _, _, _ = cr.text_extents("|" +
+                                                        fragment[:caret_pos] + "|")
+                _, _, t_width2, _, _, _ = cr.text_extents("|")
+                cr.set_source_rgb(1, 0, 0)
+                self.draw_caret(cr,
+                                position[0] - x_bearing + t_width - 2 * t_width2,
+                                position[1] + dy - self.font_extents[0],
+                                self.font_extents[2])
+
+            dy += self.font_extents[2]
+
+        self.__bb = (bb[0], bb[1], bb[2], bb[3])
+
+        cr.restore()
+
+        if selected or self.resizing:
+            cr.set_source_rgb(1, 0, 0)
+            self.bbox_draw(cr, lw=.5)
+        #self.bbox_draw(cr, lw=1.5)
+        if hover:
+            self.bbox_draw(cr, lw=.5)
+
+# ----------------------------
+class Shape(Drawable):
+    """Class for shapes (closed paths with no outline)."""
+    def __init__(self, coords, pen, filled = True):
+        super().__init__("shape", coords, pen)
+        self.bb = None
+        self.fill_set(filled)
+
+    def finish(self):
+        """Finish the shape."""
+        print("finishing shape")
+        self.coords, _ = smooth_path(self.coords)
+        self.mod += 1
+
+    def update(self, x, y, pressure):
+        """Update the shape with a new point."""
+        self.path_append(x, y, pressure)
+        self.mod += 1
+
+    def move(self, dx, dy):
+        """Move the shape by dx, dy."""
+        move_coords(self.coords, dx, dy)
+        self.bb = None
+        self.mod += 1
+
+    def rotate_end(self):
+        """finish the rotation"""
+        # rotate all coords and outline
+        self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
+        self.rotation   = 0
+        self.rot_origin = None
+        # recalculate bbox
+        self.bb = path_bbox(self.coords)
+        self.mod += 1
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the object."""
+        bb = self.bbox(actual = True)
+        if bb is None:
+            return False
+        x, y, width, height = bb
+        if x <= click_x <= x + width and y <= click_y <= y + height:
+            return True
+        return False
+
+    def path_append(self, x, y, pressure = None): # pylint: disable=unused-argument
+        """Append a new point to the path."""
+        self.coords.append((x, y))
+        self.bb = None
+        self.mod += 1
+
+    def fill_toggle(self):
+        """Toggle the fill of the object."""
+        old_bbox = self.bbox(actual = True)
+        self.bb  = None
+        self.fill_set(not self.fill())
+        new_bbox = self.bbox(actual = True)
+        self.coords = transform_coords(self.coords, new_bbox, old_bbox)
+        self.bb = None
+        self.mod += 1
+
+    def bbox(self, actual = False):
+        """Calculate the bounding box of the shape."""
+        if self.resizing:
+            bb = self.resizing["bbox"]
+        else:
+            if not self.bb:
+                self.bb = path_bbox(self.coords)
+            bb = self.bb
+        if actual and not self.fill():
+            lw = self.pen.line_width
+            bb = (bb[0] - lw / 2, bb[1] - lw / 2, bb[2] + lw, bb[3] + lw)
+        return bb
+
+    def resize_start(self, corner, origin):
+        """Start the resizing operation."""
+        bbox = path_bbox(self.coords)
+        self.resizing = {
+            "corner": corner,
+            "origin": origin,
+            "bbox":   bbox,
+            "start_bbox": bbox
+            }
+        self.mod += 1
+
+    def resize_update(self, bbox):
+        """Update during the resize of the object."""
+        self.resizing["bbox"] = bbox
+        self.mod += 1
+
+    def resize_end(self):
+        """recalculate the coordinates after resizing"""
+        old_bbox = self.resizing["start_bbox"]
+        new_bbox = self.resizing["bbox"]
+        self.coords = transform_coords(self.coords, old_bbox, new_bbox)
+        self.resizing  = None
+        if self.fill():
+            self.bb = path_bbox(self.coords)
+        else:
+            self.bb = path_bbox(self.coords, lw = self.pen.line_width)
+        self.bb = path_bbox(self.coords)
+        self.mod += 1
+
+    def to_dict(self):
+        """Convert the object to a dictionary."""
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "filled": self.fill(),
+            "pen": self.pen.to_dict()
+        }
+
+
+    def draw_outline(self, cr):
+        """draws each segment separately and makes a dot at each coord."""
+        coords = self.coords
+
+        for i in range(len(coords) - 1):
+            cr.move_to(coords[i][0], coords[i][1])
+            cr.line_to(coords[i + 1][0], coords[i + 1][1])
+            cr.stroke()
+            # make a dot at each coord
+            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+            cr.fill()
+        cr.move_to(coords[-1][0], coords[-1][1])
+        cr.line_to(coords[0][0], coords[0][1])
+        cr.stroke()
+
+    def draw_simple(self, cr, bbox=None):
+        """draws the path as a single line. Useful for resizing."""
+
+        if len(self.coords) < 3:
+            return
+
+        if bbox:
+            if self.fill():
+                old_bbox = path_bbox(self.coords)
+            else:
+                old_bbox = path_bbox(self.coords)
+                #old_bbox = path_bbox(self.coords, lw = self.pen.line_width)
+            coords = transform_coords(self.coords, old_bbox, bbox)
+        else:
+            coords = self.coords
+
+        cr.set_line_width(0.5)
+        cr.move_to(coords[0][0], coords[0][1])
+
+        for point in coords[1:]:
+            cr.line_to(point[0], point[1])
+        cr.close_path()
+
+
+    def draw(self, cr, hover=False, selected=False, outline = False):
+        """Draw the shape on the Cairo context."""
+        if len(self.coords) < 3:
+            return
+
+        if self.rotation != 0:
+            cr.save()
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+        res_bb = self.resizing and self.resizing["bbox"] or None
+        self.draw_simple(cr, res_bb)
+
+        if outline:
+            cr.stroke()
+            self.draw_outline(cr)
+        elif self.fill():
+            cr.fill()
+        else:
+            cr.set_line_width(self.pen.line_width)
+            cr.stroke()
+
+        if selected:
+            cr.set_source_rgba(1, 0, 0)
+            self.bbox_draw(cr, lw=.2)
+
+        if hover:
+            self.bbox_draw(cr, lw=.2)
+
+        if self.rotation != 0:
+            cr.restore()
+
+    @classmethod
+    def from_object(cls, obj):
+        """Create a shape from an object."""
+        print("Shape.from_object", obj)
+        if obj.coords and len(obj.coords) > 2 and obj.pen:
+            return cls(obj.coords, obj.pen)
+
+        # issue a warning
+        print("Shape.from_object: invalid object")
+        return obj
+
+class Rectangle(Shape):
+    """Class for creating rectangles."""
+    def __init__(self, coords, pen, filled = False):
+        super().__init__(coords, pen, filled)
+        self.coords = coords
+        self.type = "rectangle"
+        # fill up coords to length 4
+        n = 5 - len(coords)
+        if n > 0:
+            self.coords += [(coords[0][0], coords[0][1])] * n
+
+    def finish(self):
+        """Finish the rectangle."""
+        print("finishing rectangle")
+        #self.coords, _ = smooth_path(self.coords)
+
+    def update(self, x, y, pressure):
+        """
+        Update the rectangle with a new point.
+
+        Unlike the shape, we use four points only to define rectangle.
+
+        We need more than two points, because subsequent transformations
+        may change it to a parallelogram.
+        """
+        x0, y0 = self.coords[0]
+        #if x < x0:
+        #    x, x0 = x0, x
+
+        #if y < y0:
+        #    y, y0 = y0, y
+
+        self.coords[0] = (x0, y0)
+        self.coords[1] = (x, y0)
+        self.coords[2] = (x, y)
+        self.coords[3] = (x0, y)
+        self.coords[4] = (x0, y0)
+        self.mod += 1
+
+
+class Circle(Shape):
+    """Class for creating circles."""
+    def __init__(self, coords, pen, filled = False):
+        super().__init__(coords, pen, filled)
+        self.coords = coords
+        self.type = "circle"
+        self.__bb = [ (coords[0][0], coords[0][1]), (coords[0][0], coords[0][1]) ]
+        # fill up coords to length 4
+
+    def finish(self):
+        """Finish the circle."""
+        self.mod += 1
+
+    def update(self, x, y, pressure):
+        """
+        Update the circle with a new point.
+        """
+        x0, y0 = min(self.__bb[0][0], x), min(self.__bb[0][1], y)
+        x1, y1 = max(self.__bb[1][0], x), max(self.__bb[1][1], y)
+
+        n_points = 100
+
+        # calculate coords for 100 points on an ellipse contained in the rectangle
+        # given by x0, y0, x1, y1
+
+        # calculate the center of the ellipse
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+
+        # calculate the radius of the ellipse
+        rx, ry = (x1 - x0) / 2, (y1 - y0) / 2
+
+        # calculate the angle between two points
+        angle = 2 * math.pi / n_points
+
+        # calculate the points
+        coords = []
+        coords = [ (cx + rx * math.cos(i * angle),
+                    cy + ry * math.sin(i * angle)) for i in range(n_points)
+                  ]
+
+       #for i in range(n_points):
+       #    x = cx + rx * math.cos(i * angle)
+       #    y = cy + ry * math.sin(i * angle)
+       #    coords.append((x, y))
+
+        self.mod += 1
+        self.coords = coords
+
+class Box(Drawable):
+    """Class for creating a box."""
+    def __init__(self, coords, pen):
+        super().__init__("box", coords, pen)
+
+    def update(self, x, y, pressure):
+        self.coords[1] = (x, y)
+        self.mod += 1
+
+    def resize_end(self):
+        bbox = self.bbox()
+        self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
+        self.resizing = None
+        self.mod += 1
+
+    def rotate_end(self):
+        """Ignore rotation"""
+
+    def rotate_start(self, origin):
+        """Ignore rotation."""
+
+    def rotate(self, angle, set_angle = False):
+        """Ignore rotation."""
+
+    def resize_update(self, bbox):
+        self.resizing["bbox"] = bbox
+        self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
+        self.mod += 1
+
+    def draw(self, cr, hover=False, selected=False, outline=False):
+
+        if hover:
+            cr.set_line_width(self.pen.line_width + 1)
+        else:
+            cr.set_line_width(self.pen.line_width)
+
+        x1, y1 = self.coords[0]
+        x2, y2 = self.coords[1]
+        w, h = (abs(x1 - x2), abs(y1 - y2))
+        x0, y0 = (min(x1, x2), min(y1, y2))
+
+        if self.pen.fill_color:
+            cr.set_source_rgba(*self.pen.fill_color, self.pen.transparency)
+            cr.rectangle(x0, y0, w, h)
+            cr.fill()
+            cr.stroke()
+        else:
+            cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+            cr.rectangle(x0, y0, w, h)
+            cr.stroke()
+
+        if selected:
+            cr.set_line_width(0.5)
+            cr.arc(x0, y0, 10, 0, 2 * 3.14159)  # Draw a circle
+            #cr.fill()  # Fill the circle to make a dot
+            cr.stroke()
+
+        if selected:
+            cr.set_source_rgba(1, 0, 0)
+            self.bbox_draw(cr, lw=.35)
+
+        if hover:
+            self.bbox_draw(cr, lw=.35)
+
+class SelectionTool(Box):
+    """Class for creating a box."""
+    def __init__(self, coords, pen = None):
+        if not pen:
+            pen = Pen(line_width = 0.2, color = (1, 0, 0))
+        super().__init__(coords, pen)
+
+    def objects_in_selection(self, objects):
+        """Return a list of objects that are in the selection."""
+        bb  = self.bbox()
+        obj = find_obj_in_bbox(bb, objects)
+        return obj
+
+Drawable.register_type("text", Text)
+Drawable.register_type("shape", Shape)
+Drawable.register_type("rectangle", Rectangle)
+Drawable.register_type("circle", Circle)
+Drawable.register_type("box", Box)
+Drawable.register_type("image", Image)
+"""
+These classes are the primitives for drawing: text, shapes, paths
+"""
+
+
+
+class Image(Drawable):
+    """Class for Images"""
+    def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
+
+        self.__image = ImageObj(image, image_base64)
+
+        self.transform = transform or (1, 1)
+
+        width, height = self.__image.size()
+        width, height = width * self.transform[0], height * self.transform[1]
+
+        coords = [ (coords[0][0], coords[0][1]),
+                   (coords[0][0] + width, coords[0][1] + height) ]
+        super().__init__("image", coords, pen)
+        self.__orig_bbox = None
+
+        if rotation:
+            self.rotation = rotation
+            self.rotate_start((coords[0][0] + width / 2, coords[0][1] + height / 2))
+
+    def _bbox_internal(self):
+        """Return the bounding box of the object."""
+        x, y = self.coords[0]
+        w, h = self.coords[1]
+        return (x, y, w - x, h - y)
+
+    def draw(self, cr, hover=False, selected=False, outline=False):
+        """Draw the object on the Cairo context."""
+        cr.save()
+
+        if self.rotation:
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
+        cr.translate(self.coords[0][0], self.coords[0][1])
+
+        if self.transform:
+            w_scale, h_scale = self.transform
+            cr.scale(w_scale, h_scale)
+
+        Gdk.cairo_set_source_pixbuf(cr, self.__image.pixbuf(), 0, 0)
+        cr.paint()
+
+        cr.restore()
+
+        cr.set_source_rgb(*self.pen.color)
+        if selected:
+            self.bbox_draw(cr, lw=1.5)
+        if hover:
+            self.bbox_draw(cr, lw=.5)
+
+    def bbox(self, actual = False):
+        """Return the bounding box of the object."""
+        bb = self._bbox_internal()
+        if self.rotation:
+            # first, calculate position bb after rotation relative to the
+            # text origin
+            x, y, w, h = bb
+            x1, y1 = x + w, y + h
+            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)], self.rotation, self.rot_origin)
+            bb = path_bbox(bb)
+
+        return bb
+
+    def resize_start(self, corner, origin):
+        """Start the resizing operation."""
+        self.__orig_bbox = self.bbox()
+        self.resizing = {
+            "corner": corner,
+            "origin": origin,
+            "bbox":   self.bbox(),
+            "transform": self.transform
+            }
+        self.mod += 1
+
+    def resize_update(self, bbox):
+        """Update during the resize of the object."""
+        self.resizing["bbox"] = bbox
+
+        x1, y1, w1, h1 = bbox
+
+        # calculate scale relative to the old bbox
+        print("old bbox is", self.__orig_bbox)
+        print("new bbox is", bbox)
+
+        w_scale = w1 / self.__orig_bbox[2]
+        h_scale = h1 / self.__orig_bbox[3]
+
+        print("resizing image", w_scale, h_scale)
+        print("old transform is", self.resizing["transform"])
+
+        self.coords[0] = (x1, y1)
+        self.coords[1] = (x1 + w1, y1 + h1)
+        self.transform = (w_scale * self.resizing["transform"][0],
+                          h_scale * self.resizing["transform"][1])
+        self.mod += 1
+
+    def resize_end(self):
+        """Finish the resizing operation."""
+        width, height = self.__image.size()
+        self.coords[1] = (self.coords[0][0] + width * self.transform[0],
+                          self.coords[0][1] + height * self.transform[1])
+        self.resizing = None
+        self.mod += 1
+
+    def rotate_end(self):
+        """Finish the rotation operation."""
+        bb = self._bbox_internal()
+        center_x, center_y = bb[0] + bb[2] / 2, bb[1] + bb[3] / 2
+        new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
+        self.move(new_center[0] - center_x, new_center[1] - center_y)
+        self.rot_origin = new_center
+        self.mod += 1
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the object."""
+        bb = self.bbox()
+        if bb is None:
+            return False
+        x, y, width, height = bb
+        if x <= click_x <= x + width and y <= click_y <= y + height:
+            return True
+        return False
+
+    def to_dict(self):
+        """Convert the object to a dictionary."""
+
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "pen": self.pen.to_dict(),
+            "image": None,
+            "rotation": self.rotation,
+            "transform": self.transform,
+            "image_base64": self.__image.base64(),
+        }
+
+
+class Text(Drawable):
+    """Class for Text objects"""
+    def __init__(self, coords, pen, content, rotation = None, rot_origin = None):
+        super().__init__("text", coords, pen)
+
+        # split content by newline
+        # content = content.split("\n")
+        self.__text = TextEditor(content)
+        self.__bb   = None
+        self.font_extents = None
+        self.__show_caret = False
+
+        if rotation:
+            self.rotation = rotation
+            self.rot_origin = rot_origin
+
+    def move_caret(self, direction):
+        """Move the caret."""
+        self.__text.move_caret(direction)
+        self.show_caret(True)
+        self.mod += 1
+
+    def show_caret(self, show = None):
+        """Show the caret."""
+        if show is not None:
+            self.__show_caret = show
+            self.mod += 1
+        return self.__show_caret
+
+    def move(self, dx, dy):
+        """Move the text object by dx, dy."""
+        move_coords(self.coords, dx, dy)
+        if self.rotation:
+            self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
+        self.mod += 1
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the path."""
+        if self.__bb is None:
+            return False
+
+        bb = self.__bb
+        x0, y0 = bb[0], bb[1]
+        x1, y1 = x0 + bb[2], y0 + bb[3]
+        if self.rotation:
+            click_x, click_y = coords_rotate([(click_x, click_y)],
+                                             0-self.rotation,
+                                             self.rot_origin)[0]
+
+        return (x0 - threshold <= click_x <= x1 + threshold and
+                y0 - threshold <= click_y <= y1 + threshold)
+
+
+    def rotate_end(self):
+        """Finish the rotation operation."""
+        self.mod += 1
+       ## hmm, not sure what this is supposed to do.
+       #if self.bb:
+       #    center_x, center_y = self.bb[0] + self.bb[2] / 2, self.bb[1] + self.bb[3] / 2
+       #    new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
+       #    self.move(new_center[0] - center_x, new_center[1] - center_y)
+       #self.rot_origin = new_center
+
+    def stroke_change(self, direction):
+        """Change text size up or down."""
+        self.pen.font_size += direction
+        self.pen.font_size = max(8, min(128, self.pen.font_size))
+        self.mod += 1
+
+    def resize_update(self, bbox):
+        print("resizing text", [ int(x) for x in bbox])
+        if bbox[2] < 0:
+            bbox = (bbox[0], bbox[1], 10, bbox[3])
+        if bbox[3] < 0:
+            print("flipping y")
+            bbox = (bbox[0], bbox[1], bbox[2], 10)
+        self.resizing["bbox"] = bbox
+        self.mod += 1
+
+    def resize_end(self):
+        """Finish the resizing operation."""
+        new_bbox   = self.resizing["bbox"]
+        old_bbox   = self.__bb
+
+        if not self.font_extents:
+            return
+
+        # create a surface with the new size
+        surface = cairo.ImageSurface(cairo.Format.ARGB32,
+                                     2 * math.ceil(new_bbox[2]),
+                                     2 * math.ceil(new_bbox[3]))
+        cr = cairo.Context(surface)
+        min_fs, max_fs = 8, 154
+
+        if new_bbox[2] < old_bbox[2] or new_bbox[3] < old_bbox[3]:
+            direction = -1
+        else:
+            direction = 1
+
+        self.coords = [ (0, 0), (old_bbox[2], old_bbox[3]) ]
+        # loop while font size not larger than max_fs and not smaller than
+        # min_fs
+        print("resizing text, direction=", direction, "font size is", self.pen.font_size)
+        while True:
+            self.pen.font_size += direction
+            #print("trying font size", self.pen.font_size)
+            self.draw(cr, False, False)
+            out_of_range_low = self.pen.font_size < min_fs and direction < 0
+            out_of_range_up  = self.pen.font_size > max_fs and direction > 0
+            if out_of_range_low or out_of_range_up:
+                #print("font size out of range")
+                break
+            current_bbox = self.__bb
+            #print("drawn, bbox is", self.__bb)
+            if direction > 0 and (current_bbox[2] >= new_bbox[2] or
+                                  current_bbox[3] >= new_bbox[3]):
+                #print("increased beyond the new bbox")
+                break
+            if direction < 0 and (current_bbox[2] <= new_bbox[2] and
+                                  current_bbox[3] <= new_bbox[3]):
+                break
+
+        self.coords[0] = (new_bbox[0], new_bbox[1] + self.font_extents[0])
+        print("final coords are", self.coords)
+        print("font extents are", self.font_extents)
+
+        # first
+        self.resizing = None
+        self.mod += 1
+
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "pen": self.pen.to_dict(),
+            "rotation": self.rotation,
+            "rot_origin": self.rot_origin,
+            "content": self.__text.to_string()
+        }
+
+    def bbox(self, actual = False):
+        if self.resizing:
+            return self.resizing["bbox"]
+        if not self.__bb:
+            bb = (self.coords[0][0], self.coords[0][1], 50, 50)
+        else:
+            bb = self.__bb
+        if self.rotation:
+            # first, calculate position bb after rotation relative to the
+            # text origin
+            x, y, w, h = bb
+            x1, y1 = x + w, y + h
+            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)], self.rotation, self.rot_origin)
+            bb = path_bbox(bb)
+
+        return bb
+
+    def to_string(self):
+        """Return the text as a single string."""
+        return self.__text.to_string()
+
+    def strlen(self):
+        """Return the length of the text."""
+        return self.__text.strlen()
+
+    def add_text(self, text):
+        """Add text to the object."""
+        self.__text.add_text(text)
+        self.mod += 1
+
+    def update_by_key(self, keyname, char):
+        """Update the text object by keypress."""
+        self.__text.update_by_key(keyname, char)
+        self.mod += 1
+
+    def draw_caret(self, cr, xx0, yy0, height):
+        """Draw the caret."""
+        # draw the caret
+        cr.set_line_width(1)
+        cr.move_to(xx0, yy0)
+        cr.line_to(xx0, yy0 + height)
+        cr.stroke()
+        cr.move_to(xx0 - 3, yy0)
+        cr.line_to(xx0 + 3, yy0)
+        cr.stroke()
+        cr.move_to(xx0 - 3, yy0 + height)
+        cr.line_to(xx0 + 3, yy0 + height)
+        cr.stroke()
+
+    def draw(self, cr, hover=False, selected=False, outline=False):
+        """Draw the text object."""
+        position = self.coords[0]
+        content = self.__text.lines()
+        caret_pos = self.__text.caret_pos()
+
+        # get font info
+        cr.select_font_face(self.pen.font_family,
+                            self.pen.font_style == "italic" and
+                                cairo.FONT_SLANT_ITALIC or cairo.FONT_SLANT_NORMAL,
+                            self.pen.font_weight == "bold"  and
+                                cairo.FONT_WEIGHT_BOLD  or cairo.FONT_WEIGHT_NORMAL)
+        cr.set_font_size(self.pen.font_size)
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+
+        self.font_extents = cr.font_extents()
+
+        dy   = 0
+
+        # new bounding box
+        bb = [position[0],
+              position[1] - self.font_extents[0],
+              0, 0]
+
+        cr.save()
+       #if self.resizing:
+       #    cr.translate(self.resizing["bbox"][0], self.resizing["bbox"][1])
+       #    scale_x = self.resizing["bbox"][2] / self.__bb[2]
+       #    scale_y = self.resizing["bbox"][3] / self.__bb[3]
+       #    cr.scale(scale_x, scale_y)
+       #    cr.translate(-self.__bb[0], -self.__bb[1])
+
+        if self.rotation:
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
+        for i, fragment in enumerate(content):
+
+            #x_bearing, y_bearing, t_width, t_height, x_advance, y_advance
+            x_bearing, _, t_width, _, _, _ = cr.text_extents(fragment)
+
+            bb[2] = max(bb[2], t_width + x_bearing)
+            bb[3] += self.font_extents[2]
+
+            cr.set_font_size(self.pen.font_size)
+            cr.move_to(position[0], position[1] + dy)
+            cr.show_text(fragment)
+            cr.stroke()
+
+            # draw the caret
+            if self.__show_caret and not caret_pos is None and i == self.__text.caret_line():
+                x_bearing, _, t_width, _, _, _ = cr.text_extents("|" +
+                                                        fragment[:caret_pos] + "|")
+                _, _, t_width2, _, _, _ = cr.text_extents("|")
+                cr.set_source_rgb(1, 0, 0)
+                self.draw_caret(cr,
+                                position[0] - x_bearing + t_width - 2 * t_width2,
+                                position[1] + dy - self.font_extents[0],
+                                self.font_extents[2])
+
+            dy += self.font_extents[2]
+
+        self.__bb = (bb[0], bb[1], bb[2], bb[3])
+
+        cr.restore()
+
+        if selected or self.resizing:
+            cr.set_source_rgb(1, 0, 0)
+            self.bbox_draw(cr, lw=.5)
+        #self.bbox_draw(cr, lw=1.5)
+        if hover:
+            self.bbox_draw(cr, lw=.5)
+
+# ----------------------------
+class Shape(Drawable):
+    """Class for shapes (closed paths with no outline)."""
+    def __init__(self, coords, pen, filled = True):
+        super().__init__("shape", coords, pen)
+        self.bb = None
+        self.fill_set(filled)
+
+    def finish(self):
+        """Finish the shape."""
+        print("finishing shape")
+        self.coords, _ = smooth_path(self.coords)
+        self.mod += 1
+
+    def update(self, x, y, pressure):
+        """Update the shape with a new point."""
+        self.path_append(x, y, pressure)
+        self.mod += 1
+
+    def move(self, dx, dy):
+        """Move the shape by dx, dy."""
+        move_coords(self.coords, dx, dy)
+        self.bb = None
+        self.mod += 1
+
+    def rotate_end(self):
+        """finish the rotation"""
+        # rotate all coords and outline
+        self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
+        self.rotation   = 0
+        self.rot_origin = None
+        # recalculate bbox
+        self.bb = path_bbox(self.coords)
+        self.mod += 1
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the object."""
+        bb = self.bbox(actual = True)
+        if bb is None:
+            return False
+        x, y, width, height = bb
+        if x <= click_x <= x + width and y <= click_y <= y + height:
+            return True
+        return False
+
+    def path_append(self, x, y, pressure = None): # pylint: disable=unused-argument
+        """Append a new point to the path."""
+        self.coords.append((x, y))
+        self.bb = None
+        self.mod += 1
+
+    def fill_toggle(self):
+        """Toggle the fill of the object."""
+        old_bbox = self.bbox(actual = True)
+        self.bb  = None
+        self.fill_set(not self.fill())
+        new_bbox = self.bbox(actual = True)
+        self.coords = transform_coords(self.coords, new_bbox, old_bbox)
+        self.bb = None
+        self.mod += 1
+
+    def bbox(self, actual = False):
+        """Calculate the bounding box of the shape."""
+        if self.resizing:
+            bb = self.resizing["bbox"]
+        else:
+            if not self.bb:
+                self.bb = path_bbox(self.coords)
+            bb = self.bb
+        if actual and not self.fill():
+            lw = self.pen.line_width
+            bb = (bb[0] - lw / 2, bb[1] - lw / 2, bb[2] + lw, bb[3] + lw)
+        return bb
+
+    def resize_start(self, corner, origin):
+        """Start the resizing operation."""
+        bbox = path_bbox(self.coords)
+        self.resizing = {
+            "corner": corner,
+            "origin": origin,
+            "bbox":   bbox,
+            "start_bbox": bbox
+            }
+        self.mod += 1
+
+    def resize_update(self, bbox):
+        """Update during the resize of the object."""
+        self.resizing["bbox"] = bbox
+        self.mod += 1
+
+    def resize_end(self):
+        """recalculate the coordinates after resizing"""
+        old_bbox = self.resizing["start_bbox"]
+        new_bbox = self.resizing["bbox"]
+        self.coords = transform_coords(self.coords, old_bbox, new_bbox)
+        self.resizing  = None
+        if self.fill():
+            self.bb = path_bbox(self.coords)
+        else:
+            self.bb = path_bbox(self.coords, lw = self.pen.line_width)
+        self.bb = path_bbox(self.coords)
+        self.mod += 1
+
+    def to_dict(self):
+        """Convert the object to a dictionary."""
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            "filled": self.fill(),
+            "pen": self.pen.to_dict()
+        }
+
+
+    def draw_outline(self, cr):
+        """draws each segment separately and makes a dot at each coord."""
+        coords = self.coords
+
+        for i in range(len(coords) - 1):
+            cr.move_to(coords[i][0], coords[i][1])
+            cr.line_to(coords[i + 1][0], coords[i + 1][1])
+            cr.stroke()
+            # make a dot at each coord
+            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+            cr.fill()
+        cr.move_to(coords[-1][0], coords[-1][1])
+        cr.line_to(coords[0][0], coords[0][1])
+        cr.stroke()
+
+    def draw_simple(self, cr, bbox=None):
+        """draws the path as a single line. Useful for resizing."""
+
+        if len(self.coords) < 3:
+            return
+
+        if bbox:
+            if self.fill():
+                old_bbox = path_bbox(self.coords)
+            else:
+                old_bbox = path_bbox(self.coords)
+                #old_bbox = path_bbox(self.coords, lw = self.pen.line_width)
+            coords = transform_coords(self.coords, old_bbox, bbox)
+        else:
+            coords = self.coords
+
+        cr.set_line_width(0.5)
+        cr.move_to(coords[0][0], coords[0][1])
+
+        for point in coords[1:]:
+            cr.line_to(point[0], point[1])
+        cr.close_path()
+
+
+    def draw(self, cr, hover=False, selected=False, outline = False):
+        """Draw the shape on the Cairo context."""
+        if len(self.coords) < 3:
+            return
+
+        if self.rotation != 0:
+            cr.save()
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+        res_bb = self.resizing and self.resizing["bbox"] or None
+        self.draw_simple(cr, res_bb)
+
+        if outline:
+            cr.stroke()
+            self.draw_outline(cr)
+        elif self.fill():
+            cr.fill()
+        else:
+            cr.set_line_width(self.pen.line_width)
+            cr.stroke()
+
+        if selected:
+            cr.set_source_rgba(1, 0, 0)
+            self.bbox_draw(cr, lw=.2)
+
+        if hover:
+            self.bbox_draw(cr, lw=.2)
+
+        if self.rotation != 0:
+            cr.restore()
+
+    @classmethod
+    def from_object(cls, obj):
+        """Create a shape from an object."""
+        print("Shape.from_object", obj)
+        if obj.coords and len(obj.coords) > 2 and obj.pen:
+            return cls(obj.coords, obj.pen)
+
+        # issue a warning
+        print("Shape.from_object: invalid object")
+        return obj
+
+class Rectangle(Shape):
+    """Class for creating rectangles."""
+    def __init__(self, coords, pen, filled = False):
+        super().__init__(coords, pen, filled)
+        self.coords = coords
+        self.type = "rectangle"
+        # fill up coords to length 4
+        n = 5 - len(coords)
+        if n > 0:
+            self.coords += [(coords[0][0], coords[0][1])] * n
+
+    def finish(self):
+        """Finish the rectangle."""
+        print("finishing rectangle")
+        #self.coords, _ = smooth_path(self.coords)
+
+    def update(self, x, y, pressure):
+        """
+        Update the rectangle with a new point.
+
+        Unlike the shape, we use four points only to define rectangle.
+
+        We need more than two points, because subsequent transformations
+        may change it to a parallelogram.
+        """
+        x0, y0 = self.coords[0]
+        #if x < x0:
+        #    x, x0 = x0, x
+
+        #if y < y0:
+        #    y, y0 = y0, y
+
+        self.coords[0] = (x0, y0)
+        self.coords[1] = (x, y0)
+        self.coords[2] = (x, y)
+        self.coords[3] = (x0, y)
+        self.coords[4] = (x0, y0)
+        self.mod += 1
+
+
+class Circle(Shape):
+    """Class for creating circles."""
+    def __init__(self, coords, pen, filled = False):
+        super().__init__(coords, pen, filled)
+        self.coords = coords
+        self.type = "circle"
+        self.__bb = [ (coords[0][0], coords[0][1]), (coords[0][0], coords[0][1]) ]
+        # fill up coords to length 4
+
+    def finish(self):
+        """Finish the circle."""
+        self.mod += 1
+
+    def update(self, x, y, pressure):
+        """
+        Update the circle with a new point.
+        """
+        x0, y0 = min(self.__bb[0][0], x), min(self.__bb[0][1], y)
+        x1, y1 = max(self.__bb[1][0], x), max(self.__bb[1][1], y)
+
+        n_points = 100
+
+        # calculate coords for 100 points on an ellipse contained in the rectangle
+        # given by x0, y0, x1, y1
+
+        # calculate the center of the ellipse
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+
+        # calculate the radius of the ellipse
+        rx, ry = (x1 - x0) / 2, (y1 - y0) / 2
+
+        # calculate the angle between two points
+        angle = 2 * math.pi / n_points
+
+        # calculate the points
+        coords = []
+        coords = [ (cx + rx * math.cos(i * angle),
+                    cy + ry * math.sin(i * angle)) for i in range(n_points)
+                  ]
+
+       #for i in range(n_points):
+       #    x = cx + rx * math.cos(i * angle)
+       #    y = cy + ry * math.sin(i * angle)
+       #    coords.append((x, y))
+
+        self.mod += 1
+        self.coords = coords
+
+class Box(Drawable):
+    """Class for creating a box."""
+    def __init__(self, coords, pen):
+        super().__init__("box", coords, pen)
+
+    def update(self, x, y, pressure):
+        self.coords[1] = (x, y)
+        self.mod += 1
+
+    def resize_end(self):
+        bbox = self.bbox()
+        self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
+        self.resizing = None
+        self.mod += 1
+
+    def rotate_end(self):
+        """Ignore rotation"""
+
+    def rotate_start(self, origin):
+        """Ignore rotation."""
+
+    def rotate(self, angle, set_angle = False):
+        """Ignore rotation."""
+
+    def resize_update(self, bbox):
+        self.resizing["bbox"] = bbox
+        self.coords = [ (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]) ]
+        self.mod += 1
+
+    def draw(self, cr, hover=False, selected=False, outline=False):
+
+        if hover:
+            cr.set_line_width(self.pen.line_width + 1)
+        else:
+            cr.set_line_width(self.pen.line_width)
+
+        x1, y1 = self.coords[0]
+        x2, y2 = self.coords[1]
+        w, h = (abs(x1 - x2), abs(y1 - y2))
+        x0, y0 = (min(x1, x2), min(y1, y2))
+
+        if self.pen.fill_color:
+            cr.set_source_rgba(*self.pen.fill_color, self.pen.transparency)
+            cr.rectangle(x0, y0, w, h)
+            cr.fill()
+            cr.stroke()
+        else:
+            cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+            cr.rectangle(x0, y0, w, h)
+            cr.stroke()
+
+        if selected:
+            cr.set_line_width(0.5)
+            cr.arc(x0, y0, 10, 0, 2 * 3.14159)  # Draw a circle
+            #cr.fill()  # Fill the circle to make a dot
+            cr.stroke()
+
+        if selected:
+            cr.set_source_rgba(1, 0, 0)
+            self.bbox_draw(cr, lw=.35)
+
+        if hover:
+            self.bbox_draw(cr, lw=.35)
+
+class SelectionTool(Box):
+    """Class for creating a box."""
+    def __init__(self, coords, pen = None):
+        if not pen:
+            pen = Pen(line_width = 0.2, color = (1, 0, 0))
+        super().__init__(coords, pen)
+
+    def objects_in_selection(self, objects):
+        """Return a list of objects that are in the selection."""
+        bb  = self.bbox()
+        obj = find_obj_in_bbox(bb, objects)
+        return obj
+
+Drawable.register_type("text", Text)
+Drawable.register_type("shape", Shape)
+Drawable.register_type("rectangle", Rectangle)
+Drawable.register_type("circle", Circle)
+Drawable.register_type("box", Box)
+Drawable.register_type("image", Image)
+"""Path is a drawable that is like a shape, but not closed and has an outline"""
+
+
+
+class Path(Drawable):
+    """ Path is like shape, but not closed and has an outline that depends on
+        line width and pressure."""
+    def __init__(self, coords, pen, outline = None, pressure = None, brush = None):
+        super().__init__("path", coords, pen = pen)
+        self.__pressure  = pressure or []
+        self.__bb        = []
+
+        if brush:
+            self.__brush = BrushFactory.create_brush(**brush)
+        else:
+            brush_type = pen.brush_type()
+            self.__brush = BrushFactory.create_brush(brush_type)
+
+        if outline:
+            print("Warning: outline is not used in Path")
+
+        if len(self.coords) > 3 and not self.__brush.outline():
+            self.outline_recalculate()
+
+    def outline_recalculate(self):
+        """Recalculate the outline of the path."""
+        self.__brush.calculate(self.pen.line_width,
+                                 coords = self.coords,
+                                 pressure = self.__pressure)
+        self.mod += 1
+
+    def finish(self):
+        """Finish the path."""
+        self.outline_recalculate()
+
+    def update(self, x, y, pressure):
+        """Update the path with a new point."""
+        self.path_append(x, y, pressure)
+        self.mod += 1
+
+    def move(self, dx, dy):
+        """Move the path by dx, dy."""
+        move_coords(self.coords, dx, dy)
+        #move_coords(self.__outline, dx, dy)
+        #self.outline_recalculate()
+        self.__brush.move(dx, dy)
+        self.__bb = None
+        self.mod += 1
+
+    def rotate_end(self):
+        """Finish the rotation operation."""
+        # rotate all coords and outline
+        self.coords  = coords_rotate(self.coords,  self.rotation, self.rot_origin)
+        #self.__outline = coords_rotate(self.__outline, self.rotation, self.rot_origin)
+        self.__brush.rotate(self.rotation, self.rot_origin)
+        self.outline_recalculate()
+        self.rotation   = 0
+        self.rot_origin = None
+        # recalculate bbox
+        self.__bb = path_bbox(self.coords)
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to the path."""
+        return is_click_close_to_path(click_x, click_y, self.coords, threshold)
+
+    def to_dict(self):
+        """Convert the path to a dictionary."""
+        return {
+            "type": self.type,
+            "coords": self.coords,
+            #"outline": self.__brush.outline(),
+            "pressure": self.__pressure,
+            "pen": self.pen.to_dict(),
+            "brush": self.__brush.to_dict()
+        }
+
+    def stroke_change(self, direction):
+        """Change the stroke size."""
+        self.pen.stroke_change(direction)
+        self.outline_recalculate()
+
+    def smoothen(self, threshold=20):
+        """Smoothen the path."""
+        if len(self.coords) < 3:
+            return
+        print("smoothening path")
+        self.coords, self.__pressure = smooth_path(self.coords, self.__pressure, 1)
+        self.outline_recalculate()
+
+    def pen_set(self, pen):
+        """Set the pen for the path."""
+        self.pen = pen.copy()
+        self.outline_recalculate()
+
+    def path_append(self, x, y, pressure = 1):
+        """Append a point to the path, calculating the outline of the
+           shape around the path. Only used when path is created to
+           allow for a good preview. Later, the path is smoothed and recalculated."""
+        coords = self.coords
+        width  = self.pen.line_width * pressure
+
+        if len(coords) == 0:
+            self.__pressure.append(pressure)
+            coords.append((x, y))
+            return
+
+        lp = coords[-1]
+        if abs(x - lp[0]) < 1 and abs(y - lp[1]) < 1:
+            return
+
+        self.__pressure.append(pressure)
+        coords.append((x, y))
+        width = width / 2
+
+        if len(coords) < 2:
+            return
+        self.outline_recalculate()
+        self.__bb = None
+
+    def bbox(self, actual = False):
+        """Return the bounding box"""
+        if self.resizing:
+            return self.resizing["bbox"]
+        if not self.__bb:
+            self.__bb = path_bbox(self.__brush.outline() or self.coords)
+        return self.__bb
+
+    def resize_end(self):
+        """recalculate the outline after resizing"""
+        #print("length of coords and pressure:", len(self.coords), len(self.__pressure))
+        old_bbox = self.__bb or path_bbox(self.coords)
+        self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
+        self.outline_recalculate()
+        #self.pen.brush().scale(old_bbox, self.resizing["bbox"])
+        self.resizing  = None
+        self.__bb = path_bbox(self.__brush.outline() or self.coords)
+
+    def draw_outline(self, cr):
+        """draws each segment separately and makes a dot at each coord."""
+
+        cr.set_source_rgb(1, 0, 0)
+        cr.set_line_width(0.2)
+        coords = self.coords
+        for i in range(len(coords) - 1):
+            cr.move_to(coords[i][0], coords[i][1])
+            cr.line_to(coords[i + 1][0], coords[i + 1][1])
+            cr.stroke()
+            # make a dot at each coord
+            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+            cr.fill()
+        cr.arc(coords[-1][0], coords[-1][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+        cr.fill()
+
+    def draw_simple(self, cr, bbox=None):
+        """draws the path as a single line. Useful for resizing."""
+
+        if len(self.coords) < 2:
+            return
+
+        if bbox:
+            old_bbox = path_bbox(self.__brush.outline() or self.coords)
+            coords = transform_coords(self.coords, old_bbox, bbox)
+        else:
+            coords = self.coords
+
+        cr.set_source_rgb(*self.pen.color)
+        cr.set_line_width(self.pen.line_width)
+
+        cr.move_to(coords[0][0], coords[0][1])
+        for point in coords[1:]:
+            cr.line_to(point[0], point[1])
+        cr.stroke()
+
+    def draw_standard(self, cr):
+        """standard drawing of the path."""
+        cr.set_fill_rule(cairo.FillRule.WINDING)
+        #print("draw_standard")
+        self.__brush.draw(cr)
+
+    def draw(self, cr, hover=False, selected=False, outline = False):
+        """Draw the path."""
+        #print("drawing path", self, "with brush", self.__brush, "of type",
+        # self.__brush.brush_type())
+        if not self.__brush.outline():
+            return
+
+        if len(self.__brush.outline()) < 4 or len(self.coords) < 3:
+            return
+
+        if self.rotation != 0:
+            cr.save()
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
+        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
+        if self.resizing:
+            self.draw_simple(cr, bbox=self.resizing["bbox"])
+        else:
+            self.draw_standard(cr)
+            if outline:
+                print("drawing outline")
+                cr.set_line_width(0.4)
+                cr.stroke()
+                self.draw_outline(cr)
+            else:
+                cr.fill()
+
+        if selected:
+            cr.set_source_rgba(1, 0, 0)
+            self.bbox_draw(cr, lw=.2)
+
+        if hover:
+            self.bbox_draw(cr, lw=.2)
+
+        if self.rotation != 0:
+            cr.restore()
+
+    @classmethod
+    def from_object(cls, obj):
+        print("Path.from_object", obj)
+        if obj.coords and len(obj.coords) > 2 and obj.pen:
+            return cls(obj.coords, obj.pen)
+        # issue a warning
+        print("Path.from_object: invalid object")
+        return obj
+
+Drawable.register_type("path", Path)
 
 
 # ---------------------------------------------------------------------
@@ -6506,24 +8114,44 @@ class TransparentWindow(Gtk.Window):
         GLib.timeout_add(AUTOSAVE_INTERVAL, self.__autosave)
 
         # Drawing setup
+        self.cursor             = CursorManager(self)
+        self.gom                = GraphicsObjectManager()
+
+        # we pass the app to the state, because it has the queue_draw
+        # method
+        self.state              = State(app = self, 
+                                        gom = self.gom,
+                                        cursor = self.cursor)
+
         self.clipboard           = Clipboard()
-        self.canvas              = Canvas()
-        self.gom                 = GraphicsObjectManager(self, canvas=self.canvas)
-        self.cursor              = CursorManager(self)
+
+        self.setter = Setter(app = self, gom = self.gom, cursor = self.cursor)
+
+        wiglets = [ WigletColorSelector(height = self.state.get_win_size()[1],
+                                               func_color = self.setter.set_color,
+                                               func_bg = self.state.bg_color),
+                           WigletToolSelector(func_mode = self.state.mode),
+                           WigletPageSelector(gom = self.gom, screen_wh_func = self.state.get_win_size,
+                                              set_page_func = self.gom.set_page_number),
+                           WigletColorPicker(func_color = self.setter.set_color, clipboard = self.clipboard),
+                          ]
+
+
+        # em has to know about all that to link actions to methods
+        em  = EventManager(gom = self.gom, app = self,
+                                state  = self.state,
+                                setter = self.setter)
+        mm  = MenuMaker(em, self)
 
         # dm needs to know about gom because gom manipulates the selection
         # and history (object creation etc)
-        # it needs to know about the cursor to change the cursor if needed
-        # it needs to know about the canvas to get the pen
-        # it needs to know about the app to get the size of the window and
-        # queue up redraws
-        self.dm                  = DrawManager(gom = self.gom,  app = self,
-                                               cursor = self.cursor, canvas = self.canvas)
+        self.dm                  = DrawManager(gom = self.gom, mm = mm,
+                                               state = self.state, wiglets = wiglets,
+                                               setter = self.setter)
 
-        # em has to know about all that to link actions to methods
-        self.em                  = EventManager(gom = self.gom, app = self,
-                                                dm = self.dm, canvas = self.canvas)
-        self.mm                  = MenuMaker(self.em, self)
+        # canvas orchestrates the drawing
+        self.canvas              = Canvas(state = self.state, dm = self.dm,
+                                          wiglets = wiglets)
 
         # distance for selecting objects
         self.max_dist   = 15
@@ -6548,8 +8176,8 @@ class TransparentWindow(Gtk.Window):
                         Gdk.EventMask.POINTER_MOTION_MASK |
                         Gdk.EventMask.TOUCH_MASK)
 
-        self.connect("key-press-event",      self.em.on_key_press)
-        self.connect("draw",                 self.dm.on_draw)
+        self.connect("key-press-event",      em.on_key_press)
+        self.connect("draw",                 self.canvas.on_draw)
         self.connect("button-press-event",   self.dm.on_button_press)
         self.connect("button-release-event", self.dm.on_button_release)
         self.connect("motion-notify-event",  self.dm.on_motion_notify)
@@ -6566,17 +8194,17 @@ class TransparentWindow(Gtk.Window):
     def paste_text(self, clip_text):
         """Enter some text in the current object or create a new object."""
 
-        cobj = self.dm.current_object()
+        cobj = self.state.current_obj()
         if cobj and cobj.type == "text":
             cobj.add_text(clip_text.strip())
         else:
             new_text = Text([ self.cursor.pos() ],
-                            pen = self.canvas.pen(), content=clip_text.strip())
+                            pen = self.state.pen(), content=clip_text.strip())
             self.gom.add_object(new_text)
 
     def paste_image(self, clip_img):
         """Create an image object from a pixbuf image."""
-        obj = Image([ self.cursor.pos() ], self.canvas.pen(), clip_img)
+        obj = Image([ self.cursor.pos() ], self.state.pen(), clip_img)
         self.gom.add_object(obj)
 
     def __object_create_copy(self, obj, bb = None):
@@ -6637,20 +8265,20 @@ class TransparentWindow(Gtk.Window):
         """Select a color for the background using ColorChooser."""
         color = ColorChooser(self, "Select Background Color")
         if color:
-            self.canvas.bg_color((color.red, color.green, color.blue))
+            self.state.bg_color((color.red, color.green, color.blue))
 
     def select_color(self):
         """Select a color for drawing using ColorChooser dialog."""
         color = ColorChooser(self)
         if color:
-            self.dm.set_color((color.red, color.green, color.blue))
+            self.setter.set_color((color.red, color.green, color.blue))
 
     def select_font(self):
         """Select a font for drawing using FontChooser dialog."""
-        font_description = FontChooser(self.canvas.pen(), self)
+        font_description = FontChooser(self.state.pen(), self)
 
         if font_description:
-            self.dm.set_font(font_description)
+            self.setter.set_font(font_description)
 
     def show_help_dialog(self):
         """Show the help dialog."""
@@ -6689,8 +8317,8 @@ class TransparentWindow(Gtk.Window):
 
         if file_name:
             export_image(obj, file_name, file_format,
-                         bg = self.canvas.bg_color(),
-                         bbox = bbox, transparency = self.canvas.transparent())
+                         bg = self.state.bg_color(),
+                         bbox = bbox, transparency = self.state.alpha())
 
     def select_image_and_create_pixbuf(self):
         """Select an image file and create a pixbuf from it."""
@@ -6707,7 +8335,7 @@ class TransparentWindow(Gtk.Window):
 
             if pixbuf is not None:
                 pos = self.cursor.pos()
-                img = Image([ pos ], self.canvas.pen(), pixbuf)
+                img = Image([ pos ], self.state.pen(), pixbuf)
                 self.gom.add_object(img)
                 self.queue_draw()
 
@@ -6718,19 +8346,19 @@ class TransparentWindow(Gtk.Window):
         print("Taking screenshot now")
         frame = (bb[0] - 3, bb[1] - 3, bb[0] + bb[2] + 6, bb[1] + bb[3] + 6)
         pixbuf, filename = get_screenshot(self, *frame)
-        self.dm.hide(False)
+        self.state.hidden(False)
         self.queue_draw()
 
         # Create the image and copy the file name to clipboard
         if pixbuf is not None:
-            img = Image([ (bb[0], bb[1]) ], self.canvas.pen(), pixbuf)
+            img = Image([ (bb[0], bb[1]) ], self.state.pen(), pixbuf)
             self.gom.add_object(img)
             self.queue_draw()
             self.clipboard.set_text(filename)
 
     def __find_screenshot_box(self):
         """Find a box suitable for selecting a screenshot."""
-        cobj = self.dm.current_object()
+        cobj = self.state.current_obj()
         if cobj and cobj.type == "rectangle":
             return cobj
         for obj in self.gom.selected_objects():
@@ -6752,7 +8380,7 @@ class TransparentWindow(Gtk.Window):
             bb = obj.bbox()
             print("bbox is", bb)
         #self.hidden = True
-        self.dm.hide(True)
+        self.state.hidden(True)
         self.queue_draw()
         while Gtk.events_pending():
             Gtk.main_iteration_do(False)
@@ -6760,15 +8388,15 @@ class TransparentWindow(Gtk.Window):
 
     def __autosave(self):
         """Autosave the drawing state."""
-        if not self.dm.modified():
+        if not self.state.modified():
             return
 
-        if self.dm.current_object(): # not while drawing!
+        if self.state.current_obj(): # not while drawing!
             return
 
         print("Autosaving")
         self.__save_state()
-        self.dm.modified(False)
+        self.state.modified(False)
 
     def __save_state(self):
         """Save the current drawing state to a file."""
@@ -6778,12 +8406,12 @@ class TransparentWindow(Gtk.Window):
 
         print("savefile:", self.savefile)
         config = {
-                'bg_color':    self.canvas.bg_color(),
-                'transparent': self.canvas.transparent(),
-                'show_wiglets': self.dm.show_wiglets(),
+                'bg_color':    self.state.bg_color(),
+                'transparent': self.state.alpha(),
+                'show_wiglets': self.state.show_wiglets(),
                 'bbox':        (0, 0, *self.get_size()),
-                'pen':         self.canvas.pen().to_dict(),
-                'pen2':        self.canvas.pen(alternate = True).to_dict(),
+                'pen':         self.state.pen().to_dict(),
+                'pen2':        self.state.pen(alternate = True).to_dict(),
                 'page':        self.gom.current_page_number()
         }
 
@@ -6798,7 +8426,7 @@ class TransparentWindow(Gtk.Window):
         if self.read_file(file_name):
             print("Setting savefile to", file_name)
             self.savefile = file_name
-            self.dm.modified(True)
+            self.state.modified(True)
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
@@ -6810,17 +8438,17 @@ class TransparentWindow(Gtk.Window):
             self.gom.set_objects(objects)
 
         if config and load_config:
-            self.canvas.bg_color(config.get('bg_color') or (.8, .75, .65))
-            self.canvas.transparent(config.get('transparent') or 0)
+            self.state.bg_color(config.get('bg_color') or (.8, .75, .65))
+            self.state.alpha(config.get('transparent') or 0)
             show_wiglets = config.get('show_wiglets')
             if show_wiglets is None:
                 show_wiglets = True
-            self.dm.show_wiglets(show_wiglets)
-            self.canvas.pen(pen = Pen.from_dict(config['pen']))
-            self.canvas.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
+            self.state.show_wiglets(show_wiglets)
+            self.state.pen(pen = Pen.from_dict(config['pen']))
+            self.state.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
             self.gom.set_page_number(config.get('page') or 0)
         if config or objects:
-            self.dm.modified(True)
+            self.state.modified(True)
             return True
         return False
 
@@ -6856,10 +8484,18 @@ def main():
                         help="""
 Convert screendrawer file to given format (png, pdf, svg) and exit
 (use -o to specify output file, otherwise a default name is used)
-"""
+""",
+                        metavar = "FORMAT"
     )
+    parser.add_argument("-p", "--page", help="Page to convert (default: 1)", 
+                        type=int, default = 1)
 
-    parser.add_argument("-b", "--border", help="Border width for conversion", type=int)
+    parser.add_argument("-b", "--border", 
+                        help="""
+                             Border width for conversion. If not
+                             specified, whole page will be converted.
+                             """, 
+                        type=int)
     parser.add_argument("-o", "--output", help="Output file for conversion")
     parser.add_argument("files", nargs="*")
     args     = parser.parse_args()
@@ -6875,7 +8511,11 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
         if not args.files:
             print("No input file provided")
             exit(1)
-        convert_file(args.files[0], OUTPUT, args.convert, border = args.border)
+        convert_file(args.files[0], 
+                     OUTPUT, 
+                     args.convert, 
+                     border = args.border, 
+                     page = args.page - 1)
         exit(0)
 
     if args.files:
@@ -6883,7 +8523,9 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
             print("Too many files provided")
             exit(1)
         elif len(args.files) == 2:
-            convert_file(args.files[0], args.files[1], border = args.border)
+            convert_file(args.files[0], args.files[1], 
+                         border = args.border, 
+                         page = args.page - 1)
             exit(0)
         else:
             savefile = args.files[0]
@@ -6914,7 +8556,7 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
 
     win.show_all()
     win.present()
-    win.cursor.set(win.dm.mode())
+    win.cursor.set(win.state.mode())
     win.stick()
 
     Gtk.main()

@@ -3,10 +3,10 @@ These classes are the primitives for drawing: text, shapes, paths
 """
 
 import math                             # <remove>
-import cairo                            # <remove>
 import gi                               # <remove>
 gi.require_version('Gdk', '3.0')        # <remove> pylint: disable=wrong-import-position
 from gi.repository import Gdk           # <remove>
+import cairo                            # <remove>
 
 from .drawable import Drawable # <remove>
 from .pen import Pen           # <remove>
@@ -347,7 +347,6 @@ class Text(Drawable):
 
     def draw(self, cr, hover=False, selected=False, outline=False):
         """Draw the text object."""
-        print("drawing the text")
         position = self.coords[0]
         content = self.__text.lines()
         caret_pos = self.__text.caret_pos()
@@ -383,8 +382,7 @@ class Text(Drawable):
             cr.rotate(self.rotation)
             cr.translate(-self.rot_origin[0], -self.rot_origin[1])
 
-        for i in range(len(content)):
-            fragment = content[i]
+        for i, fragment in enumerate(content):
 
             #x_bearing, y_bearing, t_width, t_height, x_advance, y_advance
             x_bearing, _, t_width, _, _, _ = cr.text_extents(fragment)

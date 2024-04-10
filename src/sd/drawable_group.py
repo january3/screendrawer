@@ -2,8 +2,8 @@
 Classes that represent groups of drawable objects.
 """
 
-from .utils import flatten_and_unique
-from .drawable import Drawable
+from .utils import flatten_and_unique         # <remove>
+from .drawable import Drawable                # <remove>
 
 class DrawableGroup(Drawable):
     """

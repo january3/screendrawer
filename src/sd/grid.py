@@ -1,4 +1,6 @@
 """Grid class for drawing a grid on screen"""
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
 import cairo                                            # <remove>
 
 class Grid:

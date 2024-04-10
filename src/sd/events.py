@@ -2,6 +2,8 @@
 This module contains the MouseEvent class.
 It is used to handle mouse events in the drawing area.
 """
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gdk # <remove>
 from .utils import find_obj_close_to_click, find_corners_next_to_click # <remove>
 

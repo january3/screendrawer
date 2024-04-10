@@ -61,9 +61,10 @@ from sd.brush import Brush                ###<placeholder sd/brush.py>
 from sd.grid import Grid                  ###<placeholder sd/grid.py>
 from sd.texteditor import TextEditor      ###<placeholder sd/texteditor.py>
 from sd.imageobj import ImageObj          ###<placeholder sd/imageobj.py>
-from sd.state import State, Setter        ###<placeholder sd/status.py>
+from sd.state import State, Setter        ###<placeholder sd/state.py>
 from sd.drawable import *                 ###<placeholder sd/drawable.py>
-from sd.drawable_factory import *         ###<placeholder sd/drawable.py>
+from sd.drawer import Drawer              ###<placeholder sd/drawer.py>
+from sd.drawable_factory import DrawableFactory         ###<placeholder sd/drawable_factory.py>
 from sd.drawable_group import DrawableGroup ##<placeholder sd/drawable_group.py>
 from sd.drawable_primitives import Image, Text                    #<placeholder sd/drawable_primitives.py>
 from sd.drawable_primitives import Rectangle, Shape, Circle #<placeholder sd/drawable_primitives.py>
@@ -156,7 +157,7 @@ class TransparentWindow(Gtk.Window):
 
         # dm needs to know about gom because gom manipulates the selection
         # and history (object creation etc)
-        self.dm                  = DrawManager(gom = self.gom,  app = self,
+        self.dm                  = DrawManager(gom = self.gom, mm = mm,
                                                state = self.state, wiglets = wiglets,
                                                setter = self.setter)
 

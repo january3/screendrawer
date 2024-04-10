@@ -3,7 +3,7 @@ These are the objects that can be displayed. It includes groups, but
 also primitives like boxes, paths and text.
 """
 
-from .pen import Pen                     # <remove>
+from .pen import Pen           # <remove>
 from .utils import move_coords # <remove>
 
 
@@ -187,9 +187,6 @@ class Drawable(DrawableRoot):
         x1, x2 = min(x1, x2), max(x1, x2)
         y1, y2 = min(y1, y2), max(y1, y2)
 
-        ## by default, we just check whether the click is close to the bounding box
-        # path = [ (x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1) ]
-        ## return is_click_close_to_path(click_x, click_y, path, threshold)
         # we return True if click is within the bbox
         return (x1 - threshold <= click_x <= x2 + threshold and
                 y1 - threshold <= click_y <= y2 + threshold)
@@ -229,16 +226,5 @@ class Drawable(DrawableRoot):
 
         if "pen" in d:
             d["pen"] = Pen.from_dict(d["pen"])
-        #print("generating object of type", type, "with data", d)
+
         return type_map.get(obj_type)(**d)
-
-    @classmethod
-    def from_object(cls, obj):
-        """
-        Transmute Drawable object into another class.
-
-        The default method doesn't do much, but subclasses can override it to
-        allow conversions between different types of objects.
-        """
-        print("generic from_obj method called")
-        return obj
