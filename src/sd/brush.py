@@ -232,8 +232,6 @@ class BrushFactory:
         Create a brush of the specified type.
         """
 
-        print("BrushFactory brush type:", brush_type)
-
         if brush_type == "rounded":
             return BrushRound(**kwargs)
 

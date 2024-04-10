@@ -4,7 +4,6 @@ To do (sorted by priority):
  * when exporting with ctrl-e there should be selection option to choose
    the format, including pdf vs multipage pdf (and multipage pdf should be
    default)
- * clean up import-export code
  * sort out the remove / add / group / set commands. some are taking
    objects, some are taking object lists, some are taking drawable groups.
    Inconsistent!
@@ -54,6 +53,7 @@ Bugs:
    not consider the enlarged bounding box
 
 Done:
+ * clean up import-export code
  * PDFs should be multipage (ha, ha) -> this is really easy, use
    surface.show_page()! or even cr.show_page()
  * end of a pencil line should be rounded.

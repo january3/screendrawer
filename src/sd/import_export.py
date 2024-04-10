@@ -7,8 +7,7 @@ import pickle       # <remove>
 import yaml         # <remove>
 
 import gi                                                  # <remove>
-gi.require_version('Gtk', '3.0')                           # <remove>
-from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib # <remove> pylint: disable=wrong-import-position
+gi.require_version('Gtk', '3.0')                           # <remove> pylint: disable=wrong-import-position
 
 import cairo                                # <remove>
 from sd.drawable import Drawable            # <remove>
@@ -29,11 +28,11 @@ def guess_file_format(filename):
         raise ValueError("Unrecognized file extension")
     return file_format
 
-def convert_file(input_file, output_file, file_format = "all", border = None, page_no = None):
+def convert_file(input_file, output_file, file_format = "any", border = None, page_no = None):
     """Convert a drawing from the internal format to another."""
     print("page_no = ", page_no)
 
-    if file_format == "all":
+    if file_format == "any":
         if output_file is None:
             raise ValueError("No output file format provided")
         file_format = guess_file_format(output_file)
@@ -111,21 +110,32 @@ def convert_to_multipage_pdf(input_file, output_file, border = None):
         obj_grp = DrawableGroup(page.objects_all_layers())
         page_obj.append(obj_grp)
 
-    if not border:
-        border = 0
+    export_objects_to_multipage_pdf(page_obj, output_file, config, border)
 
-    # determine the max bounding box
-    bbox = None
-
+def find_max_width_height(obj_list):
+    """Find the maximum width and height of a list of objects."""
     width, height = None, None
-    for i, o in enumerate(page_obj):
+
+    for o in obj_list:
         bb = o.bbox()
-        print("Bounding box for page:", i, bb)
         if not width or not height:
             width, height = bb[2], bb[3]
             continue
         width = max(width, bb[2])
         height = max(height, bb[3])
+
+    return width, height
+
+def export_objects_to_multipage_pdf(obj_list, output_file, config, border = None):
+    """
+    Export a list of objects to a multipage PDF file.
+
+    Each object in the list will be drawn on a separate page.
+    """
+    if not border:
+        border = 0
+
+    width, height = find_max_width_height(obj_list)
 
     bg           = config.get("bg_color", (1, 1, 1))
     transparency = config.get("transparent", 1.0)
@@ -138,9 +148,9 @@ def convert_to_multipage_pdf(input_file, output_file, border = None):
     cr.set_source_rgba(*bg, transparency)
     cr.paint()
 
-    nobj = len(page_obj)
+    nobj = len(obj_list)
 
-    for i, o in enumerate(page_obj):
+    for i, o in enumerate(obj_list):
         bb = o.bbox()
 
         cr.save()
@@ -151,8 +161,63 @@ def convert_to_multipage_pdf(input_file, output_file, border = None):
             surface.show_page()
     surface.finish()
 
+def __draw_object(cr, obj, bg, bbox, transparency):
+    """Draw an object on a Cairo context."""
+
+    cr.save()
+    cr.translate(-bbox[0], -bbox[1])
+    cr.set_source_rgba(*bg, transparency)
+    cr.paint()
+    obj.draw(cr)
+    cr.restore()
+
+def export_image_jpg(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
+    """Export the drawing to a JPEG file."""
+    raise NotImplementedError("JPEG export is not implemented")
+
+def export_image_pdf(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
+    """Export the drawing to a SVG file."""
+
+    if bbox is None:
+        bbox = obj.bbox()
+
+    # to integers
+    width, height = int(bbox[2]), int(bbox[3])
+    surface = cairo.PDFSurface(filename, width, height)
+    cr = cairo.Context(surface)
+    __draw_object(cr, obj, bg, bbox, transparency)
+    surface.finish()
+
+def export_image_svg(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
+    """Export the drawing to a SVG file."""
+
+    if bbox is None:
+        bbox = obj.bbox()
+
+    # to integers
+    width, height = int(bbox[2]), int(bbox[3])
+    surface = cairo.SVGSurface(filename, width, height)
+    cr = cairo.Context(surface)
+    __draw_object(cr, obj, bg, bbox, transparency)
+
+    surface.finish()
+
+def export_image_png(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
+    """Export the drawing to a PNG file."""
+
+    if bbox is None:
+        bbox = obj.bbox()
+
+    # to integers
+    width, height = int(bbox[2]), int(bbox[3])
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+    cr = cairo.Context(surface)
+    __draw_object(cr, obj, bg, bbox, transparency)
+
+    surface.write_to_png(filename)
+
 def export_image(objects, filename,
-                 file_format = "all",
+                 file_format = "any",
                  bg = (1, 1, 1),
                  bbox = None,
                  transparency = 1.0):
@@ -163,7 +228,7 @@ def export_image(objects, filename,
         print("export_image: no filename provided")
         return
 
-    if file_format == "all":
+    if file_format == "any":
         # get the format from the file name
         _, file_format = path.splitext(filename)
         file_format = file_format[1:]
@@ -177,35 +242,15 @@ def export_image(objects, filename,
             raise ValueError("Unrecognized file extension")
         print("export_image: guessing format from file name:", file_format)
 
-    if bbox is None:
-        bbox = objects.bbox()
-    print("Bounding box:", bbox)
-    # to integers
-    width, height = int(bbox[2]), int(bbox[3])
-
     # Create a Cairo surface of the same size as the bbox
     if file_format == "png":
-        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+        export_image_png(objects, filename, bg, bbox, transparency)
     elif file_format == "svg":
-        surface = cairo.SVGSurface(filename, width, height)
+        export_image_svg(objects, filename, bg, bbox, transparency)
     elif file_format == "pdf":
-        surface = cairo.PDFSurface(filename, width, height)
+        export_image_pdf(objects, filename, bg, bbox, transparency)
     else:
-        raise ValueError("Invalid file format: " + file_format)
-
-    cr = cairo.Context(surface)
-    # translate to the top left corner of the bounding box
-    cr.translate(-bbox[0], -bbox[1])
-
-    cr.set_source_rgba(*bg, transparency)
-    cr.paint()
-    objects.draw(cr)
-
-    # Save the surface to the file
-    if file_format == "png":
-        surface.write_to_png(filename)
-    elif file_format in [ "svg", "pdf" ]:
-        surface.finish()
+        raise NotImplementedError("Export to " + file_format + " is not implemented")
 
 def export_file_as_yaml(filename, config, objects = None, pages = None):
     """Save the objects to a YAML file."""
@@ -218,7 +263,6 @@ def export_file_as_yaml(filename, config, objects = None, pages = None):
     try:
         with open(filename, 'w') as f:
             yaml.dump(state, f)
-            #pickle.dump(state, f)
         print("Saved drawing to", filename)
         return True
     except OSError as e:
@@ -228,6 +272,8 @@ def export_file_as_yaml(filename, config, objects = None, pages = None):
         print(f"Error saving file because: {e}")
         return False
 
+
+# ------------------- handling of the native format -------------------
 
 def save_file_as_sdrw(filename, config, objects = None, pages = None):
     """Save the objects to a file in native format."""
@@ -275,7 +321,7 @@ def read_file_as_sdrw(filename):
                     # page import function - best if page takes care of it
                     if "objects" in p:
                         p['objects'] = [ Drawable.from_dict(d) for d in p['objects'] ] or [ ]
-                            
+
             config = state['config']
     except OSError as e:
         print(f"Error saving file due to a file I/O error: {e}")
