@@ -334,3 +334,23 @@ def test_DeletePageCommand():
     assert page2.next(create = False) == None, "Deleting page failed"
 
 
+def test_DeleteLayerCommand():
+    """Test deleting layers"""
+
+    page = Page()
+    assert page.number_of_layers() == 1, "Creating layers failed"
+    assert page.next_layer() == 1, "Creating layers failed"
+    assert page.next_layer() == 2, "Creating layers failed"
+    assert page.prev_layer() == 1, "Creating layers failed"
+    assert page.number_of_layers() == 3, "Creating layers failed"
+
+    cmd = DeleteLayerCommand(page, 1)
+    assert cmd is not None, "Creating DeleteLayerCommand failed"
+    assert cmd.command_type() == "delete_layer", "Command type incorrect"
+    assert page.number_of_layers() == 2, "Deleting layers failed"
+
+    cmd.undo()
+    assert page.number_of_layers() == 3, "Undo failed"
+
+    cmd.redo()
+    assert page.number_of_layers() == 2, "Redo failed"
