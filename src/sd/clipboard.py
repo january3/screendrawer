@@ -99,5 +99,3 @@ class Clipboard:
         print("Setting internal clipboard")
         self.clipboard = DrawableGroup(selection.objects[:])
         self.clipboard_owner = True
-
-

@@ -1,6 +1,9 @@
 To do (sorted by priority):
 
 
+ * sort out the remove / add / group / set commands. some are taking
+   objects, some are taking object lists, some are taking drawable groups.
+   Inconsistent!
  * unit tests. more, more, more
  * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
    files; or, better, create a yaml export option.

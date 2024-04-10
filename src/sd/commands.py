@@ -69,10 +69,16 @@ class CommandGroup(Command):
 class DeletePageCommand(Command):
     """
     Simple class for handling deleting pages.
-
     """
-    def __init__(self, page, prev_page, next_page):
+    def __init__(self, page):
         super().__init__("delete_page", None)
+        prev_page = page.prev()
+
+        if prev_page == page:
+            prev_page = None
+
+        next_page = page.next(create = False)
+
         self.__prev = prev_page
         self.__next = next_page
         self.__page = page
@@ -108,11 +114,13 @@ class DeletePageCommand(Command):
 
 class DeleteLayerCommand(Command):
     """Simple class for handling deleting layers of a page."""
-    def __init__(self, page, layer, layer_pos):
+    def __init__(self, page, layer_pos = None):
         """Simple class for handling deleting layers of a page."""
         super().__init__("delete_layer", None)
-        self.__layer_pos = layer_pos
-        self.__layer = layer
+
+        if layer_pos is None:
+            layer_pos = page.layer_no()
+        self.__layer, self.__layer_pos = page.delete_layer(layer_pos)
         self.__page  = page
 
     def undo(self):
@@ -582,6 +590,7 @@ class MoveCommand(MoveResizeCommand):
         print("MoveCommand: origin is", origin)
 
     def event_update(self, x, y):
+        """Update the move event."""
         dx = x - self.__last_pt[0]
         dy = y - self.__last_pt[1]
 
@@ -589,9 +598,11 @@ class MoveCommand(MoveResizeCommand):
         self.__last_pt = (x, y)
 
     def event_finish(self):
+        """Finish the move event."""
         print("MoveCommand: finish")
 
     def undo(self):
+        """Undo the command."""
         if self.undone():
             return None
         print("MoveCommand: undo")
@@ -602,6 +613,7 @@ class MoveCommand(MoveResizeCommand):
         return self.__page
 
     def redo(self):
+        """Redo the command."""
         if not self.undone():
             return None
         dx = self.start_point[0] - self.__last_pt[0]
@@ -699,6 +711,7 @@ class SetPropCommand(Command):
         self.__undo_dict = { obj: get_prop_func(obj) for obj in self.obj }
 
         for obj in self.obj:
+            print("setting prop for", obj)
             set_prop_func(obj, prop)
 
     def undo(self):

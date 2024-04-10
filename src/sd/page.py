@@ -86,7 +86,7 @@ class Page:
             print("only one page remaining")
             return self
 
-        cmd = DeletePageCommand(self, self.__prev, self.__next)
+        cmd = DeletePageCommand(self)
         ret = self.__prev or self.__next
 
         return ret, cmd
@@ -146,6 +146,8 @@ class Page:
             else:
                 self.__layers.append(new_layer)
                 self.__current_layer = len(self.__layers) - 1
+        if pos is not None:
+            return self.__layers[pos]
 
         return self.__layers[self.__current_layer]
 
@@ -176,13 +178,15 @@ class Page:
 
         del self.__layers[layer_no]
 
+        # make sure layer is within boundaries
         self.__current_layer = max(0, layer_no - 1)
         self.__current_layer = min(self.__current_layer,
                                    len(self.__layers) - 1)
 
-        cmd = DeleteLayerCommand(self, layer, pos)
+        #cmd = DeleteLayerCommand(self, layer, pos)
 
-        return cmd
+        #return cmd
+        return layer, pos
 
     def translate(self, new_val = None):
         """Get or set the translate"""

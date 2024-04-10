@@ -51,7 +51,9 @@ class GraphicsObjectManager:
 
     def delete_layer(self):
         """Delete the current layer."""
-        cmd = self.__page.delete_layer()
+        #cmd = 
+        #self.__page.delete_layer(self.__page.layer_no())
+        cmd = DeleteLayerCommand(self.__page, self.__page.layer_no())
         self.__history.append(cmd)
 
     def page(self):
