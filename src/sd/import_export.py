@@ -4,6 +4,7 @@ This module provides functions to import and export drawings in various formats.
 
 from os import path # <remove>
 import pickle       # <remove>
+import yaml         # <remove>
 
 import gi                                                  # <remove>
 gi.require_version('Gtk', '3.0')                           # <remove>
@@ -24,7 +25,7 @@ def guess_file_format(filename):
     if file_format == "jpg":
         file_format = "jpeg"
     # check
-    if file_format not in [ "png", "jpeg", "pdf", "svg" ]:
+    if file_format not in [ "png", "jpeg", "pdf", "svg", "yaml" ]:
         raise ValueError("Unrecognized file extension")
     return file_format
 
@@ -61,10 +62,14 @@ def convert_file(input_file, output_file, file_format = "all", border = None, pa
             # create a file name with the same name but different extension
             output_file = path.splitext(input_file)[0] + "." + file_format
 
-    export_image(objects,
-                 output_file, file_format,
-                 bg = bg, bbox = bbox,
-                 transparency = transparency)
+    if file_format == "yaml":
+        print("Exporting to yaml")
+        export_file_as_yaml(output_file, config, objects=objects.to_dict())
+    else:
+        export_image(objects,
+                     output_file, file_format,
+                     bg = bg, bbox = bbox,
+                     transparency = transparency)
 
 
 def export_image(objects, filename,
@@ -123,6 +128,28 @@ def export_image(objects, filename,
         surface.write_to_png(filename)
     elif file_format in [ "svg", "pdf" ]:
         surface.finish()
+
+def export_file_as_yaml(filename, config, objects = None, pages = None):
+    """Save the objects to a YAML file."""
+
+    state = { 'config': config }
+    if pages:
+        state['pages']   = pages
+    if objects:
+        state['objects'] = objects
+    try:
+        with open(filename, 'w') as f:
+            yaml.dump(state, f)
+            #pickle.dump(state, f)
+        print("Saved drawing to", filename)
+        return True
+    except OSError as e:
+        print(f"Error saving file due to a file I/O error: {e}")
+        return False
+    except yaml.YAMLError as e:
+        print(f"Error saving file because: {e}")
+        return False
+
 
 def save_file_as_sdrw(filename, config, objects = None, pages = None):
     """Save the objects to a file in native format."""
