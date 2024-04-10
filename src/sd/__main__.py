@@ -356,7 +356,10 @@ class TransparentWindow(Gtk.Window):
     def __screenshot_finalize(self, bb):
         """Finish up the screenshot."""
         print("Taking screenshot now")
-        frame = (bb[0] - 3, bb[1] - 3, bb[0] + bb[2] + 6, bb[1] + bb[3] + 6)
+        dx, dy = self.gom.page().translate()
+        print("translate is", dx, dy)
+        frame = (bb[0] - 3 + dx, bb[1] - 3 + dy, bb[0] + bb[2] + 6 + dx, bb[1] + bb[3] + 6 + dy)
+        print("frame is", frame)
         pixbuf, filename = get_screenshot(self, *frame)
         self.state.hidden(False)
         self.queue_draw()
@@ -506,25 +509,27 @@ def process_args(args, app_name, app_author):
     if args.page is not None:
         page_no = args.page - 1
 
+    # explicit conversion
     if args.convert:
         if not args.convert in [ "png", "pdf", "svg", "yaml" ]:
             print("Invalid conversion format")
             exit(1)
-        OUTPUT = None
+        output = None
         if args.output:
-            OUTPUT = args.output
+            output = args.output
 
         if not args.files:
             print("No input file provided")
             exit(1)
 
         convert_file(args.files[0], 
-                     OUTPUT, 
+                     output, 
                      args.convert, 
                      border = args.border, 
                      page_no = page_no)
         exit(0)
 
+    # convert if exactly two file names are provided
     if args.files:
         if len(args.files) > 2:
             print("Too many files provided")
@@ -569,7 +574,7 @@ def main():
     CSS = b"""
     #myMenu {
         background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
-        font-family: Monospace, 'Monospace regular', monospace, 'Courier New'; /* Use 'Courier New', falling back to any monospace font */
+        font-family: 'Ubuntu Mono', Monospace, 'Monospace Regular', monospace, 'Courier New'; /* Use 'Courier New', falling back to any monospace font */
     }
     """
 

@@ -144,6 +144,9 @@ class WigletTransparency(Wiglet):
     def event_finish(self):
         """update on mouse release"""
 
+    def on_click(self, x, y, ev):
+        """handle the click event"""
+
 class WigletLineWidth(Wiglet):
     """
     Wiglet for changing the line width.
@@ -172,6 +175,9 @@ class WigletLineWidth(Wiglet):
 
     def event_finish(self):
         """ignoring the update on mouse release"""
+
+    def on_click(self, x, y, ev):
+        """handle the click event"""
 
 ## ---------------------------------------------------------------------
 class WigletPageSelector(Wiglet):
