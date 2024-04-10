@@ -471,30 +471,15 @@ class TransparentWindow(Gtk.Window):
 
 ## ---------------------------------------------------------------------
 
-def main():
-    """Main function for the application."""
-    APP_NAME   = "ScreenDrawer"
-    APP_AUTHOR = "JanuaryWeiner"  # Optional; used on Windows
-
-    # Get user-specific config directory
-    user_config_dir = appdirs.user_config_dir(APP_NAME, APP_AUTHOR)
-    print(f"User config directory: {user_config_dir}")
-
-    #user_cache_dir = appdirs.user_cache_dir(APP_NAME, APP_AUTHOR)
-    #user_log_dir   = appdirs.user_log_dir(APP_NAME, APP_AUTHOR)
-
-
-# ---------------------------------------------------------------------
-# Parsing command line
-# ---------------------------------------------------------------------
-
+def parse_arguments():
+    """Handle command line arguments."""
     parser = argparse.ArgumentParser(
             description="Drawing on the screen",
-            epilog=f"Alternative use: {argv[0]} file.sdrw file.[png, pdf, svg]")
+            epilog=f"Alternative use: {argv[0]} file.sdrw file.[png, pdf, svg, yaml]")
     parser.add_argument("-l", "--loadfile", help="Load drawing from file")
     parser.add_argument("-c", "--convert",
                         help="""
-Convert screendrawer file to given format (png, pdf, svg) and exit
+Convert screendrawer file to given format (png, pdf, svg, yaml) and exit
 (use -o to specify output file, otherwise a default name is used)
 """,
                         metavar = "FORMAT"
@@ -511,15 +496,18 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
     parser.add_argument("-o", "--output", help="Output file for conversion")
     parser.add_argument("files", nargs="*")
     args     = parser.parse_args()
+    return args
 
+def process_args(args, app_name, app_author):
+    """Process command line arguments."""
     page_no = None
+    _savefile = None
 
     if args.page is not None:
         page_no = args.page - 1
 
-
     if args.convert:
-        if not args.convert in [ "png", "pdf", "svg" ]:
+        if not args.convert in [ "png", "pdf", "svg", "yaml" ]:
             print("Invalid conversion format")
             exit(1)
         OUTPUT = None
@@ -547,9 +535,29 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
                          page_no = page_no)
             exit(0)
         else:
-            savefile = args.files[0]
+            _savefile = args.files[0]
     else:
-        savefile = get_default_savefile(APP_NAME, APP_AUTHOR)
+        _savefile = get_default_savefile(app_name, app_author)
+    return _savefile
+
+def main():
+    """Main function for the application."""
+    APP_NAME   = "ScreenDrawer"
+    APP_AUTHOR = "JanuaryWeiner"  # used on Windows
+
+    # Get user-specific config directory
+    user_config_dir = appdirs.user_config_dir(APP_NAME, APP_AUTHOR)
+    print(f"User config directory: {user_config_dir}")
+
+    #user_cache_dir = appdirs.user_cache_dir(APP_NAME, APP_AUTHOR)
+    #user_log_dir   = appdirs.user_log_dir(APP_NAME, APP_AUTHOR)
+
+# ---------------------------------------------------------------------
+# Parsing command line
+# ---------------------------------------------------------------------
+
+    args = parse_arguments()
+    savefile = process_args(args, APP_NAME, APP_AUTHOR)
     print("Save file is:", savefile)
 
 # ---------------------------------------------------------------------

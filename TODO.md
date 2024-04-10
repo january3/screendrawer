@@ -1,6 +1,9 @@
 To do (sorted by priority):
 
 
+ * when exporting with ctrl-e there should be selection option to choose
+   the format, including pdf vs multipage pdf (and multipage pdf should be
+   default)
  * clean up import-export code
  * sort out the remove / add / group / set commands. some are taking
    objects, some are taking object lists, some are taking drawable groups.
