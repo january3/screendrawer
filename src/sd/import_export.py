@@ -83,7 +83,7 @@ def convert_file_to_image(input_file, output_file, file_format = "png", border =
     print("read drawing from", input_file, "with", len(objects), "objects")
     objects = DrawableGroup(objects)
 
-    bbox = config.get("bbox", None) or objects.bbox()
+    bbox = objects.bbox()
     if border:
         bbox = objects.bbox()
         bbox = (bbox[0] - border, bbox[1] - border, bbox[2] + 2 * border, bbox[3] + 2 * border)
@@ -183,7 +183,6 @@ def export_image(objects, filename,
     # to integers
     width, height = int(bbox[2]), int(bbox[3])
 
-
     # Create a Cairo surface of the same size as the bbox
     if file_format == "png":
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
@@ -196,7 +195,7 @@ def export_image(objects, filename,
 
     cr = cairo.Context(surface)
     # translate to the top left corner of the bounding box
-    cr.translate(bbox[0], bbox[1])
+    cr.translate(-bbox[0], -bbox[1])
 
     cr.set_source_rgba(*bg, transparency)
     cr.paint()
