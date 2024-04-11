@@ -57,6 +57,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * ungrouping reverses the z-stack
  * unseen wiglets work? They should not.
  * clean up import-export code
  * incorrect bounding box when exporting with text (see mk.sdrw) => oh no,

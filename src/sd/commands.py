@@ -68,7 +68,7 @@ class CommandGroup(Command):
 
 class DeletePageCommand(Command):
     """
-    Simple class for handling deleting pages.
+    Handling deleting pages.
     """
     def __init__(self, page):
         super().__init__("delete_page", None)
@@ -220,7 +220,7 @@ class UngroupObjectCommand(Command):
             self.__stack.remove(obj)
 
             # add the objects back to the stack
-            for subobj in obj.objects:
+            for subobj in obj.objects[::-1]:
                 self.__stack.insert(idx, subobj)
                 new_objects.append(subobj)
 
