@@ -29,7 +29,6 @@ To do (sorted by priority):
  * think hard how I want the color setting / pen thing to work
  * add a line mode and Line object class
  * show corners of the bounding box
- * grid
  * horizontal and vertical guides
  * make wiglets movable
 
@@ -188,6 +187,7 @@ Done:
  * remember page number
  * implemented three simple brushes, selectable through 1-3
  * implemented grid (ctrl-g)
+ * grid
  * implement rotating for: Box, Circle (yes, since Circle can be an
    ellipse)
  * implement undo for fonts as well

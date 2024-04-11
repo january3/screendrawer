@@ -17,10 +17,11 @@ class MouseEvent:
     One advantage of using it: the computationaly intensive stuff is
     computed only once and only if it is needed.
     """
-    def __init__(self, event, objects, translate = None, mode = None):
+    def __init__(self, event, objects, translate, state):
         self.event   = event
         self.objects = objects
-        self.__mode = mode
+        self.state = state
+        self.__mode = state.mode()
         self.__modifiers = {
                 "shift": (event.state & Gdk.ModifierType.SHIFT_MASK) != 0,
                 "ctrl": (event.state & Gdk.ModifierType.CONTROL_MASK) != 0,

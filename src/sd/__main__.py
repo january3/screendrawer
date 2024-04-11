@@ -69,6 +69,7 @@ from sd.drawable_group import DrawableGroup ##<placeholder sd/drawable_group.py>
 from sd.drawable_primitives import Image, Text                    #<placeholder sd/drawable_primitives.py>
 from sd.drawable_primitives import Rectangle, Shape, Circle #<placeholder sd/drawable_primitives.py>
 from sd.drawable_paths import Path                          #<placeholder sd/drawable_paths.py>
+from sd.history import History                              #<placeholder sd/history.py>
 
 
 # ---------------------------------------------------------------------
@@ -144,6 +145,8 @@ class TransparentWindow(Gtk.Window):
                            WigletToolSelector(func_mode = self.state.mode),
                            WigletPageSelector(gom = self.gom),
                            WigletColorPicker(func_color = self.setter.set_color, clipboard = self.clipboard),
+                           WigletTransparency(state = self.state),
+                           WigletLineWidth(state = self.state),
                           ]
 
 

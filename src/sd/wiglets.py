@@ -8,7 +8,6 @@ import gi                                                  # <remove>
 gi.require_version('Gtk', '3.0')                           # <remove> pylint: disable=wrong-import-position
 import cairo                                   # <remove>
 from gi.repository import Gdk                  # <remove>
-from .pen import Pen                           # <remove>
 from .utils import draw_dot, is_click_in_bbox  # <remove>
 from .icons import Icons                       # <remove>
 from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
@@ -62,22 +61,24 @@ class Wiglet:
         self.wiglet_type   = mytype
         self.coords = coords
 
-    def update_size(self, width, height):
+    def update_size(self, width, height): # pylint: disable=unused-argument
         """ignore update the size of the widget"""
+        return False
 
-    def draw(self, cr):
+    def draw(self, cr, state): # pylint: disable=unused-argument
         """do not draw the widget"""
 
-    def on_click(self, x, y, ev):
+    def on_click(self, x, y, ev): # pylint: disable=unused-argument
         """ignore the click event"""
+        return False
 
-    def event_update(self, x, y):
+    def on_release(self, x, y, ev): # pylint: disable=unused-argument
+        """ignore the release event"""
+        return False
+
+    def on_move(self, x, y, ev): # pylint: disable=unused-argument
         """ignore update on mouse move"""
-
-        #raise NotImplementedError("event_update method not implemented")
-
-    def event_finish(self):
-        """ignore update on mouse release"""
+        return False
 
 class WigletColorPicker(Wiglet):
     """Invisible wiglet that processes clicks in the color picker mode."""
@@ -105,51 +106,113 @@ class WigletColorPicker(Wiglet):
         #self.__state.queue_draw()
         return True
 
-
 class WigletTransparency(Wiglet):
     """Wiglet for changing the transparency."""
-    def __init__(self, coords, pen):
-        super().__init__("transparency", coords)
+    def __init__(self, state):
+        super().__init__("transparency", None)
 
-        if not pen or not isinstance(pen, Pen):
-            raise ValueError("Pen is not defined or not of class Pen")
-
-        self.__pen      = pen
-        self.__initial_transparency = pen.transparency
+        self.__state = state
+        self.__pen    = None
+        self.__initial_transparency = None
+        self.__active = False
         print("initial transparency:", self.__initial_transparency)
 
-    def draw(self, cr):
+    def draw(self, cr, state):
         """draw the widget"""
+        if not self.__active:
+            return
+
+        print("drawing transparency widget")
         cr.set_source_rgba(*self.__pen.color, self.__pen.transparency)
         draw_dot(cr, *self.coords, 50)
 
-    def event_update(self, x, y):
+    def on_click(self, x, y, ev):
+        """handle the click event"""
+        # make sure we are in the correct mode
+        if not ev.shift() or ev.alt() or not ev.ctrl():
+            print("wrong modifiers")
+            return False
+
+        if ev.hover() or ev.corner()[0] or ev.double():
+            print("wrong event", ev.hover(), ev.corner(), ev.double())
+            return False
+
+        self.coords = (x, y)
+
+        self.__pen    = self.__state.pen()
+        self.__initial_transparency = self.__pen.transparency
+
+        self.__active = True
+        return True
+
+    def on_move(self, x, y, ev):
         """update on mouse move"""
+        if not self.__active:
+            return False
         dx = x - self.coords[0]
         ## we want to change the transparency by 0.1 for every 20 pixels
         self.__pen.transparency = max(0, min(1, self.__initial_transparency + dx/500))
+        return True
 
-    def update_size(self, width, height):
-        """ignoring the update the size of the widget"""
+    def on_release(self, x, y, ev):
+        """handle the release event"""
+        if not self.__active:
+            return False
+        print("got release event")
+        self.__active = False
+        return True
 
 class WigletLineWidth(Wiglet):
     """
     Wiglet for changing the line width.
     directly operates on the pen of the object
     """
-    def __init__(self, coords, pen):
-        super().__init__("line_width", coords)
+    def __init__(self, state):
+        super().__init__("line_width", None)
 
-        if not pen or not isinstance(pen, Pen):
-            raise ValueError("Pen is not defined or not of class Pen")
-        self.__pen      = pen
-        self.__initial_width = pen.line_width
+        if not state:
+            raise ValueError("Need state object")
+        self.__state = state
+        self.__pen    = None
+        self.__initial_width = None
+        self.__active = False
 
-    def draw(self, cr):
+    def draw(self, cr, state):
+        """draw the widget"""
+        if not self.__active:
+            return
+
         cr.set_source_rgb(*self.__pen.color)
         draw_dot(cr, *self.coords, self.__pen.line_width)
 
-    def event_update(self, x, y):
+    def on_click(self, x, y, ev):
+        """handle the click event"""
+        # make sure we are in the correct mode
+        if ev.shift() or ev.alt() or not ev.ctrl():
+            print("wrong modifiers")
+            return False
+        if ev.hover() or ev.corner()[0] or ev.double():
+            print("wrong event", ev.hover(), ev.corner(), ev.double())
+            return False
+        self.coords = (x, y)
+        self.__pen    = self.__state.pen()
+        self.__initial_width = self.__pen.line_width
+
+        print("activating line width widget at", self.coords)
+        self.__active = True
+        return True
+
+    def on_release(self, x, y, ev):
+        """handle the release event"""
+        if not self.__active:
+            return False
+        self.__active = False
+        return True
+
+    def on_move(self, x, y, ev):
+        """update on mouse move"""
+        if not self.__active:
+            return False
         dx = x - self.coords[0]
         print("changing line width", dx)
         self.__pen.line_width = max(1, min(60, self.__initial_width + dx/20))
@@ -203,6 +266,9 @@ class WigletPageSelector(Wiglet):
 
     def on_click(self, x, y, ev):
         """handle the click event"""
+        if not ev.state.show_wiglets():
+            return False
+
         self.recalculate()
 
         if not is_click_in_bbox(x, y, self.__bbox):
@@ -233,7 +299,7 @@ class WigletPageSelector(Wiglet):
 
         return True
 
-    def draw(self, cr):
+    def draw(self, cr, state):
         """
         Draw the widget on cr.
 
@@ -243,6 +309,8 @@ class WigletPageSelector(Wiglet):
 
         Finally, draw a little "+" symbol for adding a new page.
         """
+        if not state.show_wiglets():
+            return
 
         self.recalculate()
 
@@ -360,8 +428,11 @@ class WigletToolSelector(Wiglet):
         icons = Icons()
         self.__icons = { mode: icons.get(mode) for mode in self.__modes }
 
-    def draw(self, cr):
+    def draw(self, cr, state):
         """draw the widget"""
+        if not state.show_wiglets():
+            return
+
         cr.set_source_rgb(0.5, 0.5, 0.5)
         cr.rectangle(*self.__bbox)
         cr.fill()
@@ -427,6 +498,9 @@ class WigletToolSelector(Wiglet):
     def on_click(self, x, y, ev):
         """handle the click event"""
 
+        if not ev.state.show_wiglets():
+            return False
+
         dw   = self.__bbox[2] / len(self.__modes)
         if not is_click_in_bbox(x, y, self.__bbox):
             return False
@@ -469,9 +543,12 @@ class WigletColorSelector(Wiglet):
         self.__bbox = (self.coords[0], self.coords[1], self.__bbox[2], height)
         self.recalculate()
 
-    def draw(self, cr):
+    def draw(self, cr, state):
         """draw the widget"""
         # draw grey rectangle around my bbox
+        if not state.show_wiglets():
+            return
+
         cr.set_source_rgb(0.5, 0.5, 0.5)
         cr.rectangle(*self.__bbox)
         cr.fill()
@@ -505,8 +582,12 @@ class WigletColorSelector(Wiglet):
 
     def on_click(self, x, y, ev):
         """handle the click event"""
+        if not ev.state.show_wiglets():
+            return False
+
         if not is_click_in_bbox(x, y, self.__bbox):
             return False
+
         print("clicked inside the bbox")
 
         dy = y - self.__bbox[1]

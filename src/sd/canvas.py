@@ -53,10 +53,10 @@ class Canvas:
 
         #self.__dm.draw(None, cr)
 
-        if self.__state.show_wiglets():
-            for w in self.__wiglets:
-                w.update_size(*self.__state.get_win_size())
-                w.draw(cr)
+        ws = self.__state.get_win_size()
+        for w in self.__wiglets:
+            w.update_size(*ws)
+            w.draw(cr, self.__state)
 
        # XXX this does not work.
        #if self.__wiglet_active:

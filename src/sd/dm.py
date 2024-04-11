@@ -184,7 +184,7 @@ class DrawManager:
         self.__state.modified(True)
         ev = MouseEvent(event, self.__gom.objects(),
                         translate = self.__gom.page().translate(),
-                        mode = self.__state.mode())
+                        state = self.__state)
 
         # Ignore clicks when text input is active
         if self.__state.current_obj():
@@ -241,28 +241,15 @@ class DrawManager:
 
     def __handle_wiglets_on_click(self, event, ev):
         """Pass the event to the wiglets"""
-        if self.__state.show_wiglets():
-            for w in self.__wiglets[::-1]:
-                if w.on_click(event.x, event.y, ev):
-                    self.__state.queue_draw()
-                    return True
+        for w in self.__wiglets[::-1]:
+            if w.on_click(event.x, event.y, ev):
+                self.__state.queue_draw()
+                return True
         return False
 
 
     def __handle_mode_specials_on_click(self, event, ev):
         """Handle special events for the current mode."""
-
-        # Start changing line width: single click with ctrl pressed
-        if ev.ctrl(): # and self.__mode == "draw":
-            print("current line width, transparency:", self.__state.pen().line_width, self.__state.pen().transparency)
-            if not ev.shift():
-                self.__wiglet_active = WigletLineWidth((event.x, event.y), self.__state.pen())
-                self.__wiglets.append(self.__wiglet_active)
-            else:
-                self.__wiglet_active = WigletTransparency((event.x, event.y), self.__state.pen())
-                self.__wiglets.append(self.__wiglet_active)
-            self.__state.queue_draw()
-            return True
 
         if self.__handle_eraser_on_click(ev):
             return True
@@ -317,7 +304,7 @@ class DrawManager:
         print("button release: type:", event.type, "button:", event.button, "state:", event.state)
         ev = MouseEvent(event, self.__gom.objects(),
                         translate = self.__gom.page().translate(),
-                        mode = self.__state.mode())
+                        state = self.__state)
 
         if self.__paning:
             self.__paning = None
@@ -326,7 +313,7 @@ class DrawManager:
         if self.__handle_current_object_on_release(ev):
             return True
 
-        if self.__handle_wiglets_on_release():
+        if self.__handle_wiglets_on_release(event, ev):
             return True
 
         if self.__handle_selection_on_release():
@@ -372,16 +359,14 @@ class DrawManager:
         self.__state.queue_draw()
         return True
 
-    def __handle_wiglets_on_release(self):
+    def __handle_wiglets_on_release(self, event, ev):
         """Handle wiglets on mouse release."""
-        if not self.__wiglet_active:
-            return False
+        for w in self.__wiglets[::-1]:
+            if w.on_release(event.x, event.y, ev):
+                self.__state.queue_draw()
+                return True
 
-        self.__wiglet_active.event_finish()
-        self.__wiglets.remove(self.__wiglet_active)
-        self.__wiglet_active = None
-        self.__state.queue_draw()
-        return True
+        return False
 
     def __handle_selection_on_release(self):
         """Handle selection on mouse release."""
@@ -437,11 +422,11 @@ class DrawManager:
 
         ev = MouseEvent(event, self.__gom.objects(),
                         translate = self.__gom.page().translate(),
-                        mode = self.__state.mode())
+                        state = self.__state)
         x, y = ev.pos()
         self.__cursor.update_pos(x, y)
 
-        if self.__on_motion_wiglet(event.x, event.y):
+        if self.__on_motion_wiglet(event, ev):
             return True
 
         # we are paning
@@ -517,11 +502,12 @@ class DrawManager:
         self.__state.queue_draw()
         return True
 
-    def __on_motion_wiglet(self, x, y):
+    def __on_motion_wiglet(self, event, ev):
         """Handle on motion update when a wiglet is active."""
-        if not self.__wiglet_active:
-            return False
 
-        self.__wiglet_active.event_update(x, y)
-        self.__state.queue_draw()
-        return True
+        for w in self.__wiglets[::-1]:
+            if w.on_move(event.x, event.y, ev):
+                self.__state.queue_draw()
+                return True
+
+        return False
