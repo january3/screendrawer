@@ -3,6 +3,7 @@ from .drawable_group import DrawableGroup                            # <remove>
 from .drawable import Drawable                                       # <remove>
 from .page import Page                                               # <remove>
 from .utils import sort_by_stack                                     # <remove>
+from .history import History                                         # <remove>
 
 
 ## ---------------------------------------------------------------------
@@ -18,8 +19,7 @@ class GraphicsObjectManager:
     def __init__(self):
 
         # private attr
-        self.__history    = []
-        self.__redo_stack = []
+        self.__history    = History()
         self.__page = None
         self.page_set(Page())
 
@@ -38,7 +38,7 @@ class GraphicsObjectManager:
     def delete_page(self):
         """Delete the current page."""
         curpage, cmd = self.__page.delete()
-        self.__history.append(cmd)
+        self.__history.add(cmd)
         self.page_set(curpage)
 
     def next_layer(self):
@@ -55,7 +55,7 @@ class GraphicsObjectManager:
         #cmd = 
         #self.__page.delete_layer(self.__page.layer_no())
         cmd = DeleteLayerCommand(self.__page, self.__page.layer_no())
-        self.__history.append(cmd)
+        self.__history.add(cmd)
 
     def page(self):
         """Return the current page."""
@@ -129,7 +129,7 @@ class GraphicsObjectManager:
                                new_type=mode,
                                selection_objects=self.__page.selection().objects,
                                page = self.__page)
-        self.__history.append(cmd)
+        self.__history.add(cmd)
 
     def transmute_selection(self, mode):
         """
@@ -163,7 +163,7 @@ class GraphicsObjectManager:
             return
         if not isinstance(obj, Drawable):
             raise ValueError("Only Drawables can be added to the stack")
-        self.__history.append(AddCommand([obj], self.__page.objects(), page=self.__page))
+        self.__history.add(AddCommand([obj], self.__page.objects(), page=self.__page))
 
     def export_pages(self):
         """Export all pages."""
@@ -192,32 +192,32 @@ class GraphicsObjectManager:
         """Remove the selected objects from the list of objects."""
         if self.__page.selection().is_empty():
             return
-        self.__history.append(RemoveCommand(self.__page.selection().objects,
+        self.__history.add(RemoveCommand(self.__page.selection().objects,
                                             self.__page.objects(),
                                             page=self.__page))
         self.__page.selection().clear()
 
     def remove_objects(self, objects, clear_selection = False):
         """Remove an object from the list of objects."""
-        self.__history.append(RemoveCommand(objects, self.__page.objects(), page=self.__page))
+        self.__history.add(RemoveCommand(objects, self.__page.objects(), page=self.__page))
         if clear_selection:
             self.__page.selection().clear()
 
     def remove_all(self):
         """Clear the list of objects."""
-        self.__history.append(self.__page.clear())
+        self.__history.add(self.__page.clear())
 
     def command_append(self, command_list):
         """Append a group of commands to the history."""
         ## append in reverse order!
-        self.__history.append(CommandGroup(command_list[::-1]))
+        self.__history.add(CommandGroup(command_list[::-1]))
 
     def selection_group(self):
         """Group selected objects."""
         if self.__page.selection().n() < 2:
             return
         print("Grouping", self.__page.selection().n(), "objects")
-        self.__history.append(GroupObjectCommand(self.__page.selection().objects,
+        self.__history.add(GroupObjectCommand(self.__page.selection().objects,
                                                  self.__page.objects(),
                                                  selection_object=self.__page.selection(),
                                                  page=self.__page))
@@ -226,7 +226,7 @@ class GraphicsObjectManager:
         """Ungroup selected objects."""
         if self.__page.selection().is_empty():
             return
-        self.__history.append(UngroupObjectCommand(self.__page.selection().objects,
+        self.__history.add(UngroupObjectCommand(self.__page.selection().objects,
                                                    self.__page.objects(),
                                                    selection_object=self.__page.selection(),
                                                    page=self.__page))
@@ -251,7 +251,7 @@ class GraphicsObjectManager:
         """Delete selected objects."""
         #self.__page.selection_delete()
         if self.__page.selection().objects:
-            self.__history.append(RemoveCommand(self.__page.selection().objects,
+            self.__history.add(RemoveCommand(self.__page.selection().objects,
                                                 self.__page.objects(), page=self.__page))
             self.__page.selection().clear()
 
@@ -271,11 +271,11 @@ class GraphicsObjectManager:
     def selection_color_set(self, color):
         """Set the color of the selected objects."""
         if not self.__page.selection().is_empty():
-            self.__history.append(SetColorCommand(self.__page.selection(), color))
+            self.__history.add(SetColorCommand(self.__page.selection(), color))
 
     def selection_font_set(self, font_description):
         """Set the font of the selected objects."""
-        self.__history.append(SetFontCommand(self.__page.selection(), font_description))
+        self.__history.add(SetFontCommand(self.__page.selection(), font_description))
 
   # XXX! this is not implemented
     def selection_apply_pen(self):
@@ -286,33 +286,22 @@ class GraphicsObjectManager:
 
     def redo(self):
         """Redo the last action."""
-        print("Redo stack, size is", len(self.__redo_stack))
-        if self.__redo_stack:
-            command = self.__redo_stack.pop()
-            page = command.redo()
-            self.__history.append(command)
-
-            # switch to the relevant page
-            if page:
-                self.page_set(page)
+        page = self.__history.redo()
+        if page:
+            self.page_set(page)
 
     def undo(self):
         """Undo the last action."""
-        print("Undo, history size is", len(self.__history))
-        if self.__history:
-            command = self.__history.pop()
-            page = command.undo()
-            self.__redo_stack.append(command)
-
-            # switch to the relevant page
-            if page:
-                self.page_set(page)
+        print("Undo, history size is", self.__history.length())
+        page = self.__history.undo()
+        if page:
+            self.page_set(page)
 
     def move_obj(self, obj, dx, dy):
         """Move the object by the given amount."""
         event_obj = MoveCommand(obj, (0, 0), page=self.__page)
         event_obj.event_update(dx, dy)
-        self.__history.append(event_obj)
+        self.__history.add(event_obj)
 
     def move_selection(self, dx, dy):
         """Move the selected objects by the given amount."""
@@ -325,7 +314,7 @@ class GraphicsObjectManager:
         print("rotating by", angle)
         event_obj = RotateCommand(obj, angle=math.radians(angle), page = self.__page)
         event_obj.event_finish()
-        self.__history.append(event_obj)
+        self.__history.add(event_obj)
 
     def rotate_selection(self, angle):
         """Rotate the selected objects by the given angle (degrees)."""
@@ -337,7 +326,7 @@ class GraphicsObjectManager:
         """move the selected objects long the z-axis."""
         if self.__page.selection().is_empty():
             return
-        self.__history.append(ZStackCommand(self.__page.selection().objects,
+        self.__history.add(ZStackCommand(self.__page.selection().objects,
                                             self.__page.objects(), operation, page=self.__page))
 
 

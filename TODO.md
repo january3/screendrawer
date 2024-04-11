@@ -57,6 +57,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * The redo-command may mess up stuff.
  * ungrouping reverses the z-stack
  * unseen wiglets work? They should not.
  * clean up import-export code

@@ -172,19 +172,11 @@ class GroupObjectCommand(Command):
         if self.__selection:
             self.__selection.set([ self.__group ])
 
-    def swap_stacks(self):
-        """Swap the stack with the copy of the stack."""
-        # put the copy of the stack into the stack,
-        # and the stack into the copy
-        tmp = self.__stack[:]
-        self.__stack[:] = self.__stack_copy[:]
-        self.__stack_copy = tmp
-
     def undo(self):
         """Undo the command."""
         if self.undone():
             return None
-        self.swap_stacks()
+        swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(True)
         if self.__selection:
             self.__selection.set(self.obj)
@@ -194,7 +186,7 @@ class GroupObjectCommand(Command):
         """Redo the command."""
         if not self.undone():
             return None
-        self.swap_stacks()
+        swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(False)
         if self.__selection:
             self.__selection.set([ self.__group ])
@@ -238,19 +230,11 @@ class UngroupObjectCommand(Command):
         if n > 0 and self.__selection:
             self.__selection.set(new_objects)
 
-    def swap_stacks(self):
-        """Swap the stack with the copy of the stack."""
-        # put the copy of the stack into the stack,
-        # and the stack into the copy
-        tmp = self.__stack[:]
-        self.__stack[:] = self.__stack_copy[:]
-        self.__stack_copy = tmp
-
     def undo(self):
         """Undo the command."""
         if self.undone():
             return None
-        self.swap_stacks()
+        swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(True)
         if self.__selection:
             self.__selection.set([ self.obj ])
@@ -260,7 +244,7 @@ class UngroupObjectCommand(Command):
         """Redo the command."""
         if not self.undone():
             return None
-        self.swap_stacks()
+        swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(False)
         if self.__selection:
             self.__selection.set(self.obj)
