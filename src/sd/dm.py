@@ -190,7 +190,7 @@ class DrawManager:
         if self.__state.current_obj():
             if  self.__state.current_obj().type == "text":
                 print("click, but text input active - finishing it first")
-                self.finish_text_input()
+                self.__setter.finish_text_input()
 
         # right click: open context menu
         if event.button == 3:

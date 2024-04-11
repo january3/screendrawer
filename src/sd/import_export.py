@@ -16,22 +16,34 @@ from sd.page import Page                    # <remove>
 
 def guess_file_format(filename):
     """Guess the file format from the file extension."""
+
     _, file_format = path.splitext(filename)
     file_format = file_format[1:]
+
     # lower case
     file_format = file_format.lower()
+
     # jpg -> jpeg
     if file_format == "jpg":
         file_format = "jpeg"
+
     # check
     if file_format not in [ "png", "jpeg", "pdf", "svg", "yaml" ]:
         raise ValueError("Unrecognized file extension")
+
     return file_format
 
 def convert_file(input_file, output_file, file_format = "any", border = None, page_no = None):
-    """Convert a drawing from the internal format to another."""
-    print("page_no = ", page_no)
+    """
+    Convert a drawing from the internal format to another format.
 
+    :param input_file: The name of the file to read from.
+    :param output_file: The name of the file to save to.
+    :param file_format: The format of the file to save to. If "any", the
+    format will be guessed from the file extension.
+    :param border: The border around the objects.
+    :param page_no: The page number to export (if the drawing has multiple pages).
+    """
     if file_format == "any":
         if output_file is None:
             raise ValueError("No output file format provided")
@@ -41,30 +53,37 @@ def convert_file(input_file, output_file, file_format = "any", border = None, pa
             # create a file name with the same name but different extension
             output_file = path.splitext(input_file)[0] + "." + file_format
 
-    config, objects, pages = read_file_as_sdrw(input_file)
+    #config, objects, pages = read_file_as_sdrw(input_file)
 
-    # if there is only one page, we can use the regular converter for pdfs
-    if page_no is None and pages and len(pages) == 1:
-        page_no = 0
+   ## if there is only one page, we can use the regular converter for pdfs
+   #if page_no is None and pages and len(pages) == 1:
+   #    page_no = 0
 
     # also when we have objects, and not pages, we can use the regular
     # converter for pdfs
-    if not pages:
-        page_no = 0
-
     if file_format in [ "png", "jpeg", "svg" ] or (file_format == "pdf"
                                                    and page_no is not None):
+        if not page_no:
+            page_no = 0
         convert_file_to_image(input_file, output_file, file_format, border, page_no)
-    elif file_format == "yaml":
-        print("Exporting to yaml")
-        export_file_as_yaml(output_file, config, objects=objects.to_dict())
+   #elif file_format == "yaml":
+   #    print("Exporting to yaml")
+   #    export_file_as_yaml(output_file, config, objects=objects.to_dict())
     elif file_format == "pdf":
         convert_to_multipage_pdf(input_file, output_file, border)
     else:
         raise NotImplementedError("Conversion to " + file_format + " is not implemented")
 
 def convert_file_to_image(input_file, output_file, file_format = "png", border = None, page_no = 0):
-    """Convert a drawing to an image file: png, jpeg, svg."""
+    """
+    Convert a drawing to an image file: png, jpeg, svg.
+
+    :param input_file: The name of the file to read from.
+    :param output_file: The name of the file to save to.
+    :param file_format: The format of the file to save to.
+    :param border: The border around the objects.
+    :param page_no: The page number to export (if the drawing has multiple pages).
+    """
     if page_no is None:
         page_no = 0
 
@@ -96,7 +115,13 @@ def convert_file_to_image(input_file, output_file, file_format = "png", border =
                  transparency = transparency)
 
 def convert_to_multipage_pdf(input_file, output_file, border = None):
-    """Convert a drawing to a multipage PDF file."""
+    """
+    Convert a native drawing to a multipage PDF file.
+
+    :param input_file: The name of the file to read from.
+    :param output_file: The name of the file to save to.
+    :param border: The border around the objects.
+    """
     print("Converting to multipage PDF")
     config, _, pages = read_file_as_sdrw(input_file)
     if not pages:
@@ -129,6 +154,11 @@ def find_max_width_height(obj_list):
 def export_objects_to_multipage_pdf(obj_list, output_file, config, border = None):
     """
     Export a list of objects to a multipage PDF file.
+
+    :param obj_list: A list of objects to export.
+    :param output_file: The name of the file to save to.
+    :param config: The configuration of the drawing (dict).
+    :param border: The border around the objects.
 
     Each object in the list will be drawn on a separate page.
     """
@@ -165,10 +195,16 @@ def __draw_object(cr, obj, bg, bbox, transparency):
     """Draw an object on a Cairo context."""
 
     cr.save()
+
+    # we translate the object to the origin of the context
     cr.translate(-bbox[0], -bbox[1])
+
+    # paint the background
     cr.set_source_rgba(*bg, transparency)
     cr.paint()
+
     obj.draw(cr)
+
     cr.restore()
 
 def export_image_jpg(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
@@ -176,7 +212,17 @@ def export_image_jpg(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 
     raise NotImplementedError("JPEG export is not implemented")
 
 def export_image_pdf(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
-    """Export the drawing to a SVG file."""
+    """
+    Export the drawing to a single-page PDF file.
+
+    :param obj: The object to export. This is a single object, since
+    generating a DrawableGroup object from multiple objects is trivial.
+    :param filename: The name of the file to save to.
+    :param bg: The background color of the image.
+    :param bbox: The bounding box of the image. If None, it will be calculated
+    from the object.
+    :param transparency: The transparency of the image.
+    """
 
     if bbox is None:
         bbox = obj.bbox()
@@ -189,7 +235,18 @@ def export_image_pdf(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 
     surface.finish()
 
 def export_image_svg(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
-    """Export the drawing to a SVG file."""
+    """
+    Export the drawing to a SVG file.
+
+    :param obj: The object to export. This is a single object, since
+    generating a DrawableGroup object from multiple objects is trivial.
+    :param filename: The name of the file to save to.
+    :param bg: The background color of the image.
+    :param bbox: The bounding box of the image. If None, it will be calculated
+    from the object.
+    :param transparency: The transparency of the image.
+    """
+
 
     if bbox is None:
         bbox = obj.bbox()
@@ -203,7 +260,18 @@ def export_image_svg(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 
     surface.finish()
 
 def export_image_png(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
-    """Export the drawing to a PNG file."""
+    """
+    Export the drawing to a PNG file.
+
+    :param obj: The object to export. This is a single object, since
+    generating a DrawableGroup object from multiple objects is trivial.
+    :param filename: The name of the file to save to.
+    :param bg: The background color of the image.
+    :param bbox: The bounding box of the image. If None, it will be calculated
+    from the object.
+    :param transparency: The transparency of the image.
+    """
+
 
     if bbox is None:
         bbox = obj.bbox()
@@ -216,12 +284,24 @@ def export_image_png(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 
 
     surface.write_to_png(filename)
 
-def export_image(objects, filename,
+def export_image(obj, filename,
                  file_format = "any",
                  bg = (1, 1, 1),
                  bbox = None,
                  transparency = 1.0):
-    """Export the drawing to a file."""
+    """
+    Export the drawing to a file.
+
+    :param obj: The object to export. This is a single object, since
+    generating a DrawableGroup object from multiple objects is trivial.
+    :param filename: The name of the file to save to.
+    :param file_format: The format of the file to save to. If "any", the
+    format will be guessed from the file extension.
+    :param bg: The background color of the image.
+    :param bbox: The bounding box of the image. If None, it will be calculated
+    from the object.
+    :param transparency: The transparency of the image.
+    """
 
     # if filename is None, we send the output to stdout
     if filename is None:
@@ -244,16 +324,26 @@ def export_image(objects, filename,
 
     # Create a Cairo surface of the same size as the bbox
     if file_format == "png":
-        export_image_png(objects, filename, bg, bbox, transparency)
+        export_image_png(obj, filename, bg, bbox, transparency)
     elif file_format == "svg":
-        export_image_svg(objects, filename, bg, bbox, transparency)
+        export_image_svg(obj, filename, bg, bbox, transparency)
     elif file_format == "pdf":
-        export_image_pdf(objects, filename, bg, bbox, transparency)
+        export_image_pdf(obj, filename, bg, bbox, transparency)
     else:
         raise NotImplementedError("Export to " + file_format + " is not implemented")
 
 def export_file_as_yaml(filename, config, objects = None, pages = None):
-    """Save the objects to a YAML file."""
+    """
+    Save the objects to a YAML file.
+
+    :param filename: The name of the file to save to.
+    :param config: The configuration of the drawing (dict).
+    :param objects: The objects to save (dict).
+    :param pages: The pages to save (dict).
+
+    Pages and Drawable objects need to be converted to dictionaries before
+    saving them to a file using their to_dict() method.
+    """
 
     state = { 'config': config }
     if pages:
@@ -276,7 +366,17 @@ def export_file_as_yaml(filename, config, objects = None, pages = None):
 # ------------------- handling of the native format -------------------
 
 def save_file_as_sdrw(filename, config, objects = None, pages = None):
-    """Save the objects to a file in native format."""
+    """
+    Save the objects to a file in native format.
+
+    :param filename: The name of the file to save to.
+    :param config: The configuration of the drawing (dict).
+    :param objects: The objects to save (dict).
+    :param pages: The pages to save (dict).
+
+    Pages and Drawable objects need to be converted to dictionaries before
+    saving them to a file using their to_dict() method.
+    """
     # objects are here for backwards compatibility only
     state = { 'config': config }
     if pages:
@@ -297,7 +397,11 @@ def save_file_as_sdrw(filename, config, objects = None, pages = None):
         return False
 
 def read_file_as_sdrw(filename):
-    """Read the objects from a file in native format."""
+    """
+    Read the objects from a file in native format.
+
+    :param filename: The name of the file to read from.
+    """
     if not path.exists(filename):
         print("No saved drawing found at", filename)
         return None, None, None
