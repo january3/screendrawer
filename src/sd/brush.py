@@ -93,6 +93,7 @@ def calc_normal_outline(coords, pressure, line_width, rounded = False):
 
     outline_l = []
     outline_r = []
+    line_width = line_width or 1
 
     for i in range(n - 2):
         p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
@@ -133,6 +134,7 @@ def calc_normal_outline2(coords, pressure, line_width, rounded = True):
     This one is used in the pencil brush.
     """
     n = len(coords)
+    line_width = line_width or 1
 
     outline_l = []
     outline_r = []
@@ -170,6 +172,7 @@ def calc_normal_outline2(coords, pressure, line_width, rounded = True):
 def calc_normal_outline3(coords, pressure, line_width, taper_pos, taper_length):
     """Calculate the normal outline of a path."""
     n = len(coords)
+    line_width = line_width or 1
 
     outline_l = []
     outline_r = []
@@ -232,6 +235,9 @@ class BrushFactory:
         Create a brush of the specified type.
         """
 
+        if not brush_type:
+            brush_type = "rounded"
+
         if brush_type == "rounded":
             return BrushRound(**kwargs)
 
@@ -250,7 +256,7 @@ class BrushFactory:
             #print("returning tapered brush")
             return BrushTapered(**kwargs)
 
-        raise NotImplementedError("Brush type not implemented")
+        raise NotImplementedError("Brush type", brush_type, "not implemented")
 
 class Brush:
     """Base class for brushes."""
@@ -321,7 +327,9 @@ class Brush:
 
         if coords is not None and pressure is not None:
             if len(coords) != len(pressure):
-                raise ValueError("Pressure and coords don't match")
+                print("Warning: Pressure and coords don't match (",
+                                 len(coords), len(pressure), ")")
+                pressure = None
 
         pressure = pressure or [1] * len(coords)
 
