@@ -10,7 +10,7 @@ from .pen import Pen # <remove>
 
 ## ---------------------------------------------------------------------
 FORMATS = {
-    "All files": { "pattern": "*",      "mime_type": "application/octet-stream", "name": "all" },
+    "All files": { "pattern": "*",      "mime_type": "application/octet-stream", "name": "any" },
     "PNG files":  { "pattern": "*.png",  "mime_type": "image/png",       "name": "png" },
     "JPEG files": { "pattern": "*.jpeg", "mime_type": "image/jpeg",      "name": "jpeg" },
     "PDF files":  { "pattern": "*.pdf",  "mime_type": "application/pdf", "name": "pdf" }

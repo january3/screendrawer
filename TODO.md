@@ -41,6 +41,10 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * when laptop set to low power and teams are running, the app does not
+   work efficiently. Not sure what can be done about that, as it seems that
+   it is more of a polling issue. Maybe create a very simple pen with no
+   calculations at all and see how it works?
  * sometimes when editing text the release-button event does not seem to be
    properly processed and when exiting with "Esc", the object is being
    moved even though mouse button is not down.
@@ -52,6 +56,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * unseen wiglets work? They should not.
  * clean up import-export code
  * incorrect bounding box when exporting with text (see mk.sdrw) => oh no,
    this is actually due to paning? => oh no, we are already dealing with

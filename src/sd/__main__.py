@@ -586,6 +586,7 @@ def main():
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
     )
 
+    win.set_icon(Icons().get("app_icon"))
     win.show_all()
     win.present()
     win.cursor.set(win.state.mode())

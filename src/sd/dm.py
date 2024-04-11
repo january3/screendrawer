@@ -65,7 +65,6 @@ class DrawManager:
         self.__resizeobj = None
         self.__selection_tool = None
         self.__paning = None
-        self.__show_wiglets = True
         # drawing parameters
 
     def selection_tool(self):
@@ -242,7 +241,7 @@ class DrawManager:
 
     def __handle_wiglets_on_click(self, event, ev):
         """Pass the event to the wiglets"""
-        if self.__show_wiglets:
+        if self.__state.show_wiglets():
             for w in self.__wiglets[::-1]:
                 if w.on_click(event.x, event.y, ev):
                     self.__state.queue_draw()
@@ -514,7 +513,6 @@ class DrawManager:
         dx, dy = event.x - self.__paning[0], event.y - self.__paning[1]
         tr = (tr[0] + dx, tr[1] + dy)
         self.__gom.page().translate(tr)
-        #self.__translate = (self.__translate[0] + dx, self.__translate[1] + dy)
         self.__paning = (event.x, event.y)
         self.__state.queue_draw()
         return True

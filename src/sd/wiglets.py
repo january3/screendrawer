@@ -194,6 +194,7 @@ class WigletPageSelector(Wiglet):
         self.__gom = gom
         self.__screen_wh_func = screen_wh_func
         self.__set_page_func  = set_page_func
+        self.__page_screen_pos = [ ]
 
         # we need to recalculate often because the pages might have been
         # changing a lot
@@ -383,13 +384,10 @@ class WigletToolSelector(Wiglet):
             return False
 
         # which mode is at this position?
-        print("clicked inside the bbox, event", ev)
         dx = x - self.__bbox[0]
-        print("dx:", dx)
         sel_mode = None
         i = int(dx / self.__dw)
         sel_mode = self.__modes[i]
-        print("selected mode:", sel_mode)
         if self.__mode_func and callable(self.__mode_func):
             self.__mode_func(sel_mode)
 

@@ -239,15 +239,15 @@ class BrushFactory:
             return BrushSlanted(**kwargs)
 
         if brush_type == "marker":
-            print("returning marker brush")
+            #print("returning marker brush")
             return BrushMarker(**kwargs)
 
         if brush_type == "pencil":
-            print("returning pencil brush")
+            #print("returning pencil brush")
             return BrushPencil(**kwargs)
 
         if brush_type == "tapered":
-            print("returning tapered brush")
+            #print("returning tapered brush")
             return BrushTapered(**kwargs)
 
         raise NotImplementedError("Brush type not implemented")
@@ -378,16 +378,13 @@ class BrushTapered(Brush):
         #print("2.length of coords and pressure:", len(coords), len(pressure))
 
         taper_pos = first_point_after_length(coords, length_to_taper)
-        print("length to taper:", int(length_to_taper), int(tot_length), "taper pos:", taper_pos, "/", len(coords))
+        #print("length to taper:", int(length_to_taper), int(tot_length), "taper pos:", taper_pos, "/", len(coords))
         taper_length = calculate_length(coords[taper_pos:])
 
 
-        #outline_l, outline_r = calc_normal_outline(coords, pressure, lwd, True)
         outline_l, outline_r = calc_normal_outline3(coords, pressure, lwd, 
                                                     taper_pos, taper_length)
 
-        #outline_l, _ = smooth_path(outline_l, None, 20)
-        #outline_r, _ = smooth_path(outline_r, None, 20)
         outline  = outline_l + outline_r[::-1]
 
         if len(coords) != len(pressure):
