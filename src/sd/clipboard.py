@@ -87,7 +87,7 @@ class Clipboard:
         elif sel.type == "image":
             print("Copying image")
             # simply copy the image into clipboard
-            clipboard.set_image(sel.image)
+            clipboard.set_image(sel.image())
             clipboard.store()
         else:
             print("Copying another object")

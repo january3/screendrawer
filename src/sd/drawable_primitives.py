@@ -142,6 +142,10 @@ class Image(Drawable):
             return True
         return False
 
+    def image(self):
+        """Return the image."""
+        return self.__image.pixbuf()
+
     def to_dict(self):
         """Convert the object to a dictionary."""
 
