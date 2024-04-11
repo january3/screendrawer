@@ -44,7 +44,8 @@ Bugs:
  * when laptop set to low power and teams are running, the app does not
    work efficiently. Not sure what can be done about that, as it seems that
    it is more of a polling issue. Maybe create a very simple pen with no
-   calculations at all and see how it works?
+   calculations at all and see how it works? -> then again, it is even
+   worse in inkscape.
  * sometimes when editing text the release-button event does not seem to be
    properly processed and when exiting with "Esc", the object is being
    moved even though mouse button is not down.

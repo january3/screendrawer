@@ -5,7 +5,7 @@ such as line width, color, and transparency.
 """
 import colorsys                                # <remove>
 import gi                                                  # <remove>
-gi.require_version('Gtk', '3.0')                           # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove> pylint: disable=wrong-import-position
 import cairo                                   # <remove>
 from gi.repository import Gdk                  # <remove>
 from .pen import Pen                           # <remove>
@@ -63,20 +63,21 @@ class Wiglet:
         self.coords = coords
 
     def update_size(self, width, height):
-        """update the size of the widget"""
-        raise NotImplementedError("update size method not implemented")
+        """ignore update the size of the widget"""
 
     def draw(self, cr):
-        """draw the widget"""
-        raise NotImplementedError("draw method not implemented")
+        """do not draw the widget"""
+
+    def on_click(self, x, y, ev):
+        """ignore the click event"""
 
     def event_update(self, x, y):
-        """update on mouse move"""
-        raise NotImplementedError("event_update method not implemented")
+        """ignore update on mouse move"""
+
+        #raise NotImplementedError("event_update method not implemented")
 
     def event_finish(self):
-        """update on mouse release"""
-        raise NotImplementedError("event_finish method not implemented")
+        """ignore update on mouse release"""
 
 class WigletColorPicker(Wiglet):
     """Invisible wiglet that processes clicks in the color picker mode."""
@@ -85,16 +86,6 @@ class WigletColorPicker(Wiglet):
 
         self.__func_color = func_color
         self.__clipboard = clipboard
-                 
-
-    def draw(self, cr):
-        """ignore drawing the widget"""
-
-    def update_size(self, width, height):
-        """ignore resizing"""
-
-    def event_update(self, x, y):
-        """ignore on mouse move"""
 
     def on_click(self, x, y, ev):
         """handle the click event"""
@@ -104,7 +95,7 @@ class WigletColorPicker(Wiglet):
             return False
 
         if ev.shift() or ev.alt() or ev.ctrl():
-            return
+            return False
 
         color = get_color_under_cursor()
         self.__func_color(color)
@@ -141,12 +132,6 @@ class WigletTransparency(Wiglet):
     def update_size(self, width, height):
         """ignoring the update the size of the widget"""
 
-    def event_finish(self):
-        """update on mouse release"""
-
-    def on_click(self, x, y, ev):
-        """handle the click event"""
-
 class WigletLineWidth(Wiglet):
     """
     Wiglet for changing the line width.
@@ -170,30 +155,26 @@ class WigletLineWidth(Wiglet):
         self.__pen.line_width = max(1, min(60, self.__initial_width + dx/20))
         return True
 
-    def update_size(self, width, height):
-        """ignoring the update the size of the widget"""
-
-    def event_finish(self):
-        """ignoring the update on mouse release"""
-
-    def on_click(self, x, y, ev):
-        """handle the click event"""
-
 ## ---------------------------------------------------------------------
 class WigletPageSelector(Wiglet):
     """Wiglet for selecting the page."""
-    def __init__(self, coords = (500, 0), gom = None,
-                 width = 20, height = 35, screen_wh_func = None,
-                 set_page_func = None):
-        if not gom:
-            raise ValueError("GOM is not defined")
+
+    # we need five things for talking to to the outside world:
+    # 0. getting the height and width of the screen
+    # 1. getting the number of pages
+    # 2. getting the current page number
+    # 3. setting the current page number
+    # 4. adding a new page
+    # one possibility: get a separate function for each of these
+    # or: use gom as a single object that can do all of these, but then we
+    # need to be aware of the gom object
+    def __init__(self, gom, coords = (500, 0), wh = (20, 35)):
+
         super().__init__("page_selector", coords)
 
-        self.__width, self.__height = width, height
-        self.__height_per_page = height
+        self.__bbox = (coords[0], coords[1], wh[0], wh[1])
+        self.__height_per_page = wh[1]
         self.__gom = gom
-        self.__screen_wh_func = screen_wh_func
-        self.__set_page_func  = set_page_func
         self.__page_screen_pos = [ ]
 
         # we need to recalculate often because the pages might have been
@@ -202,17 +183,28 @@ class WigletPageSelector(Wiglet):
 
     def recalculate(self):
         """recalculate the position of the widget"""
-        if self.__screen_wh_func and callable(self.__screen_wh_func):
-            w, _ = self.__screen_wh_func()
-            self.coords = (w - self.__width, 0)
-        self.__page_n = self.__gom.number_of_pages()
-        self.__height = self.__height_per_page * self.__page_n
-        self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
-        self.__current_page_n = self.__gom.current_page_number()
+        self.__page_n = self.__gom.number_of_pages()     # <- outside info
+
+        tot_h = sum(x for x, _ in self.__page_screen_pos)
+
+        self.__bbox = (self.coords[0], self.coords[1],
+                       self.__bbox[2], tot_h)
+
+        self.__current_page_n = self.__gom.current_page_number() # <- outside info
+
+    def update_size(self, width, height):
+        """update the size of the widget"""
+
+        self.coords = (width - self.__bbox[2], 0)
+        self.__bbox = (self.coords[0], self.coords[1],
+                       self.__bbox[2], self.__bbox[3])
+
+        self.recalculate()
 
     def on_click(self, x, y, ev):
         """handle the click event"""
         self.recalculate()
+
         if not is_click_in_bbox(x, y, self.__bbox):
             return False
 
@@ -220,73 +212,125 @@ class WigletPageSelector(Wiglet):
         print("clicked inside the bbox, event", ev)
         dy = y - self.__bbox[1]
 
-        page_no = int(dy / self.__height_per_page)
+        page_no = self.__page_n
+
+        for i, (y0, y1) in enumerate(self.__page_screen_pos):
+            if y0 <= dy <= y1:
+                page_no = i
+                break
         print("selected page:", page_no)
 
         page_in_range = 0 <= page_no < self.__page_n
-        if page_in_range and self.__set_page_func and callable(self.__set_page_func):
+
+        if page_in_range:
             print("setting page to", page_no)
-            self.__set_page_func(page_no)
+            self.__gom.set_page_number(page_no)     # <- outside info
+
+        if page_no == self.__page_n:
+            print("adding a new page")
+            self.__gom.set_page_number(page_no - 1) # <- outside info
+            self.__gom.next_page()                  # <- outside info
 
         return True
 
     def draw(self, cr):
-        """draw the widget"""
+        """
+        Draw the widget on cr.
+
+        For each page, make a little white rectangle; current page is
+        highlighted by inverted colors.  If the current page is selected,
+        draw a little symbol for the layers.
+
+        Finally, draw a little "+" symbol for adding a new page.
+        """
+
         self.recalculate()
 
-        wpos = self.__bbox[0]
-        hpos = self.__bbox[1]
+        wpos  = self.__bbox[0]
+        hpos  = self.__bbox[1]
+        width = self.__bbox[2]
 
-        for i in range(self.__page_n):
-            cr.set_source_rgb(0.5, 0.5, 0.5)
-            cr.rectangle(wpos, hpos, self.__width, self.__height_per_page)
-            cr.fill()
+        # page_screen_pos records the exact screen positions of the pages,
+        # so when the widget is clicked, we know on which page
+        self.__page_screen_pos = [ ]
 
-            if i == self.__current_page_n:
-                cr.set_source_rgb(0, 0, 0)
-            else:
-                cr.set_source_rgb(1, 1, 1)
-
-            cr.rectangle(wpos + 1, hpos + 1,
-                        self.__width - 2, self.__height_per_page - 2)
-            cr.fill()
-            if i == self.__current_page_n:
-                cr.set_source_rgb(1, 1, 1)
-            else:
-                cr.set_source_rgb(0, 0, 0)
-            cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-            cr.set_font_size(14)
-            cr.move_to(wpos + 5, hpos + 20)
-            cr.show_text(str(i + 1))
+        for i in range(self.__page_n + 1):
+            page_pos = hpos
+            self.__draw_page(cr, i, hpos, self.__bbox)
 
             hpos += self.__height_per_page
 
             # draw layer symbols for the current page
             if i == self.__current_page_n:
-                page = self.__gom.page()
-                n_layers = page.number_of_layers()
+                page      = self.__gom.page()
+                n_layers  = page.number_of_layers()
                 cur_layer = page.layer_no()
-                cr.set_source_rgb(0.5, 0.5, 0.5)
-                cr.rectangle(wpos, hpos, self.__width, 
-                             n_layers * 5 + 5)
-                cr.fill()
 
                 hpos = hpos + n_layers * 5 + 5
-                for j in range(n_layers):
-                    # draw a small rhombus for each layer
-                    curpos = hpos - j * 5 - 10
-                    if j == cur_layer:
-                        # inverted for the current layer
-                        draw_rhomb(cr, (wpos, curpos, self.__width, 10),
-                                   (1, 1, 1), (0, 0, 0))
-                    else:
-                        draw_rhomb(cr, (wpos, curpos, self.__width, 10))
+                self.__draw_layers(cr, n_layers, cur_layer,
+                                   (wpos, hpos, width, None))
+
+            self.__page_screen_pos.append((page_pos, hpos))
+
+    def __draw_page(self, cr, page_no, hpos, bbox):
+        """draw a page"""
+
+        wpos, _, width, _ = bbox
+
+        # grey background
+        cr.set_source_rgb(0.5, 0.5, 0.5)
+        cr.rectangle(wpos, hpos, width,
+                     self.__height_per_page)
+        cr.fill()
+
+        # the rectangle representing the page
+        if page_no == self.__current_page_n:
+            cr.set_source_rgb(0, 0, 0)
+        else:
+            cr.set_source_rgb(1, 1, 1)
+
+        cr.rectangle(wpos + 1, hpos + 1,
+                     width - 2,
+                     self.__height_per_page - 2)
+        cr.fill()
+
+        # the page number or "+" symbol
+        if page_no == self.__current_page_n:
+            cr.set_source_rgb(1, 1, 1)
+        else:
+            cr.set_source_rgb(0, 0, 0)
+        cr.select_font_face("Sans",
+                            cairo.FONT_SLANT_NORMAL,
+                            cairo.FONT_WEIGHT_NORMAL)
+        cr.set_font_size(14)
+        cr.move_to(wpos + 5, hpos + 20)
+        if page_no == self.__page_n:
+            cr.show_text("+")
+        else:
+            cr.show_text(str(page_no + 1))
 
 
+    def __draw_layers(self, cr, n_layers, cur_layer, bbox):
+        """
+        Draw n_layers layers with current layer cur_layer starting from
+        bottom at position hpos and left at position wpos, with width
+        width.
+        """
+        wpos, hpos, width, _ = bbox
+        cr.set_source_rgb(0.5, 0.5, 0.5)
+        cr.rectangle(wpos, hpos, width,
+                     n_layers * 5 + 5)
+        cr.fill()
 
-    def update_size(self, width, height):
-        """update the size of the widget"""
-
+        for j in range(n_layers):
+            # draw a small rhombus for each layer
+            curpos = hpos - j * 5 - 10
+            if j == cur_layer:
+                # inverted for the current layer
+                draw_rhomb(cr, (wpos, curpos, width, 10),
+                           (1, 1, 1), (1, 0, 0))
+            else:
+                draw_rhomb(cr, (wpos, curpos, width, 10))
 
 ## ---------------------------------------------------------------------
 class WigletToolSelector(Wiglet):
@@ -294,7 +338,6 @@ class WigletToolSelector(Wiglet):
     def __init__(self, coords = (50, 0), width = 1000, height = 35, func_mode = None):
         super().__init__("tool_selector", coords)
 
-        self.__width, self.__height = width, height
         self.__icons_only = True
 
         self.__modes = [ "move", "draw", "shape", "rectangle",
@@ -304,10 +347,9 @@ class WigletToolSelector(Wiglet):
                               "eraser": "Eraser", "colorpicker": "Col.Pick" }
 
         if self.__icons_only and width > len(self.__modes) * 35:
-            self.__width = len(self.__modes) * 35
+            width = len(self.__modes) * 35
 
-        self.__bbox = (coords[0], coords[1], self.__width, self.__height)
-        self.recalculate()
+        self.__bbox = (coords[0], coords[1], width, height)
         self.__mode_func = func_mode
         self.__icons = { }
 
@@ -317,12 +359,6 @@ class WigletToolSelector(Wiglet):
         """initialize the icons"""
         icons = Icons()
         self.__icons = { mode: icons.get(mode) for mode in self.__modes }
-        print("icons:", self.__icons)
-
-    def recalculate(self):
-        """recalculate the position of the widget"""
-        self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
-        self.__dw   = self.__width / len(self.__modes)
 
     def draw(self, cr):
         """draw the widget"""
@@ -330,63 +366,75 @@ class WigletToolSelector(Wiglet):
         cr.rectangle(*self.__bbox)
         cr.fill()
 
+        height = self.__bbox[3]
+        dw   = self.__bbox[2] / len(self.__modes)
+
         cur_mode = None
+
         if self.__mode_func and callable(self.__mode_func):
             cur_mode = self.__mode_func()
 
         for i, mode in enumerate(self.__modes):
-            label = self.__modes_dict[mode]
             # white rectangle
-            if mode == cur_mode:
-                cr.set_source_rgb(0, 0, 0)
-            else:
-                cr.set_source_rgb(1, 1, 1)
+            icon  = self.__icons.get(mode)
+            label = self.__modes_dict[mode] if not self.__icons_only else None
 
-            cr.rectangle(self.__bbox[0] + 1 + i * self.__dw,
-                         self.__bbox[1] + 1,
-                         self.__dw - 2,
-                         self.__height - 2)
-            cr.fill()
-            # black text
+            bb = (self.__bbox[0] + i * dw,
+                  self.__bbox[1],
+                  dw, height)
 
-            if mode == cur_mode:
-                cr.set_source_rgb(1, 1, 1)
-            else:
-                cr.set_source_rgb(0, 0, 0)
-            # select small font
+            self.__draw_label(cr, bb, label, icon, mode == cur_mode)
 
-            icon = self.__icons.get(mode)
-            if not self.__icons_only:
-                cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-                cr.set_font_size(14)
-                x_bearing, y_bearing, t_width, t_height, _, _ = cr.text_extents(label)
-                x0 = self.__bbox[0]
-                if icon:
-                    iw = icon.get_width()
-                    x0 += i * self.__dw + (self.__dw - t_width - iw) / 2 - x_bearing + iw
-                else:
-                    x0 += i * self.__dw + (self.__dw - t_width) / 2 - x_bearing
+    def __draw_label(self, cr, bbox, label, icon, inverse = False):
+        """Paint one button within the bounding box"""
 
-                cr.move_to(x0, self.__bbox[1] + (self.__height - t_height) / 2 - y_bearing)
-                cr.show_text(label)
-            if icon:
-                Gdk.cairo_set_source_pixbuf(cr,
-                                            self.__icons[mode],
-                                            self.__bbox[0] + i * self.__dw + 5,
-                                            self.__bbox[1] + 5)
-                cr.paint()
+        x0, y0 = bbox[0], bbox[1]
+        iw = 0
 
+        if inverse:
+            cr.set_source_rgb(0, 0, 0)
+        else:
+            cr.set_source_rgb(1, 1, 1)
+
+        cr.rectangle(bbox[0] + 1, bbox[1] + 1, bbox[2] - 2, bbox[3] - 2)
+        cr.fill()
+
+        if icon:
+            iw = icon.get_width()
+            Gdk.cairo_set_source_pixbuf(cr, icon, x0 + 5, y0 + 5)
+            cr.paint()
+
+        if not label:
+            return
+
+        if inverse:
+            cr.set_source_rgb(1, 1, 1)
+        else:
+            cr.set_source_rgb(0, 0, 0)
+        # select small font
+
+        cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        cr.set_font_size(14)
+
+        x_bearing, y_bearing, t_width, t_height, _, _ = cr.text_extents(label)
+
+        xpos = x0 + (bbox[2] - t_width - iw) / 2 - x_bearing + iw
+        ypos = y0 + (bbox[3] - t_height) / 2 - y_bearing
+
+        cr.move_to(xpos, ypos)
+        cr.show_text(label)
 
     def on_click(self, x, y, ev):
         """handle the click event"""
 
+        dw   = self.__bbox[2] / len(self.__modes)
         if not is_click_in_bbox(x, y, self.__bbox):
             return False
 
         # which mode is at this position?
         dx = x - self.__bbox[0]
         sel_mode = None
-        i = int(dx / self.__dw)
+        i = int(dx / dw)
         sel_mode = self.__modes[i]
         if self.__mode_func and callable(self.__mode_func):
             self.__mode_func(sel_mode)
@@ -394,21 +442,16 @@ class WigletToolSelector(Wiglet):
 
         return True
 
-    def update_size(self, width, height):
-        """update the size of the widget"""
-
 class WigletColorSelector(Wiglet):
     """Wiglet for selecting the color."""
-    def __init__(self, coords = (0, 0),
-                 width = 15,
-                 height = 500,
+    def __init__(self, bbox = (0, 0, 15, 500),
                  func_color = None,
                  func_bg = None):
-        super().__init__("color_selector", coords)
-        print("height:", height)
 
-        self.__width, self.__height = width, height
-        self.__bbox = (coords[0], coords[1], width, height)
+        coords = (bbox[0], bbox[1])
+        super().__init__("color_selector", coords)
+
+        self.__bbox = bbox
         self.__colors = self.generate_colors()
         self.__dh = 25
         self.__func_color = func_color
@@ -417,14 +460,13 @@ class WigletColorSelector(Wiglet):
 
     def recalculate(self):
         """recalculate the position of the widget"""
-        self.__bbox = (self.coords[0], self.coords[1], self.__width, self.__height)
-        self.__color_dh = (self.__height - self.__dh) / len(self.__colors)
+        self.__color_dh = (self.__bbox[3] - self.__dh) / len(self.__colors)
         self.__colors_hpos = { color : self.__dh + i * self.__color_dh
                               for i, color in enumerate(self.__colors) }
 
     def update_size(self, width, height):
         """update the size of the widget"""
-        _, self.__height = width, height
+        self.__bbox = (self.coords[0], self.coords[1], self.__bbox[2], height)
         self.recalculate()
 
     def draw(self, cr):
@@ -441,18 +483,24 @@ class WigletColorSelector(Wiglet):
             fg = self.__func_color()
 
         cr.set_source_rgb(*bg)
-        cr.rectangle(self.__bbox[0] + 4, self.__bbox[1] + 9, self.__width - 5, 23)
+        cr.rectangle(self.__bbox[0] + 4,
+                     self.__bbox[1] + 9,
+                     self.__bbox[2] - 5, 23)
         cr.fill()
         cr.set_source_rgb(*fg)
-        cr.rectangle(self.__bbox[0] + 1, self.__bbox[1] + 1, self.__width - 5, 14)
+        cr.rectangle(self.__bbox[0] + 1,
+                     self.__bbox[1] + 1,
+                     self.__bbox[2] - 5, 14)
         cr.fill()
 
         # draw the colors
         dh = 25
-        h = (self.__height - dh)/ len(self.__colors)
+        h = (self.__bbox[3] - dh)/ len(self.__colors)
         for color in self.__colors:
             cr.set_source_rgb(*color)
-            cr.rectangle(self.__bbox[0] + 1, self.__colors_hpos[color], self.__width - 2, h)
+            cr.rectangle(self.__bbox[0] + 1,
+                         self.__colors_hpos[color],
+                         self.__bbox[2] - 2, h)
             cr.fill()
 
     def on_click(self, x, y, ev):
@@ -477,13 +525,6 @@ class WigletColorSelector(Wiglet):
             if sel_color and self.__func_color and callable(self.__func_color):
                 self.__func_color(sel_color)
         return True
-
-
-    def event_update(self, x, y):
-        """update on mouse move"""
-
-    def event_finish(self):
-        """update on mouse release"""
 
     def generate_colors(self):
         """Generate a rainbow of 24 colors."""

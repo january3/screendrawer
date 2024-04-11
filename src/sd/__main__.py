@@ -131,7 +131,7 @@ class TransparentWindow(Gtk.Window):
 
         # we pass the app to the state, because it has the queue_draw
         # method
-        self.state              = State(app = self, 
+        self.state              = State(app = self,
                                         gom = self.gom,
                                         cursor = self.cursor)
 
@@ -139,12 +139,10 @@ class TransparentWindow(Gtk.Window):
 
         self.setter = Setter(app = self, gom = self.gom, cursor = self.cursor)
 
-        wiglets = [ WigletColorSelector(height = self.state.get_win_size()[1],
-                                               func_color = self.setter.set_color,
-                                               func_bg = self.state.bg_color),
+        wiglets = [ WigletColorSelector(func_color = self.setter.set_color,
+                                        func_bg = self.state.bg_color),
                            WigletToolSelector(func_mode = self.state.mode),
-                           WigletPageSelector(gom = self.gom, screen_wh_func = self.state.get_win_size,
-                                              set_page_func = self.gom.set_page_number),
+                           WigletPageSelector(gom = self.gom),
                            WigletColorPicker(func_color = self.setter.set_color, clipboard = self.clipboard),
                           ]
 
