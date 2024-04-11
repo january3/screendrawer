@@ -1,5 +1,6 @@
 from .commands import *                                              # <remove>
-from .drawable_group import DrawableGroup                                  # <remove>
+from .drawable_group import DrawableGroup                            # <remove>
+from .drawable import Drawable                                       # <remove>
 from .page import Page                                               # <remove>
 from .utils import sort_by_stack                                     # <remove>
 
@@ -160,7 +161,9 @@ class GraphicsObjectManager:
         if obj in self.__page.objects():
             print("object already in list")
             return
-        self.__history.append(AddCommand(obj, self.__page.objects(), page=self.__page))
+        if not isinstance(obj, Drawable):
+            raise ValueError("Only Drawables can be added to the stack")
+        self.__history.append(AddCommand([obj], self.__page.objects(), page=self.__page))
 
     def export_pages(self):
         """Export all pages."""

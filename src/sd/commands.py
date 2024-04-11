@@ -9,6 +9,11 @@ from .utils import calc_rotation_angle, sort_by_stack ## <remove>
 from .drawable_factory import DrawableFactory ## <remove>
 from .drawable_group import DrawableGroup ## <remove>
 
+def swap_stacks(stack1, stack2):
+    """Swap two stacks"""
+    stack1[:], stack2[:] = stack2[:], stack1[:]
+
+
 ## ---------------------------------------------------------------------
 ## These are the commands that can be executed on the objects. They should
 ## be undoable and redoable. It is their responsibility to update the
@@ -40,6 +45,7 @@ class Command:
     def undone_set(self, value):
         """Set the undone status of the command."""
         self.__undone = value
+
 
 class CommandGroup(Command):
     """Simple class for handling groups of commands."""
@@ -195,7 +201,12 @@ class GroupObjectCommand(Command):
         return self.__page
 
 class UngroupObjectCommand(Command):
-    """Simple class for handling ungrouping objects."""
+    """
+    Class for handling ungrouping objects.
+
+    :param objects: Objects to be ungrouped (objects which are not groups
+                    will be ignored)
+    """
     def __init__(self, objects, stack, selection_object = None, page = None):
         super().__init__("ungroup", objects)
         self.__stack = stack
@@ -258,10 +269,15 @@ class UngroupObjectCommand(Command):
 
 
 class RemoveCommand(Command):
-    """Simple class for handling deleting objects."""
+    """
+    Class for handling deleting objects.
+
+    :param objects: a list of objects to be removed.
+    """
     def __init__(self, objects, stack, page = None):
         super().__init__("remove", objects)
         self.__stack = stack
+        self.__stack_copy = self.__stack[:]
         self.__page = page
 
         # remove the objects from the stack
@@ -271,39 +287,47 @@ class RemoveCommand(Command):
     def undo(self):
         if self.undone():
             return None
-        for obj in self.obj:
-        # XXX: it should insert at the same position!
-            self.__stack.append(obj)
+        swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(True)
         return self.__page
 
     def redo(self):
         if not self.undone():
             return None
-        for obj in self.obj:
-            self.__stack.remove(obj)
+        swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(False)
         return self.__page
 
 class AddCommand(Command):
-    """Simple class for handling creating objects."""
+    """
+    Class for handling creating objects.
+
+    :param objects: a list of objects to be removed.
+    """
     def __init__(self, objects, stack, page = None):
         super().__init__("add", objects)
         self.__stack = stack
-        self.__stack.append(self.obj)
         self.__page = page
+        self.__add_objects()
+
+    def __add_objects(self):
+        for o in self.obj:
+            self.__stack.append(o)
 
     def undo(self):
         if self.undone():
             return None
-        self.__stack.remove(self.obj)
+
+        for o in self.obj:
+            self.__stack.remove(o)
+
         self.undone_set(True)
         return self.__page
 
     def redo(self):
         if not self.undone():
             return None
-        self.__stack.append(self.obj)
+        self.__add_objects()
         self.undone_set(False)
         return self.__page
 
@@ -471,7 +495,7 @@ class ZStackCommand(Command):
 
     def bottom(self):
         """Move the objects to the bottom of the stack."""
-        for obj in self.obj[::-1]:
+        for obj in self._objects[::-1]:
             self.__stack.remove(obj)
             self.__stack.insert(0, obj)
 
@@ -479,7 +503,7 @@ class ZStackCommand(Command):
         """Undo the command."""
         if self.undone():
             return None
-        self.swap_stacks(self.__stack, self.__stack_orig)
+        swap_stacks(self.__stack, self.__stack_orig)
         self.undone_set(True)
         return self.__page
 
@@ -487,14 +511,11 @@ class ZStackCommand(Command):
         """Redo the command."""
         if not self.undone():
             return None
-        self.swap_stacks(self.__stack, self.__stack_orig)
+        swap_stacks(self.__stack, self.__stack_orig)
         self.undone_set(False)
         return self.__page
 
-    def swap_stacks(self, stack1, stack2):
-        """Swap two stacks"""
-        stack1[:], stack2[:] = stack2[:], stack1[:]
-
+# --------------------------------------------------------------
 
 class MoveResizeCommand(Command):
     """
@@ -509,6 +530,15 @@ class MoveResizeCommand(Command):
         type (str): the type of the command
         obj (Drawable): the object to be moved or resized
         origin (tuple): the original position of the object
+
+    This class is different from other classes because it takes a single
+    object as the argument. This is because Move or Resize commands need to
+    react to continuous updates. It is therefore the responsibility of the
+    caller to ensure that a list of objects is grouped as a DrawableGroup.
+
+    Also, the subclasses need to implement two methods: event_update and
+    event_finish, which have to handle the changes during move / resize and
+    call on objects to finalize the command.
     """
 
     def __init__(self, mytype, obj, origin):
@@ -631,11 +661,12 @@ class ResizeCommand(MoveResizeCommand):
         obj.resize_start(corner, origin)
         self._orig_bb = obj.bbox()
         self._prop    = proportional
-        ## XXX check the bb for pitfalls
+        if self._orig_bb[2] == 0:
+            raise ValueError("Bounding box with no width")
+
         self._orig_bb_ratio = self._orig_bb[3] / self._orig_bb[2]
         self.__newbb = None
         self.__page = page
-
 
     def undo(self):
         """Undo the command."""
@@ -699,9 +730,18 @@ class ResizeCommand(MoveResizeCommand):
         self.__newbb = newbb
         self.obj.resize_update(newbb)
 
+# -------------------------------------------------------------------------------------
 
 class SetPropCommand(Command):
-    """Simple class for handling color changes."""
+    """
+    Superclass for handling property changes of drawing primitives.
+
+    The superclass handles everything, while the subclasses set up the
+    functions that do the actual manipulation of the primitives.
+
+    In principle, we need one function to extract the current property, and
+    one to set the property.
+    """
     def __init__(self, mytype, objects, prop, get_prop_func, set_prop_func, page = None):
         super().__init__(mytype, objects.get_primitive())
         self.__prop = prop
@@ -733,6 +773,7 @@ class SetPropCommand(Command):
         self.undone_set(False)
         return self.__page
 
+
 def pen_set_func(obj, prop):
     """Set the pen of the object."""
     obj.pen_set(prop)
@@ -749,6 +790,7 @@ class SetPenCommand(SetPropCommand):
         pen = pen.copy()
         super().__init__("set_pen", objects, pen, get_prop_func, set_prop_func)
 
+
 def color_set_func(obj, prop):
     """Set the color of the object."""
     obj.color_set(prop)
@@ -763,6 +805,7 @@ class SetColorCommand(SetPropCommand):
         set_prop_func = color_set_func
         get_prop_func = color_get_func
         super().__init__("set_color", objects, color, get_prop_func, set_prop_func)
+
 
 def set_font_func(obj, prop):
     """Set the font of the object."""

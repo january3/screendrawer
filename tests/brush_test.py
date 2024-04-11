@@ -108,6 +108,8 @@ def test_brush_factory(brush):
     b.calculate(0.75, coords)
     b.calculate(0.75, coords, (1, 1, 1, 1, .2))
 
-    # the following should fail
-    with pytest.raises(Exception):
-        b.calculate(0.75, coords, (1, 1, 1, 1))
+   # no longer the case; I built in a safeguard because otherwise I
+   # cannot import old drawings
+   ## the following should fail
+   #with pytest.raises(Exception):
+   #    b.calculate(0.75, coords, (1, 1, 1, 1))
