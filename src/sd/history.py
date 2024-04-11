@@ -23,7 +23,7 @@ class History:
     def undo(self):
         """Undo the last action."""
         if not self.__history:
-            return
+            return None
 
         cmd = self.__history.pop()
         ret = cmd.undo()
@@ -33,7 +33,7 @@ class History:
     def redo(self):
         """Redo the last action."""
         if not self.__redo:
-            return
+            return None
 
         cmd = self.__redo.pop()
         ret = cmd.redo()
