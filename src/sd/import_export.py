@@ -53,22 +53,18 @@ def convert_file(input_file, output_file, file_format = "any", border = None, pa
             # create a file name with the same name but different extension
             output_file = path.splitext(input_file)[0] + "." + file_format
 
-    #config, objects, pages = read_file_as_sdrw(input_file)
-
-   ## if there is only one page, we can use the regular converter for pdfs
-   #if page_no is None and pages and len(pages) == 1:
-   #    page_no = 0
-
-    # also when we have objects, and not pages, we can use the regular
-    # converter for pdfs
+    # if we have a page specified, we need to convert to pdf using the
+    # one-page converter
     if file_format in [ "png", "jpeg", "svg" ] or (file_format == "pdf"
                                                    and page_no is not None):
         if not page_no:
             page_no = 0
         convert_file_to_image(input_file, output_file, file_format, border, page_no)
+
    #elif file_format == "yaml":
    #    print("Exporting to yaml")
    #    export_file_as_yaml(output_file, config, objects=objects.to_dict())
+
     elif file_format == "pdf":
         convert_to_multipage_pdf(input_file, output_file, border)
     else:
@@ -109,10 +105,10 @@ def convert_file_to_image(input_file, output_file, file_format = "png", border =
     bg           = config.get("bg_color", (1, 1, 1))
     transparency = config.get("transparent", 1.0)
 
+    cfg = { "bg": bg, "bbox": bbox, "transparency": transparency, "border": border }
+
     export_image(objects,
-                 output_file, file_format,
-                 bg = bg, bbox = bbox,
-                 transparency = transparency)
+                 output_file, file_format, cfg)
 
 def convert_to_multipage_pdf(input_file, output_file, border = None):
     """
@@ -211,7 +207,7 @@ def export_image_jpg(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 
     """Export the drawing to a JPEG file."""
     raise NotImplementedError("JPEG export is not implemented")
 
-def export_image_pdf(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
+def export_image_pdf(obj, filename, cfg):
     """
     Export the drawing to a single-page PDF file.
 
@@ -224,6 +220,10 @@ def export_image_pdf(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 
     :param transparency: The transparency of the image.
     """
 
+    bbox = cfg.get("bbox", None)
+    bg   = cfg.get("bg", (1, 1, 1))
+    transparency = cfg.get("transparency", 1.0)
+
     if bbox is None:
         bbox = obj.bbox()
 
@@ -234,7 +234,7 @@ def export_image_pdf(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 
     __draw_object(cr, obj, bg, bbox, transparency)
     surface.finish()
 
-def export_image_svg(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
+def export_image_svg(obj, filename, cfg):
     """
     Export the drawing to a SVG file.
 
@@ -247,6 +247,9 @@ def export_image_svg(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 
     :param transparency: The transparency of the image.
     """
 
+    bbox = cfg.get("bbox", None)
+    bg   = cfg.get("bg", (1, 1, 1))
+    transparency = cfg.get("transparency", 1.0)
 
     if bbox is None:
         bbox = obj.bbox()
@@ -259,7 +262,7 @@ def export_image_svg(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 
 
     surface.finish()
 
-def export_image_png(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
+def export_image_png(obj, filename, cfg):
     """
     Export the drawing to a PNG file.
 
@@ -272,6 +275,9 @@ def export_image_png(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 
     :param transparency: The transparency of the image.
     """
 
+    bbox = cfg.get("bbox", None)
+    bg   = cfg.get("bg", (1, 1, 1))
+    transparency = cfg.get("transparency", 1.0)
 
     if bbox is None:
         bbox = obj.bbox()
@@ -284,11 +290,7 @@ def export_image_png(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 
 
     surface.write_to_png(filename)
 
-def export_image(obj, filename,
-                 file_format = "any",
-                 bg = (1, 1, 1),
-                 bbox = None,
-                 transparency = 1.0):
+def export_image(obj, filename, file_format = "any", cfg = None):
     """
     Export the drawing to a file.
 
@@ -302,6 +304,8 @@ def export_image(obj, filename,
     from the object.
     :param transparency: The transparency of the image.
     """
+    if not cfg:
+        cfg = { "bg": (1, 1, 1), "bbox": None, "transparency": 1.0, "border": None }
 
     # if filename is None, we send the output to stdout
     if filename is None:
@@ -324,11 +328,11 @@ def export_image(obj, filename,
 
     # Create a Cairo surface of the same size as the bbox
     if file_format == "png":
-        export_image_png(obj, filename, bg, bbox, transparency)
+        export_image_png(obj, filename, cfg)
     elif file_format == "svg":
-        export_image_svg(obj, filename, bg, bbox, transparency)
+        export_image_svg(obj, filename, cfg)
     elif file_format == "pdf":
-        export_image_pdf(obj, filename, bg, bbox, transparency)
+        export_image_pdf(obj, filename, cfg)
     else:
         raise NotImplementedError("Export to " + file_format + " is not implemented")
 
@@ -351,7 +355,7 @@ def export_file_as_yaml(filename, config, objects = None, pages = None):
     if objects:
         state['objects'] = objects
     try:
-        with open(filename, 'w') as f:
+        with open(filename, 'w', encoding = 'utf-8') as f:
             yaml.dump(state, f)
         print("Saved drawing to", filename)
         return True

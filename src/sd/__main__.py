@@ -326,9 +326,10 @@ class TransparentWindow(Gtk.Window):
         file_name, file_format = export_dialog(self)
 
         if file_name:
-            export_image(obj, file_name, file_format,
-                         bg = self.state.bg_color(),
-                         bbox = bbox, transparency = self.state.alpha())
+            cfg = { "bg": self.state.bg_color(), 
+                   "bbox": bbox, 
+                   "transparency": self.state.alpha() }
+            export_image(obj, file_name, file_format, cfg)
 
     def select_image_and_create_pixbuf(self):
         """Select an image file and create a pixbuf from it."""
