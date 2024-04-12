@@ -183,7 +183,6 @@ class DrawManager:
         """Handle right click events, unless shift is pressed."""
         if self.__bus.emit("right_mouse_click", True, ev):
             print("bus event caught the click")
-            self.__bus.emit("queue_draw")
             return True
 
         if ev.shift():
