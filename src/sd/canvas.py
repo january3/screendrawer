@@ -21,11 +21,10 @@ class Canvas:
     """
     Canvas for drawing shapes and text.
     """
-    def __init__(self, state, dm, wiglets):
+    def __init__(self, state, bus):
         self.__state = state
         self.__grid = Grid()
-        self.__dm = dm
-        self.__wiglets = wiglets
+        self.__bus = bus
 
     def on_draw(self, widget, cr):
         """Main draw method of the whole app."""
@@ -48,17 +47,9 @@ class Canvas:
 
         cr.restore()
 
-        #self.__dm.draw(None, cr)
-
         ws = self.__state.get_win_size()
-        for w in self.__wiglets:
-            w.update_size(*ws)
-            w.draw(cr, self.__state)
-
-       # XXX this does not work.
-       #if self.__wiglet_active:
-       #    self.__wiglet_active.draw(cr)
-
+        self.__bus.emit("update_size", exclusive = False, width = ws[0], height = ws[1])
+        self.__bus.emit("draw", exclusive = False, cr = cr, state = self.__state)
         return True
 
     def draw_bg(self, cr, tr):

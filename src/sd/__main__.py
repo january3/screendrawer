@@ -171,7 +171,7 @@ class TransparentWindow(Gtk.Window):
                                                setter = self.setter)
 
         # canvas orchestrates the drawing
-        self.canvas              = Canvas(state = self.state, dm = self.dm, wiglets = wiglets)
+        self.canvas              = Canvas(state = self.state, bus = self.bus)
 
         # distance for selecting objects
         self.max_dist   = 15

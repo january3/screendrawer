@@ -94,6 +94,7 @@ class WigletSelectionTool(Wiglet):
         bus.on("left_mouse_click", self.on_click, priority = -1)
         bus.on("mouse_move",       self.on_move)
         bus.on("mouse_release",   self.on_release)
+        bus.on("draw", self.draw)
 
     def draw(self, cr, state):
         """draw the widget"""
@@ -188,6 +189,7 @@ class WigletTransparency(Wiglet):
         bus.on("left_mouse_click", self.on_click)
         bus.on("mouse_move", self.on_move)
         bus.on("mouse_release", self.on_release)
+        bus.on("draw", self.draw)
 
     def draw(self, cr, state):
         """draw the widget"""
@@ -256,6 +258,7 @@ class WigletLineWidth(Wiglet):
         bus.on("left_mouse_click", self.on_click)
         bus.on("mouse_move", self.on_move)
         bus.on("mouse_release", self.on_release)
+        bus.on("draw", self.draw)
 
     def draw(self, cr, state):
         """draw the widget"""
@@ -327,6 +330,8 @@ class WigletPageSelector(Wiglet):
         # changing a lot
         self.recalculate()
         bus.on("left_mouse_click", self.on_click, priority = 9)
+        bus.on("update_size", self.update_size)
+        bus.on("draw", self.draw)
 
     def recalculate(self):
         """recalculate the position of the widget"""
@@ -510,6 +515,7 @@ class WigletToolSelector(Wiglet):
 
         self._init_icons()
         bus.on("left_mouse_click", self.on_click, priority = 9)
+        bus.on("draw", self.draw)
 
     def _init_icons(self):
         """initialize the icons"""
@@ -624,8 +630,9 @@ class WigletColorSelector(Wiglet):
         self.__func_color = func_color
         self.__func_bg    = func_bg
         self.recalculate()
-        bus.on("update_size", self.update_size)
         bus.on("left_mouse_click", self.on_click, priority = 9)
+        bus.on("update_size", self.update_size)
+        bus.on("draw", self.draw)
 
     def recalculate(self):
         """recalculate the position of the widget"""
