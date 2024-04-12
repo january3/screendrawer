@@ -19,11 +19,11 @@ def test_canvas():
     state.show_grid.return_value = False
     state.get_win_size.return_value = (width, height)
 
-    dm      = MagicMock()
+    bus     = MagicMock()
     wiglets = MagicMock()
 
     # just test whether we can create the object
-    canvas = Canvas(state, dm, wiglets)
+    canvas = Canvas(state, bus)
     assert canvas is not None
     assert isinstance(canvas, Canvas)
 
