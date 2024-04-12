@@ -17,7 +17,7 @@ class Bus:
         if event in self.listeners:
             self.listeners[event].remove(listener)
     
-    def emit(self, event, exclusive, *args):
+    def emit(self, event, exclusive = False, *args):
         """
         Dispatch an event to all listeners.
 

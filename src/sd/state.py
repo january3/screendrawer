@@ -10,7 +10,8 @@ class State:
             cls.__new_instance = super(State, cls).__new__(cls)
         return cls.__new_instance
 
-    def __init__(self, app, gom, cursor):
+    def __init__(self, app, bus, gom, cursor):
+        bus.on("queue_draw", self.queue_draw)
         self.__mode = 'draw'
         self.__app = app
         self.__gom = gom
@@ -181,8 +182,8 @@ class Setter:
             cls.__new_instance = super(Setter, cls).__new__(cls)
         return cls.__new_instance
 
-    def __init__(self, app, gom, cursor):
-        self.__state = State(app, gom, cursor)
+    def __init__(self, app, gom, cursor, state):
+        self.__state = state
         self.__app = app
         self.__gom = gom
         self.__cursor = cursor

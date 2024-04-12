@@ -79,8 +79,10 @@ class DrawManager:
         """Handle zoom events."""
         print(f"Zooming: Scale: {scale}, gesture: {gesture}")
 
-    def on_right_click(self, event, hover_obj):
+    def on_right_click(self, ev):
         """Handle right click events - context menus."""
+        event = ev.event
+        hover_obj = ev.hover()
         if hover_obj:
             self.__state.mode("move")
 
@@ -96,7 +98,7 @@ class DrawManager:
             self.__mm.context_menu().popup(None, None,
                                                None, None,
                                                event.button, event.time)
-        self.__state.queue_draw()
+        self.__bus.emit("queue_draw")
 
     # ---------------------------------------------------------------------
 
@@ -148,7 +150,7 @@ class DrawManager:
             self.__resizeobj   = None
             print("starting selection tool")
             self.__selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
-            self.__state.queue_draw()
+            self.__bus.emit("queue_draw")
             return True
 
         return False
@@ -204,7 +206,7 @@ class DrawManager:
         """Handle right click events, unless shift is pressed."""
         if ev.shift():
             return False
-        self.on_right_click(event, ev.hover())
+        self.on_right_click(ev)
         return True
 
     def __handle_button_1(self, event, ev):
@@ -213,7 +215,7 @@ class DrawManager:
 
         if self.__bus.emit("left_mouse_click", True, ev):
             print("bus event caught the click")
-            self.__state.queue_draw()
+            self.__bus.emit("queue_draw")
             return True
 
         if self.__handle_text_input_on_click(ev):
@@ -231,7 +233,7 @@ class DrawManager:
 
         # simple click: create modus
         self.create_object(ev)
-        self.__state.queue_draw()
+        self.__bus.emit("queue_draw")
 
         return True
 
@@ -256,7 +258,7 @@ class DrawManager:
         self.__gom.remove_objects([ hover_obj ], clear_selection = True)
         self.__resizeobj   = None
         self.__cursor.revert()
-        self.__state.queue_draw()
+        self.__bus.emit("queue_draw")
         return True
 
     def __handle_text_input_on_click(self, ev):
@@ -279,7 +281,7 @@ class DrawManager:
         print("starting text editing existing object")
         hover_obj.move_caret("End")
         self.__state.current_obj(hover_obj)
-        self.__state.queue_draw()
+        self.__bus.emit("queue_draw")
         self.__cursor.set("none")
         return True
 
@@ -295,7 +297,7 @@ class DrawManager:
                         state = self.__state)
 
         if self.__bus.emit("mouse_release", True, ev):
-            self.__state.queue_draw()
+            self.__bus.emit("queue_draw")
             return True
 
         if self.__paning:
@@ -345,7 +347,7 @@ class DrawManager:
                 self.__gom.selection().clear()
                 self.__state.current_obj_clear()
 
-        self.__state.queue_draw()
+        self.__bus.emit("queue_draw")
         return True
 
     def __handle_selection_on_release(self):
@@ -361,7 +363,7 @@ class DrawManager:
         else:
             self.__gom.selection().clear()
         self.__selection_tool = None
-        self.__state.queue_draw()
+        self.__bus.emit("queue_draw")
         return True
 
     def __handle_drag_on_release(self, event):
@@ -390,7 +392,7 @@ class DrawManager:
             self.__gom.command_append([ self.__resizeobj ])
         self.__resizeobj    = None
         self.__cursor.revert()
-        self.__state.queue_draw()
+        self.__bus.emit("queue_draw")
 
         return True
 
@@ -405,7 +407,7 @@ class DrawManager:
                         state = self.__state)
 
         if self.__bus.emit("mouse_move", True, ev):
-            self.__state.queue_draw()
+            self.__bus.emit("queue_draw")
             return True
 
         x, y = ev.pos()
@@ -445,9 +447,9 @@ class DrawManager:
         if corner_obj and corner_obj.bbox():
             self.__cursor.set(corner)
             self.__state.hover_obj(corner_obj)
-            self.__state.queue_draw()
+            self.__bus.emit("queue_draw")
 
-        self.__state.queue_draw()
+        self.__bus.emit("queue_draw")
         return True
 
     def __on_motion_update_resize(self, event):
@@ -456,7 +458,7 @@ class DrawManager:
             return False
 
         self.__resizeobj.event_update(event.x, event.y)
-        self.__state.queue_draw()
+        self.__bus.emit("queue_draw")
         return True
 
     def __on_motion_update_object(self, event):
@@ -466,7 +468,7 @@ class DrawManager:
             return False
 
         obj.update(event.x, event.y, event.pressure())
-        self.__state.queue_draw()
+        self.__bus.emit("queue_draw")
         return True
 
     def __on_motion_paning(self, event):
@@ -481,7 +483,7 @@ class DrawManager:
         tr = (tr[0] + dx, tr[1] + dy)
         self.__gom.page().translate(tr)
         self.__paning = (event.x, event.y)
-        self.__state.queue_draw()
+        self.__bus.emit("queue_draw")
         return True
 
         return False
