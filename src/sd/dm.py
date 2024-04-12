@@ -20,7 +20,6 @@ class DrawManager:
     DrawManager must be aware of GOM, because GOM holds all the objects
 
     methods from app used:
-    app.mm.object_menu()     # used for right click context menu
     app.clipboard.set_text() # used for color picker
 
     methods from state used:
@@ -50,11 +49,10 @@ class DrawManager:
     gom.remove_all()
     gom.command_append()
     """
-    def __init__(self, bus, gom, mm, state, setter):
+    def __init__(self, bus, gom, state, setter):
         self.__bus = bus
         self.__state = state
         self.__gom = gom
-        self.__mm = mm
         self.__cursor = state.cursor()
         self.__setter = setter
 
@@ -78,27 +76,6 @@ class DrawManager:
     def on_zoom(self, gesture, scale):
         """Handle zoom events."""
         print(f"Zooming: Scale: {scale}, gesture: {gesture}")
-
-    def on_right_click(self, ev):
-        """Handle right click events - context menus."""
-        event = ev.event
-        hover_obj = ev.hover()
-        if hover_obj:
-            self.__state.mode("move")
-
-            if not self.__gom.selection().contains(hover_obj):
-                self.__gom.selection().set([ hover_obj ])
-
-            # XXX - this should happen directly?
-            sel_objects = self.__gom.selected_objects()
-            self.__mm.object_menu(sel_objects).popup(None, None,
-                                                         None, None,
-                                                         event.button, event.time)
-        else:
-            self.__mm.context_menu().popup(None, None,
-                                               None, None,
-                                               event.button, event.time)
-        self.__bus.emit("queue_draw")
 
     # ---------------------------------------------------------------------
 
@@ -191,7 +168,7 @@ class DrawManager:
                 print("click, but text input active - finishing it first")
                 self.__setter.finish_text_input()
 
-        # right click: open context menu
+        # right click: emit right click event
         if event.button == 3:
             if self.__handle_button_3(event, ev):
                 return True
@@ -204,9 +181,14 @@ class DrawManager:
 
     def __handle_button_3(self, event, ev):
         """Handle right click events, unless shift is pressed."""
+        if self.__bus.emit("right_mouse_click", True, ev):
+            print("bus event caught the click")
+            self.__bus.emit("queue_draw")
+            return True
+
         if ev.shift():
             return False
-        self.on_right_click(ev)
+        #self.on_right_click(ev)
         return True
 
     def __handle_button_1(self, event, ev):

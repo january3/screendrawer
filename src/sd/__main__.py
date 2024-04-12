@@ -161,11 +161,11 @@ class TransparentWindow(Gtk.Window):
         em  = EventManager(gom = self.gom, app = self,
                                 state  = self.state,
                                 setter = self.setter)
-        mm  = MenuMaker(em, self)
+        mm  = MenuMaker(self.bus, self.gom, em, self)
 
         # dm needs to know about gom because gom manipulates the selection
         # and history (object creation etc)
-        self.dm                  = DrawManager(bus = self.bus, gom = self.gom, mm = mm,
+        self.dm                  = DrawManager(bus = self.bus, gom = self.gom,
                                                state = self.state, 
                                                setter = self.setter)
 

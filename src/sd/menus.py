@@ -15,13 +15,16 @@ class MenuMaker:
             cls._instance = super(MenuMaker, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, em, app):
+    def __init__(self, bus, gom, em, app):
         if not hasattr(self, '_initialized'):
+            self.__bus = bus
             self._initialized = True
             self.__app = app # App
+            self.__gom = gom
             self.__em  = em  # EventManager
             self.__context_menu = None
             self.__object_menu = None
+            self.__bus.on("right_mouse_click", self.on_right_mouse_click)
 
     def build_menu(self, menu_items):
         """Build a menu from a list of menu items."""
@@ -133,3 +136,27 @@ class MenuMaker:
         self.__object_menu = self.build_menu(menu_items)
 
         return self.__object_menu
+
+    def on_right_mouse_click(self, ev):
+        """Catch the right mouse click and display the menu"""
+
+        event     = ev.event
+        hover_obj = ev.hover()
+
+        if hover_obj:
+            ev.state.mode("move")
+
+            # it would be better not to access gom directly
+            if not self.__gom.selection().contains(hover_obj):
+                self.__gom.selection().set([ hover_obj ])
+
+            sel_objects = self.__gom.selected_objects()
+            self.object_menu(sel_objects).popup(None, None,
+                                                         None, None,
+                                                         event.button, event.time)
+        else:
+            self.context_menu().popup(None, None,
+                                               None, None,
+                                               event.button, event.time)
+        self.__bus.emit("queue_draw")
+        return True

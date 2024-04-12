@@ -23,10 +23,13 @@ class Bus:
 
         Exclusive events will stop dispatching if a listener returns a truthy value.
         """
+        caught = False
         if event in self.listeners:
             for listener in self.listeners[event]:
                 #print("calling", listener)
                 ret = listener(*args)
-                if exclusive and ret:
-                    print("dispatching exclusive event, caught by", listener)
-                    return ret
+                if ret:
+                    caught = True
+                    if exclusive:
+                        return ret
+        return caught
