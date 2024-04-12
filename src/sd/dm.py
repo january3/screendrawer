@@ -28,7 +28,6 @@ class DrawManager:
     state.mode()
     state.current_obj()
     state.current_obj_clear()
-    state.queue_draw()
     state.pen()
     state.get_win_size()
     state.hover_obj()
@@ -58,13 +57,8 @@ class DrawManager:
 
         # objects that indicate the state of the drawing area
         self.__resizeobj = None
-        self.__selection_tool = None
         self.__paning = None
         # drawing parameters
-
-    def selection_tool(self):
-        """Get the selection tool."""
-        return self.__selection_tool
 
     # ---------------------------------------------------------------------
     #                              Event handlers
@@ -121,15 +115,6 @@ class DrawManager:
             self.__cursor.set("grabbing")
             return True
 
-        if not ctrl and not shift:
-            # start selection tool
-            self.__gom.selection().clear()
-            self.__resizeobj   = None
-            print("starting selection tool")
-            self.__selection_tool = SelectionTool([ pos, (pos[0] + 1, pos[1] + 1) ])
-            self.__bus.emit("queue_draw")
-            return True
-
         return False
 
     def create_object(self, ev):
@@ -141,7 +126,7 @@ class DrawManager:
         if ev.shift() and not ev.ctrl():
             mode = "text"
 
-        if not mode in [ "draw", "shape", "rectangle", "circle", "text" ]:
+        if mode not in [ "draw", "shape", "rectangle", "circle", "text" ]:
             return False
 
         obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
@@ -154,7 +139,7 @@ class DrawManager:
         return True
 
     # Button press event handlers -------------------------------------------
-    def on_button_press(self, widget, event):
+    def on_button_press(self, widget, event): # pylint: disable=unused-argument
         """Handle mouse button press events."""
         print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
         self.__state.modified(True)
@@ -331,22 +316,6 @@ class DrawManager:
         self.__bus.emit("queue_draw")
         return True
 
-    def __handle_selection_on_release(self):
-        """Handle selection on mouse release."""
-        if not self.__selection_tool:
-            return False
-
-        print("finishing selection tool")
-        objects = self.__selection_tool.objects_in_selection(self.__gom.objects())
-
-        if len(objects) > 0:
-            self.__gom.selection().set(objects)
-        else:
-            self.__gom.selection().clear()
-        self.__selection_tool = None
-        self.__bus.emit("queue_draw")
-        return True
-
     def __handle_drag_on_release(self, event):
         """Handle mouse release on drag events."""
         if not self.__resizeobj:
@@ -444,7 +413,7 @@ class DrawManager:
 
     def __on_motion_update_object(self, event):
         """Handle on motion update for an object."""
-        obj = self.__state.current_obj() or self.__selection_tool
+        obj = self.__state.current_obj()
         if not obj:
             return False
 

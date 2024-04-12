@@ -11,6 +11,7 @@ from gi.repository import Gdk                  # <remove>
 from .utils import draw_dot, is_click_in_bbox  # <remove>
 from .icons import Icons                       # <remove>
 from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
+from .drawable_primitives import SelectionTool   # <remove>
 
 def draw_rhomb(cr, bbox, fg = (0, 0, 0), bg = (1, 1, 1)):
     """
@@ -80,6 +81,72 @@ class Wiglet:
         """ignore update on mouse move"""
         return False
 
+class WigletSelectionTool(Wiglet):
+    """Draw the selection tool when activated."""
+
+    def __init__(self, bus, gom, state):
+        super().__init__("selection_tool", None)
+
+        self.__selection_tool = None
+        self.__bus = bus
+        self.__gom   = gom
+        self.__state = state
+        bus.on("left_mouse_click", self.on_click, priority = -1)
+        bus.on("mouse_move",       self.on_move)
+        bus.on("mouse_release",   self.on_release)
+
+    def draw(self, cr, state):
+        """draw the widget"""
+        if not self.__selection_tool:
+            return
+        self.__selection_tool.draw(cr, state)
+
+    def on_click(self, ev):
+        """handle the click event"""
+        print("receiving call")
+        # ev.shift() means "add to current selection"
+        if ev.mode() != "move" or ev.alt() or ev.ctrl():
+            print("wrong modifiers")
+            return False
+
+        if ev.hover() or ev.corner()[0] or ev.double():
+            print("wrong event", ev.hover(), ev.corner(), ev.double())
+            return False
+        print("taking the call")
+        self.__gom.selection().clear()
+        x, y, = ev.event.x, ev.event.y
+        self.coords = (x, y)
+        self.__selection_tool = SelectionTool([ (x, y), (x + 1, y + 1) ])
+        return True
+    
+    def on_move(self, ev):
+        """update on mouse move"""
+        if not self.__selection_tool:
+            return False
+
+        x, y = ev.event.x, ev.event.y
+        obj = self.__selection_tool
+        obj.update(x, y, ev.pressure())
+        self.__bus.emit("queue_draw")
+        return True
+
+    def on_release(self, ev):
+        """handle the release event"""
+        if not self.__selection_tool:
+            return False
+
+        objects = self.__selection_tool.objects_in_selection(self.__gom.objects())
+
+        if len(objects) > 0:
+            self.__gom.selection().set(objects)
+        else:
+            self.__gom.selection().clear()
+
+        self.__bus.emit("queue_draw")
+        self.__selection_tool = None
+        return True
+
+# ---------------------------------------------------------------------
 class WigletColorPicker(Wiglet):
     """Invisible wiglet that processes clicks in the color picker mode."""
     def __init__(self, bus, func_color, clipboard):
@@ -87,7 +154,7 @@ class WigletColorPicker(Wiglet):
 
         self.__func_color = func_color
         self.__clipboard = clipboard
-        bus.on("left_mouse_click", self.on_click)
+        bus.on("left_mouse_click", self.on_click, priority = 1)
 
     def on_click(self, ev):
         """handle the click event"""
@@ -259,7 +326,7 @@ class WigletPageSelector(Wiglet):
         # we need to recalculate often because the pages might have been
         # changing a lot
         self.recalculate()
-        bus.on("left_mouse_click", self.on_click)
+        bus.on("left_mouse_click", self.on_click, priority = 9)
 
     def recalculate(self):
         """recalculate the position of the widget"""
@@ -442,7 +509,7 @@ class WigletToolSelector(Wiglet):
         self.__icons = { }
 
         self._init_icons()
-        bus.on("left_mouse_click", self.on_click)
+        bus.on("left_mouse_click", self.on_click, priority = 9)
 
     def _init_icons(self):
         """initialize the icons"""
@@ -558,7 +625,7 @@ class WigletColorSelector(Wiglet):
         self.__func_bg    = func_bg
         self.recalculate()
         bus.on("update_size", self.update_size)
-        bus.on("left_mouse_click", self.on_click)
+        bus.on("left_mouse_click", self.on_click, priority = 9)
 
     def recalculate(self):
         """recalculate the position of the widget"""

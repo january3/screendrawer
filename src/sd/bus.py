@@ -6,11 +6,12 @@ class Bus:
     def __init__(self):
         self.listeners = {}
     
-    def on(self, event, listener):
+    def on(self, event, listener, priority = 0):
         """Add a listener for an event."""
         if event not in self.listeners:
             self.listeners[event] = []
-        self.listeners[event].append(listener)
+        self.listeners[event].append((listener, priority))
+        self.listeners[event].sort(key = lambda x: -x[1])
     
     def off(self, event, listener):
         """Remove a listener for an event."""
@@ -25,8 +26,8 @@ class Bus:
         """
         caught = False
         if event in self.listeners:
-            for listener in self.listeners[event]:
-                #print("calling", listener)
+            for listener, _ in self.listeners[event]:
+                #print("event", event, "calling", listener)
                 ret = listener(*args)
                 if ret:
                     caught = True

@@ -46,9 +46,6 @@ class Canvas:
         if cobj and not cobj in page.objects_all_layers():
             self.__state.current_obj().draw(cr)
 
-        if self.__dm.selection_tool():
-            self.__dm.selection_tool().draw(cr)
-
         cr.restore()
 
         #self.__dm.draw(None, cr)
