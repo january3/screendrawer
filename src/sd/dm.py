@@ -2,6 +2,10 @@
 DrawManager is a class that manages the drawing on the canvas.
 """
 
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove> pylint: disable=wrong-import-position
+from gi.repository import GLib                  # <remove>
+
 from .drawable_factory import DrawableFactory             # <remove>
 from .drawable_primitives import SelectionTool             # <remove>
 from .commands import RemoveCommand, MoveCommand, ResizeCommand, RotateCommand  # <remove>
@@ -54,6 +58,7 @@ class DrawManager:
         self.__gom = gom
         self.__cursor = state.cursor()
         self.__setter = setter
+        self.__timeout = None # for discerning double clicks
 
         # objects that indicate the state of the drawing area
         self.__resizeobj = None
@@ -177,31 +182,51 @@ class DrawManager:
 
     def __handle_button_1(self, event, ev):
         """Handle left click events."""
-        print("handling button 1")
+
+        if ev.double():
+            print("DOUBLE CLICK 1")
+            if self.__handle_text_input_on_click(ev):
+                return True
+            self.__timeout = None
+            self.__bus.emit("left_mouse_double_click", True, ev)
+            return True
+
+        self.__timeout = event.time
+
+        GLib.timeout_add(50, self.__handle_button_1_single_click, event, ev)
+        return True
+
+        return self.__handle_button_1_single_click(event, ev)
+
+    def __handle_button_1_single_click(self, event, ev):
+        """Handle left click events."""
+        print("SINGLE CLICK 1")
+
+        if not self.__timeout:
+            print("timeout is None, canceling click")
+            return False
 
         if self.__bus.emit("left_mouse_click", True, ev):
             print("bus event caught the click")
             self.__bus.emit("queue_draw")
-            return True
+            return False
 
-        if self.__handle_text_input_on_click(ev):
-            return True
 
         if ev.alt():
             self.__paning = (event.x, event.y)
-            return True
+            return False
 
         if self.__move_resize_rotate(ev):
-            return True
+            return False
 
         if self.__handle_mode_specials_on_click(event, ev):
-            return True
+            return False
 
         # simple click: create modus
         self.create_object(ev)
         self.__bus.emit("queue_draw")
 
-        return True
+        return False
 
 
     def __handle_mode_specials_on_click(self, event, ev):
@@ -271,9 +296,6 @@ class DrawManager:
             return True
 
         if self.__handle_current_object_on_release(ev):
-            return True
-
-        if self.__handle_selection_on_release():
             return True
 
         if self.__handle_drag_on_release(event):

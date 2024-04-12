@@ -591,18 +591,15 @@ class WigletToolSelector(Wiglet):
 
     def on_click(self, ev):
         """handle the click event"""
-        print("getting a call")
 
         if not ev.state.show_wiglets():
-            print("i am hidden")
             return False
 
         x, y = ev.event.x, ev.event.y
-        print(x, y)
 
         dw   = self.__bbox[2] / len(self.__modes)
+
         if not is_click_in_bbox(x, y, self.__bbox):
-            print("not in my bbox")
             return False
 
         # which mode is at this position?
