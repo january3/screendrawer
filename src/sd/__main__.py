@@ -70,6 +70,7 @@ from sd.drawable_primitives import Image, Text                    #<placeholder 
 from sd.drawable_primitives import Rectangle, Shape, Circle #<placeholder sd/drawable_primitives.py>
 from sd.drawable_paths import Path                          #<placeholder sd/drawable_paths.py>
 from sd.history import History                              #<placeholder sd/history.py>
+from sd.bus import Bus #<placeholder sd/bus.py>
 
 
 # ---------------------------------------------------------------------
@@ -140,14 +141,17 @@ class TransparentWindow(Gtk.Window):
 
         self.setter = Setter(app = self, gom = self.gom, cursor = self.cursor)
 
-        wiglets = [ WigletColorSelector(func_color = self.setter.set_color,
+        self.bus = Bus()
+
+        wiglets = [WigletColorSelector(bus = self.bus, func_color = self.setter.set_color,
                                         func_bg = self.state.bg_color),
-                           WigletToolSelector(func_mode = self.state.mode),
-                           WigletPageSelector(gom = self.gom),
-                           WigletColorPicker(func_color = self.setter.set_color, clipboard = self.clipboard),
-                           WigletTransparency(state = self.state),
-                           WigletLineWidth(state = self.state),
-                          ]
+                   WigletToolSelector(bus = self.bus, func_mode = self.state.mode),
+                   WigletPageSelector(bus = self.bus, gom = self.gom),
+                   WigletColorPicker(bus = self.bus, func_color = self.setter.set_color, 
+                                     clipboard = self.clipboard),
+                   WigletTransparency(bus = self.bus, state = self.state),
+                   WigletLineWidth(bus = self.bus, state = self.state),
+        ]
 
 
         # em has to know about all that to link actions to methods
@@ -158,13 +162,12 @@ class TransparentWindow(Gtk.Window):
 
         # dm needs to know about gom because gom manipulates the selection
         # and history (object creation etc)
-        self.dm                  = DrawManager(gom = self.gom, mm = mm,
-                                               state = self.state, wiglets = wiglets,
+        self.dm                  = DrawManager(bus = self.bus, gom = self.gom, mm = mm,
+                                               state = self.state, 
                                                setter = self.setter)
 
         # canvas orchestrates the drawing
-        self.canvas              = Canvas(state = self.state, dm = self.dm,
-                                          wiglets = wiglets)
+        self.canvas              = Canvas(state = self.state, dm = self.dm, wiglets = wiglets)
 
         # distance for selecting objects
         self.max_dist   = 15

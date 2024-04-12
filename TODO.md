@@ -1,16 +1,20 @@
 To do (sorted by priority):
 
 
+ * mouse event should hold information about the grabbed object; actually,
+   this should probably be in the state object
+ * or maybe ChatGTP is right and DM shouldn't actually do anything except
+   of parsing the events and passing them on. Maybe we could pack all event
+   information in the MouseEvent object and the state object, and then pass
+   information around "hey, there is this and this happening, who wants to
+   take it".
+ * draw a dustbin wiglet in lower left corner
+ * create a pen wiglet
  * when exporting with ctrl-e there should be selection option to choose
    the format, including pdf vs multipage pdf (and multipage pdf should be
    default)
- * sort out the remove / add / group / set commands. some are taking
-   objects, some are taking object lists, some are taking drawable groups.
-   Inconsistent!
  * unit tests. more, more, more
  * different brushes should have different cursors
- * create a pen wiglet
- * draw a dustbin wiglet in lower left corner
  * clean up font code. Maybe use the Pango.FontDescription class for
    everything - why not?
  * idea for path editing: "thumb" - moving a point on path and dragging
@@ -56,6 +60,11 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * sort out the remove / add / group / set commands. some are taking
+   objects, some are taking object lists, some are taking drawable groups.
+   Inconsistent! => more or less did that. The Move / Rotate / Resize
+   commands still take a single object, because otherwise it would require
+   really a lot of unnecessary workarounds. Live with that.
  * The redo-command may mess up stuff.
  * ungrouping reverses the z-stack
  * unseen wiglets work? They should not.

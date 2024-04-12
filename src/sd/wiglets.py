@@ -82,13 +82,14 @@ class Wiglet:
 
 class WigletColorPicker(Wiglet):
     """Invisible wiglet that processes clicks in the color picker mode."""
-    def __init__(self, func_color, clipboard):
+    def __init__(self, bus, func_color, clipboard):
         super().__init__("colorpicker", None)
 
         self.__func_color = func_color
         self.__clipboard = clipboard
+        bus.on("left_mouse_click", self.on_click)
 
-    def on_click(self, x, y, ev):
+    def on_click(self, ev):
         """handle the click event"""
 
         # only works in color picker mode
@@ -108,7 +109,7 @@ class WigletColorPicker(Wiglet):
 
 class WigletTransparency(Wiglet):
     """Wiglet for changing the transparency."""
-    def __init__(self, state):
+    def __init__(self, bus, state):
         super().__init__("transparency", None)
 
         self.__state = state
@@ -116,6 +117,10 @@ class WigletTransparency(Wiglet):
         self.__initial_transparency = None
         self.__active = False
         print("initial transparency:", self.__initial_transparency)
+
+        bus.on("left_mouse_click", self.on_click)
+        bus.on("mouse_move", self.on_move)
+        bus.on("mouse_release", self.on_release)
 
     def draw(self, cr, state):
         """draw the widget"""
@@ -126,8 +131,9 @@ class WigletTransparency(Wiglet):
         cr.set_source_rgba(*self.__pen.color, self.__pen.transparency)
         draw_dot(cr, *self.coords, 50)
 
-    def on_click(self, x, y, ev):
+    def on_click(self, ev):
         """handle the click event"""
+        print("receiving call")
         # make sure we are in the correct mode
         if not ev.shift() or ev.alt() or not ev.ctrl():
             print("wrong modifiers")
@@ -137,7 +143,7 @@ class WigletTransparency(Wiglet):
             print("wrong event", ev.hover(), ev.corner(), ev.double())
             return False
 
-        self.coords = (x, y)
+        self.coords = (ev.event.x, ev.event.y)
 
         self.__pen    = self.__state.pen()
         self.__initial_transparency = self.__pen.transparency
@@ -145,19 +151,22 @@ class WigletTransparency(Wiglet):
         self.__active = True
         return True
 
-    def on_move(self, x, y, ev):
+    def on_move(self, ev):
         """update on mouse move"""
         if not self.__active:
             return False
+        x = ev.event.x
         dx = x - self.coords[0]
         ## we want to change the transparency by 0.1 for every 20 pixels
         self.__pen.transparency = max(0, min(1, self.__initial_transparency + dx/500))
         return True
 
-    def on_release(self, x, y, ev):
+    def on_release(self, ev):
         """handle the release event"""
+
         if not self.__active:
             return False
+
         print("got release event")
         self.__active = False
         return True
@@ -167,7 +176,7 @@ class WigletLineWidth(Wiglet):
     Wiglet for changing the line width.
     directly operates on the pen of the object
     """
-    def __init__(self, state):
+    def __init__(self, bus, state):
         super().__init__("line_width", None)
 
         if not state:
@@ -177,6 +186,10 @@ class WigletLineWidth(Wiglet):
         self.__initial_width = None
         self.__active = False
 
+        bus.on("left_mouse_click", self.on_click)
+        bus.on("mouse_move", self.on_move)
+        bus.on("mouse_release", self.on_release)
+
     def draw(self, cr, state):
         """draw the widget"""
         if not self.__active:
@@ -185,7 +198,7 @@ class WigletLineWidth(Wiglet):
         cr.set_source_rgb(*self.__pen.color)
         draw_dot(cr, *self.coords, self.__pen.line_width)
 
-    def on_click(self, x, y, ev):
+    def on_click(self, ev):
         """handle the click event"""
         # make sure we are in the correct mode
         if ev.shift() or ev.alt() or not ev.ctrl():
@@ -194,7 +207,7 @@ class WigletLineWidth(Wiglet):
         if ev.hover() or ev.corner()[0] or ev.double():
             print("wrong event", ev.hover(), ev.corner(), ev.double())
             return False
-        self.coords = (x, y)
+        self.coords = (ev.event.x, ev.event.y)
         self.__pen    = self.__state.pen()
         self.__initial_width = self.__pen.line_width
 
@@ -202,19 +215,19 @@ class WigletLineWidth(Wiglet):
         self.__active = True
         return True
 
-    def on_release(self, x, y, ev):
+    def on_release(self, ev):
         """handle the release event"""
         if not self.__active:
             return False
         self.__active = False
         return True
 
-    def on_move(self, x, y, ev):
+    def on_move(self, ev):
         """update on mouse move"""
         if not self.__active:
             return False
+        x = ev.event.x
         dx = x - self.coords[0]
-        print("changing line width", dx)
         self.__pen.line_width = max(1, min(60, self.__initial_width + dx/20))
         return True
 
@@ -231,7 +244,10 @@ class WigletPageSelector(Wiglet):
     # one possibility: get a separate function for each of these
     # or: use gom as a single object that can do all of these, but then we
     # need to be aware of the gom object
-    def __init__(self, gom, coords = (500, 0), wh = (20, 35)):
+    def __init__(self, gom, bus):
+
+        coords = (500, 0)
+        wh = (20, 35)
 
         super().__init__("page_selector", coords)
 
@@ -243,6 +259,7 @@ class WigletPageSelector(Wiglet):
         # we need to recalculate often because the pages might have been
         # changing a lot
         self.recalculate()
+        bus.on("left_mouse_click", self.on_click)
 
     def recalculate(self):
         """recalculate the position of the widget"""
@@ -264,10 +281,12 @@ class WigletPageSelector(Wiglet):
 
         self.recalculate()
 
-    def on_click(self, x, y, ev):
+    def on_click(self, ev):
         """handle the click event"""
         if not ev.state.show_wiglets():
             return False
+
+        x, y = ev.event.x, ev.event.y
 
         self.recalculate()
 
@@ -403,9 +422,10 @@ class WigletPageSelector(Wiglet):
 ## ---------------------------------------------------------------------
 class WigletToolSelector(Wiglet):
     """Wiglet for selecting the tool."""
-    def __init__(self, coords = (50, 0), width = 1000, height = 35, func_mode = None):
+    def __init__(self, bus, coords = (50, 0), func_mode = None):
         super().__init__("tool_selector", coords)
 
+        width, height = 1000, 35
         self.__icons_only = True
 
         self.__modes = [ "move", "draw", "shape", "rectangle",
@@ -422,6 +442,7 @@ class WigletToolSelector(Wiglet):
         self.__icons = { }
 
         self._init_icons()
+        bus.on("left_mouse_click", self.on_click)
 
     def _init_icons(self):
         """initialize the icons"""
@@ -495,14 +516,20 @@ class WigletToolSelector(Wiglet):
         cr.move_to(xpos, ypos)
         cr.show_text(label)
 
-    def on_click(self, x, y, ev):
+    def on_click(self, ev):
         """handle the click event"""
+        print("getting a call")
 
         if not ev.state.show_wiglets():
+            print("i am hidden")
             return False
+
+        x, y = ev.event.x, ev.event.y
+        print(x, y)
 
         dw   = self.__bbox[2] / len(self.__modes)
         if not is_click_in_bbox(x, y, self.__bbox):
+            print("not in my bbox")
             return False
 
         # which mode is at this position?
@@ -513,12 +540,11 @@ class WigletToolSelector(Wiglet):
         if self.__mode_func and callable(self.__mode_func):
             self.__mode_func(sel_mode)
 
-
         return True
 
 class WigletColorSelector(Wiglet):
     """Wiglet for selecting the color."""
-    def __init__(self, bbox = (0, 0, 15, 500),
+    def __init__(self, bus, bbox = (0, 0, 15, 500),
                  func_color = None,
                  func_bg = None):
 
@@ -531,6 +557,8 @@ class WigletColorSelector(Wiglet):
         self.__func_color = func_color
         self.__func_bg    = func_bg
         self.recalculate()
+        bus.on("update_size", self.update_size)
+        bus.on("left_mouse_click", self.on_click)
 
     def recalculate(self):
         """recalculate the position of the widget"""
@@ -580,10 +608,12 @@ class WigletColorSelector(Wiglet):
                          self.__bbox[2] - 2, h)
             cr.fill()
 
-    def on_click(self, x, y, ev):
+    def on_click(self, ev):
         """handle the click event"""
         if not ev.state.show_wiglets():
             return False
+
+        x, y = ev.event.x, ev.event.y
 
         if not is_click_in_bbox(x, y, self.__bbox):
             return False
