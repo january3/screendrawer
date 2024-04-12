@@ -362,7 +362,6 @@ class Text(Drawable):
                             self.pen.font_weight == "bold"  and
                                 cairo.FONT_WEIGHT_BOLD  or cairo.FONT_WEIGHT_NORMAL)
         cr.set_font_size(self.pen.font_size)
-        cr.set_source_rgba(*self.pen.color, self.pen.transparency)
 
         self.font_extents = cr.font_extents()
 
@@ -388,6 +387,7 @@ class Text(Drawable):
 
         for i, fragment in enumerate(content):
 
+            cr.set_source_rgba(*self.pen.color, self.pen.transparency)
             #x_bearing, y_bearing, t_width, t_height, x_advance, y_advance
             x_bearing, _, t_width, _, _, _ = cr.text_extents(fragment)
 
