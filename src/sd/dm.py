@@ -228,7 +228,6 @@ class DrawManager:
 
         return False
 
-
     def __handle_mode_specials_on_click(self, event, ev):
         """Handle special events for the current mode."""
 
