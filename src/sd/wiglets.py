@@ -278,9 +278,10 @@ class WigletPan(Wiglet):
     def __init__(self, bus, state):
         super().__init__("pan", None)
 
-        self.__bus = bus
-        self.__state = state
+        self.__bus    = bus
+        self.__state  = state
         self.__origin = None
+        self.__page   = None
         bus.on("left_mouse_click", self.on_click, priority = 9)
         bus.on("mouse_move",       self.on_move, priority = 99)
         bus.on("mouse_release",   self.on_release, priority = 99)
@@ -337,11 +338,11 @@ class WigletEditText(Wiglet):
         self.__state = state
         self.__obj   = None
         self.__active = False
-        bus.on("left_mouse_click", self.on_click, priority = 19)
+        bus.on("left_mouse_click", self.on_click, priority = 0)
         bus.on("mouse_move",       self.on_move, priority = 99)
         bus.on("mouse_release",   self.on_release, priority = 99)
         bus.on("finish_text_input", self.finish_text_input, priority = 99)
-        bus.on("left_mouse_double_click", 
+        bus.on("left_mouse_double_click",
                self.on_double_click, priority = 9)
 
     def on_double_click(self, ev):
@@ -437,7 +438,7 @@ class WigletCreateObject(Wiglet):
         self.__bus   = bus
         self.__state = state
         self.__obj   = None
-        bus.on("left_mouse_click", self.on_click, priority = 9)
+        bus.on("left_mouse_click", self.on_click, priority = 0)
         bus.on("mouse_move",       self.on_move, priority = 99)
         bus.on("mouse_release",   self.on_release, priority = 99)
 

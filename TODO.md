@@ -1,14 +1,6 @@
 To do (sorted by priority):
 
 
- 
- * mouse event should hold information about the grabbed object; actually,
-   this should probably be in the state object
- * or maybe ChatGTP is right and DM shouldn't actually do anything except
-   of parsing the events and passing them on. Maybe we could pack all event
-   information in the MouseEvent object and the state object, and then pass
-   information around "hey, there is this and this happening, who wants to
-   take it".
  * draw a dustbin wiglet in lower left corner
  * create a pen wiglet
  * when exporting with ctrl-e there should be selection option to choose
@@ -72,6 +64,11 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * or maybe ChatGTP is right and DM shouldn't actually do anything except
+   of parsing the events and passing them on. Maybe we could pack all event
+   information in the MouseEvent object and the state object, and then pass
+   information around "hey, there is this and this happening, who wants to
+   take it".
  * sort out the remove / add / group / set commands. some are taking
    objects, some are taking object lists, some are taking drawable groups.
    Inconsistent! => more or less did that. The Move / Rotate / Resize

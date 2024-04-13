@@ -72,8 +72,6 @@ class DrawManager:
 
         if ev.double():
             print("DOUBLE CLICK 1")
-           #if self.__handle_text_input_on_click(ev):
-           #    return True
             self.__timeout = None
             self.__bus.emit("left_mouse_double_click", True, ev)
             return True
@@ -98,40 +96,7 @@ class DrawManager:
             self.__bus.emit("queue_draw")
             return False
 
-        if self.__handle_mode_specials_on_click(event, ev):
-            return False
-
         return False
-
-    def __handle_mode_specials_on_click(self, event, ev):
-        """Handle special events for the current mode."""
-
-        return False
-
-    def __handle_text_input_on_click(self, ev):
-        """Check whether text object should be activated."""
-        hover_obj = ev.hover()
-
-        if not hover_obj or hover_obj.type != "text":
-            return False
-
-        if not self.__state.mode() in ["draw", "text", "move"]:
-            return False
-
-        if not ev.double():
-            return False
-
-        if ev.shift() or ev.ctrl():
-            return False
-
-        # only when double clicked with no modifiers - start editing the hover obj
-        print("starting text editing existing object")
-        hover_obj.move_caret("End")
-        self.__state.current_obj(hover_obj)
-        self.__bus.emit("queue_draw")
-        self.__cursor.set("none")
-        return True
-
 
     # Event handlers
     # XXX same comment as above

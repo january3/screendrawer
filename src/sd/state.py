@@ -245,22 +245,6 @@ class Setter:
         elif self.__state.mode() == "text":
             self.__state.pen().font_size = max(1, self.__state.pen().font_size + direction)
 
-    # ---------------------------------------------------------------------
-    def finish_text_input(self):
-        """Clean up current text and finish text input."""
-        print("finishing text input")
-        obj = self.__state.current_obj()
-
-        if obj and obj.type == "text":
-            obj.show_caret(False)
-
-            if obj.strlen() == 0:
-                print("kill object because empty")
-                self.__gom.kill_object(obj)
-
-            self.__state.current_obj_clear()
-        self.__cursor.revert()
-
 
     # ---------------------------------------------------------------------
     def clear(self):

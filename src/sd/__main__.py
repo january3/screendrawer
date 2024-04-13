@@ -147,6 +147,7 @@ class TransparentWindow(Gtk.Window):
                              cursor = self.cursor, state = self.state)
 
 
+        # initialize the wiglets - which listen to events
         wiglets = [
                    WigletEraser(bus = self.bus, state = self.state),
                    WigletCreateObject(bus = self.bus, state = self.state),

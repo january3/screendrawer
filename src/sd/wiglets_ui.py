@@ -207,7 +207,7 @@ class WigletPageSelector(Wiglet):
         # we need to recalculate often because the pages might have been
         # changing a lot
         self.recalculate()
-        bus.on("left_mouse_click", self.on_click, priority = 9)
+        bus.on("left_mouse_click", self.on_click, priority = 99)
         bus.on("update_size", self.update_size)
         bus.on("draw", self.draw)
 
@@ -392,7 +392,7 @@ class WigletToolSelector(Wiglet):
         self.__icons = { }
 
         self._init_icons()
-        bus.on("left_mouse_click", self.on_click, priority = 9)
+        bus.on("left_mouse_click", self.on_click, priority = 99)
         bus.on("draw", self.draw)
 
     def _init_icons(self):
@@ -505,7 +505,7 @@ class WigletColorSelector(Wiglet):
         self.__func_color = func_color
         self.__func_bg    = func_bg
         self.recalculate()
-        bus.on("left_mouse_click", self.on_click, priority = 9)
+        bus.on("left_mouse_click", self.on_click, priority = 99)
         bus.on("update_size", self.update_size)
         bus.on("draw", self.draw)
 
@@ -517,7 +517,7 @@ class WigletColorSelector(Wiglet):
 
     def update_size(self, width, height):
         """update the size of the widget"""
-        self.__bbox = (self.coords[0], self.coords[1], self.__bbox[2], height)
+        self.__bbox = (self.coords[0], self.coords[1], self.__bbox[2], height - 50)
         self.recalculate()
 
     def draw(self, cr, state):
