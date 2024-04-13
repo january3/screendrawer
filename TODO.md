@@ -50,6 +50,10 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * quick double clicking sometimes produces too many events leading to a
+   race condition betwen WigletCreateText and WigletCreateObject (the
+   former catches the double click, the later catches the extra single
+   click)
  * paths drawn with slanted brush report incorrect bounding box (fragments
    are cut)
  * when laptop set to low power and teams are running, the app does not

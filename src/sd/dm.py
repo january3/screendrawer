@@ -49,13 +49,6 @@ class DrawManager:
                         translate = self.__gom.page().translate(),
                         state = self.__state)
 
-        # Ignore clicks when text input is active
-        if self.__state.current_obj():
-            if  self.__state.current_obj().type == "text":
-                print("click, but text input active - finishing it first")
-                self.__setter.finish_text_input()
-
-        # right click: emit right click event
         if event.button == 3:
             if self.__handle_button_3(event, ev):
                 return True
@@ -79,8 +72,8 @@ class DrawManager:
 
         if ev.double():
             print("DOUBLE CLICK 1")
-            if self.__handle_text_input_on_click(ev):
-                return True
+           #if self.__handle_text_input_on_click(ev):
+           #    return True
             self.__timeout = None
             self.__bus.emit("left_mouse_double_click", True, ev)
             return True
@@ -114,20 +107,6 @@ class DrawManager:
         """Handle special events for the current mode."""
 
         return False
-
-    def __handle_eraser_on_click(self, ev):
-        """Handle eraser on click events."""
-        if not self.__state.mode() == "eraser":
-            return False
-
-        hover_obj = ev.hover()
-        if not hover_obj:
-            return False
-
-        self.__gom.remove_objects([ hover_obj ], clear_selection = True)
-        self.__cursor.revert()
-        self.__bus.emit("queue_draw")
-        return True
 
     def __handle_text_input_on_click(self, ev):
         """Check whether text object should be activated."""

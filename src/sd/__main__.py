@@ -150,6 +150,7 @@ class TransparentWindow(Gtk.Window):
         wiglets = [
                    WigletEraser(bus = self.bus, state = self.state),
                    WigletCreateObject(bus = self.bus, state = self.state),
+                   WigletEditText(bus = self.bus, state = self.state),
                    WigletPan(bus = self.bus, state = self.state),
                    WigletHover(bus = self.bus, state = self.state),
                    WigletSelectionTool(bus = self.bus, gom = self.gom),
@@ -167,7 +168,8 @@ class TransparentWindow(Gtk.Window):
 
 
         # em has to know about all that to link actions to methods
-        em  = EventManager(gom = self.gom, app = self,
+        em  = EventManager(bus = self.bus,
+                                gom = self.gom, app = self,
                                 state  = self.state,
                                 setter = self.setter)
         mm  = MenuMaker(self.bus, self.gom, em, self)

@@ -46,13 +46,14 @@ class EventManager:
             cls._instance = super(EventManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, gom, app, state, setter):
+    def __init__(self, bus, gom, app, state, setter):
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
             self.__state = state
             self.__setter = setter
-            self.make_actions_dictionary(gom, app, state, setter)
+            self.__bus = bus
+            self.make_actions_dictionary(bus, gom, app, state, setter)
             self.make_default_keybindings()
 
     def dispatch_action(self, action_name, **kwargs):
@@ -152,7 +153,7 @@ class EventManager:
         state.queue_draw()
 
 
-    def make_actions_dictionary(self, gom, app, state, setter):
+    def make_actions_dictionary(self, bus, gom, app, state, setter):
         """
         This dictionary maps key events to actions.
         """
@@ -167,7 +168,7 @@ class EventManager:
             'mode_shape':            {'action': state.mode, 'args': ["shape"]},
             'mode_colorpicker':      {'action': state.mode, 'args': ["colorpicker"]},
 
-            'finish_text_input':     {'action': setter.finish_text_input},
+            'finish_text_input':     {'action': bus.emit, 'args': ["finish_text_input"]},
 
             'cycle_bg_transparency': {'action': state.cycle_background},
             'toggle_outline':        {'action': state.outline_toggle},

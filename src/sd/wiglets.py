@@ -328,6 +328,106 @@ class WigletPan(Wiglet):
         self.__origin = None
         return True
 
+class WigletEditText(Wiglet):
+    """Create or edit text objects"""
+    def __init__(self, bus, state):
+        super().__init__("pan", None)
+
+        self.__bus   = bus
+        self.__state = state
+        self.__obj   = None
+        self.__active = False
+        bus.on("left_mouse_click", self.on_click, priority = 19)
+        bus.on("mouse_move",       self.on_move, priority = 99)
+        bus.on("mouse_release",   self.on_release, priority = 99)
+        bus.on("finish_text_input", self.finish_text_input, priority = 99)
+        bus.on("left_mouse_double_click", 
+               self.on_double_click, priority = 9)
+
+    def on_double_click(self, ev):
+        """Double click on text launches text editing"""
+
+        if self.__active: # currently editing
+            print("WigletEditText: we are active, double click finishes the input")
+            self.__bus.emit("finish_text_input")
+            return True
+
+        if ev.shift() or ev.ctrl() or ev.alt():
+            return False
+
+        obj = ev.hover()
+        if not (obj and obj.type == "text"):
+            return False
+
+        print("Starting to edit a text object")
+        self.__active = True
+        self.__state.current_obj(obj)
+        self.__obj = obj
+        obj.move_caret("End")
+        self.__bus.emit("queue_draw")
+        return True
+
+
+    def on_click(self, ev):
+        """Start drawing"""
+
+        if self.__active: # currently editing
+            self.__bus.emit("finish_text_input")
+            return True
+
+        mode = self.__state.mode()
+
+        if ev.shift() and not ev.ctrl():
+            mode = "text"
+
+        if mode != "text":
+            return False
+
+        print("Creating a new text object")
+        obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
+
+        if obj:
+            self.__state.current_obj(obj)
+            self.__active = True
+            self.__obj = obj
+        else:
+            print("No object created for mode", mode)
+
+        return True
+
+    def on_release(self, ev):
+        """Finish drawing object"""
+
+        obj = self.__obj
+
+        if not obj:
+            return False
+
+        self.__bus.emit("queue_draw")
+        return True
+
+    def finish_text_input(self):
+        """Finish text input"""
+        if not self.__active:
+            return False
+
+        print("Wiglet: finishing text input")
+
+        obj = self.__obj
+        obj.show_caret(False)
+
+        if obj.strlen() > 0:
+            self.__state.gom().add_object(obj)
+
+        self.__state.current_obj_clear()
+        self.__state.cursor().revert()
+        self.__active = False
+        self.__obj = None
+
+        self.__bus.emit("queue_draw")
+        return True
+
+
 class WigletCreateObject(Wiglet):
     """Create object when clicked"""
 
@@ -352,7 +452,7 @@ class WigletCreateObject(Wiglet):
         if ev.shift() and not ev.ctrl():
             mode = "text"
 
-        if mode not in [ "draw", "shape", "rectangle", "circle", "text" ]:
+        if mode not in [ "draw", "shape", "rectangle", "circle" ]:
             return False
 
         print("Creating a new object")
