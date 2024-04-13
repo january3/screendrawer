@@ -4,9 +4,10 @@ They are used to provide interactive controls for changing drawing properties
 such as line width, color, and transparency.
 """
 from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
-from .drawable_primitives import SelectionTool   # <remove>
-from .commands import RotateCommand, ResizeCommand, MoveCommand                # <remove>
-from .commands import RemoveCommand                # <remove>
+from .drawable_primitives import SelectionTool                   # <remove>
+from .commands import RotateCommand, ResizeCommand, MoveCommand  # <remove>
+from .commands import RemoveCommand                              # <remove>
+from .drawable_factory import DrawableFactory                    # <remove>
 
 
 
@@ -271,6 +272,205 @@ class WigletSelectionTool(Wiglet):
         self.__bus.emit("queue_draw")
         self.__selection_tool = None
         return True
+
+class WigletPan(Wiglet):
+    """Paning the page, i.e. tranposing it with alt-click"""
+    def __init__(self, bus, state):
+        super().__init__("pan", None)
+
+        self.__bus = bus
+        self.__state = state
+        self.__origin = None
+        bus.on("left_mouse_click", self.on_click, priority = 9)
+        bus.on("mouse_move",       self.on_move, priority = 99)
+        bus.on("mouse_release",   self.on_release, priority = 99)
+
+    def on_click(self, ev):
+        """Start paning"""
+        if ev.shift() or ev.ctrl() or not ev.alt():
+            return False
+
+        print("Panning: start")
+
+        self.__origin = (ev.event.x, ev.event.y)
+        self.__page   = self.__state.page()
+
+        return True
+
+    def on_move(self, ev):
+        """Update paning"""
+
+        if not self.__origin:
+            return False
+
+        print("my origin:", self.__origin)
+
+        page = self.__page
+        tr = page.translate()
+        if not tr:
+            tr = page.translate((0, 0))
+
+        dx, dy = ev.event.x - self.__origin[0], ev.event.y - self.__origin[1]
+        tr = (tr[0] + dx, tr[1] + dy)
+        print("Translating page by", tr)
+
+        page.translate(tr)
+
+        self.__origin = (ev.event.x, ev.event.y)
+        self.__bus.emit("queue_draw")
+        return True
+
+    def on_release(self, ev):
+        """Handle mouse release event"""
+        if not self.__origin:
+            return False
+
+        self.__origin = None
+        return True
+
+class WigletCreateObject(Wiglet):
+    """Create object when clicked"""
+
+    def __init__(self, bus, state):
+        super().__init__("pan", None)
+
+        self.__bus   = bus
+        self.__state = state
+        self.__obj   = None
+        bus.on("left_mouse_click", self.on_click, priority = 9)
+        bus.on("mouse_move",       self.on_move, priority = 99)
+        bus.on("mouse_release",   self.on_release, priority = 99)
+
+    def on_click(self, ev):
+        """Start drawing"""
+
+       #if ev.hover() or ev.corner()[0] or ev.double():
+       #    return False
+
+        mode = self.__state.mode()
+
+        if ev.shift() and not ev.ctrl():
+            mode = "text"
+
+        if mode not in [ "draw", "shape", "rectangle", "circle", "text" ]:
+            return False
+
+        print("Creating a new object")
+        obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
+
+        if obj:
+            self.__state.current_obj(obj)
+            self.__obj = obj
+        else:
+            print("No object created for mode", mode)
+
+        return True
+
+    def on_move(self, ev):
+        """Update drawing object"""
+        obj = self.__obj
+
+        if not obj:
+            return False
+
+        obj.update(ev.x, ev.y, ev.pressure())
+        self.__bus.emit("queue_draw")
+        return True
+
+    def on_release(self, ev):
+        """Finish drawing object"""
+
+        obj = self.__obj
+
+        if not obj:
+            return False
+
+        if obj.type in [ "shape", "path" ]:
+            print("finishing path / shape")
+            obj.path_append(ev.x, ev.y, 0)
+            obj.finish()
+            # remove paths that are too small
+            if len(obj.coords) < 3:
+                print("removing object of type", obj.type, "because too small")
+                self.__state.current_obj_clear()
+                obj = None
+
+        # remove objects that are too small
+        if obj:
+            bb = obj.bbox()
+            if bb and obj.type in [ "rectangle", "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
+                print("removing object of type", obj.type, "because too small")
+                self.__state.current_obj_clear()
+                obj = None
+
+        if obj:
+            self.__state.gom().add_object(obj)
+
+            # with text, we are not done yet! Need to keep current object
+            # such that keyboard events can update it
+            if self.__state.current_obj().type != "text":
+                self.__state.selection().clear()
+                self.__state.current_obj_clear()
+
+        self.__obj = None
+        self.__bus.emit("queue_draw")
+        return True
+
+class WigletEraser(Wiglet):
+    """Erase mode. Removes objects."""
+
+    def __init__(self, bus, state):
+        super().__init__("pan", None)
+
+        self.__bus    = bus
+        self.__state  = state
+        self.__active = False
+        bus.on("left_mouse_click", self.on_click, priority = 10)
+        bus.on("mouse_move",       self.on_move, priority = 99)
+        bus.on("mouse_release",   self.on_release, priority = 99)
+
+    def on_click(self, ev):
+        """Clicking above an object removes it"""
+
+        if not self.__state.mode() == "eraser":
+            return False
+
+        self.__active = True
+        self.__delete_hover(ev)
+
+        return True
+
+    def __delete_hover(self, ev):
+        """Delete object underneath"""
+        hover_obj = ev.hover()
+
+        if not hover_obj:
+            return
+
+        print("removing object")
+        gom = self.__state.gom()
+        gom.remove_objects([ hover_obj ], clear_selection = True)
+        self.__state.cursor().revert()
+        self.__bus.emit("queue_draw")
+
+    def on_move(self, ev):
+        """Process move: if active, delete everything underneath"""
+
+        if not self.__active:
+            return False
+
+        self.__delete_hover(ev)
+        return True
+
+    def on_release(self, ev):
+        """Stop being active"""
+        if not self.__active:
+            return False
+
+        self.__active = False
+        return True
+
+
 
 # ---------------------------------------------------------------------
 class WigletColorPicker(Wiglet):

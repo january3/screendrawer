@@ -30,6 +30,7 @@ class Bus:
                 #print("event", event, "calling", listener)
                 ret = listener(*args, **kwargs)
                 if ret:
+                    #print("Event", event, "caught by:", listener)
                     caught = True
                     if exclusive:
                         return ret

@@ -408,7 +408,10 @@ Parked ideas:
    much harder than I thought it would be, but fun.
 
 Rejected ideas:
- * Native SVG format. This is MUCH slower.
+ * selectiontool in erase mode should remove the selected objects =>
+   actually not, because I would prefer to erase the objects along the
+   track.
+ * Native SVG format. This would be MUCH slower to start.
  * how about: each object has methods "save_state" (which returns
    everything that is needed to completely restore state) and "restore_state"
    (which restores the state). This would allow to save the state of the

@@ -148,6 +148,9 @@ class TransparentWindow(Gtk.Window):
 
 
         wiglets = [
+                   WigletEraser(bus = self.bus, state = self.state),
+                   WigletCreateObject(bus = self.bus, state = self.state),
+                   WigletPan(bus = self.bus, state = self.state),
                    WigletHover(bus = self.bus, state = self.state),
                    WigletSelectionTool(bus = self.bus, gom = self.gom),
                    WigletResizeRotate(bus = self.bus, gom = self.gom, state = self.state),

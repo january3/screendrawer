@@ -42,6 +42,19 @@ class State:
                             font_size = 24, transparency = .2) ]
 
     # -------------------------------------------------------------------------
+
+    def gom(self):
+        """Return GOM"""
+        return self.__gom
+
+    def page(self):
+        """Current page"""
+        return self.__gom.page()
+
+    def selection(self):
+        """Current selection"""
+        return self.__gom.selection()
+
     def current_obj(self, obj = None):
         """Get or set the current object."""
         if obj:
