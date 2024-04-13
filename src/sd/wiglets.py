@@ -12,6 +12,7 @@ from .utils import draw_dot, is_click_in_bbox  # <remove>
 from .icons import Icons                       # <remove>
 from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 from .drawable_primitives import SelectionTool   # <remove>
+from .commands import RotateCommand, ResizeCommand, MoveCommand                # <remove>
 
 def draw_rhomb(cr, bbox, fg = (0, 0, 0), bg = (1, 1, 1)):
     """
@@ -69,28 +70,147 @@ class Wiglet:
     def draw(self, cr, state): # pylint: disable=unused-argument
         """do not draw the widget"""
 
-    def on_click(self, x, y, ev): # pylint: disable=unused-argument
+    def on_click(self, ev): # pylint: disable=unused-argument
         """ignore the click event"""
         return False
 
-    def on_release(self, x, y, ev): # pylint: disable=unused-argument
+    def on_release(self, ev): # pylint: disable=unused-argument
         """ignore the release event"""
         return False
 
-    def on_move(self, x, y, ev): # pylint: disable=unused-argument
+    def on_move(self, ev): # pylint: disable=unused-argument
         """ignore update on mouse move"""
         return False
+
+class WigletResizeRotate(Wiglet):
+    """Catch resize events and update the size of the object."""
+
+    def __init__(self, bus, gom, state):
+        super().__init__("resize", None)
+        self.__gom = gom
+        self.__bus = bus
+        self.__cmd = None
+        self.__state = state
+
+        bus.on("left_mouse_click", self.on_click)
+        bus.on("mouse_move", self.on_move)
+        bus.on("mouse_release", self.on_release)
+
+    def on_click(self, ev):
+        print("resize widget clicked")
+        if ev.mode() != "move" or ev.alt():
+            print("resizing - wrong modifiers")
+            return False
+
+        corner_obj, corner = ev.corner()
+        if not corner_obj or not corner_obj.bbox() or ev.double():
+            print("widget resizing wrong event", ev.hover(), ev.corner(), ev.double())
+            return False
+        print("widget resizing object", corner_obj)
+
+        if ev.ctrl() and ev.shift():
+            print("resizing with both shift and ctrl")
+            self.__cmd = RotateCommand(corner_obj, origin = ev.pos(),
+                                             corner = corner)
+        else:
+            self.__cmd = ResizeCommand(corner_obj, origin = ev.pos(),
+                                   corner = corner, 
+                                   proportional = ev.ctrl())
+
+        self.__gom.selection().set([corner_obj])
+        self.__state.cursor().set(corner)
+        self.__bus.emit("queue_draw")
+
+        return True
+
+    def on_move(self, ev):
+        if not self.__cmd:
+            return False
+
+        self.__cmd.event_update(*ev.pos())
+        self.__bus.emit("queue_draw")
+        return True
+
+    def on_release(self, ev):
+        if not self.__cmd:
+            return False
+        self.__cmd.event_update(*ev.pos())
+        self.__cmd.event_finish()
+        self.__gom.command_append([ self.__cmd ])
+        self.__state.cursor().revert()
+        self.__cmd = None
+        self.__bus.emit("queue_draw")
+        return True
+
+class WigletMove(Wiglet):
+    """Catch moving events and update the position of the object."""
+
+    def __init__(self, bus, gom, state):
+        super().__init__("move", None)
+        self.__gom = gom
+        self.__bus = bus
+        self.__cmd = None
+        self.__state = state
+
+        bus.on("left_mouse_click", self.on_click)
+        bus.on("mouse_move", self.on_move)
+        bus.on("mouse_release", self.on_release)
+
+    def on_click(self, ev):
+        if ev.mode() != "move" or ev.alt() or ev.ctrl():
+            print("wrong modifiers")
+            return False
+
+        if not ev.hover() or ev.corner()[0] or ev.double():
+            print("widget moving wrong event", ev.hover(), ev.corner(), ev.double())
+            return False
+        print("widget moving object", ev.hover())
+
+        # first, update the current selection
+        obj = ev.hover()
+        selection = self.__gom.selection()
+
+        if ev.shift():
+            selection.add(obj)
+        if not selection.contains(obj):
+            selection.set([obj])
+
+        self.__cmd = MoveCommand(selection.copy(), ev.pos())
+        self.__state.cursor().set("grabbing")
+        self.__bus.emit("queue_draw")
+
+        return True
+
+    def on_move(self, ev):
+        if not self.__cmd:
+            return False
+
+        self.__cmd.event_update(*ev.pos())
+        self.__bus.emit("queue_draw")
+        return True
+
+    def on_release(self, ev):
+        if not self.__cmd:
+            return False
+        # XXX check whether we have to remove the object b/c lower left
+        # corner
+        self.__cmd.event_update(*ev.pos())
+        self.__cmd.event_finish()
+        self.__gom.command_append([ self.__cmd ])
+        self.__state.cursor().revert()
+        self.__cmd = None
+        self.__bus.emit("queue_draw")
+        return True
 
 class WigletSelectionTool(Wiglet):
     """Draw the selection tool when activated."""
 
-    def __init__(self, bus, gom, state):
+    def __init__(self, bus, gom):
         super().__init__("selection_tool", None)
 
         self.__selection_tool = None
         self.__bus = bus
         self.__gom   = gom
-        self.__state = state
         bus.on("left_mouse_click", self.on_click, priority = -1)
         bus.on("mouse_move",       self.on_move)
         bus.on("mouse_release",   self.on_release)

@@ -89,7 +89,7 @@ class DrawManager:
         pos = ev.pos()
         shift, ctrl = ev.shift(), ev.ctrl()
 
-        if corner_obj and corner_obj.bbox():
+        if False and corner_obj and corner_obj.bbox():
             print("starting resize")
             print("ctrl:", ctrl, "shift:", shift)
             # XXX this code here is one of the reasons why rotating or resizing the
@@ -106,7 +106,7 @@ class DrawManager:
             self.__cursor.set(corner)
             return True
 
-        if hover_obj:
+        if False and hover_obj:
             if ev.shift():
                 # add if not present, remove if present
                 print("adding object to selection:", hover_obj)
@@ -297,9 +297,6 @@ class DrawManager:
         if self.__handle_current_object_on_release(ev):
             return True
 
-        if self.__handle_drag_on_release(event):
-            return True
-
         return True
 
     def __handle_current_object_on_release(self, ev):
@@ -423,12 +420,12 @@ class DrawManager:
         self.__bus.emit("queue_draw")
         return True
 
-    def __on_motion_update_resize(self, event):
+    def __on_motion_update_resize(self, ev):
         """Handle on motion update for resizing."""
         if not self.__resizeobj:
             return False
 
-        self.__resizeobj.event_update(event.x, event.y)
+        self.__resizeobj.event_update(ev.x, ev.y)
         self.__bus.emit("queue_draw")
         return True
 

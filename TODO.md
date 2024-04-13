@@ -1,6 +1,7 @@
 To do (sorted by priority):
 
 
+ 
  * mouse event should hold information about the grabbed object; actually,
    this should probably be in the state object
  * or maybe ChatGTP is right and DM shouldn't actually do anything except
@@ -37,6 +38,11 @@ To do (sorted by priority):
  * make wiglets movable
 
 Design issues:
+ * why is history in gom? shouldn't it be in the commands? As in, commands
+   should actually add themselves to history? -> but how: undo has to call
+   on history object, so we would have to pass the history to each command
+   that we create. Unless we make history a singleton, and then commands
+   can simply create the history object and get always the same instance.
  * the interaction between canvas, gom, dm, em is tangled. 
  * It is not entirely clear where the file is saved. In theory it is, but
    in practice I find myself wondering.
@@ -44,6 +50,8 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * paths drawn with slanted brush report incorrect bounding box (fragments
+   are cut)
  * when laptop set to low power and teams are running, the app does not
    work efficiently. Not sure what can be done about that, as it seems that
    it is more of a polling issue. Maybe create a very simple pen with no
