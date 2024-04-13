@@ -13,6 +13,7 @@ from .icons import Icons                       # <remove>
 from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 from .drawable_primitives import SelectionTool   # <remove>
 from .commands import RotateCommand, ResizeCommand, MoveCommand                # <remove>
+from .commands import RemoveCommand                # <remove>
 
 def draw_rhomb(cr, bbox, fg = (0, 0, 0), bg = (1, 1, 1)):
     """
@@ -151,6 +152,7 @@ class WigletMove(Wiglet):
         self.__bus = bus
         self.__cmd = None
         self.__state = state
+        self.__obj = None
 
         bus.on("left_mouse_click", self.on_click)
         bus.on("mouse_move", self.on_move)
@@ -175,7 +177,8 @@ class WigletMove(Wiglet):
         if not selection.contains(obj):
             selection.set([obj])
 
-        self.__cmd = MoveCommand(selection.copy(), ev.pos())
+        self.__obj = selection.copy()
+        self.__cmd = MoveCommand(self.__obj, ev.pos())
         self.__state.cursor().set("grabbing")
         self.__bus.emit("queue_draw")
 
@@ -194,11 +197,26 @@ class WigletMove(Wiglet):
             return False
         # XXX check whether we have to remove the object b/c lower left
         # corner
-        self.__cmd.event_update(*ev.pos())
-        self.__cmd.event_finish()
-        self.__gom.command_append([ self.__cmd ])
+        _, height = self.__state.get_win_size()
+        cmd = self.__cmd
+        cmd.event_update(*ev.pos())
+        cmd.event_finish()
+
+        obj = self.__obj
+        gom = self.__gom
+
+        if ev.event.x < 10 and ev.event.y > height - 10:
+            # command group because these are two commands: first move,
+            # then remove
+            gom.command_append([ cmd,
+                                 RemoveCommand(obj.objects,
+                                               gom.objects()) ])
+            gom.selection().clear()
+        else:
+            gom.command_append([ cmd ])
         self.__state.cursor().revert()
         self.__cmd = None
+        self.__obj = None
         self.__bus.emit("queue_draw")
         return True
 

@@ -61,7 +61,6 @@ class DrawManager:
         self.__timeout = None # for discerning double clicks
 
         # objects that indicate the state of the drawing area
-        self.__resizeobj = None
         self.__paning = None
         # drawing parameters
 
@@ -77,50 +76,6 @@ class DrawManager:
         print(f"Zooming: Scale: {scale}, gesture: {gesture}")
 
     # ---------------------------------------------------------------------
-
-    def __move_resize_rotate(self, ev):
-        """Process events for moving, resizing and rotating objects."""
-
-        if self.__state.mode() != "move":
-            return False
-
-        corner_obj, corner = ev.corner()
-        hover_obj  = ev.hover()
-        pos = ev.pos()
-        shift, ctrl = ev.shift(), ev.ctrl()
-
-        if False and corner_obj and corner_obj.bbox():
-            print("starting resize")
-            print("ctrl:", ctrl, "shift:", shift)
-            # XXX this code here is one of the reasons why rotating or resizing the
-            # whole selection does not work. The other reason is that the
-            # selection object itself is not considered when detecting
-            # hover or corner objects.
-            if ctrl and shift:
-                self.__resizeobj = RotateCommand(corner_obj, origin = pos,
-                                                 corner = corner)
-            else:
-                self.__resizeobj = ResizeCommand(corner_obj, origin = pos,
-                                                 corner = corner, proportional = ctrl)
-            self.__gom.selection().set([ corner_obj ])
-            self.__cursor.set(corner)
-            return True
-
-        if False and hover_obj:
-            if ev.shift():
-                # add if not present, remove if present
-                print("adding object to selection:", hover_obj)
-                self.__gom.selection().add(hover_obj)
-            if not self.__gom.selection().contains(hover_obj):
-                print("object not in selection, setting selection to it:", hover_obj)
-                self.__gom.selection().set([ hover_obj ])
-            # we are using the .selection().copy() because the selection
-            # object can change in time
-            self.__resizeobj = MoveCommand(self.__gom.selection().copy(), pos)
-            self.__cursor.set("grabbing")
-            return True
-
-        return False
 
     def create_object(self, ev):
         """Create an object based on the current mode."""
@@ -214,9 +169,6 @@ class DrawManager:
 
         if ev.alt():
             self.__paning = (event.x, event.y)
-            return False
-
-        if self.__move_resize_rotate(ev):
             return False
 
         if self.__handle_mode_specials_on_click(event, ev):
@@ -334,36 +286,6 @@ class DrawManager:
         self.__bus.emit("queue_draw")
         return True
 
-    def __handle_drag_on_release(self, event):
-        """Handle mouse release on drag events."""
-        if not self.__resizeobj:
-            return False
-
-        # If the user was dragging a selected object and the drag ends
-        # in the lower left corner, delete the object
-        self.__resizeobj.event_finish()
-        # self.__resizeobj is a command object
-        # self.__resizeobj.obj is a copy of the selection group
-        # self.__resizeobj.obj.objects is the list of objects in the copy of the selection group
-
-        obj = self.__resizeobj.obj
-
-        _, height = self.__state.get_win_size()
-        if self.__resizeobj.command_type() == "move" and  event.x < 10 and event.y > height - 10:
-            # command group because these are two commands: first move,
-            # then remove
-            self.__gom.command_append([ self.__resizeobj,
-                                       RemoveCommand(obj.objects,
-                                                     self.__gom.objects()) ])
-            self.__gom.selection().clear()
-        else:
-            self.__gom.command_append([ self.__resizeobj ])
-        self.__resizeobj    = None
-        self.__cursor.revert()
-        self.__bus.emit("queue_draw")
-
-        return True
-
     # ---------------------------------------------------------------------
     # motion event handlers
 
@@ -386,9 +308,6 @@ class DrawManager:
             return True
 
         if self.__on_motion_update_object(ev):
-            return True
-
-        if self.__on_motion_update_resize(ev):
             return True
 
         self.__on_motion_process_hover(ev)
@@ -417,15 +336,6 @@ class DrawManager:
             self.__state.hover_obj(corner_obj)
             self.__bus.emit("queue_draw")
 
-        self.__bus.emit("queue_draw")
-        return True
-
-    def __on_motion_update_resize(self, ev):
-        """Handle on motion update for resizing."""
-        if not self.__resizeobj:
-            return False
-
-        self.__resizeobj.event_update(ev.x, ev.y)
         self.__bus.emit("queue_draw")
         return True
 
