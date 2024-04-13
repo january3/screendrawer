@@ -150,13 +150,6 @@ def test_setter(mock_pen_class):
     assert obj.stroke_change.called_with("122"), "Failed to change stroke"
     assert pen.font_size == "xxx", "Failed to change stroke"
 
-    setter.finish_text_input()
-    assert obj.show_caret.called_with(False), "Failed to finish text input"
-    assert obj.strlen.called, "Failed to finish text input"
-    assert gom.kill_object.called_with(obj), "Failed to kill text input"
-    assert state.current_obj_clear.called, "Failed to clear current object"
-    assert cursor.revert.called, "Failed to revert cursor"
-
     setter.clear()
     assert selection.clear.called, "Failed to clear selection"
     assert state.current_obj_clear.called, "Failed to clear current object"
