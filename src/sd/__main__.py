@@ -53,6 +53,7 @@ from sd.import_export import *            ###<placeholder sd/import_export.py>
 from sd.em import *                       ###<placeholder sd/em.py>
 from sd.menus import *                    ###<placeholder sd/menus.py>
 from sd.wiglets import *                  ###<placeholder sd/wiglets.py>
+from sd.wiglets_ui import *               ###<placeholder sd/wiglets.py>
 from sd.dm import *                       ###<placeholder sd/dm.py>
 from sd.icons import Icons                ###<placeholder sd/icons.py>
 from sd.page import Page                  ###<placeholder sd/page.py>
@@ -146,7 +147,9 @@ class TransparentWindow(Gtk.Window):
                              cursor = self.cursor, state = self.state)
 
 
-        wiglets = [WigletSelectionTool(bus = self.bus, gom = self.gom),
+        wiglets = [
+                   WigletHover(bus = self.bus, state = self.state),
+                   WigletSelectionTool(bus = self.bus, gom = self.gom),
                    WigletResizeRotate(bus = self.bus, gom = self.gom, state = self.state),
                    WigletMove(bus = self.bus, gom = self.gom, state = self.state),
                    WigletColorSelector(bus = self.bus, func_color = self.setter.set_color,

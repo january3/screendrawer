@@ -7,8 +7,6 @@ gi.require_version('Gtk', '3.0')                           # <remove> pylint: di
 from gi.repository import GLib                  # <remove>
 
 from .drawable_factory import DrawableFactory             # <remove>
-from .drawable_primitives import SelectionTool             # <remove>
-from .commands import RemoveCommand, MoveCommand, ResizeCommand, RotateCommand  # <remove>
 from .events   import MouseEvent                                 # <remove>
 #from sd.cursor   import CursorManager                            # <remove>
 
@@ -130,10 +128,7 @@ class DrawManager:
             print("bus event caught the click")
             return True
 
-        if ev.shift():
-            return False
-        #self.on_right_click(ev)
-        return True
+        return False
 
     def __handle_button_1(self, event, ev):
         """Handle left click events."""
@@ -150,8 +145,6 @@ class DrawManager:
 
         GLib.timeout_add(50, self.__handle_button_1_single_click, event, ev)
         return True
-
-        return self.__handle_button_1_single_click(event, ev)
 
     def __handle_button_1_single_click(self, event, ev):
         """Handle left click events."""
@@ -198,7 +191,6 @@ class DrawManager:
             return False
 
         self.__gom.remove_objects([ hover_obj ], clear_selection = True)
-        self.__resizeobj   = None
         self.__cursor.revert()
         self.__bus.emit("queue_draw")
         return True
@@ -310,33 +302,7 @@ class DrawManager:
         if self.__on_motion_update_object(ev):
             return True
 
-        self.__on_motion_process_hover(ev)
         # stop event propagation
-        return True
-
-    def __on_motion_process_hover(self, ev):
-        """Process hover events."""
-
-        if not self.__state.mode() == "move":
-            return False
-
-        object_underneath = ev.hover()
-
-        if object_underneath:
-            self.__cursor.set("moving")
-            self.__state.hover_obj(object_underneath)
-        else:
-            self.__cursor.revert()
-            self.__state.hover_obj_clear()
-
-        corner_obj, corner = ev.corner()
-
-        if corner_obj and corner_obj.bbox():
-            self.__cursor.set(corner)
-            self.__state.hover_obj(corner_obj)
-            self.__bus.emit("queue_draw")
-
-        self.__bus.emit("queue_draw")
         return True
 
     def __on_motion_update_object(self, event):
@@ -363,5 +329,3 @@ class DrawManager:
         self.__paning = (event.x, event.y)
         self.__bus.emit("queue_draw")
         return True
-
-        return False
