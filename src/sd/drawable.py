@@ -122,8 +122,19 @@ class Drawable(DrawableRoot):
             self.pen    = pen.copy()
         else:
             self.pen    = None
+        
+        self.__modified = None
 
     # ------------ Drawable attribute methods ------------------
+    def modified(self, mod=False):
+        """Was the object modified?"""
+        if mod:
+            self.mod += 1
+        status = self.mod != self.__modified
+        self.__modified = self.mod
+
+        return status
+
     def pen_set(self, pen):
         """Set the pen of the object."""
         self.pen = pen.copy()

@@ -23,6 +23,23 @@ class DrawableGroup(Drawable):
         #print("Creating DrawableGroup with ", len(objects), "objects")
         super().__init__(mytype, [ (None, None) ], None)
         self.objects = objects
+        self.__modif = None
+
+    def modified(self, mod=False):
+        """Was the object modified?"""
+        ret = False
+
+        for obj in self.objects:
+            ret = obj.modified(mod) or ret
+
+        if mod:
+            self.mod += 1
+
+        status = ret or self.mod != self.__modif
+        self.__modif = self.mod
+
+        return status
+
 
     def contains(self, obj):
         """Check if the group contains the object."""

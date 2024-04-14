@@ -66,6 +66,22 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * after changing pen color the cache is not updated (probably because the
+   objects do not know the pen has changed) => no, the reason is different:
+   if drawable primitives are grouped, the primitives are extracted and
+   modified, but the DrawableGroup is not updated so it does not "know"
+   it has been modified. The drawer however only checks whether Drawable
+   group was modified. Potential solutions:
+    * directly check in SetPropCommand whether an object in the argument list 
+      is a Drawable, and if yes, tell it to modify itself
+    * add a callback for the parent from the primitives. More flexible, but
+      might be problematic in case of SelectionObjects.
+    * somehow pass the call to modify the property through the
+      DrawableGroup, but then this raises a question, how do we track the
+      modifications in the command
+    * or maybe add a "mod" method to Drawable, which simply tells the
+      object it has been modified; then, in cmd, call that method for every
+      object in the argument list - just to make sure.
  * or maybe ChatGTP is right and DM shouldn't actually do anything except
    of parsing the events and passing them on. Maybe we could pack all event
    information in the MouseEvent object and the state object, and then pass

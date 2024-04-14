@@ -584,8 +584,8 @@ class WigletColorSelector(Wiglet):
         else:
             print("setting fg to color", sel_color)
             self.__bus.emit("set_color", True, sel_color)
-           #if sel_color and self.__func_color and callable(self.__func_color):
-           #    self.__func_color(sel_color)
+
+        self.__bus.emit("queue_draw")
         return True
 
     def generate_colors(self):

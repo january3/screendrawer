@@ -145,6 +145,7 @@ class Drawer:
             status = obj_status(obj, selection, state)
 
             is_same = obj in modhash and modhash[obj] == status and not status[3]
+            is_same = is_same and not obj.modified()
 
             if first_is_same is None:
                 first_is_same = is_same
