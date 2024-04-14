@@ -54,7 +54,6 @@ from sd.em import *                       ###<placeholder sd/em.py>
 from sd.menus import *                    ###<placeholder sd/menus.py>
 from sd.wiglets import *                  ###<placeholder sd/wiglets.py>
 from sd.wiglets_ui import *               ###<placeholder sd/wiglets.py>
-from sd.dm import *                       ###<placeholder sd/dm.py>
 from sd.icons import Icons                ###<placeholder sd/icons.py>
 from sd.page import Page                  ###<placeholder sd/page.py>
 from sd.canvas import Canvas              ###<placeholder sd/canvas.py>
@@ -143,8 +142,7 @@ class TransparentWindow(Gtk.Window):
 
         self.clipboard           = Clipboard()
 
-        self.setter = Setter(app = self, gom = self.gom, 
-                             cursor = self.cursor, state = self.state)
+        self.setter = Setter(bus = self.bus, app = self, state = self.state)
 
 
         # initialize the wiglets - which listen to events
@@ -177,9 +175,8 @@ class TransparentWindow(Gtk.Window):
 
         # dm needs to know about gom because gom manipulates the selection
         # and history (object creation etc)
-        self.dm                  = DrawManager(bus = self.bus, gom = self.gom,
-                                               state = self.state, 
-                                               setter = self.setter)
+        #self.dm                  = DrawManager(bus = self.bus, state = self.state)
+        self.mouse = MouseCatcher(bus = self.bus, state = self.state)
 
         # canvas orchestrates the drawing
         self.canvas              = Canvas(state = self.state, bus = self.bus)
@@ -209,9 +206,9 @@ class TransparentWindow(Gtk.Window):
 
         self.connect("key-press-event",      em.on_key_press)
         self.connect("draw",                 self.canvas.on_draw)
-        self.connect("button-press-event",   self.dm.on_button_press)
-        self.connect("button-release-event", self.dm.on_button_release)
-        self.connect("motion-notify-event",  self.dm.on_motion_notify)
+        self.connect("button-press-event",   self.mouse.on_button_press)
+        self.connect("button-release-event", self.mouse.on_button_release)
+        self.connect("motion-notify-event",  self.mouse.on_motion_notify)
 
     def exit(self):
         """Exit the application."""
@@ -302,7 +299,7 @@ class TransparentWindow(Gtk.Window):
         """Select a color for drawing using ColorChooser dialog."""
         color = ColorChooser(self)
         if color:
-            self.setter.set_color((color.red, color.green, color.blue))
+            self.bus.emit("set_color", True, (color.red, color.green, color.blue))
 
     def select_font(self):
         """Select a font for drawing using FontChooser dialog."""

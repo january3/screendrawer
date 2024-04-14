@@ -363,8 +363,7 @@ class WigletEditText(Wiglet):
         print("Starting to edit a text object")
         self.__active = True
         self.__state.current_obj(obj)
-        self.__obj = obj
-        obj.move_caret("End")
+        self.__obj.move_caret("End")
         self.__bus.emit("queue_draw")
         return True
 

@@ -504,6 +504,7 @@ class WigletColorSelector(Wiglet):
         self.__dh = 25
         self.__func_color = func_color
         self.__func_bg    = func_bg
+        self.__bus = bus
         self.recalculate()
         bus.on("left_mouse_click", self.on_click, priority = 99)
         bus.on("update_size", self.update_size)
@@ -582,8 +583,9 @@ class WigletColorSelector(Wiglet):
                 self.__func_bg(sel_color)
         else:
             print("setting fg to color", sel_color)
-            if sel_color and self.__func_color and callable(self.__func_color):
-                self.__func_color(sel_color)
+            self.__bus.emit("set_color", True, sel_color)
+           #if sel_color and self.__func_color and callable(self.__func_color):
+           #    self.__func_color(sel_color)
         return True
 
     def generate_colors(self):

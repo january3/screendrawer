@@ -195,11 +195,14 @@ class Setter:
             cls.__new_instance = super(Setter, cls).__new__(cls)
         return cls.__new_instance
 
-    def __init__(self, app, gom, cursor, state):
+    def __init__(self, bus, app, state):
+        self.__bus  = bus
         self.__state = state
         self.__app = app
-        self.__gom = gom
-        self.__cursor = cursor
+        self.__gom = state.gom()
+        self.__cursor = state.cursor()
+
+        bus.on("set_color", self.set_color)
 
 
     # -------------------------------------------------------------------------
