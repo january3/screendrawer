@@ -109,6 +109,7 @@ def test_state_pen(mock_pen_class):
 def test_setter(mock_pen_class):
     """Test the setter class"""
 
+    bus = MagicMock()
     app = MagicMock()
     gom = MagicMock()
     gom.page.return_value = 42
@@ -117,6 +118,8 @@ def test_setter(mock_pen_class):
 
     cursor = MagicMock()
     state = MagicMock()
+    state.cursor.return_value = cursor
+    state.gom.return_value = gom
 
     pen = MagicMock()
     pen.color = (1, 0, 0)
@@ -131,7 +134,7 @@ def test_setter(mock_pen_class):
     obj.strlen.return_value = 0
     state.current_obj.return_value = obj
 
-    setter = Setter(app, gom, cursor, state)
+    setter = Setter(bus, app, state)
 
     setter.set_font("42")
     assert state.pen.called, "Failed to set font"

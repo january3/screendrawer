@@ -373,7 +373,7 @@ class TransparentWindow(Gtk.Window):
     def __screenshot_finalize(self, bb):
         """Finish up the screenshot."""
         print("Taking screenshot now")
-        dx, dy = self.gom.page().translate()
+        dx, dy = self.gom.page().translate() or (0, 0)
         print("translate is", dx, dy)
         frame = (bb[0] - 3 + dx, bb[1] - 3 + dy, bb[0] + bb[2] + 6 + dx, bb[1] + bb[3] + 6 + dy)
         print("frame is", frame)

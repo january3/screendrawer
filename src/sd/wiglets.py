@@ -64,7 +64,7 @@ class WigletResizeRotate(Wiglet):
         print("widget resizing object", corner_obj)
 
         if ev.ctrl() and ev.shift():
-            print("resizing with both shift and ctrl")
+            print("rotating with both shift and ctrl")
             self.__cmd = RotateCommand(corner_obj, origin = ev.pos(),
                                              corner = corner)
         else:
@@ -361,6 +361,7 @@ class WigletEditText(Wiglet):
             return False
 
         print("Starting to edit a text object")
+        self.__obj = obj
         self.__active = True
         self.__state.current_obj(obj)
         self.__obj.move_caret("End")
