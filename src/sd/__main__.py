@@ -154,7 +154,7 @@ class TransparentWindow(Gtk.Window):
                    WigletHover(bus = self.bus, state = self.state),
                    WigletSelectionTool(bus = self.bus, gom = self.gom),
                    WigletResizeRotate(bus = self.bus, gom = self.gom, state = self.state),
-                   WigletMove(bus = self.bus, gom = self.gom, state = self.state),
+                   WigletMove(bus = self.bus, state = self.state),
                    WigletColorSelector(bus = self.bus, func_color = self.setter.set_color,
                                         func_bg = self.state.bg_color),
                    WigletToolSelector(bus = self.bus, func_mode = self.state.mode),

@@ -111,7 +111,7 @@ class WigletHover(Wiglet):
     def on_move(self, ev):
         """When cursor hovers over an object"""
 
-        if not self.__state.mode() == "move":
+        if not ev.mode() == "move":
             return False
 
         corner_obj, corner = ev.corner()
@@ -135,9 +135,9 @@ class WigletHover(Wiglet):
 class WigletMove(Wiglet):
     """Catch moving events and update the position of the object."""
 
-    def __init__(self, bus, gom, state):
+    def __init__(self, bus, state):
         super().__init__("move", None)
-        self.__gom = gom
+        self.__gom = state.gom()
         self.__bus = bus
         self.__cmd = None
         self.__state = state
@@ -148,18 +148,18 @@ class WigletMove(Wiglet):
         bus.on("mouse_release", self.on_release)
 
     def on_click(self, ev):
+        obj = ev.hover()
+
         if ev.mode() != "move" or ev.alt() or ev.ctrl():
             print("wrong modifiers")
             return False
 
-        if not ev.hover() or ev.corner()[0] or ev.double():
-            print("widget moving wrong event", ev.hover(), ev.corner(), ev.double())
+        if not obj or ev.corner()[0] or ev.double():
+            print("widget moving wrong event", obj, ev.corner(), ev.double())
             return False
-        print("widget moving object", ev.hover())
 
         # first, update the current selection
-        obj = ev.hover()
-        selection = self.__gom.selection()
+        selection = self.__state.selection()
 
         if ev.shift():
             selection.add(obj)
