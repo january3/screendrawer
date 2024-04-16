@@ -84,7 +84,7 @@ class Drawer:
 
         cur = groups["first_is_same"]
 
-        # for each non-empty group of objects that remained the same,
+        # for each non-empty group of objects that changed
         # generate a cache surface and draw the group on it
         for obj_grp in groups["groups"]:
             if not cur or not obj_grp:

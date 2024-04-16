@@ -448,6 +448,9 @@ class WigletCreateObject(Wiglet):
        #if ev.hover() or ev.corner()[0] or ev.double():
        #    return False
 
+        if ev.ctrl() or ev.alt():
+            return False
+
         mode = self.__state.mode()
 
         if ev.shift() and not ev.ctrl():
