@@ -377,8 +377,9 @@ class WigletEditText(Wiglet):
             return True
 
         mode = self.__state.mode()
+        print("mode", mode)
 
-        if ev.shift() and not ev.ctrl():
+        if ev.shift() and not ev.ctrl() and mode != "move":
             mode = "text"
 
         if mode != "text":
