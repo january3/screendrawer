@@ -228,12 +228,12 @@ class TransparentWindow(Gtk.Window):
         else:
             new_text = Text([ self.cursor.pos() ],
                             pen = self.state.pen(), content=clip_text.strip())
-            self.gom.add_object(new_text)
+            self.bus.emit("add_object", True, new_text)
 
     def paste_image(self, clip_img):
         """Create an image object from a pixbuf image."""
         obj = Image([ self.cursor.pos() ], self.state.pen(), clip_img)
-        self.gom.add_object(obj)
+        self.bus.emit("add_object", True, obj)
 
     def __object_create_copy(self, obj, bb = None):
         """Copy the given object into a new object."""
@@ -246,7 +246,7 @@ class TransparentWindow(Gtk.Window):
             bb  = new_obj.bbox()
         new_obj.move(x - bb[0], y - bb[1])
 
-        self.gom.add_object(new_obj)
+        self.bus.emit("add_object", True, new_obj)
 
     def copy_content(self, destroy = False):
         """Copy content to clipboard."""
@@ -365,7 +365,7 @@ class TransparentWindow(Gtk.Window):
             if pixbuf is not None:
                 pos = self.cursor.pos()
                 img = Image([ pos ], self.state.pen(), pixbuf)
-                self.gom.add_object(img)
+                self.bus.emit("add_object", True, img)
                 self.queue_draw()
 
         return pixbuf
@@ -384,30 +384,36 @@ class TransparentWindow(Gtk.Window):
         # Create the image and copy the file name to clipboard
         if pixbuf is not None:
             img = Image([ (bb[0], bb[1]) ], self.state.pen(), pixbuf)
-            self.gom.add_object(img)
+            self.bus.emit("add_object", True, img)
             self.queue_draw()
             self.clipboard.set_text(filename)
 
     def __find_screenshot_box(self):
         """Find a box suitable for selecting a screenshot."""
-        cobj = self.state.current_obj()
-        if cobj and cobj.type == "rectangle":
-            return cobj
+       #cobj = self.state.current_obj()
+       #if cobj and cobj.type == "rectangle":
+       #    return cobj
         for obj in self.gom.selected_objects():
             if obj.type == "rectangle":
                 return obj
-        for obj in self.gom.objects()[::-1]:
-            if obj.type == "rectangle":
-                return obj
+       #for obj in self.gom.objects()[::-1]:
+       #    if obj.type == "rectangle":
+       #        return obj
         return None
 
-    def screenshot(self):
+    def screenshot(self, obj = None):
         """Take a screenshot and add it to the drawing."""
-        obj = self.__find_screenshot_box()
+        if not obj:
+            obj = self.__find_screenshot_box()
+
+        self.bus.off("add_object", self.screenshot)
         if not obj:
             print("no suitable box found")
-            # use the whole screen
-            bb = (0, 0, *self.get_size())
+            self.state.mode("rectangle")
+            self.bus.on("add_object", self.screenshot, priority = 99)
+            return
+            ## use the whole screen
+            #bb = (0, 0, *self.get_size())
         else:
             bb = obj.bbox()
             print("bbox is", bb)

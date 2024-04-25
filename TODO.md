@@ -2,9 +2,6 @@ To do (sorted by priority):
 
 
  
- * screenshots should work differently. If a frame is selected, go with it.
-   If not, let the user create a frame and register with the bus for object
-   completion event. Remove the box afterwards.
  * events in em should go through the bus
  * draw a dustbin wiglet in lower left corner
  * when exporting with ctrl-e there should be selection option to choose
@@ -49,6 +46,11 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * rotating images results in a flashing black background within the
+   bounding box of the image
+ * fill toggle is low-level, not undoable and does not work always as
+   expected
+ * toggling outline does not refresh drawing cache
  * empty pages break pdf export
  * quick double clicking sometimes produces too many events leading to a
    race condition betwen WigletCreateText and WigletCreateObject (the
@@ -72,6 +74,10 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * add clipping images
+ * screenshots should work differently. If a frame is selected, go with it.
+   If not, let the user create a frame and register with the bus for object
+   completion event. Remove the box afterwards.
  * implement page insert (shift-I) to create a new page after the current
    one.
  * after changing pen color the cache is not updated (probably because the

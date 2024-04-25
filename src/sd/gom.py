@@ -168,10 +168,11 @@ class GraphicsObjectManager:
         """Add an object to the list of objects."""
         if obj in self.__page.objects():
             print("object already in list")
-            return
+            return None
         if not isinstance(obj, Drawable):
             raise ValueError("Only Drawables can be added to the stack")
         self.__history.add(AddCommand([obj], self.__page.objects(), page=self.__page))
+        return obj
 
     def export_pages(self):
         """Export all pages."""
@@ -238,6 +239,41 @@ class GraphicsObjectManager:
                                                    self.__page.objects(),
                                                    selection_object=self.__page.selection(),
                                                    page=self.__page))
+
+    def selection_clip(self):
+        """Clip the selected objects."""
+        page = self.__page
+        if page.selection().is_empty():
+            return
+        obj = page.selection().objects
+
+        if len(obj) < 2:
+            print("need at least two objects to clip")
+            return
+
+        print("object:", obj[-1].type)
+        if not obj[-1].type in [ "rectangle", "shape", "circle" ]:
+            print("Need a shape, rectangle or circle to clip")
+            return
+
+        self.__history.add(ClipCommand(obj[-1], obj[:-1],
+                                       page.objects(),
+                                       selection_object=page.selection(),
+                                       page=page))
+
+        print("clipping selection")
+
+    def selection_unclip(self):
+        page = self.__page
+        """Unclip the selected objects."""
+        if page.selection().is_empty():
+            return
+        print("unclipping selection")
+        self.__history.add(UnClipCommand(page.selection().objects,
+                                         page.objects(),
+                                         selection_object=page.selection(),
+                                         page=page))
+
 
     def select_reverse(self):
         """Reverse the selection."""

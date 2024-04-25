@@ -77,7 +77,8 @@ class Image(Drawable):
             # text origin
             x, y, w, h = bb
             x1, y1 = x + w, y + h
-            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)], self.rotation, self.rot_origin)
+            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)],
+                               self.rotation, self.rot_origin)
             bb = path_bbox(bb)
 
         return bb
@@ -536,21 +537,6 @@ class Shape(Drawable):
         }
 
 
-    def draw_outline(self, cr):
-        """draws each segment separately and makes a dot at each coord."""
-        coords = self.coords
-
-        for i in range(len(coords) - 1):
-            cr.move_to(coords[i][0], coords[i][1])
-            cr.line_to(coords[i + 1][0], coords[i + 1][1])
-            cr.stroke()
-            # make a dot at each coord
-            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
-            cr.fill()
-        cr.move_to(coords[-1][0], coords[-1][1])
-        cr.line_to(coords[0][0], coords[0][1])
-        cr.stroke()
-
     def draw_simple(self, cr, bbox=None):
         """draws the path as a single line. Useful for resizing."""
 
@@ -558,11 +544,7 @@ class Shape(Drawable):
             return
 
         if bbox:
-            if self.fill():
-                old_bbox = path_bbox(self.coords)
-            else:
-                old_bbox = path_bbox(self.coords)
-                #old_bbox = path_bbox(self.coords, lw = self.pen.line_width)
+            old_bbox = path_bbox(self.coords)
             coords = transform_coords(self.coords, old_bbox, bbox)
         else:
             coords = self.coords
@@ -588,14 +570,16 @@ class Shape(Drawable):
 
         cr.set_source_rgba(*self.pen.color, self.pen.transparency)
         res_bb = self.resizing and self.resizing["bbox"] or None
-        self.draw_simple(cr, res_bb)
 
         if outline:
+            self.draw_simple(cr, res_bb)
+            cr.set_line_width(0.5)
             cr.stroke()
-            self.draw_outline(cr)
         elif self.fill():
+            self.draw_simple(cr, res_bb)
             cr.fill()
         else:
+            self.draw_simple(cr, res_bb)
             cr.set_line_width(self.pen.line_width)
             cr.stroke()
 

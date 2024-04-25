@@ -8,6 +8,7 @@ state of the objects they are acting on.
 from .utils import calc_rotation_angle, sort_by_stack ## <remove>
 from .drawable_factory import DrawableFactory ## <remove>
 from .drawable_group import DrawableGroup ## <remove>
+from .drawable_group import ClippingGroup ## <remove>
 
 def swap_stacks(stack1, stack2):
     """Swap two stacks"""
@@ -184,6 +185,104 @@ class DeleteLayerCommand(Command):
         self.undone_set(False)
         return self.__page
 
+class ClipCommand(Command):
+    """Simple class for handling clipping objects."""
+    def __init__(self, clip, objects, stack, selection_object = None, page = None):
+        super().__init__("clip", objects)
+        self.__selection = selection_object
+        self.__clip = clip
+        self.__stack = stack
+        self.__stack_copy = stack[:]
+        self.__page = page
+
+        # position of the last object in stack
+        idx = self.__stack.index(self.obj[-1])
+
+        self.__group = ClippingGroup(clip, self.obj)
+        # add group to the stack at the position of the last object
+        self.__stack.insert(idx, self.__group)
+
+        for obj in self.obj:
+            if not obj in stack:
+                raise ValueError("Object not in stack:", obj)
+            stack.remove(obj)
+        stack.remove(clip)
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return None
+        swap_stacks(self.__stack, self.__stack_copy)
+        self.undone_set(True)
+        if self.__selection:
+            self.__selection.set(self.obj)
+        return self.__page
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return None
+        swap_stacks(self.__stack, self.__stack_copy)
+        self.undone_set(False)
+        if self.__selection:
+            self.__selection.set([ self.__group ])
+        return self.__page
+
+class UnClipCommand(Command):
+    """Simple class for handling clipping objects."""
+    def __init__(self, objects, stack, selection_object = None, page = None):
+        super().__init__("unclip", objects)
+        self.__stack = stack
+        self.__stack_copy = stack[:]
+        self.__selection = selection_object
+        self.__page = page
+
+        new_objects = []
+        n = 0
+
+        for obj in self.obj:
+            if not obj.type == "clipping_group":
+                print("Object is not a clipping_group, ignoring:", obj)
+                print("object type:", obj.type)
+                continue
+
+            n += 1
+            # position of the group in the stack
+            idx = self.__stack.index(obj)
+
+            # remove the group from the stack
+            self.__stack.remove(obj)
+
+            # add the objects back to the stack
+            for subobj in obj.objects[::-1]:
+                self.__stack.insert(idx, subobj)
+                new_objects.append(subobj)
+
+        if n > 0 and self.__selection:
+            self.__selection.set(new_objects)
+
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return None
+        swap_stacks(self.__stack, self.__stack_copy)
+        self.undone_set(True)
+        if self.__selection:
+            self.__selection.set(self.obj)
+        return self.__page
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return None
+        swap_stacks(self.__stack, self.__stack_copy)
+        self.undone_set(False)
+        if self.__selection:
+            self.__selection.set([ self.__group ])
+        return self.__page
+
+
 class GroupObjectCommand(Command):
     """Simple class for handling grouping objects."""
     def __init__(self, objects, stack, selection_object = None, page = None):
@@ -197,7 +296,6 @@ class GroupObjectCommand(Command):
         self.__selection = selection_object
 
         self.__group = DrawableGroup(self.obj)
-        #self.__grouped_objects = self.obj[:]
 
         # position of the last object in stack
         idx = self.__stack.index(self.obj[-1])
@@ -206,6 +304,8 @@ class GroupObjectCommand(Command):
         self.__stack.insert(idx, self.__group)
 
         for obj in self.obj:
+            if not obj in stack:
+                raise ValueError("Object not in stack:", obj)
             self.__stack.remove(obj)
 
         if self.__selection:

@@ -448,6 +448,35 @@ def is_click_close_to_path(click_x, click_y, path, threshold):
             return True
     return False
 
+def bbox_overlap(bbox1, bbox2):
+    """Calculate the bbox of the overlap between two bboxes"""
+    x1, y1, w1, h1 = bbox1
+    x2, y2, w2, h2 = bbox2
+
+    x = max(x1, x2)
+    y = max(y1, y2)
+    w = min(x1 + w1, x2 + w2) - x
+    h = min(y1 + h1, y2 + h2) - y
+
+    return (x, y, w, h)
+
+def objects_bbox(objects, actual = True):
+    """Calculate the bounding box of a list of objects."""
+    if not objects:
+        return (0, 0, 0, 0)
+
+    left, top, width, height = objects[0].bbox(actual = actual)
+    bottom, right = top + height, left + width
+
+    for obj in objects[1:]:
+        x, y, w, h = obj.bbox(actual = actual)
+        left, top = min(left, x, x + w), min(top, y, y + h)
+        bottom, right = max(bottom, y, y + h), max(right, x, x + w)
+
+    width, height = right - left, bottom - top
+    return (left, top, width, height)
+
+
 def is_click_in_bbox(click_x, click_y, bbox):
     """Check if a click is inside a bounding box."""
     x, y, w, h = bbox

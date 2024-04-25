@@ -159,7 +159,7 @@ class EventManager:
         """
         self.__actions = {
             'mode_draw':             {'action': state.mode, 'args': ["draw"]},
-            'mode_rectangle':              {'action': state.mode, 'args': ["rectangle"]},
+            'mode_rectangle':        {'action': state.mode, 'args': ["rectangle"]},
             'mode_circle':           {'action': state.mode, 'args': ["circle"]},
             'mode_move':             {'action': state.mode, 'args': ["move"]},
             'mode_text':             {'action': state.mode, 'args': ["text"]},
@@ -245,6 +245,8 @@ class EventManager:
             'select_previous_object': {'action': gom.select_previous_object, 'modes': ["move"]},
             'select_all':             {'action': gom.select_all},
             'select_reverse':         {'action': gom.select_reverse},
+            'selection_clip':         {'action': gom.selection_clip,    'modes': ["move"]},
+            'selection_unclip':       {'action': gom.selection_unclip,  'modes': ["move"]},
             'selection_group':        {'action': gom.selection_group,   'modes': ["move"]},
             'selection_ungroup':      {'action': gom.selection_ungroup, 'modes': ["move"]},
             'selection_delete':       {'action': gom.selection_delete,  'modes': ["move"]},
@@ -365,6 +367,8 @@ class EventManager:
             'Shift-ISO_Left_Tab':   "select_previous_object",
             'g':                    "selection_group",
             'u':                    "selection_ungroup",
+            'Shift-c':              "selection_clip",
+            'Shift-u':              "selection_unclip",
             'Delete':               "selection_delete",
 
             'Alt-p':                "apply_pen_to_selection",

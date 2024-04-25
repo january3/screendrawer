@@ -93,10 +93,11 @@ Shift-i: Insert new page after current
 If you have more than one page, exporting to PDF will create a multipage PDF.
 
 <b>Taking screenshots:</b>
-Ctrl-Shift-f: screenshot: for a screenshot, if you have at least one rectangle
-object (r mode) in the drawing, then it will serve as the selection area. The
-screenshot will be pasted into the drawing. If there are no rectangles,
-then the whole window will be captured.
+Ctrl-Shift-f: screenshot: for a screenshot, if you have at least one rectangle                    This is likely to change in the future.
+object (r mode) selected, then it will serve as the selection area. The                        
+screenshot will be pasted into the drawing. If no rectangle is selected, then
+the mode will change to "rectangle" and the next rectangle you draw will be
+used as the capture area.
 
 <b>Saving / importing:</b>
 Ctrl-i: Import image from a file (jpeg, png)

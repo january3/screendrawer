@@ -232,6 +232,7 @@ class Drawable(DrawableRoot):
         type_map = cls.__registry
 
         obj_type = d.pop("type")
+        print("Generating object of type:", obj_type)
         if obj_type not in type_map:
             raise ValueError("Invalid type:", obj_type)
 

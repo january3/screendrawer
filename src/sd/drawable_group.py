@@ -2,7 +2,8 @@
 Classes that represent groups of drawable objects.
 """
 
-from .utils import flatten_and_unique         # <remove>
+from .utils import objects_bbox, flatten_and_unique         # <remove>
+from .utils import bbox_overlap, path_bbox, transform_coords # <remove>
 from .drawable import Drawable                # <remove>
 
 class DrawableGroup(Drawable):
@@ -39,7 +40,6 @@ class DrawableGroup(Drawable):
         self.__modif = self.mod
 
         return status
-
 
     def contains(self, obj):
         """Check if the group contains the object."""
@@ -78,20 +78,6 @@ class DrawableGroup(Drawable):
             "objects_dict": [ obj.to_dict() for obj in self.objects ],
         }
 
-    def resize_start(self, corner, origin):
-        """Start the resizing operation."""
-        self.resizing = {
-            "corner": corner,
-            "origin": origin,
-            "bbox":   self.bbox(),
-            "orig_bbox": self.bbox(),
-            "objects": { obj: obj.bbox() for obj in self.objects }
-            }
-
-        for obj in self.objects:
-            obj.resize_start(corner, origin)
-        self.mod += 1
-
     def get_primitive(self):
         """Return the primitives of the objects in the group."""
         primitives = [ obj.get_primitive() for obj in self.objects ]
@@ -120,6 +106,20 @@ class DrawableGroup(Drawable):
             obj.rotate_end()
         self.rot_origin = None
         self.rotation = 0
+        self.mod += 1
+
+    def resize_start(self, corner, origin):
+        """Start the resizing operation."""
+        self.resizing = {
+            "corner": corner,
+            "origin": origin,
+            "bbox":   self.bbox(),
+            "orig_bbox": self.bbox(),
+            "objects": { obj: obj.bbox() for obj in self.objects }
+            }
+
+        for obj in self.objects:
+            obj.resize_start(corner, origin)
         self.mod += 1
 
     def resize_update(self, bbox):
@@ -162,16 +162,7 @@ class DrawableGroup(Drawable):
         if not self.objects:
             return None
 
-        left, top, width, height = self.objects[0].bbox(actual = actual)
-        bottom, right = top + height, left + width
-
-        for obj in self.objects[1:]:
-            x, y, w, h = obj.bbox(actual = actual)
-            left, top = min(left, x, x + w), min(top, y, y + h)
-            bottom, right = max(bottom, y, y + h), max(right, x, x + w)
-
-        width, height = right - left, bottom - top
-        return (left, top, width, height)
+        return objects_bbox(self.objects)
 
     def add(self, obj):
         """Add an object to the group."""
@@ -193,7 +184,8 @@ class DrawableGroup(Drawable):
     def draw(self, cr, hover=False, selected=False, outline=False):
         """Draw the group of objects on the Cairo context."""
         for obj in self.objects:
-            obj.draw(cr, hover=False, selected=selected)
+            obj.draw(cr, hover=False, selected=selected,
+                     outline=outline)
 
         cr.set_source_rgb(0, 0, 0)
 
@@ -212,6 +204,108 @@ class DrawableGroup(Drawable):
 
         if self.rotation:
             cr.restore()
+
+class ClippingGroup(DrawableGroup):
+    """
+    Class for creating groups of drawable objects that are clipped.
+    """
+    def __init__(self, clip_obj=None, objects=None, objects_dict = None):
+        if objects_dict:
+            clip_obj = Drawable.from_dict(objects_dict[0])
+            objects  = Drawable.from_dict(objects_dict[1]).objects
+
+        self.__clip_obj  = clip_obj
+        self.__obj_group = DrawableGroup(objects)
+        self.__clip_bbox = None
+        objlist = objects[:]
+        objlist.append(clip_obj)
+
+        super().__init__(objlist, 
+                         mytype = "clipping_group")
+
+    def draw_clip(self, cr):
+        """Draw the clipping path."""
+        if self.rotation != 0:
+            cr.save()
+            cr.translate(self.rot_origin[0], self.rot_origin[1])
+            cr.rotate(self.rotation)
+            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+
+        co = self.__clip_obj
+        coords = co.coords
+        res_bb = self.resizing and self.resizing["bbox"] or None
+        if res_bb:
+            old_bbox = path_bbox(coords)
+            coords = transform_coords(coords, old_bbox, res_bb)
+
+        cr.move_to(coords[0][0], coords[0][1])
+        for point in coords[1:]:
+            cr.line_to(point[0], point[1])
+        cr.close_path()
+        if self.rotation != 0:
+            cr.restore()
+ 
+    def draw(self, cr, hover=False, selected=False, outline=False):
+        cr.save()
+        #self.__clip_obj.draw(cr,  hover=False, selected=selected, outline=True)
+        #self.__obj_group.draw(cr, hover=False, selected=selected, outline=True)
+ 
+        self.draw_clip(cr) 
+
+        cr.clip()
+        self.__obj_group.draw(cr, hover=False,
+                              selected=selected, outline = outline)
+        self.__clip_bbox = cr.clip_extents()
+        cr.restore()
+
+        if self.rotation:
+            cr.save()
+            x, y = self.rot_origin[0], self.rot_origin[1]
+            cr.translate(x, y)
+            cr.rotate(self.rotation)
+            cr.translate(-x, -y)
+
+        if selected:
+            cr.set_source_rgb(1, 0, 0)
+            self.bbox_draw(cr, lw=.5)
+        if hover:
+            self.bbox_draw(cr, lw=.5)
+
+        if self.rotation:
+            cr.restore()
+
+       #cr.set_line_width(0.5)
+       #cr.set_source_rgb(0, 1, 0)
+       #cr.rectangle(*self.bbox(actual=True))
+       #cr.stroke()
+       #cr.set_line_width(1.5)
+       #cr.set_source_rgb(0, 1, 1)
+       #cr.rectangle(*self.bbox())
+       #cr.stroke()
+
+    def bbox_draw(self, cr, lw=0.2):
+        """Draw the bounding box of the object."""
+        bb = self.bbox(actual = False)
+        x, y, w, h = bb
+        cr.set_line_width(lw)
+        cr.rectangle(x, y, w, h)
+        cr.stroke()
+
+    def bbox(self, actual = False):
+        if actual:
+            return objects_bbox(self.objects)
+        return bbox_overlap(
+            self.__clip_obj.bbox(),
+            self.__obj_group.bbox())
+
+    def to_dict(self):
+        """Convert the group to a dictionary."""
+        print("my type is", self.type)
+        return {
+            "type": self.type,
+            "objects_dict": [ self.__clip_obj.to_dict(), self.__obj_group.to_dict() ]
+        }
+
 
 class SelectionObject(DrawableGroup):
     """
@@ -330,4 +424,6 @@ class SelectionObject(DrawableGroup):
 
         self.objects = new_sel
 
+
 Drawable.register_type("group", DrawableGroup)
+Drawable.register_type("clipping_group", ClippingGroup)
