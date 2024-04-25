@@ -72,6 +72,45 @@ class CommandGroup(Command):
         self.undone_set(False)
         return self.__page
 
+class InsertPageCommand(Command):
+    """
+    Handling inserting pages.
+    """
+    def __init__(self, page):
+        super().__init__("insert_page", None)
+        self.__prev = page
+        self.__next = page.next(create = False)
+
+        # create the new page
+        page.next_set(None)
+        self.__page = page.next(create = True)
+        self.__page.prev_set(page)
+        self.__page.next_set(self.__next)
+        page.next_set(self.__page)
+
+        if self.__next:
+            self.__next.prev_set(self.__page)
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return None
+        self.__prev.next_set(self.__next)
+        if self.__next:
+            self.__next.prev_set(self.__prev)
+        self.undone_set(True)
+        return self.__prev
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return None
+        self.__prev.next_set(self.__page)
+        if self.__next:
+            self.__next.prev_set(self.__page)
+        self.undone_set(False)
+        return self.__page
+
 class DeletePageCommand(Command):
     """
     Handling deleting pages.

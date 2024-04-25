@@ -6,6 +6,7 @@ from .drawable import Drawable # <remove>
 from .drawable_group import SelectionObject # <remove>
 from .commands import RemoveCommand, CommandGroup # <remove>
 from .commands import DeletePageCommand, DeleteLayerCommand # <remove>
+from .commands import InsertPageCommand # <remove>
 from .drawer import Drawer                                           # <remove>
 
 
@@ -79,6 +80,13 @@ class Page:
     def prev_set(self, page):
         """Set the previous page."""
         self.__prev = page
+
+    def insert(self):
+        """Insert a new page after the current page."""
+        # we are already the last page
+        cmd = InsertPageCommand(self)
+        ret = self.__next
+        return ret, cmd
 
     def delete(self):
         """Delete the page and create links between prev and next pages."""

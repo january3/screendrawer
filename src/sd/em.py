@@ -253,6 +253,7 @@ class EventManager:
 
             'next_page':              {'action': gom.next_page},
             'prev_page':              {'action': gom.prev_page},
+            'insert_page':            {'action': gom.insert_page},
             'delete_page':            {'action': gom.delete_page},
 
             'next_layer':             {'action': gom.next_layer},
@@ -344,6 +345,7 @@ class EventManager:
 
             'Shift-p':              "prev_page",
             'Shift-n':              "next_page",
+            'Shift-i':              "insert_page",
             'Shift-d':              "delete_page",
             'Ctrl-Shift-p':         "prev_layer",
             'Ctrl-Shift-n':         "next_layer",

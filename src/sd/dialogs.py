@@ -81,6 +81,17 @@ Ctrl-b: Cycle background transparency                                     Alt-p:
 Ctrl-p: toggle between two pens                                           Alt-Shift-p: apply pen color to background
 Ctrl-g: toggle grid                      1-3: select brush
 
+<b>Pages and layers:</b>
+
+Pages (= slides) can hold multiple layers. When you select and move
+objects, you are always acting on the current layer.
+
+Shift-n: Next / new page                  Ctrl-Shift-n: Next / new layer
+Shift-p: Previous page                    Ctrl-Shift-p: Previous layer
+Shift-i: Insert new page after current
+
+If you have more than one page, exporting to PDF will create a multipage PDF.
+
 <b>Taking screenshots:</b>
 Ctrl-Shift-f: screenshot: for a screenshot, if you have at least one rectangle
 object (r mode) in the drawing, then it will serve as the selection area. The

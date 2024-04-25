@@ -4,18 +4,17 @@ To do (sorted by priority):
  
  * events in em should go through the bus
  * draw a dustbin wiglet in lower left corner
- * create a pen wiglet (that does what...?)
  * when exporting with ctrl-e there should be selection option to choose
    the format, including pdf vs multipage pdf (and multipage pdf should be
    default)
  * unit tests. more, more, more
+ * zoom in and out. I think the time is ripe for it 
  * different brushes should have different cursors
  * clean up font code. Maybe use the Pango.FontDescription class for
    everything - why not?
  * idea for path editing: "thumb" - moving a point on path and dragging
    surrounding points with it in a rubber-like fashion; how many - that depends on current line
    width (so broader line make more points move)
- * zoom in and out. I think the time is ripe for it 
  * brushes. (1) brush that generates short diagonal thin strokes (2) brush
    that creates a Gary Larson-like hatching (3) brush that creates a
  * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
@@ -29,6 +28,8 @@ To do (sorted by priority):
  * add a line mode and Line object class
  * show corners of the bounding box
  * horizontal and vertical guides
+ * create a pen wiglet (that does what...?)
+ * implement page dnd rearrangements in the page selector wiglet
  * make wiglets movable
 
 Design issues:
@@ -44,12 +45,13 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * empty pages break pdf export
  * quick double clicking sometimes produces too many events leading to a
    race condition betwen WigletCreateText and WigletCreateObject (the
    former catches the double click, the later catches the extra single
    click)
  * paths drawn with slanted brush report incorrect bounding box (fragments
-   are cut)
+   are cut by the cache)
  * when laptop set to low power and teams are running, the app does not
    work efficiently. Not sure what can be done about that, as it seems that
    it is more of a polling issue. Maybe create a very simple pen with no
@@ -66,6 +68,8 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * implement page insert (shift-I) to create a new page after the current
+   one.
  * after changing pen color the cache is not updated (probably because the
    objects do not know the pen has changed) => no, the reason is different:
    if drawable primitives are grouped, the primitives are extracted and

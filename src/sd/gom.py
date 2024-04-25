@@ -31,6 +31,12 @@ class GraphicsObjectManager:
         """Go to the next page."""
         self.page_set(self.__page.next(create = True))
 
+    def insert_page(self):
+        """Insert a new page."""
+        curpage, cmd = self.__page.insert()
+        self.__history.add(cmd)
+        self.page_set(curpage)
+
     def prev_page(self):
         """Go to the prev page."""
         self.page_set(self.__page.prev())
