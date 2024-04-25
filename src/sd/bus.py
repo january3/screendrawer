@@ -27,7 +27,7 @@ class Bus:
         caught = False
         if event in self.__listeners:
             for listener, _ in self.__listeners[event]:
-                #print("event", event, "calling", listener)
+                #print("event", event, "calling", listener, "with", args, kwargs)
                 ret = listener(*args, **kwargs)
                 if ret:
                     #print("Event", event, "caught by:", listener)

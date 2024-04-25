@@ -129,9 +129,9 @@ class TransparentWindow(Gtk.Window):
 
         # Drawing setup
         self.cursor             = CursorManager(self)
-        self.gom                = GraphicsObjectManager()
 
         self.bus = Bus()
+        self.gom                = GraphicsObjectManager(self.bus)
 
         # we pass the app to the state, because it has the queue_draw
         # method

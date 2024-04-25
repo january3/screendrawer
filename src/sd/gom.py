@@ -16,12 +16,14 @@ class GraphicsObjectManager:
         _objects (list): The list of objects.
     """
 
-    def __init__(self):
+    def __init__(self, bus):
 
         # private attr
+        self.__bus        = bus
         self.__history    = History()
         self.__page = None
         self.page_set(Page())
+        self.__bus.on("add_object", self.add_object)
 
     def page_set(self, page):
         """Set the current page."""

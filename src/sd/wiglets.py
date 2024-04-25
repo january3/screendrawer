@@ -418,7 +418,7 @@ class WigletEditText(Wiglet):
         obj.show_caret(False)
 
         if obj.strlen() > 0:
-            self.__state.gom().add_object(obj)
+            self.__bus.emit("add_object", True, obj)
 
         self.__state.current_obj_clear()
         self.__state.cursor().revert()
@@ -508,7 +508,7 @@ class WigletCreateObject(Wiglet):
                 obj = None
 
         if obj:
-            self.__state.gom().add_object(obj)
+            self.__bus.emit("add_object", True, obj)
 
             # with text, we are not done yet! Need to keep current object
             # such that keyboard events can update it

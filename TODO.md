@@ -2,6 +2,9 @@ To do (sorted by priority):
 
 
  
+ * screenshots should work differently. If a frame is selected, go with it.
+   If not, let the user create a frame and register with the bus for object
+   completion event. Remove the box afterwards.
  * events in em should go through the bus
  * draw a dustbin wiglet in lower left corner
  * when exporting with ctrl-e there should be selection option to choose
@@ -38,6 +41,7 @@ Design issues:
    on history object, so we would have to pass the history to each command
    that we create. Unless we make history a singleton, and then commands
    can simply create the history object and get always the same instance.
+   Or history is one of the "superobjects" like gom.
  * the interaction between canvas, gom, dm, em is tangled. 
  * It is not entirely clear where the file is saved. In theory it is, but
    in practice I find myself wondering.
