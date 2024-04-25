@@ -58,6 +58,9 @@ class Image(Drawable):
             w_scale, h_scale = self.transform
             cr.scale(w_scale, h_scale)
 
+        w, h = self.__image.size()
+        cr.rectangle(0, 0, w, h)
+        cr.clip()
         Gdk.cairo_set_source_pixbuf(cr, self.__image.pixbuf(), 0, 0)
         cr.paint()
 

@@ -46,8 +46,9 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * rotating images results in a flashing black background within the
-   bounding box of the image
+ * something is seriously rotten with resizing rotated images. The bounding
+   boxes do not seem to be correct, which results in aberrant behaviour esp
+   in clips and groups.
  * fill toggle is low-level, not undoable and does not work always as
    expected
  * toggling outline does not refresh drawing cache
@@ -74,6 +75,8 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * rotating images results in a flashing black background within the
+   bounding box of the image
  * add clipping images
  * screenshots should work differently. If a frame is selected, go with it.
    If not, let the user create a frame and register with the bus for object
