@@ -150,13 +150,11 @@ class State:
             self.__gr["transparency"] = value
         return self.__gr["transparency"]
 
-    def outline(self):
+    def outline(self, value = None):
         """Get the outline mode."""
+        if value is not None:
+            self.__gr["outline"] = value
         return self.__gr["outline"]
-
-    def outline_toggle(self):
-        """Toggle outline mode."""
-        self.__gr["outline"] = not self.__gr["outline"]
 
     def bg_color(self, color=None):
         """Get or set the background color."""
@@ -248,6 +246,10 @@ class Setter:
         elif self.__state.mode() == "text":
             self.__state.pen().font_size = max(1, self.__state.pen().font_size + direction)
 
+    def outline_toggle(self):
+        """Toggle outline mode."""
+        self.__state.outline(not self.__state.outline())
+        self.__bus.emit("force_redraw")
 
     # ---------------------------------------------------------------------
     def clear(self):

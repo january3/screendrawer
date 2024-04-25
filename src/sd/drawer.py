@@ -97,7 +97,7 @@ class Drawer:
             draw_on_surface(cr, obj_grp, selection, state)
             cur = not cur
 
-    def update_cache(self, objects, selection, state):
+    def update_cache(self, objects, selection, state, force_redraw):
         """
         Update the cache.
 
@@ -105,6 +105,9 @@ class Drawer:
         :param selection: The selection.
         :param state: The state.
         """
+
+        if force_redraw:
+            self.__obj_mod_hash = { }
 
         groups = self.__find_groups(objects, selection, state)
 
@@ -187,13 +190,14 @@ class Drawer:
 
             # objects in this group remained the same: draw the cached surface
             if is_same:
+                print("Drawing cached surface")
                 surface = self.__cache["surfaces"][i]
                 cr.set_source_surface(surface["surface"], surface["x"], surface["y"])
                 cr.paint()
                 i += 1
                 is_same = not is_same
 
-    def draw(self, cr, page, state):
+    def draw(self, cr, page, state, force_redraw=False):
         """
         Draw the objects on the page.
 
@@ -211,7 +215,7 @@ class Drawer:
         selection = page.selection()
 
         # check if the cache needs to be updated
-        self.update_cache(objects, selection, state)
+        self.update_cache(objects, selection, state, force_redraw)
 
         # draw the cache
         self.draw_cache(cr, selection, state)

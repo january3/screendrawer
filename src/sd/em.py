@@ -171,7 +171,7 @@ class EventManager:
             'finish_text_input':     {'action': bus.emit, 'args': ["finish_text_input"]},
 
             'cycle_bg_transparency': {'action': state.cycle_background},
-            'toggle_outline':        {'action': state.outline_toggle},
+            'toggle_outline':        {'action': setter.outline_toggle},
 
             'clear_page':            {'action': setter.clear},
             'toggle_wiglets':        {'action': state.toggle_wiglets},

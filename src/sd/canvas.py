@@ -25,6 +25,12 @@ class Canvas:
         self.__state = state
         self.__grid = Grid()
         self.__bus = bus
+        self.__force_redraw = False
+        self.__bus.on("force_redraw", self.force_redraw)
+
+    def force_redraw(self):
+        """Set the marker to refresh the cache."""
+        self.__force_redraw = True
 
     def on_draw(self, widget, cr):
         """Main draw method of the whole app."""
@@ -39,7 +45,7 @@ class Canvas:
             cr.translate(*tr)
 
         self.draw_bg(cr, tr)
-        page.draw(cr, self.__state)
+        page.draw(cr, self.__state, force_redraw = self.__force_redraw)
 
         cobj = self.__state.current_obj()
         if cobj and not cobj in page.objects_all_layers():
@@ -50,6 +56,7 @@ class Canvas:
         ws = self.__state.get_win_size()
         self.__bus.emit("update_size", exclusive = False, width = ws[0], height = ws[1])
         self.__bus.emit("draw", exclusive = False, cr = cr, state = self.__state)
+        self.__force_redraw = False
         return True
 
     def draw_bg(self, cr, tr):

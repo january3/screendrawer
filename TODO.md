@@ -51,7 +51,6 @@ Bugs:
    in clips and groups.
  * fill toggle is low-level, not undoable and does not work always as
    expected
- * toggling outline does not refresh drawing cache
  * empty pages break pdf export
  * quick double clicking sometimes produces too many events leading to a
    race condition betwen WigletCreateText and WigletCreateObject (the
@@ -75,6 +74,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * toggling outline does not refresh drawing cache
  * rotating images results in a flashing black background within the
    bounding box of the image
  * add clipping images

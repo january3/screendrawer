@@ -252,7 +252,7 @@ class Page:
             ret_commands.append(cmd)
         return CommandGroup(ret_commands[::-1])
 
-    def draw(self, cr, state):
+    def draw(self, cr, state, force_redraw = False):
         """Draw the objects on the page."""
 
-        self.__drawer.draw(cr, self, state)
+        self.__drawer.draw(cr, self, state, force_redraw)
