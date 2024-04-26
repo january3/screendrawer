@@ -3,12 +3,14 @@ Dialogs for the ScreenDrawer application.
 """
 
 import os # <remove>
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gtk # <remove>
 from .pen import Pen # <remove>
 
 ## ---------------------------------------------------------------------
 FORMATS = {
-    "All files": { "pattern": "*",      "mime_type": "application/octet-stream", "name": "all" },
+    "All files": { "pattern": "*",      "mime_type": "application/octet-stream", "name": "any" },
     "PNG files":  { "pattern": "*.png",  "mime_type": "image/png",       "name": "png" },
     "JPEG files": { "pattern": "*.jpeg", "mime_type": "image/jpeg",      "name": "jpeg" },
     "PDF files":  { "pattern": "*.pdf",  "mime_type": "application/pdf", "name": "pdf" }
@@ -79,11 +81,23 @@ Ctrl-b: Cycle background transparency                                     Alt-p:
 Ctrl-p: toggle between two pens                                           Alt-Shift-p: apply pen color to background
 Ctrl-g: toggle grid                      1-3: select brush
 
+<b>Pages and layers:</b>
+
+Pages (= slides) can hold multiple layers. When you select and move
+objects, you are always acting on the current layer.
+
+Shift-n: Next / new page                  Ctrl-Shift-n: Next / new layer
+Shift-p: Previous page                    Ctrl-Shift-p: Previous layer
+Shift-i: Insert new page after current
+
+If you have more than one page, exporting to PDF will create a multipage PDF.
+
 <b>Taking screenshots:</b>
-Ctrl-Shift-f: screenshot: for a screenshot, if you have at least one rectangle
-object (r mode) in the drawing, then it will serve as the selection area. The
-screenshot will be pasted into the drawing. If there are no rectangles,
-then the whole window will be captured.
+Ctrl-Shift-f: screenshot: for a screenshot, if you have at least one rectangle                    This is likely to change in the future.
+object (r mode) selected, then it will serve as the selection area. The                        
+screenshot will be pasted into the drawing. If no rectangle is selected, then
+the mode will change to "rectangle" and the next rectangle you draw will be
+used as the capture area.
 
 <b>Saving / importing:</b>
 Ctrl-i: Import image from a file (jpeg, png)

@@ -1,6 +1,8 @@
 """Class which draws the actual objects and caches them."""
-import cairo
-from .drawable import DrawableGroup
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
+import cairo                                  # <remove>
+from .drawable_group import DrawableGroup     # <remove>
 
 def draw_on_surface(cr, objects, selection, state):
     """
@@ -9,21 +11,22 @@ def draw_on_surface(cr, objects, selection, state):
 
     for obj in objects:
 
-        hover    = obj == state["hover_obj"] and state["mode"] == "move"
-        selected = selection.contains(obj) and state["mode"] == "move"
+        hover    = obj == state.hover_obj() and state.mode() == "move"
+        selected = selection.contains(obj) and state.mode() == "move"
 
         obj.draw(cr, hover=hover,
                  selected=selected,
-                 outline = state["outline"])
+                 outline = state.outline())
 
 def obj_status(obj, selection, state):
     """Calculate the status of an object."""
 
-    hover_obj = state["hover_obj"]
-    hover    = obj == hover_obj and state["mode"] == "move"
-    selected = selection.contains(obj) and state["mode"] == "move"
+    hover_obj = state.hover_obj()
+    hover    = obj == hover_obj and state.mode() == "move"
+    selected = selection.contains(obj) and state.mode() == "move"
+    is_cur_obj = obj == state.current_obj()
 
-    return (obj.mod, hover, selected)
+    return (obj.mod, hover, selected, is_cur_obj)
 
 def create_cache_surface(objects):
     """
@@ -36,7 +39,7 @@ def create_cache_surface(objects):
         return None
 
     grp = DrawableGroup(objects)
-    bb  = grp.bbox()
+    bb  = grp.bbox(actual = True)
 
     if not bb:
         return None
@@ -81,7 +84,7 @@ class Drawer:
 
         cur = groups["first_is_same"]
 
-        # for each non-empty group of objects that remained the same,
+        # for each non-empty group of objects that changed
         # generate a cache surface and draw the group on it
         for obj_grp in groups["groups"]:
             if not cur or not obj_grp:
@@ -94,7 +97,7 @@ class Drawer:
             draw_on_surface(cr, obj_grp, selection, state)
             cur = not cur
 
-    def update_cache(self, objects, selection, state):
+    def update_cache(self, objects, selection, state, force_redraw):
         """
         Update the cache.
 
@@ -103,10 +106,12 @@ class Drawer:
         :param state: The state.
         """
 
+        if force_redraw:
+            self.__obj_mod_hash = { }
+
         groups = self.__find_groups(objects, selection, state)
 
         if not self.__cache or self.__cache["groups"] != groups:
-            print("regenerating cache")
             self.new_cache(groups, selection, state)
 
     def __find_groups(self, objects, selection, state):
@@ -142,7 +147,8 @@ class Drawer:
         for obj in objects:
             status = obj_status(obj, selection, state)
 
-            is_same = obj in modhash and modhash[obj] == status
+            is_same = obj in modhash and modhash[obj] == status and not status[3]
+            is_same = is_same and not obj.modified()
 
             if first_is_same is None:
                 first_is_same = is_same
@@ -170,7 +176,6 @@ class Drawer:
         i = 0
 
         for obj_grp in self.__cache["groups"]["groups"]:
-            #print("i=", i, "is_same=", is_same, "objects=", obj_grp)
 
             # ignore empty groups (that might happen in edge cases)
             if not obj_grp:
@@ -185,21 +190,21 @@ class Drawer:
 
             # objects in this group remained the same: draw the cached surface
             if is_same:
+                print("Drawing cached surface")
                 surface = self.__cache["surfaces"][i]
                 cr.set_source_surface(surface["surface"], surface["x"], surface["y"])
                 cr.paint()
                 i += 1
                 is_same = not is_same
 
-    def draw(self, cr, page, state):
+    def draw(self, cr, page, state, force_redraw=False):
         """
         Draw the objects on the page.
 
         :param objects: The objects to draw.
-        :param selection: The selection.
-        :param hover_obj: The object the mouse is hovering over.
-        :param outline: Whether to draw the outline.
-        :param mode: The drawing mode.
+        :param cr: The context on which to draw.
+        :param page: The page object.
+        :param state: The state object.
         """
 
         # extract objects from the page provided
@@ -210,7 +215,7 @@ class Drawer:
         selection = page.selection()
 
         # check if the cache needs to be updated
-        self.update_cache(objects, selection, state)
+        self.update_cache(objects, selection, state, force_redraw)
 
         # draw the cache
         self.draw_cache(cr, selection, state)

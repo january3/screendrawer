@@ -1,6 +1,8 @@
 ## ---------------------------------------------------------------------
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gtk, Gdk # <remove>
-from .drawable import DrawableGroup # <remove>
+from .drawable_group import DrawableGroup # <remove>
 from .utils import img_object_copy # <remove>
 
 class Clipboard:
@@ -85,7 +87,7 @@ class Clipboard:
         elif sel.type == "image":
             print("Copying image")
             # simply copy the image into clipboard
-            clipboard.set_image(sel.image)
+            clipboard.set_image(sel.image())
             clipboard.store()
         else:
             print("Copying another object")
@@ -97,5 +99,3 @@ class Clipboard:
         print("Setting internal clipboard")
         self.clipboard = DrawableGroup(selection.objects[:])
         self.clipboard_owner = True
-
-

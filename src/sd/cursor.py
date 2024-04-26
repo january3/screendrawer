@@ -5,6 +5,9 @@ Basically, this class is responsible for creating and managing the cursor for th
 It has methods to set the cursor to different modes.
 """
 
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
+gi.require_version('Gdk', '3.0')                           # <remove>
 from gi.repository import Gdk         # <remove>
 from .icons import Icons            # <remove>
 
@@ -15,34 +18,34 @@ class CursorManager:
     Class to manage the cursor.
 
     Attributes:
-        _window (Gtk.Window): The window to manage the cursor for.
-        _cursors (dict):       A dictionary of premade cursors for different modes.
-        _current_cursor (str): The name of the current cursor.
-        _default_cursor (str): The name of the default cursor.
-        _pos (tuple):          The current position of the cursor.
+        __window (Gtk.Window): The window to manage the cursor for.
+        __cursors (dict):       A dictionary of premade cursors for different modes.
+        __current_cursor (str): The name of the current cursor.
+        __default_cursor (str): The name of the default cursor.
+        __pos (tuple):          The current position of the cursor.
 
     """
 
 
     def __init__(self, window):
-        self._window  = window
-        self._cursors = None
-        self._current_cursor = "default"
-        self._default_cursor = "default"
+        self.__window  = window
+        self.__cursors = None
+        self.__current_cursor = "default"
+        self.__default_cursor = "default"
 
-        self._make_cursors(window)
+        self.__make_cursors(window)
 
         self.default("default")
 
-        self._pos = (100, 100)
+        self.__pos = (100, 100)
 
-    def _make_cursors(self, window):
+    def __make_cursors(self, window):
         """Create cursors for different modes."""
 
         icons = Icons()
         colorpicker = icons.get("colorpicker")
 
-        self._cursors = {
+        self.__cursors = {
             "hand":        Gdk.Cursor.new_from_name(window.get_display(), "hand1"),
             "move":        Gdk.Cursor.new_from_name(window.get_display(), "hand2"),
             "grabbing":    Gdk.Cursor.new_from_name(window.get_display(), "grabbing"),
@@ -70,33 +73,33 @@ class CursorManager:
 
     def pos(self):
         """Return the current position of the cursor."""
-        return self._pos
+        return self.__pos
 
     def update_pos(self, x, y):
         """Update the current position of the cursor."""
-        self._pos = (x, y)
+        self.__pos = (x, y)
 
     def default(self, cursor_name):
         """Set the default cursor to the specified cursor."""
-        if self._current_cursor == cursor_name:
+        if self.__current_cursor == cursor_name:
             return
         print("setting default cursor to", cursor_name)
-        self._default_cursor = cursor_name
-        self._current_cursor = cursor_name
+        self.__default_cursor = cursor_name
+        self.__current_cursor = cursor_name
 
-        self._window.get_window().set_cursor(self._cursors[cursor_name])
+        self.__window.get_window().set_cursor(self.__cursors[cursor_name])
 
     def revert(self):
         """Revert to the default cursor."""
-        if self._current_cursor == self._default_cursor:
+        if self.__current_cursor == self.__default_cursor:
             return
-        self._window.get_window().set_cursor(self._cursors[self._default_cursor])
-        self._current_cursor = self._default_cursor
+        self.__window.get_window().set_cursor(self.__cursors[self.__default_cursor])
+        self.__current_cursor = self.__default_cursor
 
     def set(self, cursor_name):
         """Change the cursor to the specified cursor."""
-        if self._current_cursor == cursor_name:
+        if self.__current_cursor == cursor_name:
             return
         #print("changing cursor to", cursor_name)
-        self._window.get_window().set_cursor(self._cursors[cursor_name])
-        self._current_cursor = cursor_name
+        self.__window.get_window().set_cursor(self.__cursors[cursor_name])
+        self.__current_cursor = cursor_name

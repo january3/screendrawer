@@ -31,7 +31,6 @@ import cairo
 import appdirs
 
 import gi
-
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
 
@@ -42,27 +41,36 @@ from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
 # the files are directly, physically inserted in order to get one big fat
 # Python script that can just be copied.
 
-from sd.utils import *                   ###<placeholder sd/utils.py>
-from sd.commands import *                ###<placeholder sd/commands.py>
-from sd.pen import Pen                   ###<placeholder sd/pen.py>
-from sd.drawable import *                ###<placeholder sd/drawable.py>
-from sd.events import *                  ###<placeholder sd/events.py>
-from sd.dialogs import *                 ###<placeholder sd/dialogs.py>
-from sd.clipboard import Clipboard       ###<placeholder sd/clipboard.py>
-from sd.cursor import CursorManager      ###<placeholder sd/cursor.py>
-from sd.gom import GraphicsObjectManager ###<placeholder sd/gom.py>
-from sd.import_export import *           ###<placeholder sd/import_export.py>
-from sd.em import *                      ###<placeholder sd/em.py>
-from sd.menus import *                   ###<placeholder sd/menus.py>
-from sd.wiglets import *                 ###<placeholder sd/wiglets.py>
-from sd.dm import *                      ###<placeholder sd/dm.py>
-from sd.icons import Icons               ###<placeholder sd/icons.py>
-from sd.page import Page                 ###<placeholder sd/page.py>
-from sd.canvas import Canvas             ###<placeholder sd/canvas.py>
-from sd.brush import Brush               ###<placeholder sd/brush.py>
-from sd.grid import Grid                 ###<placeholder sd/grid.py>
-from sd.texteditor import TextEditor     ###<placeholder sd/texteditor.py>
-from sd.imageobj import ImageObj         ###<placeholder sd/imageobj.py>
+from sd.utils import *                    ###<placeholder sd/utils.py>
+from sd.commands import *                 ###<placeholder sd/commands.py>
+from sd.pen import Pen                    ###<placeholder sd/pen.py>
+from sd.events import *                   ###<placeholder sd/events.py>
+from sd.dialogs import *                  ###<placeholder sd/dialogs.py>
+from sd.clipboard import Clipboard        ###<placeholder sd/clipboard.py>
+from sd.cursor import CursorManager       ###<placeholder sd/cursor.py>
+from sd.gom import GraphicsObjectManager  ###<placeholder sd/gom.py>
+from sd.import_export import *            ###<placeholder sd/import_export.py>
+from sd.em import *                       ###<placeholder sd/em.py>
+from sd.menus import *                    ###<placeholder sd/menus.py>
+from sd.wiglets import *                  ###<placeholder sd/wiglets.py>
+from sd.wiglets_ui import *               ###<placeholder sd/wiglets.py>
+from sd.icons import Icons                ###<placeholder sd/icons.py>
+from sd.page import Page                  ###<placeholder sd/page.py>
+from sd.canvas import Canvas              ###<placeholder sd/canvas.py>
+from sd.brush import Brush                ###<placeholder sd/brush.py>
+from sd.grid import Grid                  ###<placeholder sd/grid.py>
+from sd.texteditor import TextEditor      ###<placeholder sd/texteditor.py>
+from sd.imageobj import ImageObj          ###<placeholder sd/imageobj.py>
+from sd.state import State, Setter        ###<placeholder sd/state.py>
+from sd.drawable import *                 ###<placeholder sd/drawable.py>
+from sd.drawer import Drawer              ###<placeholder sd/drawer.py>
+from sd.drawable_factory import DrawableFactory         ###<placeholder sd/drawable_factory.py>
+from sd.drawable_group import DrawableGroup ##<placeholder sd/drawable_group.py>
+from sd.drawable_primitives import Image, Text                    #<placeholder sd/drawable_primitives.py>
+from sd.drawable_primitives import Rectangle, Shape, Circle #<placeholder sd/drawable_primitives.py>
+from sd.drawable_paths import Path                          #<placeholder sd/drawable_paths.py>
+from sd.history import History                              #<placeholder sd/history.py>
+from sd.bus import Bus #<placeholder sd/bus.py>
 
 
 # ---------------------------------------------------------------------
@@ -120,24 +128,58 @@ class TransparentWindow(Gtk.Window):
         GLib.timeout_add(AUTOSAVE_INTERVAL, self.__autosave)
 
         # Drawing setup
+        self.cursor             = CursorManager(self)
+
+        self.bus = Bus()
+        self.gom                = GraphicsObjectManager(self.bus)
+
+        # we pass the app to the state, because it has the queue_draw
+        # method
+        self.state              = State(app = self,
+                                        bus = self.bus,
+                                        gom = self.gom,
+                                        cursor = self.cursor)
+
         self.clipboard           = Clipboard()
-        self.canvas              = Canvas(self)
-        self.gom                 = GraphicsObjectManager(self, canvas=self.canvas)
-        self.cursor              = CursorManager(self)
+
+        self.setter = Setter(bus = self.bus, app = self, state = self.state)
+
+
+        # initialize the wiglets - which listen to events
+        wiglets = [
+                   WigletEraser(bus = self.bus, state = self.state),
+                   WigletCreateObject(bus = self.bus, state = self.state),
+                   WigletEditText(bus = self.bus, state = self.state),
+                   WigletPan(bus = self.bus, state = self.state),
+                   WigletHover(bus = self.bus, state = self.state),
+                   WigletSelectionTool(bus = self.bus, gom = self.gom),
+                   WigletResizeRotate(bus = self.bus, gom = self.gom, state = self.state),
+                   WigletMove(bus = self.bus, state = self.state),
+                   WigletColorSelector(bus = self.bus, func_color = self.setter.set_color,
+                                        func_bg = self.state.bg_color),
+                   WigletToolSelector(bus = self.bus, func_mode = self.state.mode),
+                   WigletPageSelector(bus = self.bus, gom = self.gom),
+                   WigletColorPicker(bus = self.bus, func_color = self.setter.set_color, 
+                                     clipboard = self.clipboard),
+                   WigletTransparency(bus = self.bus, state = self.state),
+                   WigletLineWidth(bus = self.bus, state = self.state),
+        ]
+
+
+        # em has to know about all that to link actions to methods
+        em  = EventManager(bus = self.bus,
+                                gom = self.gom, app = self,
+                                state  = self.state,
+                                setter = self.setter)
+        mm  = MenuMaker(self.bus, self.gom, em, self)
 
         # dm needs to know about gom because gom manipulates the selection
         # and history (object creation etc)
-        # it needs to know about the cursor to change the cursor if needed
-        # it needs to know about the canvas to get the pen
-        # it needs to know about the app to get the size of the window and
-        # queue up redraws
-        self.dm                  = DrawManager(gom = self.gom,  app = self,
-                                               cursor = self.cursor, canvas = self.canvas)
+        #self.dm                  = DrawManager(bus = self.bus, state = self.state)
+        self.mouse = MouseCatcher(bus = self.bus, state = self.state)
 
-        # em has to know about all that to link actions to methods
-        self.em                  = EventManager(gom = self.gom, app = self,
-                                                dm = self.dm, canvas = self.canvas)
-        self.mm                  = MenuMaker(self.em, self)
+        # canvas orchestrates the drawing
+        self.canvas              = Canvas(state = self.state, bus = self.bus)
 
         # distance for selecting objects
         self.max_dist   = 15
@@ -162,11 +204,11 @@ class TransparentWindow(Gtk.Window):
                         Gdk.EventMask.POINTER_MOTION_MASK |
                         Gdk.EventMask.TOUCH_MASK)
 
-        self.connect("key-press-event",      self.em.on_key_press)
-        self.connect("draw",                 self.dm.on_draw)
-        self.connect("button-press-event",   self.dm.on_button_press)
-        self.connect("button-release-event", self.dm.on_button_release)
-        self.connect("motion-notify-event",  self.dm.on_motion_notify)
+        self.connect("key-press-event",      em.on_key_press)
+        self.connect("draw",                 self.canvas.on_draw)
+        self.connect("button-press-event",   self.mouse.on_button_press)
+        self.connect("button-release-event", self.mouse.on_button_release)
+        self.connect("motion-notify-event",  self.mouse.on_motion_notify)
 
     def exit(self):
         """Exit the application."""
@@ -180,18 +222,18 @@ class TransparentWindow(Gtk.Window):
     def paste_text(self, clip_text):
         """Enter some text in the current object or create a new object."""
 
-        cobj = self.dm.current_object()
+        cobj = self.state.current_obj()
         if cobj and cobj.type == "text":
             cobj.add_text(clip_text.strip())
         else:
             new_text = Text([ self.cursor.pos() ],
-                            pen = self.canvas.pen(), content=clip_text.strip())
-            self.gom.add_object(new_text)
+                            pen = self.state.pen(), content=clip_text.strip())
+            self.bus.emit("add_object", True, new_text)
 
     def paste_image(self, clip_img):
         """Create an image object from a pixbuf image."""
-        obj = Image([ self.cursor.pos() ], self.canvas.pen(), clip_img)
-        self.gom.add_object(obj)
+        obj = Image([ self.cursor.pos() ], self.state.pen(), clip_img)
+        self.bus.emit("add_object", True, obj)
 
     def __object_create_copy(self, obj, bb = None):
         """Copy the given object into a new object."""
@@ -204,7 +246,7 @@ class TransparentWindow(Gtk.Window):
             bb  = new_obj.bbox()
         new_obj.move(x - bb[0], y - bb[1])
 
-        self.gom.add_object(new_obj)
+        self.bus.emit("add_object", True, new_obj)
 
     def copy_content(self, destroy = False):
         """Copy content to clipboard."""
@@ -251,20 +293,20 @@ class TransparentWindow(Gtk.Window):
         """Select a color for the background using ColorChooser."""
         color = ColorChooser(self, "Select Background Color")
         if color:
-            self.canvas.bg_color((color.red, color.green, color.blue))
+            self.state.bg_color((color.red, color.green, color.blue))
 
     def select_color(self):
         """Select a color for drawing using ColorChooser dialog."""
         color = ColorChooser(self)
         if color:
-            self.dm.set_color((color.red, color.green, color.blue))
+            self.bus.emit("set_color", True, (color.red, color.green, color.blue))
 
     def select_font(self):
         """Select a font for drawing using FontChooser dialog."""
-        font_description = FontChooser(self.canvas.pen(), self)
+        font_description = FontChooser(self.state.pen(), self)
 
         if font_description:
-            self.dm.set_font(font_description)
+            self.setter.set_font(font_description)
 
     def show_help_dialog(self):
         """Show the help dialog."""
@@ -302,9 +344,10 @@ class TransparentWindow(Gtk.Window):
         file_name, file_format = export_dialog(self)
 
         if file_name:
-            export_image(obj, file_name, file_format,
-                         bg = self.canvas.bg_color(),
-                         bbox = bbox, transparency = self.canvas.transparent())
+            cfg = { "bg": self.state.bg_color(), 
+                   "bbox": bbox, 
+                   "transparency": self.state.alpha() }
+            export_image(obj, file_name, file_format, cfg)
 
     def select_image_and_create_pixbuf(self):
         """Select an image file and create a pixbuf from it."""
@@ -321,8 +364,8 @@ class TransparentWindow(Gtk.Window):
 
             if pixbuf is not None:
                 pos = self.cursor.pos()
-                img = Image([ pos ], self.canvas.pen(), pixbuf)
-                self.gom.add_object(img)
+                img = Image([ pos ], self.state.pen(), pixbuf)
+                self.bus.emit("add_object", True, img)
                 self.queue_draw()
 
         return pixbuf
@@ -330,43 +373,52 @@ class TransparentWindow(Gtk.Window):
     def __screenshot_finalize(self, bb):
         """Finish up the screenshot."""
         print("Taking screenshot now")
-        frame = (bb[0] - 3, bb[1] - 3, bb[0] + bb[2] + 6, bb[1] + bb[3] + 6)
+        dx, dy = self.gom.page().translate() or (0, 0)
+        print("translate is", dx, dy)
+        frame = (bb[0] - 3 + dx, bb[1] - 3 + dy, bb[0] + bb[2] + 6 + dx, bb[1] + bb[3] + 6 + dy)
+        print("frame is", frame)
         pixbuf, filename = get_screenshot(self, *frame)
-        self.dm.hide(False)
+        self.state.hidden(False)
         self.queue_draw()
 
         # Create the image and copy the file name to clipboard
         if pixbuf is not None:
-            img = Image([ (bb[0], bb[1]) ], self.canvas.pen(), pixbuf)
-            self.gom.add_object(img)
+            img = Image([ (bb[0], bb[1]) ], self.state.pen(), pixbuf)
+            self.bus.emit("add_object", True, img)
             self.queue_draw()
             self.clipboard.set_text(filename)
 
     def __find_screenshot_box(self):
         """Find a box suitable for selecting a screenshot."""
-        cobj = self.dm.current_object()
-        if cobj and cobj.type == "rectangle":
-            return cobj
+       #cobj = self.state.current_obj()
+       #if cobj and cobj.type == "rectangle":
+       #    return cobj
         for obj in self.gom.selected_objects():
             if obj.type == "rectangle":
                 return obj
-        for obj in self.gom.objects()[::-1]:
-            if obj.type == "rectangle":
-                return obj
+       #for obj in self.gom.objects()[::-1]:
+       #    if obj.type == "rectangle":
+       #        return obj
         return None
 
-    def screenshot(self):
+    def screenshot(self, obj = None):
         """Take a screenshot and add it to the drawing."""
-        obj = self.__find_screenshot_box()
+        if not obj:
+            obj = self.__find_screenshot_box()
+
+        self.bus.off("add_object", self.screenshot)
         if not obj:
             print("no suitable box found")
-            # use the whole screen
-            bb = (0, 0, *self.get_size())
+            self.state.mode("rectangle")
+            self.bus.on("add_object", self.screenshot, priority = 99)
+            return
+            ## use the whole screen
+            #bb = (0, 0, *self.get_size())
         else:
             bb = obj.bbox()
             print("bbox is", bb)
         #self.hidden = True
-        self.dm.hide(True)
+        self.state.hidden(True)
         self.queue_draw()
         while Gtk.events_pending():
             Gtk.main_iteration_do(False)
@@ -374,15 +426,15 @@ class TransparentWindow(Gtk.Window):
 
     def __autosave(self):
         """Autosave the drawing state."""
-        if not self.dm.modified():
+        if not self.state.modified():
             return
 
-        if self.dm.current_object(): # not while drawing!
+        if self.state.current_obj(): # not while drawing!
             return
 
         print("Autosaving")
         self.__save_state()
-        self.dm.modified(False)
+        self.state.modified(False)
 
     def __save_state(self):
         """Save the current drawing state to a file."""
@@ -392,12 +444,12 @@ class TransparentWindow(Gtk.Window):
 
         print("savefile:", self.savefile)
         config = {
-                'bg_color':    self.canvas.bg_color(),
-                'transparent': self.canvas.transparent(),
-                'show_wiglets': self.dm.show_wiglets(),
+                'bg_color':    self.state.bg_color(),
+                'transparent': self.state.alpha(),
+                'show_wiglets': self.state.show_wiglets(),
                 'bbox':        (0, 0, *self.get_size()),
-                'pen':         self.canvas.pen().to_dict(),
-                'pen2':        self.canvas.pen(alternate = True).to_dict(),
+                'pen':         self.state.pen().to_dict(),
+                'pen2':        self.state.pen(alternate = True).to_dict(),
                 'page':        self.gom.current_page_number()
         }
 
@@ -412,7 +464,7 @@ class TransparentWindow(Gtk.Window):
         if self.read_file(file_name):
             print("Setting savefile to", file_name)
             self.savefile = file_name
-            self.dm.modified(True)
+            self.state.modified(True)
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
@@ -424,17 +476,17 @@ class TransparentWindow(Gtk.Window):
             self.gom.set_objects(objects)
 
         if config and load_config:
-            self.canvas.bg_color(config.get('bg_color') or (.8, .75, .65))
-            self.canvas.transparent(config.get('transparent') or 0)
+            self.state.bg_color(config.get('bg_color') or (.8, .75, .65))
+            self.state.alpha(config.get('transparent') or 0)
             show_wiglets = config.get('show_wiglets')
             if show_wiglets is None:
                 show_wiglets = True
-            self.dm.show_wiglets(show_wiglets)
-            self.canvas.pen(pen = Pen.from_dict(config['pen']))
-            self.canvas.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
+            self.state.show_wiglets(show_wiglets)
+            self.state.pen(pen = Pen.from_dict(config['pen']))
+            self.state.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
             self.gom.set_page_number(config.get('page') or 0)
         if config or objects:
-            self.dm.modified(True)
+            self.state.modified(True)
             return True
         return False
 
@@ -445,36 +497,21 @@ class TransparentWindow(Gtk.Window):
 
 ## ---------------------------------------------------------------------
 
-def main():
-    """Main function for the application."""
-    APP_NAME   = "ScreenDrawer"
-    APP_AUTHOR = "JanuaryWeiner"  # Optional; used on Windows
-
-    # Get user-specific config directory
-    user_config_dir = appdirs.user_config_dir(APP_NAME, APP_AUTHOR)
-    print(f"User config directory: {user_config_dir}")
-
-    #user_cache_dir = appdirs.user_cache_dir(APP_NAME, APP_AUTHOR)
-    #user_log_dir   = appdirs.user_log_dir(APP_NAME, APP_AUTHOR)
-
-
-# ---------------------------------------------------------------------
-# Parsing command line
-# ---------------------------------------------------------------------
-
+def parse_arguments():
+    """Handle command line arguments."""
     parser = argparse.ArgumentParser(
             description="Drawing on the screen",
-            epilog=f"Alternative use: {argv[0]} file.sdrw file.[png, pdf, svg]")
+            epilog=f"Alternative use: {argv[0]} file.sdrw file.[png, pdf, svg, yaml]")
     parser.add_argument("-l", "--loadfile", help="Load drawing from file")
     parser.add_argument("-c", "--convert",
                         help="""
-Convert screendrawer file to given format (png, pdf, svg) and exit
+Convert screendrawer file to given format (png, pdf, svg, yaml) and exit
 (use -o to specify output file, otherwise a default name is used)
 """,
                         metavar = "FORMAT"
     )
     parser.add_argument("-p", "--page", help="Page to convert (default: 1)", 
-                        type=int, default = 1)
+                        type=int)
 
     parser.add_argument("-b", "--border", 
                         help="""
@@ -485,25 +522,37 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
     parser.add_argument("-o", "--output", help="Output file for conversion")
     parser.add_argument("files", nargs="*")
     args     = parser.parse_args()
+    return args
 
+def process_args(args, app_name, app_author):
+    """Process command line arguments."""
+    page_no = None
+    _savefile = None
+
+    if args.page is not None:
+        page_no = args.page - 1
+
+    # explicit conversion
     if args.convert:
-        if not args.convert in [ "png", "pdf", "svg" ]:
+        if not args.convert in [ "png", "pdf", "svg", "yaml" ]:
             print("Invalid conversion format")
             exit(1)
-        OUTPUT = None
+        output = None
         if args.output:
-            OUTPUT = args.output
+            output = args.output
 
         if not args.files:
             print("No input file provided")
             exit(1)
+
         convert_file(args.files[0], 
-                     OUTPUT, 
+                     output, 
                      args.convert, 
                      border = args.border, 
-                     page = args.page - 1)
+                     page_no = page_no)
         exit(0)
 
+    # convert if exactly two file names are provided
     if args.files:
         if len(args.files) > 2:
             print("Too many files provided")
@@ -511,12 +560,32 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
         elif len(args.files) == 2:
             convert_file(args.files[0], args.files[1], 
                          border = args.border, 
-                         page = args.page - 1)
+                         page_no = page_no)
             exit(0)
         else:
-            savefile = args.files[0]
+            _savefile = args.files[0]
     else:
-        savefile = get_default_savefile(APP_NAME, APP_AUTHOR)
+        _savefile = get_default_savefile(app_name, app_author)
+    return _savefile
+
+def main():
+    """Main function for the application."""
+    APP_NAME   = "ScreenDrawer"
+    APP_AUTHOR = "JanuaryWeiner"  # used on Windows
+
+    # Get user-specific config directory
+    user_config_dir = appdirs.user_config_dir(APP_NAME, APP_AUTHOR)
+    print(f"User config directory: {user_config_dir}")
+
+    #user_cache_dir = appdirs.user_cache_dir(APP_NAME, APP_AUTHOR)
+    #user_log_dir   = appdirs.user_log_dir(APP_NAME, APP_AUTHOR)
+
+# ---------------------------------------------------------------------
+# Parsing command line
+# ---------------------------------------------------------------------
+
+    args = parse_arguments()
+    savefile = process_args(args, APP_NAME, APP_AUTHOR)
     print("Save file is:", savefile)
 
 # ---------------------------------------------------------------------
@@ -528,7 +597,7 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
     CSS = b"""
     #myMenu {
         background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
-        font-family: Monospace, 'Monospace regular', monospace, 'Courier New'; /* Use 'Courier New', falling back to any monospace font */
+        font-family: 'Ubuntu Mono', Monospace, 'Monospace Regular', monospace, 'Courier New'; /* Use 'Courier New', falling back to any monospace font */
     }
     """
 
@@ -540,9 +609,10 @@ Convert screendrawer file to given format (png, pdf, svg) and exit
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
     )
 
+    win.set_icon(Icons().get("app_icon"))
     win.show_all()
     win.present()
-    win.cursor.set(win.dm.mode())
+    win.cursor.set(win.state.mode())
     win.stick()
 
     Gtk.main()

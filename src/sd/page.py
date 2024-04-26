@@ -1,9 +1,12 @@
 """
 This module contains the Page class, which is a container for objects.
 """
-from .drawable import Drawable, SelectionObject # <remove>
+
+from .drawable import Drawable # <remove>
+from .drawable_group import SelectionObject # <remove>
 from .commands import RemoveCommand, CommandGroup # <remove>
 from .commands import DeletePageCommand, DeleteLayerCommand # <remove>
+from .commands import InsertPageCommand # <remove>
 from .drawer import Drawer                                           # <remove>
 
 
@@ -78,13 +81,20 @@ class Page:
         """Set the previous page."""
         self.__prev = page
 
+    def insert(self):
+        """Insert a new page after the current page."""
+        # we are already the last page
+        cmd = InsertPageCommand(self)
+        ret = self.__next
+        return ret, cmd
+
     def delete(self):
         """Delete the page and create links between prev and next pages."""
         if not self.__prev and not self.__next:
             print("only one page remaining")
             return self
 
-        cmd = DeletePageCommand(self, self.__prev, self.__next)
+        cmd = DeletePageCommand(self)
         ret = self.__prev or self.__next
 
         return ret, cmd
@@ -144,6 +154,8 @@ class Page:
             else:
                 self.__layers.append(new_layer)
                 self.__current_layer = len(self.__layers) - 1
+        if pos is not None:
+            return self.__layers[pos]
 
         return self.__layers[self.__current_layer]
 
@@ -174,13 +186,15 @@ class Page:
 
         del self.__layers[layer_no]
 
+        # make sure layer is within boundaries
         self.__current_layer = max(0, layer_no - 1)
         self.__current_layer = min(self.__current_layer,
                                    len(self.__layers) - 1)
 
-        cmd = DeleteLayerCommand(self, layer, pos)
+        #cmd = DeleteLayerCommand(self, layer, pos)
 
-        return cmd
+        #return cmd
+        return layer, pos
 
     def translate(self, new_val = None):
         """Get or set the translate"""
@@ -238,7 +252,7 @@ class Page:
             ret_commands.append(cmd)
         return CommandGroup(ret_commands[::-1])
 
-    def draw(self, cr, state):
+    def draw(self, cr, state, force_redraw = False):
         """Draw the objects on the page."""
 
-        self.__drawer.draw(cr, self, state)
+        self.__drawer.draw(cr, self, state, force_redraw)

@@ -86,3 +86,10 @@ def test_sd_conversion_with_page_no(tmp_path, fmt):
     cmdline = ["python3", EXECUTABLE, "-p", "2", "-c", fmt, "-o", str(file_out), str(FILE_IN)]
     _check_file_format(cmdline, file_out, fmt)
 
+def test_sd_conversion_to_multipage_pdf(tmp_path):
+    """Test multipage pdf conversion"""
+    # Define the output file path
+    file_out = tmp_path / ("output.pdf")
+    cmdline = ["python3", EXECUTABLE, str(FILE_IN), str(file_out)]
+    _check_file_format(cmdline, file_out, "pdf")
+

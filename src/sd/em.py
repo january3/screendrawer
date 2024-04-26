@@ -14,6 +14,8 @@ happens.
 
 import traceback # <remove>
 from sys import exc_info # <remove>
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gdk # <remove>
 
 COLORS = {
@@ -44,14 +46,14 @@ class EventManager:
             cls._instance = super(EventManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, gom, app, dm, canvas):
+    def __init__(self, bus, gom, app, state, setter):
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
-            self.__app = app
-            self.__dm  = dm
-            self.__canvas = canvas
-            self.make_actions_dictionary(gom, app, dm, canvas)
+            self.__state = state
+            self.__setter = setter
+            self.__bus = bus
+            self.make_actions_dictionary(bus, gom, app, state, setter)
             self.make_default_keybindings()
 
     def dispatch_action(self, action_name, **kwargs):
@@ -110,7 +112,7 @@ class EventManager:
         This method is called when a key is pressed.
         """
 
-        dm, app = self.__dm, self.__app
+        state = self.__state
 
         keyname = Gdk.keyval_name(event.keyval)
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
@@ -119,7 +121,7 @@ class EventManager:
         alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
         print("keyname", keyname, "char", char, "ctrl", ctrl, "shift", shift, "alt_l", alt_l)
 
-        mode = dm.mode()
+        mode = state.mode()
 
         keyfull = keyname
 
@@ -136,43 +138,44 @@ class EventManager:
         # first, check whether there is a current object being worked on
         # and whether this object is a text object. In that case, we only
         # call the ctrl keybindings and pass the rest to the text object.
-        cobj = dm.current_object()
+        cobj = state.current_obj()
+
         if cobj and cobj.type == "text" and not(ctrl or keyname == "Escape"):
             print("updating text input")
             cobj.update_by_key(keyname, char)
-            app.queue_draw()
+            state.queue_draw()
             return
 
         # otherwise, we dispatch the key event
         self.dispatch_key_event(keyfull, mode)
 
         # XXX this probably should be somewhere else
-        app.queue_draw()
+        state.queue_draw()
 
 
-    def make_actions_dictionary(self, gom, app, dm, canvas):
+    def make_actions_dictionary(self, bus, gom, app, state, setter):
         """
         This dictionary maps key events to actions.
         """
         self.__actions = {
-            'mode_draw':             {'action': dm.mode, 'args': ["draw"]},
-            'mode_rectangle':              {'action': dm.mode, 'args': ["rectangle"]},
-            'mode_circle':           {'action': dm.mode, 'args': ["circle"]},
-            'mode_move':             {'action': dm.mode, 'args': ["move"]},
-            'mode_text':             {'action': dm.mode, 'args': ["text"]},
-            'mode_select':           {'action': dm.mode, 'args': ["select"]},
-            'mode_eraser':           {'action': dm.mode, 'args': ["eraser"]},
-            'mode_shape':            {'action': dm.mode, 'args': ["shape"]},
-            'mode_colorpicker':      {'action': dm.mode, 'args': ["colorpicker"]},
+            'mode_draw':             {'action': state.mode, 'args': ["draw"]},
+            'mode_rectangle':        {'action': state.mode, 'args': ["rectangle"]},
+            'mode_circle':           {'action': state.mode, 'args': ["circle"]},
+            'mode_move':             {'action': state.mode, 'args': ["move"]},
+            'mode_text':             {'action': state.mode, 'args': ["text"]},
+            'mode_select':           {'action': state.mode, 'args': ["select"]},
+            'mode_eraser':           {'action': state.mode, 'args': ["eraser"]},
+            'mode_shape':            {'action': state.mode, 'args': ["shape"]},
+            'mode_colorpicker':      {'action': state.mode, 'args': ["colorpicker"]},
 
-            'finish_text_input':     {'action': dm.finish_text_input},
+            'finish_text_input':     {'action': bus.emit, 'args': ["finish_text_input"]},
 
-            'cycle_bg_transparency': {'action': canvas.cycle_background},
-            'toggle_outline':        {'action': canvas.outline_toggle},
+            'cycle_bg_transparency': {'action': state.cycle_background},
+            'toggle_outline':        {'action': setter.outline_toggle},
 
-            'clear_page':            {'action': dm.clear},
-            'toggle_wiglets':        {'action': dm.toggle_wiglets},
-            'toggle_grid':           {'action': dm.toggle_grid},
+            'clear_page':            {'action': setter.clear},
+            'toggle_wiglets':        {'action': state.toggle_wiglets},
+            'toggle_grid':           {'action': state.toggle_grid},
 
             'show_help_dialog':      {'action': app.show_help_dialog},
             'app_exit':              {'action': app.exit},
@@ -208,24 +211,25 @@ class EventManager:
             'zmove_selection_raise':  {'action': gom.selection_zmove, 'args': [ "raise" ],  'modes': ["move"]},
             'zmove_selection_lower':  {'action': gom.selection_zmove, 'args': [ "lower" ],  'modes': ["move"]},
 
-            'set_color_white':       {'action': dm.set_color, 'args': [COLORS["white"]]},
-            'set_color_black':       {'action': dm.set_color, 'args': [COLORS["black"]]},
-            'set_color_red':         {'action': dm.set_color, 'args': [COLORS["red"]]},
-            'set_color_green':       {'action': dm.set_color, 'args': [COLORS["green"]]},
-            'set_color_blue':        {'action': dm.set_color, 'args': [COLORS["blue"]]},
-            'set_color_yellow':      {'action': dm.set_color, 'args': [COLORS["yellow"]]},
-            'set_color_cyan':        {'action': dm.set_color, 'args': [COLORS["cyan"]]},
-            'set_color_magenta':     {'action': dm.set_color, 'args': [COLORS["magenta"]]},
-            'set_color_purple':      {'action': dm.set_color, 'args': [COLORS["purple"]]},
-            'set_color_grey':        {'action': dm.set_color, 'args': [COLORS["grey"]]},
+            'set_color_white':       {'action': setter.set_color, 'args': [COLORS["white"]]},
+            'set_color_black':       {'action': setter.set_color, 'args': [COLORS["black"]]},
+            'set_color_red':         {'action': setter.set_color, 'args': [COLORS["red"]]},
+            'set_color_green':       {'action': setter.set_color, 'args': [COLORS["green"]]},
+            'set_color_blue':        {'action': setter.set_color, 'args': [COLORS["blue"]]},
+            'set_color_yellow':      {'action': setter.set_color, 'args': [COLORS["yellow"]]},
+            'set_color_cyan':        {'action': setter.set_color, 'args': [COLORS["cyan"]]},
+            'set_color_magenta':     {'action': setter.set_color, 'args': [COLORS["magenta"]]},
+            'set_color_purple':      {'action': setter.set_color, 'args': [COLORS["purple"]]},
+            'set_color_grey':        {'action': setter.set_color, 'args': [COLORS["grey"]]},
 
-            'set_brush_rounded':     {'action': dm.set_brush, 'args': ["rounded"] },
-            'set_brush_marker':      {'action': dm.set_brush, 'args': ["marker"] },
-            'set_brush_slanted':     {'action': dm.set_brush, 'args': ["slanted"] },
-            'set_brush_pencil':      {'action': dm.set_brush, 'args': ["pencil"] },
+            'set_brush_rounded':     {'action': setter.set_brush, 'args': ["rounded"] },
+            'set_brush_marker':      {'action': setter.set_brush, 'args': ["marker"] },
+            'set_brush_slanted':     {'action': setter.set_brush, 'args': ["slanted"] },
+            'set_brush_pencil':      {'action': setter.set_brush, 'args': ["pencil"] },
+            'set_brush_tapered':     {'action': setter.set_brush, 'args': ["tapered"] },
 
-            'apply_pen_to_bg':       {'action': canvas.apply_pen_to_bg,        'modes': ["move"]},
-            'toggle_pens':           {'action': canvas.switch_pens},
+            'apply_pen_to_bg':       {'action': state.apply_pen_to_bg,        'modes': ["move"]},
+            'toggle_pens':           {'action': state.switch_pens},
 
             # dialogs
             "export_drawing":        {'action': app.export_drawing},
@@ -241,6 +245,8 @@ class EventManager:
             'select_previous_object': {'action': gom.select_previous_object, 'modes': ["move"]},
             'select_all':             {'action': gom.select_all},
             'select_reverse':         {'action': gom.select_reverse},
+            'selection_clip':         {'action': gom.selection_clip,    'modes': ["move"]},
+            'selection_unclip':       {'action': gom.selection_unclip,  'modes': ["move"]},
             'selection_group':        {'action': gom.selection_group,   'modes': ["move"]},
             'selection_ungroup':      {'action': gom.selection_ungroup, 'modes': ["move"]},
             'selection_delete':       {'action': gom.selection_delete,  'modes': ["move"]},
@@ -249,6 +255,7 @@ class EventManager:
 
             'next_page':              {'action': gom.next_page},
             'prev_page':              {'action': gom.prev_page},
+            'insert_page':            {'action': gom.insert_page},
             'delete_page':            {'action': gom.delete_page},
 
             'next_layer':             {'action': gom.next_layer},
@@ -257,14 +264,13 @@ class EventManager:
 
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
 
-#            'Ctrl-m':               {'action': self.smoothen,           'modes': ["move"]},
-            'copy_content':          {'action': app.copy_content,        },
-            'cut_content':           {'action': app.cut_content,         'modes': ["move"]},
-            'paste_content':         {'action': app.paste_content},
-            'screenshot':            {'action': app.screenshot},
+            'copy_content':           {'action': app.copy_content,        },
+            'cut_content':            {'action': app.cut_content,         'modes': ["move"]},
+            'paste_content':          {'action': app.paste_content},
+            'screenshot':             {'action': app.screenshot},
 
-            'stroke_increase':       {'action': dm.stroke_change, 'args': [1]},
-            'stroke_decrease':       {'action': dm.stroke_change, 'args': [-1]},
+            'stroke_increase':        {'action': setter.stroke_change, 'args': [1]},
+            'stroke_decrease':        {'action': setter.stroke_change, 'args': [-1]},
         }
 
     def make_default_keybindings(self):
@@ -337,9 +343,11 @@ class EventManager:
             '2':                    "set_brush_marker",
             '3':                    "set_brush_slanted",
             '4':                    "set_brush_pencil",
+            '5':                    "set_brush_tapered",
 
             'Shift-p':              "prev_page",
             'Shift-n':              "next_page",
+            'Shift-i':              "insert_page",
             'Shift-d':              "delete_page",
             'Ctrl-Shift-p':         "prev_layer",
             'Ctrl-Shift-n':         "next_layer",
@@ -359,6 +367,8 @@ class EventManager:
             'Shift-ISO_Left_Tab':   "select_previous_object",
             'g':                    "selection_group",
             'u':                    "selection_ungroup",
+            'Shift-c':              "selection_clip",
+            'Shift-u':              "selection_unclip",
             'Delete':               "selection_delete",
 
             'Alt-p':                "apply_pen_to_selection",

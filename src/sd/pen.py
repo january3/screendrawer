@@ -2,6 +2,9 @@
 This module defines the Pen class, which represents a pen with customizable drawing properties.
 """
 
+import gi                                                  # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove>
+gi.require_version('Pango', '1.0')                           # <remove>
 from gi.repository import Pango  # <remove>
 
 class Pen:
@@ -108,7 +111,7 @@ class Pen:
         """Set the font description"""
         if isinstance(font, str):
             self.font_description = Pango.FontDescription.from_string(font)
-            self.font_set_from_description(font)
+            self.font_set_from_description(self.font_description)
         elif isinstance(font, Pango.FontDescription):
             self.font_description = font
             self.font_set_from_description(font)

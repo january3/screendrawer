@@ -1,18 +1,20 @@
 To do (sorted by priority):
 
 
- * unit tests. more, more, more
- * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
-   files
- * create a pen wiglet
- * make wiglets movable
+ 
+ * events in em should go through the bus
  * draw a dustbin wiglet in lower left corner
+ * when exporting with ctrl-e there should be selection option to choose
+   the format, including pdf vs multipage pdf (and multipage pdf should be
+   default)
+ * unit tests. more, more, more
+ * zoom in and out. I think the time is ripe for it 
+ * different brushes should have different cursors
  * clean up font code. Maybe use the Pango.FontDescription class for
    everything - why not?
  * idea for path editing: "thumb" - moving a point on path and dragging
    surrounding points with it in a rubber-like fashion; how many - that depends on current line
    width (so broader line make more points move)
- * zoom in and out. I think the time is ripe for it 
  * brushes. (1) brush that generates short diagonal thin strokes (2) brush
    that creates a Gary Larson-like hatching (3) brush that creates a
  * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
@@ -20,15 +22,23 @@ To do (sorted by priority):
  * wiglets for pen / line width / tool. They should be drawinggroup
    objects knowing how to draw themselves and how to react to mouse
  * Help should be actually a new screendrawer window with written on it!
+ * welcome screen as screendrawer pages
  * how should the color picker and the color selection dialog colaborate?
  * think hard how I want the color setting / pen thing to work
  * add a line mode and Line object class
  * show corners of the bounding box
- * grid
  * horizontal and vertical guides
- * PDFs should be multipage (ha, ha)
+ * create a pen wiglet (that does what...?)
+ * implement page dnd rearrangements in the page selector wiglet
+ * make wiglets movable
 
 Design issues:
+ * why is history in gom? shouldn't it be in the commands? As in, commands
+   should actually add themselves to history? -> but how: undo has to call
+   on history object, so we would have to pass the history to each command
+   that we create. Unless we make history a singleton, and then commands
+   can simply create the history object and get always the same instance.
+   Or history is one of the "superobjects" like gom.
  * the interaction between canvas, gom, dm, em is tangled. 
  * It is not entirely clear where the file is saved. In theory it is, but
    in practice I find myself wondering.
@@ -36,28 +46,114 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * text bbox is incorrectly reported to the method checking whether text is
-   clicked
- * a weird bug appeared once when editing text; something was seriously
-   wrong with the text object; text was behaving erratic when moved and
-   looked like having two copies (maybe somehow entered twice in
-   gom/page/layer?)
+ * something is seriously rotten with resizing rotated images. The bounding
+   boxes do not seem to be correct, which results in aberrant behaviour esp
+   in clips and groups. => ok, the problem is that I am trying to resize
+   the image (scaling to another rectangle), but that is not how
+   transformations work. putting together rotation and scaling results in 
+   shearing. You cannot just put together all rotations and all scalings.
+   => that means the object needs to have its own little history of
+   transformations and apply them sequentially when drawing => that means
+   all sorts of problems with calculating bboxes and so on. Maybe it is
+   possible to get the user coordinates from the cairo context?
+ * incidentally, undoing a rotation + scaling on shapes does not work
+   properly either, the shape lands in the initial position, but is still
+   sheared => why? it looks like the operations *are* being undone, but
+   with slight errors.
+ * fill toggle is low-level, not undoable and does not work always as
+   expected
+ * empty pages break pdf export
+ * quick double clicking sometimes produces too many events leading to a
+   race condition betwen WigletCreateText and WigletCreateObject (the
+   former catches the double click, the later catches the extra single
+   click)
+ * paths drawn with slanted brush report incorrect bounding box (fragments
+   are cut by the cache)
+ * when laptop set to low power and teams are running, the app does not
+   work efficiently. Not sure what can be done about that, as it seems that
+   it is more of a polling issue. Maybe create a very simple pen with no
+   calculations at all and see how it works? -> then again, it is even
+   worse in inkscape.
+ * sometimes when editing text the release-button event does not seem to be
+   properly processed and when exiting with "Esc", the object is being
+   moved even though mouse button is not down.
  * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies
    fall on the same position as the first one
- * when text is grouped with other objects, and the group is resized in
-   unproportional way, then due to the fact that the bb of the text is
-   resized (more or less) proportionally, after a few resize operations the
-   text size is very small.
  * when drawing very slow the line looks like shit.
- * rotating the whole selection does not work (b/c the way selection
-   behaves)
- * when text is rotated, the algorithm for checking for hover objects does
-   not consider the enlarged bounding box
 
 Done:
+ * toggling outline does not refresh drawing cache
+ * rotating images results in a flashing black background within the
+   bounding box of the image
+ * add clipping images
+ * screenshots should work differently. If a frame is selected, go with it.
+   If not, let the user create a frame and register with the bus for object
+   completion event. Remove the box afterwards.
+ * implement page insert (shift-I) to create a new page after the current
+   one.
+ * after changing pen color the cache is not updated (probably because the
+   objects do not know the pen has changed) => no, the reason is different:
+   if drawable primitives are grouped, the primitives are extracted and
+   modified, but the DrawableGroup is not updated so it does not "know"
+   it has been modified. The drawer however only checks whether Drawable
+   group was modified. Potential solutions:
+    * directly check in SetPropCommand whether an object in the argument list 
+      is a Drawable, and if yes, tell it to modify itself
+    * add a callback for the parent from the primitives. More flexible, but
+      might be problematic in case of SelectionObjects.
+    * somehow pass the call to modify the property through the
+      DrawableGroup, but then this raises a question, how do we track the
+      modifications in the command
+    * or maybe add a "mod" method to Drawable, which simply tells the
+      object it has been modified; then, in cmd, call that method for every
+      object in the argument list - just to make sure.
+ * or maybe ChatGTP is right and DM shouldn't actually do anything except
+   of parsing the events and passing them on. Maybe we could pack all event
+   information in the MouseEvent object and the state object, and then pass
+   information around "hey, there is this and this happening, who wants to
+   take it".
+ * sort out the remove / add / group / set commands. some are taking
+   objects, some are taking object lists, some are taking drawable groups.
+   Inconsistent! => more or less did that. The Move / Rotate / Resize
+   commands still take a single object, because otherwise it would require
+   really a lot of unnecessary workarounds. Live with that.
+ * The redo-command may mess up stuff.
+ * ungrouping reverses the z-stack
+ * unseen wiglets work? They should not.
+ * clean up import-export code
+ * incorrect bounding box when exporting with text (see mk.sdrw) => oh no,
+   this is actually due to paning? => oh no, we are already dealing with
+   it?
+ * PDFs should be multipage (ha, ha) -> this is really easy, use
+   surface.show_page()! or even cr.show_page()
+ * end of a pencil line should be rounded.
+ * brush-like brush with a tapered end and round start ("taper")
+ * write sdrw2yaml.py to be able to quickly inspect the contents of the sdrw
+   files; or, better, create a yaml export option.
+ * text bbox is incorrectly reported to the method checking whether text is
+   clicked
+ * when text is rotated, the algorithm for checking for hover objects does
+   not consider the enlarged bounding box
+ * a weird bug appeared once when editing text; something was seriously
+   wrong with the text object; text was behaving erratic when moved and
+   looked like having two copies (maybe somehow entered twice in
+   gom/page/layer?). [update]: the bug is fairly reproducible upon
+   double-click of a text [update]: this is because it gets entered twice
+   in the object list, since it becomes curent_obj again when double
+   clicked.
+ * color picker should be really an invisible wiglet able to change the colors
+ * regression: ctrl-[shift]-click no longer works, because the "active
+   wiglet" is in dm, whereas wiglet drawing is in canvas. They should be
+   treated like any other wiglets... but they take different precedence.
+   First the "top" wiglets get the choice to use up the click. Then objects
+   on the canvas. Finally - if the canvas is empty under the click - the
+   ctrl-[shift]-click wiglets.
+ * since rectangles and circles incorrectly report their bounding box, the
+   result is that they get clipped in the cached surface. This looks
+   really, really bad.
  * grid must be cached
  * when the bb is smaller than the corner clicking area, bad things happen
    (it is hard to move the object for example) -> the corner clicking area
@@ -156,6 +252,7 @@ Done:
  * remember page number
  * implemented three simple brushes, selectable through 1-3
  * implemented grid (ctrl-g)
+ * grid
  * implement rotating for: Box, Circle (yes, since Circle can be an
    ellipse)
  * implement undo for fonts as well
@@ -344,12 +441,25 @@ Done:
  * grouping
 
 Parked ideas:
+ * rotating the whole selection does not work (b/c the way selection
+   behaves). However, you can group, rotate and ungroup, so I will park
+   that for now.
+ * when text is grouped with other objects, and the group is resized in
+   unproportional way, then due to the fact that the bb of the text is
+   resized (more or less) proportionally, after a few resize operations the
+   text size is very small. -> this might be handled by resizing the text
+   through tranformation rather than font change. However, it is neither
+   easy nor the results are spectacular. I think for now we will park it.
  * import SVG: that would be a nice thing, but it is a lot of work. Also,
    to do it properly it would require specialized libraries.
  * For outlines, split each outline into non-overlapping segments. This is
    much harder than I thought it would be, but fun.
 
 Rejected ideas:
+ * selectiontool in erase mode should remove the selected objects =>
+   actually not, because I would prefer to erase the objects along the
+   track.
+ * Native SVG format. This would be MUCH slower to start.
  * how about: each object has methods "save_state" (which returns
    everything that is needed to completely restore state) and "restore_state"
    (which restores the state). This would allow to save the state of the
