@@ -48,7 +48,18 @@ Design issues:
 Bugs:
  * something is seriously rotten with resizing rotated images. The bounding
    boxes do not seem to be correct, which results in aberrant behaviour esp
-   in clips and groups.
+   in clips and groups. => ok, the problem is that I am trying to resize
+   the image (scaling to another rectangle), but that is not how
+   transformations work. putting together rotation and scaling results in 
+   shearing. You cannot just put together all rotations and all scalings.
+   => that means the object needs to have its own little history of
+   transformations and apply them sequentially when drawing => that means
+   all sorts of problems with calculating bboxes and so on. Maybe it is
+   possible to get the user coordinates from the cairo context?
+ * incidentally, undoing a rotation + scaling on shapes does not work
+   properly either, the shape lands in the initial position, but is still
+   sheared => why? it looks like the operations *are* being undone, but
+   with slight errors.
  * fill toggle is low-level, not undoable and does not work always as
    expected
  * empty pages break pdf export

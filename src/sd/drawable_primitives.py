@@ -37,12 +37,6 @@ class Image(Drawable):
             self.rotation = rotation
             self.rotate_start((coords[0][0] + width / 2, coords[0][1] + height / 2))
 
-    def _bbox_internal(self):
-        """Return the bounding box of the object."""
-        x, y = self.coords[0]
-        w, h = self.coords[1]
-        return (x, y, w - x, h - y)
-
     def draw(self, cr, hover=False, selected=False, outline=False):
         """Draw the object on the Cairo context."""
         cr.save()
@@ -52,6 +46,8 @@ class Image(Drawable):
             cr.rotate(self.rotation)
             cr.translate(-self.rot_origin[0], -self.rot_origin[1])
 
+
+        cr.save()
         cr.translate(self.coords[0][0], self.coords[0][1])
 
         if self.transform:
@@ -65,6 +61,7 @@ class Image(Drawable):
         cr.paint()
 
         cr.restore()
+        cr.restore()
 
         cr.set_source_rgb(*self.pen.color)
         if selected:
@@ -72,17 +69,33 @@ class Image(Drawable):
         if hover:
             self.bbox_draw(cr, lw=.5)
 
+
+    def _bbox_internal(self):
+        """Return the bounding box of the image, not rotated."""
+        x, y = self.coords[0]
+        w, h = self.coords[1]
+        return (x, y, w - x, h - y)
+
+    def __coords_actual(self):
+        """Return the actual coordinates of the image, rotated if necessary."""
+        bb = self._bbox_internal()
+        x, y, w, h = bb
+        x1, y1 = x + w, y + h
+        coords = [(x, y), (x1, y), (x1, y1), (x, y1)]
+
+        if self.rotation:
+            # first, calculate position bb after rotation relative to the
+            # text origin
+            coords = coords_rotate(coords,
+                               self.rotation, self.rot_origin)
+        return coords
+
     def bbox(self, actual = False):
         """Return the bounding box of the object."""
         bb = self._bbox_internal()
         if self.rotation:
-            # first, calculate position bb after rotation relative to the
-            # text origin
-            x, y, w, h = bb
-            x1, y1 = x + w, y + h
-            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)],
-                               self.rotation, self.rot_origin)
-            bb = path_bbox(bb)
+            coords = self.__coords_actual()
+            bb = path_bbox(coords)
 
         return bb
 
@@ -99,25 +112,41 @@ class Image(Drawable):
 
     def resize_update(self, bbox):
         """Update during the resize of the object."""
-        self.resizing["bbox"] = bbox
+        self.mod += 1
 
+        # this is the new bounding box
         x1, y1, w1, h1 = bbox
 
-        # calculate scale relative to the old bbox
-        print("old bbox is", self.__orig_bbox)
-        print("new bbox is", bbox)
+        coords = self.coords
+        coords_rot = self.__coords_actual()
+        coords_new_rot = transform_coords(coords_rot, self.resizing["bbox"], bbox)
+        self.resizing["coords_new_rot"] = coords_new_rot
 
-        w_scale = w1 / self.__orig_bbox[2]
-        h_scale = h1 / self.__orig_bbox[3]
+        coords_new = coords_new_rot
+        if self.rotation:
+            self.rot_origin = ((coords_new[0][0] + coords_new[2][0])/2,
+                           (coords_new[0][1] + coords_new[2][1])/2)
+            coords_new = coords_rotate(coords_new_rot, -self.rotation, self.rot_origin)
+        self.resizing["coords_new"] = coords_new
+
+        # the coordinates of the image, not rotated
+        bb = self._bbox_internal()
+
+        # calculate scale relative to the old bbox
+        w_scale = (coords_new[1][0] - coords_new[0][0]) / bb[2]
+        h_scale = (coords_new[2][1] - coords_new[1][1]) / bb[3]
+
+        # ok, lets pretend we apply the scale to the old bbox, do we get
+        # the new one?
 
         print("resizing image", w_scale, h_scale)
         print("old transform is", self.resizing["transform"])
 
-        self.coords[0] = (x1, y1)
-        self.coords[1] = (x1 + w1, y1 + h1)
-        self.transform = (w_scale * self.resizing["transform"][0],
-                          h_scale * self.resizing["transform"][1])
-        self.mod += 1
+        self.coords[0] = coords_new[0]
+        self.coords[1] = coords_new[2]
+        self.transform = (w_scale * self.transform[0],
+                          h_scale * self.transform[1])
+        self.resizing["bbox"] = bbox
 
     def resize_end(self):
         """Finish the resizing operation."""
