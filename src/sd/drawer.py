@@ -190,7 +190,7 @@ class Drawer:
 
             # objects in this group remained the same: draw the cached surface
             if is_same:
-                print("Drawing cached surface")
+                #print("Drawing cached surface")
                 surface = self.__cache["surfaces"][i]
                 cr.set_source_surface(surface["surface"], surface["x"], surface["y"])
                 cr.paint()

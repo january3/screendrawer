@@ -1,7 +1,5 @@
 To do (sorted by priority):
 
-
- 
  * events in em should go through the bus
  * draw a dustbin wiglet in lower left corner
  * when exporting with ctrl-e there should be selection option to choose

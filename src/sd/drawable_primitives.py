@@ -46,7 +46,6 @@ class DrawableTrafo(Drawable):
 
         #self.__trafos = [ ("move", (coords[0][0], coords[0][1])) ]
         if transform:
-            print("got transform", transform)
             self.__trafos = transform
         else:
             self.__trafos = [ ]
@@ -224,7 +223,6 @@ class Image(DrawableTrafo):
 
     def to_dict(self):
         """Convert the object to a dictionary."""
-        print("saving with transformations:", self.trafos())
 
         return {
             "type": self.type,
@@ -237,10 +235,10 @@ class Image(DrawableTrafo):
         }
 
 
-class Text(Drawable):
+class Text(DrawableTrafo):
     """Class for Text objects"""
-    def __init__(self, coords, pen, content, rotation = None, rot_origin = None):
-        super().__init__("text", coords, pen)
+    def __init__(self, coords, pen, content, rotation = None, rot_origin = None, transform = None):
+
 
         # split content by newline
         # content = content.split("\n")
@@ -249,9 +247,9 @@ class Text(Drawable):
         self.font_extents = None
         self.__show_caret = False
 
-        if rotation:
-            self.rotation = rotation
-            self.rot_origin = rot_origin
+        coords = [ (coords[0][0], coords[0][1]), (50, 50) ]
+
+        super().__init__("text", coords, pen, transform, rotation)
 
     def move_caret(self, direction):
         """Move the caret."""
@@ -266,105 +264,10 @@ class Text(Drawable):
             self.mod += 1
         return self.__show_caret
 
-    def move(self, dx, dy):
-        """Move the text object by dx, dy."""
-        move_coords(self.coords, dx, dy)
-        if self.rotation:
-            self.rot_origin = (self.rot_origin[0] + dx, self.rot_origin[1] + dy)
-        self.mod += 1
-
-    def is_close_to_click(self, click_x, click_y, threshold):
-        """Check if a click is close to the path."""
-        if self.__bb is None:
-            return False
-
-        bb = self.__bb
-        x0, y0 = bb[0], bb[1]
-        x1, y1 = x0 + bb[2], y0 + bb[3]
-        if self.rotation:
-            click_x, click_y = coords_rotate([(click_x, click_y)],
-                                             0-self.rotation,
-                                             self.rot_origin)[0]
-
-        return (x0 - threshold <= click_x <= x1 + threshold and
-                y0 - threshold <= click_y <= y1 + threshold)
-
-
-    def rotate_end(self):
-        """Finish the rotation operation."""
-        self.mod += 1
-       ## hmm, not sure what this is supposed to do.
-       #if self.bb:
-       #    center_x, center_y = self.bb[0] + self.bb[2] / 2, self.bb[1] + self.bb[3] / 2
-       #    new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
-       #    self.move(new_center[0] - center_x, new_center[1] - center_y)
-       #self.rot_origin = new_center
-
     def stroke_change(self, direction):
         """Change text size up or down."""
         self.pen.font_size += direction
         self.pen.font_size = max(8, min(128, self.pen.font_size))
-        self.mod += 1
-
-    def resize_update(self, bbox):
-        print("resizing text", [ int(x) for x in bbox])
-        if bbox[2] < 0:
-            bbox = (bbox[0], bbox[1], 10, bbox[3])
-        if bbox[3] < 0:
-            print("flipping y")
-            bbox = (bbox[0], bbox[1], bbox[2], 10)
-        self.resizing["bbox"] = bbox
-        self.mod += 1
-
-    def resize_end(self):
-        """Finish the resizing operation."""
-        new_bbox   = self.resizing["bbox"]
-        old_bbox   = self.__bb
-
-        if not self.font_extents:
-            return
-
-        # create a surface with the new size
-        surface = cairo.ImageSurface(cairo.Format.ARGB32,
-                                     2 * math.ceil(new_bbox[2]),
-                                     2 * math.ceil(new_bbox[3]))
-        cr = cairo.Context(surface)
-        min_fs, max_fs = 8, 154
-
-        if new_bbox[2] < old_bbox[2] or new_bbox[3] < old_bbox[3]:
-            direction = -1
-        else:
-            direction = 1
-
-        self.coords = [ (0, 0), (old_bbox[2], old_bbox[3]) ]
-        # loop while font size not larger than max_fs and not smaller than
-        # min_fs
-        print("resizing text, direction=", direction, "font size is", self.pen.font_size)
-        while True:
-            self.pen.font_size += direction
-            #print("trying font size", self.pen.font_size)
-            self.draw(cr, False, False)
-            out_of_range_low = self.pen.font_size < min_fs and direction < 0
-            out_of_range_up  = self.pen.font_size > max_fs and direction > 0
-            if out_of_range_low or out_of_range_up:
-                #print("font size out of range")
-                break
-            current_bbox = self.__bb
-            #print("drawn, bbox is", self.__bb)
-            if direction > 0 and (current_bbox[2] >= new_bbox[2] or
-                                  current_bbox[3] >= new_bbox[3]):
-                #print("increased beyond the new bbox")
-                break
-            if direction < 0 and (current_bbox[2] <= new_bbox[2] and
-                                  current_bbox[3] <= new_bbox[3]):
-                break
-
-        self.coords[0] = (new_bbox[0], new_bbox[1] + self.font_extents[0])
-        print("final coords are", self.coords)
-        print("font extents are", self.font_extents)
-
-        # first
-        self.resizing = None
         self.mod += 1
 
     def to_dict(self):
@@ -374,25 +277,9 @@ class Text(Drawable):
             "pen": self.pen.to_dict(),
             "rotation": self.rotation,
             "rot_origin": self.rot_origin,
-            "content": self.__text.to_string()
+            "content": self.__text.to_string(),
+            "transform": self.trafos(),
         }
-
-    def bbox(self, actual = False):
-        if self.resizing:
-            return self.resizing["bbox"]
-        if not self.__bb:
-            bb = (self.coords[0][0], self.coords[0][1], 50, 50)
-        else:
-            bb = self.__bb
-        if self.rotation:
-            # first, calculate position bb after rotation relative to the
-            # text origin
-            x, y, w, h = bb
-            x1, y1 = x + w, y + h
-            bb = coords_rotate([(x, y), (x, y1), (x1, y), (x1, y1)], self.rotation, self.rot_origin)
-            bb = path_bbox(bb)
-
-        return bb
 
     def to_string(self):
         """Return the text as a single string."""
@@ -445,22 +332,13 @@ class Text(Drawable):
         dy   = 0
 
         # new bounding box
+        dy_top = self.font_extents[0]
         bb = [position[0],
-              position[1] - self.font_extents[0],
+              position[1], # - self.font_extents[0],
               0, 0]
 
         cr.save()
-       #if self.resizing:
-       #    cr.translate(self.resizing["bbox"][0], self.resizing["bbox"][1])
-       #    scale_x = self.resizing["bbox"][2] / self.__bb[2]
-       #    scale_y = self.resizing["bbox"][3] / self.__bb[3]
-       #    cr.scale(scale_x, scale_y)
-       #    cr.translate(-self.__bb[0], -self.__bb[1])
-
-        if self.rotation:
-            cr.translate(self.rot_origin[0], self.rot_origin[1])
-            cr.rotate(self.rotation)
-            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+        self.apply_trafos(cr)
 
         for i, fragment in enumerate(content):
 
@@ -472,7 +350,7 @@ class Text(Drawable):
             bb[3] += self.font_extents[2]
 
             cr.set_font_size(self.pen.font_size)
-            cr.move_to(position[0], position[1] + dy)
+            cr.move_to(position[0], position[1] + dy + dy_top)
             cr.show_text(fragment)
             cr.stroke()
 
@@ -484,12 +362,20 @@ class Text(Drawable):
                 cr.set_source_rgb(1, 0, 0)
                 self.draw_caret(cr,
                                 position[0] - x_bearing + t_width - 2 * t_width2,
-                                position[1] + dy - self.font_extents[0],
+                                position[1] + dy,
                                 self.font_extents[2])
 
             dy += self.font_extents[2]
 
         self.__bb = (bb[0], bb[1], bb[2], bb[3])
+        new_coords = [ (bb[0], bb[1]), (bb[0] + bb[2], bb[1] + bb[3]) ]
+
+        if new_coords != self.coords:
+            self.coords = new_coords
+            self.bbox_recalculate()
+
+        #cr.rectangle(bb[0], bb[1], bb[2], bb[3])
+        #cr.stroke()
 
         cr.restore()
 
