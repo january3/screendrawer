@@ -17,87 +17,104 @@ from .utils import find_obj_in_bbox            # <remove>
 from .utils import transform_coords            # <remove>
 from .utils import smooth_path, coords_rotate  # <remove>
 
-class Image(Drawable):
-    """Class for Images"""
-    def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
+class DrawableTrafo(Drawable):
+    """
+    Class for objects that are transformed using cairo transformations.
 
-        self.__image = ImageObj(image, image_base64)
+    Rather than recalculating the coordinates upon tranformation, we record the transformations
+    and apply them when drawing.
 
-        self.transform = transform or (1, 1)
+    This has some advantages, but would mess with the pens in case of
+    paths, and might be less efficient than recalculating the coordinates
+    once and for all.
 
-        width, height = self.__image.size()
-        width, height = width * self.transform[0], height * self.transform[1]
+    The coordinates here hold the original bounding box of the object, with
+    coords[0] being the left upper, and coords[1] the right lower corner.
 
-        coords = [ (coords[0][0], coords[0][1]),
-                   (coords[0][0] + width, coords[0][1] + height) ]
-        super().__init__("image", coords, pen)
-        self.__orig_bbox = None
+    This information is only used for calculating the bounding box of the
+    transformed object.
+    """
 
-        if rotation:
-            self.rotation = rotation
-            self.rotate_start((coords[0][0] + width / 2, coords[0][1] + height / 2))
+    def __init__(self, mytype, coords, pen, transform = None, rotation = 0):
 
-    def draw(self, cr, hover=False, selected=False, outline=False):
-        """Draw the object on the Cairo context."""
-        cr.save()
+        super().__init__(mytype, coords, pen)
+        self.__bbox = None
 
-        if self.rotation:
-            cr.translate(self.rot_origin[0], self.rot_origin[1])
-            cr.rotate(self.rotation)
-            cr.translate(-self.rot_origin[0], -self.rot_origin[1])
+       #if rotation:
+       #    self.rotation = rotation
+       #    self.rotate_start((coords[0][0] + width / 2, coords[0][1] + height / 2))
 
+        #self.__trafos = [ ("move", (coords[0][0], coords[0][1])) ]
+        if transform:
+            print("got transform", transform)
+            self.__trafos = transform
+        else:
+            self.__trafos = [ ]
+        self.bbox_recalculate()
 
-        cr.save()
-        cr.translate(self.coords[0][0], self.coords[0][1])
+    def trafos(self):
+        """Return the transformations."""
+        return self.__trafos
 
-        if self.transform:
-            w_scale, h_scale = self.transform
-            cr.scale(w_scale, h_scale)
+    def apply_trafos(self, cr):
+        """Apply the transformations to the Cairo context."""
 
-        w, h = self.__image.size()
-        cr.rectangle(0, 0, w, h)
-        cr.clip()
-        Gdk.cairo_set_source_pixbuf(cr, self.__image.pixbuf(), 0, 0)
-        cr.paint()
+        for i, trafo in enumerate(reversed(self.__trafos)):
+            trafo_type, trafo_args = trafo
+            #print("applying trafo", trafo_type, trafo_args)
 
-        cr.restore()
-        cr.restore()
+            if trafo_type == "rotate":
+                cr.translate(trafo_args[0], trafo_args[1])
+                cr.rotate(trafo_args[2])
+                cr.translate(-trafo_args[0], -trafo_args[1])
+            elif trafo_type == "resize":
+                cr.translate(trafo_args[0], trafo_args[1])
+                cr.scale(trafo_args[2], trafo_args[3])
+                cr.translate(-trafo_args[0], -trafo_args[1])
+            elif trafo_type == "move":
+                cr.translate(trafo_args[0], trafo_args[1])
+            elif trafo_type == "dummy":
+                pass
+            else:
+                print("unknown trafo", trafo_type)
 
-        cr.set_source_rgb(*self.pen.color)
-        if selected:
-            self.bbox_draw(cr, lw=1.5)
-        if hover:
-            self.bbox_draw(cr, lw=.5)
+    def move(self, dx, dy):
+        """Move the image by dx, dy."""
+        if len(self.__trafos) > 0 and self.__trafos[-1][0] == "move":
+            x, y = self.__trafos[-1][1]
+            self.__trafos[-1] = ("move", (x + dx, y + dy))
+        else:
+            self.__trafos.append(("move", (dx, dy)))
+        self.bbox_recalculate()
 
+    def bbox_recalculate(self, actual = False):
+        """Return the bounding box of the object."""
+        self.mod += 1
+        coords = self.coords
+        w, h = coords[1][0] - coords[0][0], coords[1][1] - coords[0][1]
+        x0, y0 = coords[0]
+        x1, y1 = coords[1]
+        coords = [ (x0, y0), (x1, y0), (x1, y1), (x0, y1) ]
 
-    def _bbox_internal(self):
-        """Return the bounding box of the image, not rotated."""
-        x, y = self.coords[0]
-        w, h = self.coords[1]
-        return (x, y, w - x, h - y)
+        # apply the transformations to the original object
+        for trafo in self.__trafos:
+            trafo_type, trafo_args = trafo
+            if trafo_type == "rotate":
+                coords = coords_rotate(coords, trafo_args[2], (trafo_args[0], trafo_args[1]))
+            elif trafo_type == "resize":
+                #coords = transform_coords(coords, (0, 0, w, h), (0, 0, w * trafo_args[2], h * trafo_args[3]))
+                coords = [ (trafo_args[0] + (p[0] - trafo_args[0]) * trafo_args[2],
+                            trafo_args[1] + (p[1] - trafo_args[1]) * trafo_args[3]) for p in coords ]
+            elif trafo_type == "move":
+                coords = [ (p[0] + trafo_args[0], p[1] + trafo_args[1]) for p in coords ]
 
-    def __coords_actual(self):
-        """Return the actual coordinates of the image, rotated if necessary."""
-        bb = self._bbox_internal()
-        x, y, w, h = bb
-        x1, y1 = x + w, y + h
-        coords = [(x, y), (x1, y), (x1, y1), (x, y1)]
-
-        if self.rotation:
-            # first, calculate position bb after rotation relative to the
-            # text origin
-            coords = coords_rotate(coords,
-                               self.rotation, self.rot_origin)
-        return coords
+        # get the bounding box
+        self.__bbox = path_bbox(coords)
+        return self.__bbox
 
     def bbox(self, actual = False):
         """Return the bounding box of the object."""
-        bb = self._bbox_internal()
-        if self.rotation:
-            coords = self.__coords_actual()
-            bb = path_bbox(coords)
-
-        return bb
+        return self.__bbox
 
     def resize_start(self, corner, origin):
         """Start the resizing operation."""
@@ -105,65 +122,54 @@ class Image(Drawable):
         self.resizing = {
             "corner": corner,
             "origin": origin,
+            "orig_bbox": self.bbox(),
             "bbox":   self.bbox(),
-            "transform": self.transform
             }
         self.mod += 1
+        # dummy transformation x 2
+        self.__trafos.append(("dummy", (0, 0, 1, 1)))
+        self.__trafos.append(("dummy", (0, 0, 1, 1)))
 
     def resize_update(self, bbox):
         """Update during the resize of the object."""
-        self.mod += 1
+
+        # remove the 2 last transformations
+        # (the resizing might involve a move!)
+        self.__trafos.pop()
+        self.__trafos.pop()
 
         # this is the new bounding box
         x1, y1, w1, h1 = bbox
 
-        coords = self.coords
-        coords_rot = self.__coords_actual()
-        coords_new_rot = transform_coords(coords_rot, self.resizing["bbox"], bbox)
-        self.resizing["coords_new_rot"] = coords_new_rot
+        # this is the old bounding box
+        x0, y0, w0, h0 = self.resizing["orig_bbox"]
 
-        coords_new = coords_new_rot
-        if self.rotation:
-            self.rot_origin = ((coords_new[0][0] + coords_new[2][0])/2,
-                           (coords_new[0][1] + coords_new[2][1])/2)
-            coords_new = coords_rotate(coords_new_rot, -self.rotation, self.rot_origin)
-        self.resizing["coords_new"] = coords_new
+        # calculate the new transformation
+        w_scale = w1 / w0
+        h_scale = h1 / h0
 
-        # the coordinates of the image, not rotated
-        bb = self._bbox_internal()
-
-        # calculate scale relative to the old bbox
-        w_scale = (coords_new[1][0] - coords_new[0][0]) / bb[2]
-        h_scale = (coords_new[2][1] - coords_new[1][1]) / bb[3]
-
-        # ok, lets pretend we apply the scale to the old bbox, do we get
-        # the new one?
-
-        print("resizing image", w_scale, h_scale)
-        print("old transform is", self.resizing["transform"])
-
-        self.coords[0] = coords_new[0]
-        self.coords[1] = coords_new[2]
-        self.transform = (w_scale * self.transform[0],
-                          h_scale * self.transform[1])
-        self.resizing["bbox"] = bbox
+        # apply the transformation
+        self.__trafos.append(("move", (x1 - x0, y1 - y0)))
+        self.__trafos.append(("resize", (x1, y1, w_scale, h_scale)))
+        self.bbox_recalculate()
 
     def resize_end(self):
         """Finish the resizing operation."""
-        width, height = self.__image.size()
-        self.coords[1] = (self.coords[0][0] + width * self.transform[0],
-                          self.coords[0][1] + height * self.transform[1])
         self.resizing = None
         self.mod += 1
 
+    def rotate(self, angle, set_angle = False):
+        """Rotate the object by the specified angle."""
+        # the self.rotation variable is for drawing while rotating
+        if len(self.__trafos) > 0 and self.__trafos[-1][0] == "rotate":
+            x, y, a = self.__trafos[-1][1]
+            self.__trafos[-1] = ("rotate", (x, y, a + angle))
+        else:
+            self.__trafos.append(("rotate", (self.rot_origin[0], self.rot_origin[1], angle)))
+        self.bbox_recalculate()
+
     def rotate_end(self):
         """Finish the rotation operation."""
-        bb = self._bbox_internal()
-        center_x, center_y = bb[0] + bb[2] / 2, bb[1] + bb[3] / 2
-        new_center = coords_rotate([(center_x, center_y)], self.rotation, self.rot_origin)[0]
-        self.move(new_center[0] - center_x, new_center[1] - center_y)
-        self.rot_origin = new_center
-        self.mod += 1
 
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the object."""
@@ -175,12 +181,50 @@ class Image(Drawable):
             return True
         return False
 
+class Image(DrawableTrafo):
+    """
+    Class for Images
+    """
+    def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
+
+        print("CREATING IMAGE", transform)
+        self.__image = ImageObj(image, image_base64)
+
+        width, height = self.__image.size()
+        coords = [ (coords[0][0], coords[0][1]),
+                   (coords[0][0] + width, coords[0][1] + height) ]
+
+        super().__init__("image", coords, pen, transform, rotation)
+
+        self.bbox_recalculate()
+
+    def draw(self, cr, hover=False, selected=False, outline=False):
+        """Draw the object on the Cairo context."""
+        cr.save()
+        self.apply_trafos(cr)
+
+        w, h = self.__image.size()
+        x, y = self.coords[0]
+        cr.rectangle(x, y, w, h)
+        cr.clip()
+        Gdk.cairo_set_source_pixbuf(cr, self.__image.pixbuf(), x, y)
+        cr.paint()
+
+        cr.restore()
+
+        cr.set_source_rgb(*self.pen.color)
+        if selected:
+            self.bbox_draw(cr, lw=1.5)
+        if hover:
+            self.bbox_draw(cr, lw=.5)
+
     def image(self):
         """Return the image."""
         return self.__image.pixbuf()
 
     def to_dict(self):
         """Convert the object to a dictionary."""
+        print("saving with transformations:", self.trafos())
 
         return {
             "type": self.type,
@@ -188,8 +232,8 @@ class Image(Drawable):
             "pen": self.pen.to_dict(),
             "image": None,
             "rotation": self.rotation,
-            "transform": self.transform,
             "image_base64": self.__image.base64(),
+            "transform": self.trafos(),
         }
 
 

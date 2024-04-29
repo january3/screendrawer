@@ -46,16 +46,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * something is seriously rotten with resizing rotated images. The bounding
-   boxes do not seem to be correct, which results in aberrant behaviour esp
-   in clips and groups. => ok, the problem is that I am trying to resize
-   the image (scaling to another rectangle), but that is not how
-   transformations work. putting together rotation and scaling results in 
-   shearing. You cannot just put together all rotations and all scalings.
-   => that means the object needs to have its own little history of
-   transformations and apply them sequentially when drawing => that means
-   all sorts of problems with calculating bboxes and so on. Maybe it is
-   possible to get the user coordinates from the cairo context?
  * incidentally, undoing a rotation + scaling on shapes does not work
    properly either, the shape lands in the initial position, but is still
    sheared => why? it looks like the operations *are* being undone, but
@@ -85,6 +75,16 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * something is seriously rotten with resizing rotated images. The bounding
+   boxes do not seem to be correct, which results in aberrant behaviour esp
+   in clips and groups. => ok, the problem is that I am trying to resize
+   the image (scaling to another rectangle), but that is not how
+   transformations work. putting together rotation and scaling results in 
+   shearing. You cannot just put together all rotations and all scalings.
+   => that means the object needs to have its own little history of
+   transformations and apply them sequentially when drawing => that means
+   all sorts of problems with calculating bboxes and so on. Maybe it is
+   possible to get the user coordinates from the cairo context?
  * toggling outline does not refresh drawing cache
  * rotating images results in a flashing black background within the
    bounding box of the image
