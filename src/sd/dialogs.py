@@ -45,6 +45,15 @@ Draw on the screen with Gnome and Cairo. Quick and dirty.
 <b>(Help not complete yet.)</b>
 
 <span font_family="monospace">
+<b>General / Interface:</b>
+w: Toggle UI (hide / show widgets)         F1, h, ?: Show this help dialog
+Ctrl-q, x, q: Quit                         
+
+<b>UI:</b>
+Color selector: click to select pen color, shift-click to select background color
+Tool selector: click to select tool
+Page selector: click to select page, click on '+' to add a new page
+
 <b>Mouse:</b>
 
 <b>All modes:</b>                                 <b>Move mode:</b>
@@ -66,9 +75,9 @@ Moving object to left lower screen corner deletes it.
 
 <b>Works always:</b>                                                             <b>Move mode only:</b>
 <b>With Ctrl:</b>              <b>Simple key (not when entering text)</b>               <b>With Ctrl:</b>             <b>Simple key (not when entering text)</b>
-Ctrl-q: Quit            x, q: Exit                                        Ctrl-c: Copy content   Tab: Next object
-Ctrl-e: Export drawing  h, F1, ?: Show this help dialog                   Ctrl-v: Paste content  Shift-Tab: Previous object
-Ctrl-l: Clear drawing   l: Clear drawing                                  Ctrl-x: Cut content    Shift-letter: quick color selection e.g.
+Ctrl-e: Export drawing                                                    Ctrl-c: Copy content   Tab: Next object
+Ctrl-l: Clear drawing   l: Clear drawing                                  Ctrl-v: Paste content  Shift-Tab: Previous object
+                                                                          Ctrl-x: Cut content    Shift-letter: quick color selection e.g.
                                                                                                  Shift-r for red
 Ctrl-i: insert image                                                                             |Del|: Delete selected object(s)
 Ctrl-z: undo            |Esc|: Finish text input                                                 g, u: group, ungroup

@@ -57,6 +57,8 @@ class MenuMaker:
             return self.__context_menu
 
         menu_items = [
+                { "label": "Toggle UI    [w]",          "callback": self.on_menu_item_activated, "action": "toggle_wiglets" },
+                { "separator": True },
                 { "label": "Move         [m]",          "callback": self.on_menu_item_activated, "action": "mode_move" },
                 { "label": "Pencil       [d]",          "callback": self.on_menu_item_activated, "action": "mode_draw" },
                 { "label": "Shape        [s]",          "callback": self.on_menu_item_activated, "action": "mode_shape" },
@@ -78,10 +80,10 @@ class MenuMaker:
                 { "label": "Delete Layer  (Ctrl-Shift-d)",    "callback": self.on_menu_item_activated, "action": "delete_layer" },
                 { "separator": True },
                 { "label": "Bg transparency (Ctrl-b)",  "callback": self.on_menu_item_activated, "action": "cycle_bg_transparency" },
-                { "label": "Tggl outline         [o]",  "callback": self.on_menu_item_activated, "action": "toggle_outline" },
+                { "label": "Toggle outline       [o]",  "callback": self.on_menu_item_activated, "action": "toggle_outline" },
                 { "separator": True },
                 { "label": "Color           (Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color" },
-                { "label": "Bg Color        (Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color_bg" },
+                { "label": "Bg Color  (Shift-Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color_bg" },
                 { "label": "Font            (Ctrl-f)",  "callback": self.on_menu_item_activated, "action": "select_font" },
                 { "separator": True },
                 { "label": "Open drawing    (Ctrl-o)",  "callback": self.on_menu_item_activated, "action": "open_drawing" },
