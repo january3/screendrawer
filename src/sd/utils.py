@@ -480,6 +480,8 @@ def objects_bbox(objects, actual = True):
 def is_click_in_bbox(click_x, click_y, bbox):
     """Check if a click is inside a bounding box."""
     x, y, w, h = bbox
+    print("Checking click, bbox: ", int(x), int(y), int(x + w), int(y + h))
+    print("Click:", int(click_x), int(click_y))
     return x <= click_x <= x + w and y <= click_y <= y + h
 
 def is_click_in_bbox_corner(click_x, click_y, bbox, threshold):

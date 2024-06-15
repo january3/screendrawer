@@ -31,6 +31,11 @@ To do (sorted by priority):
  * make wiglets movable
 
 Design issues:
+ * There is a problem with the way that the double clicks are handled. The
+   50ms delay is actually quite counterproductive; rather than handling the
+   single click after 50ms, the responders to single click event should be
+   also catching the double click events and e.g. cancel the drawing of the
+   current object.
  * why is history in gom? shouldn't it be in the commands? As in, commands
    should actually add themselves to history? -> but how: undo has to call
    on history object, so we would have to pass the history to each command
@@ -73,6 +78,10 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * When drawing, sometimes there is no reaction => actually, the reason was
+   that the wiglets were taking over the clicks. The reason for that was
+   that the event for some reason gets modified and the x/y position can
+   change to 0/0, thus the color selector wiglet takes over the click.
  * something is seriously rotten with resizing rotated images. The bounding
    boxes do not seem to be correct, which results in aberrant behaviour esp
    in clips and groups. => ok, the problem is that I am trying to resize

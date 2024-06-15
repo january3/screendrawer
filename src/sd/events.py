@@ -38,7 +38,9 @@ class MouseEvent:
         if self.__info["pressure"] is None:  # note that 0 is perfectly valid
             self.__info["pressure"] = 1
 
-        self.x, self.y = event.x, event.y
+        self.x, self.y         = event.x, event.y
+        self.x_abs, self.y_abs = event.x, event.y
+        #print("Creating mouse event at", int(event.x), int(event.y))
 
         if translate:
             self.x, self.y = self.x - translate[0], self.y - translate[1]
@@ -151,7 +153,7 @@ class MouseCatcher:
         """Handle left click events."""
 
         if ev.double():
-            print("DOUBLE CLICK 1")
+            print("DOUBLE CLICK 1", int(ev.x), int(ev.y))
             self.__timeout = None
             self.__bus.emit("left_mouse_double_click", True, ev)
             return True
@@ -165,7 +167,7 @@ class MouseCatcher:
         """Handle left click events."""
 
         # this function needs to return false to stop the timeout func
-        print("SINGLE CLICK 1")
+        print("SINGLE CLICK 1", int(ev.x), int(ev.y), int(ev.event.x), int(ev.event.y))
 
         if not self.__timeout:
             print("timeout is None, canceling click")

@@ -90,7 +90,7 @@ class WigletTransparency(Wiglet):
             print("wrong event", ev.hover(), ev.corner(), ev.double())
             return False
 
-        self.coords = (ev.event.x, ev.event.y)
+        self.coords = (ev.x_abs, ev.y_abs)
 
         self.__pen    = self.__state.pen()
         self.__initial_transparency = self.__pen.transparency
@@ -102,7 +102,7 @@ class WigletTransparency(Wiglet):
         """update on mouse move"""
         if not self.__active:
             return False
-        x = ev.event.x
+        x = ev.x_abs
         dx = x - self.coords[0]
         ## we want to change the transparency by 0.1 for every 20 pixels
         self.__pen.transparency = max(0, min(1, self.__initial_transparency + dx/500))
@@ -155,7 +155,7 @@ class WigletLineWidth(Wiglet):
         if ev.hover() or ev.corner()[0] or ev.double():
             print("wrong event", ev.hover(), ev.corner(), ev.double())
             return False
-        self.coords = (ev.event.x, ev.event.y)
+        self.coords = (ev.x_abs, ev.y_abs)
         self.__pen    = self.__state.pen()
         self.__initial_width = self.__pen.line_width
 
@@ -174,7 +174,7 @@ class WigletLineWidth(Wiglet):
         """update on mouse move"""
         if not self.__active:
             return False
-        x = ev.event.x
+        x = ev.x_abs
         dx = x - self.coords[0]
         self.__pen.line_width = max(1, min(60, self.__initial_width + dx/20))
         return True
@@ -236,7 +236,7 @@ class WigletPageSelector(Wiglet):
         if not ev.state.show_wiglets():
             return False
 
-        x, y = ev.event.x, ev.event.y
+        x, y = ev.x_abs, ev.y_abs
 
         self.recalculate()
 
@@ -244,7 +244,7 @@ class WigletPageSelector(Wiglet):
             return False
 
         # which page is at this position?
-        print("clicked inside the bbox, event", ev)
+        print("page_selector: clicked inside the bbox, event", ev)
         dy = y - self.__bbox[1]
 
         page_no = self.__page_n
@@ -473,7 +473,7 @@ class WigletToolSelector(Wiglet):
         if not ev.state.show_wiglets():
             return False
 
-        x, y = ev.event.x, ev.event.y
+        x, y = ev.x_abs, ev.y_abs
 
         dw   = self.__bbox[2] / len(self.__modes)
 
@@ -563,12 +563,12 @@ class WigletColorSelector(Wiglet):
         if not ev.state.show_wiglets():
             return False
 
-        x, y = ev.event.x, ev.event.y
+        x, y = ev.x_abs, ev.y_abs
 
         if not is_click_in_bbox(x, y, self.__bbox):
             return False
 
-        print("clicked inside the bbox")
+        print("color_selector: clicked inside the bbox")
 
         dy = y - self.__bbox[1]
         # which color is at this position?
