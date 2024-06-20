@@ -1,6 +1,6 @@
 """Factory for drawable objects"""
 from .drawable_primitives import Text, Rectangle, Shape, Circle # <remove>
-from .drawable_paths import Path # <remove>
+from .drawable_paths import Path, SegmentedPath # <remove>
 
 
 class DrawableFactory:
@@ -27,6 +27,10 @@ class DrawableFactory:
         elif mode == "draw":
             print("creating path object")
             ret_obj = Path([ pos ], pen = pen, pressure = [ pressure ])
+
+        elif mode == "segmented_path":
+            print("creating segmented path object")
+            ret_obj = SegmentedPath([ pos ], pen = pen, pressure = [ pressure ])
 
         elif mode == "rectangle":
             print("creating rectangle object")

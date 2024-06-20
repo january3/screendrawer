@@ -86,10 +86,42 @@ def calc_segments(p0, p1, width):
 
     return l_seg_s, r_seg_s, l_seg_e, r_seg_e
 
+def calc_normal_outline_short(coords, pressure, line_width, rounded = False):
+    """Calculate the normal outline for a 2-coordinate path"""
+    n = len(coords)
+
+    outline_l = []
+    outline_r = []
+    line_width = line_width or 1
+
+    p0, p1 = coords[0], coords[1]
+    width  = line_width * pressure[0] / 2
+
+    l_seg1_s, r_seg1_s, l_seg1_e, r_seg1_e = calc_segments(p0, p1, width)
+
+    if rounded:
+        arc_coords = calc_arc_coords(l_seg1_s, r_seg1_s, p1, 10)
+        outline_r.extend(arc_coords)
+    outline_l.append(l_seg1_s)
+    outline_l.append(l_seg1_e)
+    outline_r.append(r_seg1_s)
+    outline_r.append(r_seg1_e)
+    if rounded:
+        arc_coords = calc_arc_coords(l_seg1_e, r_seg1_e, p1, 10)
+        outline_l.extend(arc_coords)
+
+    return outline_l, outline_r
+
 
 def calc_normal_outline(coords, pressure, line_width, rounded = False):
     """Calculate the normal outline of a path."""
     n = len(coords)
+
+    if n < 2:
+        return [], []
+
+    if n == 2:
+        return calc_normal_outline_short(coords, pressure, line_width, rounded)
 
     outline_l = []
     outline_r = []
@@ -127,15 +159,21 @@ def point_mean(p1, p2):
     """Calculate the mean of two points."""
     return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
 
-def calc_normal_outline2(coords, pressure, line_width, rounded = True):
+def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
     """
     Calculate the normal outline of a path.
 
-    This one is used in the pencil brush.
+    This one is used in the pencil brush v2.
     """
     n = len(coords)
-    line_width = line_width or 1
 
+    if n < 2:
+        return [], []
+
+    if n == 2:
+        return calc_normal_outline_short(coords, pressure, line_width, rounded)
+
+    line_width = line_width or 1
     outline_l = []
     outline_r = []
 
@@ -169,9 +207,16 @@ def calc_normal_outline2(coords, pressure, line_width, rounded = True):
                 outline_l.extend(arc_coords[5:][::-1])
     return outline_l, outline_r
 
-def calc_normal_outline3(coords, pressure, line_width, taper_pos, taper_length):
-    """Calculate the normal outline of a path."""
+def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_length):
+    """Calculate the normal outline of a path for tapered brush."""
     n = len(coords)
+
+    if n < 2:
+        return [], []
+
+    if n == 2:
+        return calc_normal_outline_short(coords, pressure, line_width, rounded)
+
     line_width = line_width or 1
 
     outline_l = []
@@ -238,6 +283,9 @@ class BrushFactory:
         if not brush_type:
             brush_type = "rounded"
 
+        print("Selecting BRUSH " + brush_type)
+        print("BRUSH KWARGS", kwargs)
+
         if brush_type == "rounded":
             return BrushRound(**kwargs)
 
@@ -260,24 +308,31 @@ class BrushFactory:
 
 class Brush:
     """Base class for brushes."""
-    def __init__(self, rounded = False, brush_type = "marker", outline = None):
+    def __init__(self, rounded = False, brush_type = "marker", outline = None, smooth_path = True):
         self.__outline = outline or [ ]
         self.__coords = [ ]
         self.__pressure = [ ]
         self.__rounded = rounded
         self.__outline = [ ]
         self.__brush_type = brush_type
+        self.__smooth_path = smooth_path
 
     def to_dict(self):
         """Return a dictionary representation of the brush."""
         return {
                 "brush_type": self.__brush_type,
-               # "outline": self.__outline,
+                "smooth_path": self.smooth_path(),
                }
 
     def brush_type(self):
         """Get brush type."""
         return self.__brush_type
+
+    def smooth_path(self, smooth_path = None):
+        """Set or get smooth path."""
+        if smooth_path is not None:
+            self.__smooth_path = smooth_path
+        return self.__smooth_path
 
     def coords(self, coords = None):
         """Set or get brush coordinates."""
@@ -327,25 +382,24 @@ class Brush:
 
         if coords is not None and pressure is not None:
             if len(coords) != len(pressure):
-                print("Warning: Pressure and coords don't match (",
-                                 len(coords), len(pressure), ")")
+                print("Brush: Warning: Pressure and coords don't match (",
+                                 "coords=", len(coords), "pressure=", len(pressure), ")")
                 pressure = None
 
         pressure = pressure or [1] * len(coords)
 
         lwd = line_width
 
-        if len(coords) < 3:
+        if len(coords) < 2:
             return None
 
         #print("1.length of coords and pressure:", len(coords), len(pressure))
-        coords, pressure = smooth_path(coords, pressure, 20)
+        if self.smooth_path():
+            coords, pressure = smooth_path(coords, pressure, 20)
         #print("2.length of coords and pressure:", len(coords), len(pressure))
 
         outline_l, outline_r = calc_normal_outline(coords, pressure, lwd, self.__rounded)
 
-        #outline_l, _ = smooth_path(outline_l, None, 20)
-        #outline_r, _ = smooth_path(outline_r, None, 20)
         outline  = outline_l + outline_r[::-1]
 
         if len(coords) != len(pressure):
@@ -356,9 +410,9 @@ class Brush:
 
 class BrushTapered(Brush):
     """Tapered brush."""
-    def __init__(self, outline = None):
+    def __init__(self, outline = None, smooth_path = True):
         super().__init__(rounded = False, brush_type = "tapered",
-                         outline = outline)
+                         outline = outline, smooth_path = smooth_path)
 
     def calculate(self, line_width, coords, pressure = None):
         """Recalculate the outline of the brush."""
@@ -382,7 +436,8 @@ class BrushTapered(Brush):
         tot_length = calculate_length(coords)
 
         #print("1.length of coords and pressure:", len(coords), len(pressure))
-        coords, pressure = smooth_path(coords, pressure, 20)
+        if self.smooth_path():
+            coords, pressure = smooth_path(coords, pressure, 20)
         #print("2.length of coords and pressure:", len(coords), len(pressure))
 
         taper_pos = first_point_after_length(coords, length_to_taper)
@@ -390,7 +445,7 @@ class BrushTapered(Brush):
         taper_length = calculate_length(coords[taper_pos:])
 
 
-        outline_l, outline_r = calc_normal_outline3(coords, pressure, lwd, 
+        outline_l, outline_r = calc_normal_outline_tapered(coords, pressure, lwd, 
                                                     taper_pos, taper_length)
 
         outline  = outline_l + outline_r[::-1]
@@ -403,15 +458,15 @@ class BrushTapered(Brush):
 
 class BrushMarker(Brush):
     """Marker brush."""
-    def __init__(self, outline = None):
+    def __init__(self, outline = None, smooth_path = True):
         super().__init__(rounded = False, brush_type = "marker",
-                         outline = outline)
+                         outline = outline, smooth_path = smooth_path)
 
 class BrushRound(Brush):
     """Round brush."""
-    def __init__(self, outline = None):
+    def __init__(self, outline = None, smooth_path = True):
         super().__init__(rounded = True, brush_type = "rounded",
-                         outline = outline)
+                         outline = outline, smooth_path = smooth_path)
 
 class BrushPencil(Brush):
     """
@@ -421,9 +476,9 @@ class BrushPencil(Brush):
 
     This version attempts to draw with the same stroke, but to draw
     """
-    def __init__(self, outline = None, bins = None): # pylint: disable=unused-argument
+    def __init__(self, outline = None, bins = None, smooth_path = True): # pylint: disable=unused-argument
         super().__init__(rounded = True, brush_type = "pencil",
-                         outline = outline)
+                         outline = outline, smooth_path = smooth_path)
         self.__pressure  = [ ]
         self.__bins = [ ]
         self.__bin_lw = [ ]
@@ -431,12 +486,6 @@ class BrushPencil(Brush):
         self.__outline_l = [ ]
         self.__outline_r = [ ]
         self.__coords = [ ]
-
-    def to_dict(self):
-        """Return a dictionary representation of the brush."""
-        return {
-                "brush_type": self.brush_type(),
-               }
 
     def move(self, dx, dy):
         """Move the outline."""
@@ -497,14 +546,15 @@ class BrushPencil(Brush):
 
         lwd = line_width
 
-        if len(coords) < 3:
+        if len(coords) < 2:
             return None
 
         #print("1.length of coords and pressure:", len(coords), len(pressure))
-        coords, pressure = smooth_path(coords, pressure, 20)
+        if self.smooth_path():
+            coords, pressure = smooth_path(coords, pressure, 20)
         #print("2.length of coords and pressure:", len(coords), len(pressure))
 
-        outline_l, outline_r = calc_normal_outline2(coords, pressure, lwd, True)
+        outline_l, outline_r = calc_normal_outline_pencil(coords, pressure, lwd, True)
        #print("outline lengths:", len(outline_l), len(outline_r))
 
         self.__outline_l = outline_l
@@ -526,14 +576,18 @@ class BrushPencil(Brush):
 
 class BrushSlanted(Brush):
     """Slanted brush."""
-    def __init__(self, slant = None):
-        super().__init__(brush_type = "slanted")
+    def __init__(self, slant = None, smooth_path = True):
+        super().__init__(brush_type = "slanted", outline = None, smooth_path = smooth_path)
 
         self.__slant = slant or [(-0.4, 0.6), (0.3, - 0.6)]
 
     def to_dict(self):
         """Return a dictionary representation of the brush."""
-        return { "brush_type": self.brush_type(), "slant": self.__slant }
+        return { 
+                "brush_type": self.brush_type(), 
+                "smooth_path": self.smooth_path(),
+                "slant": self.__slant 
+                }
 
     def rotate(self, angle, rot_origin):
         """Rotate the outline."""
@@ -547,7 +601,8 @@ class BrushSlanted(Brush):
             if len(coords) != len(pressure):
                 raise ValueError("Pressure and coords don't match")
 
-        coords, pressure = smooth_path(coords, pressure, 20)
+        if self.smooth_path():
+            coords, pressure = smooth_path(coords, pressure, 20)
 
         # we need to multiply everything by line_width
         dx0, dy0, dx1, dy1 = [ line_width * x for x in self.__slant[0] + self.__slant[1] ]

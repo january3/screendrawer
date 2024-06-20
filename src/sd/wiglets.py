@@ -338,10 +338,11 @@ class WigletEditText(Wiglet):
         self.__state = state
         self.__obj   = None
         self.__active = False
-        bus.on("left_mouse_click", self.on_click, priority = 0)
-        bus.on("mouse_move",       self.on_move, priority = 99)
-        bus.on("mouse_release",   self.on_release, priority = 99)
+        bus.on("left_mouse_click",  self.on_click, priority = 0)
+        bus.on("mouse_move",        self.on_move, priority = 99)
+        bus.on("mouse_release",     self.on_release, priority = 99)
         bus.on("finish_text_input", self.finish_text_input, priority = 99)
+        bus.on("escape",            self.finish_text_input, priority = 99)
         bus.on("left_mouse_double_click",
                self.on_double_click, priority = 9)
 
@@ -430,6 +431,111 @@ class WigletEditText(Wiglet):
         return True
 
 
+class WigletCreateSegments(Wiglet):
+    """Create a segmented path"""
+
+    def __init__(self, bus, state):
+        super().__init__("pan", None)
+
+        self.__bus   = bus
+        self.__state = state
+        self.__obj   = None
+        bus.on("left_mouse_click", self.on_click,   priority = 99)
+        bus.on("escape", self.cancel,   priority = 99)
+        bus.on("left_mouse_double_click", self.on_finish,   priority = 99)
+        bus.on("mouse_move",       self.on_move,    priority = 99)
+        bus.on("obj_draw",         self.draw_obj,   priority = 99)
+
+    def cancel(self):
+        """Cancel creating a segmented path"""
+
+        mode = self.__state.mode()
+        if mode != "segment":
+            return False
+
+        if self.__obj:
+            print("WigletCreateSegments: cancel")
+            self.__obj = None
+
+        return True
+
+    def on_move(self, ev):
+        """Update drawing object"""
+        obj = self.__obj
+
+        if not obj:
+            return False
+
+        print("popping")
+        obj.path_pop()
+        print("appending")
+        obj.update(ev.x, ev.y, ev.pressure())
+        self.__bus.emit("queue_draw")
+        return True
+
+
+    def draw_obj(self, cr, state):
+        """Draw the object currently being created"""
+        if not self.__obj:
+            return
+
+        self.__obj.draw(cr)
+        return True
+
+    def on_click(self, ev):
+        """Start drawing"""
+
+        if ev.ctrl() or ev.alt():
+            return False
+
+        mode = self.__state.mode()
+        print("segment on_click here")
+
+        if mode != "segment" or ev.shift() or ev.ctrl():
+            print("  wrong modifiers")
+            return False
+
+        if self.__obj:
+            print("  Adding point to an existing segmented path")
+            self.__obj.path_pop()
+            ## append twice, once the "actual" point, once the moving end
+            self.__obj.path_append(ev.x, ev.y, 1)
+            self.__obj.path_append(ev.x, ev.y, 1)
+        else:
+            print("  Creating a new segmented path")
+            obj = DrawableFactory.create_drawable("segmented_path", pen = self.__state.pen(), ev=ev)
+
+            if obj:
+                self.__obj = obj
+                self.__obj.path_append(ev.x, ev.y, 1)
+            else:
+                print("No object created for mode", mode)
+
+        self.__bus.emit("queue_draw")
+        return True
+
+    def on_finish(self, ev):
+        """Finish drawing object"""
+
+        obj = self.__obj
+
+        if not obj:
+            return False
+
+        print("finishing segmented path")
+        obj.path_append(ev.x, ev.y, 0)
+        obj.finish()
+
+        # remove paths that are too small
+        print("Finalizing segment")
+        self.__bus.emit("add_object", True, obj)
+        self.__state.selection().clear()
+
+        self.__obj = None
+        self.__bus.emit("queue_draw")
+        return True
+
+
 class WigletCreateObject(Wiglet):
     """Create object when clicked"""
 
@@ -439,9 +545,18 @@ class WigletCreateObject(Wiglet):
         self.__bus   = bus
         self.__state = state
         self.__obj   = None
-        bus.on("left_mouse_click", self.on_click, priority = 0)
-        bus.on("mouse_move",       self.on_move, priority = 99)
-        bus.on("mouse_release",   self.on_release, priority = 99)
+        bus.on("left_mouse_click", self.on_click,   priority = 0)
+        bus.on("mouse_move",       self.on_move,    priority = 99)
+        bus.on("mouse_release",    self.on_release, priority = 99)
+        bus.on("obj_draw",         self.draw_obj,   priority = 99)
+
+    def draw_obj(self, cr, state):
+        """Draw the object currently being created"""
+        if not self.__obj:
+            return
+
+        self.__obj.draw(cr)
+        return True
 
     def on_click(self, ev):
         """Start drawing"""
@@ -464,7 +579,6 @@ class WigletCreateObject(Wiglet):
         obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
 
         if obj:
-            self.__state.current_obj(obj)
             self.__obj = obj
         else:
             print("No object created for mode", mode)
@@ -497,7 +611,6 @@ class WigletCreateObject(Wiglet):
             # remove paths that are too small
             if len(obj.coords) < 3:
                 print("removing object of type", obj.type, "because too small")
-                self.__state.current_obj_clear()
                 obj = None
 
         # remove objects that are too small
@@ -505,17 +618,15 @@ class WigletCreateObject(Wiglet):
             bb = obj.bbox()
             if bb and obj.type in [ "rectangle", "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
                 print("removing object of type", obj.type, "because too small")
-                self.__state.current_obj_clear()
                 obj = None
 
         if obj:
             self.__bus.emit("add_object", True, obj)
 
-            # with text, we are not done yet! Need to keep current object
-            # such that keyboard events can update it
-            if self.__state.current_obj().type != "text":
-                self.__state.selection().clear()
-                self.__state.current_obj_clear()
+            if self.__obj.type == "text":
+                ## this cannot happen!
+                raise Exception("Text object should not be finished here")
+            self.__state.selection().clear()
 
         self.__obj = None
         self.__bus.emit("queue_draw")

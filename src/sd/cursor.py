@@ -61,6 +61,7 @@ class CursorManager:
             "shape":       Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "draw":        Gdk.Cursor.new_from_name(window.get_display(), "pencil"),
             "crosshair":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
+            "segment":     Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             "circle":      Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             "rectangle":   Gdk.Cursor.new_from_name(window.get_display(), "crosshair"),
             "none":        Gdk.Cursor.new_from_name(window.get_display(), "none"),
@@ -87,7 +88,7 @@ class CursorManager:
         self.__default_cursor = cursor_name
         self.__current_cursor = cursor_name
 
-        self.__window.get_window().set_cursor(self.__cursors[cursor_name])
+        self.__window.get_window().set_cursor(self.__cursors.get(cursor_name))
 
     def revert(self):
         """Revert to the default cursor."""

@@ -47,7 +47,10 @@ class Canvas:
         self.draw_bg(cr, tr)
         page.draw(cr, self.__state, force_redraw = self.__force_redraw)
 
+        self.__bus.emit("obj_draw", exclusive = False, cr = cr, state = self.__state)
+
         cobj = self.__state.current_obj()
+
         if cobj and not cobj in page.objects_all_layers():
             self.__state.current_obj().draw(cr)
 

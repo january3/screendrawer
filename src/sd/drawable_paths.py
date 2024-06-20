@@ -9,25 +9,24 @@ from .brush import BrushFactory                   #<remove>
 from .utils import transform_coords, smooth_path, coords_rotate           # <remove>
 from .utils import is_click_close_to_path, path_bbox, move_coords # <remove>
 
-class Path(Drawable):
+class PathRoot(Drawable):
     """ Path is like shape, but not closed and has an outline that depends on
         line width and pressure."""
-    def __init__(self, coords, pen, outline = None, pressure = None, brush = None):
-        super().__init__("path", coords, pen = pen)
-        self.__pressure  = pressure or []
+    def __init__(self, mytype, coords, pen, outline = None, pressure = None, brush = None):
+        super().__init__(mytype, coords, pen = pen)
+        self.__pressure  = pressure or [1] * len(coords)
         self.__bb        = []
-
-        if brush:
-            self.__brush = BrushFactory.create_brush(**brush)
-        else:
-            brush_type = pen.brush_type()
-            self.__brush = BrushFactory.create_brush(brush_type)
+        self.__brush     = None
+        self.__n_appended = 0
 
         if outline:
             print("Warning: outline is not used in Path")
 
-        if len(self.coords) > 3 and not self.__brush.outline():
-            self.outline_recalculate()
+    def brush(self, brush = None):
+        """Set the brush for the path."""
+        if not brush:
+            return self.__brush
+        self.__brush = brush
 
     def outline_recalculate(self):
         """Recalculate the outline of the path."""
@@ -103,8 +102,14 @@ class Path(Drawable):
         """Append a point to the path, calculating the outline of the
            shape around the path. Only used when path is created to
            allow for a good preview. Later, the path is smoothed and recalculated."""
+        print("path_append. length of coords and pressure:", len(self.coords), len(self.__pressure))
         coords = self.coords
         width  = self.pen.line_width * pressure
+
+        # record the number of append calls (not of the actually appended
+        # points)
+        self.__n_appended = self.__n_appended + 1
+        print("  appending. __n_appended now=", self.__n_appended)
 
         if len(coords) == 0:
             self.__pressure.append(pressure)
@@ -113,14 +118,41 @@ class Path(Drawable):
 
         lp = coords[-1]
         if abs(x - lp[0]) < 1 and abs(y - lp[1]) < 1:
+            print("  [too close] coords length now:", len(coords))
+            print("  [too close] pressure length now:", len(self.__pressure))
             return
 
         self.__pressure.append(pressure)
         coords.append((x, y))
-        width = width / 2
+        print("  coords length now:", len(coords))
+        print("  pressure length now:", len(self.__pressure))
 
         if len(coords) < 2:
             return
+        self.outline_recalculate()
+        self.__bb = None
+
+    def path_pop(self):
+        """Remove the last point from the path."""
+        coords = self.coords
+
+        print("path_pop. __n_appended=", self.__n_appended)
+        print("  path_pop. 1. length of coords and pressure:", len(self.coords), len(self.__pressure))
+        if len(coords) < 2:
+            return
+
+        self.__n_appended = self.__n_appended - 1
+
+        if self.__n_appended >= len(self.coords):
+            return
+
+        self.__pressure.pop()
+        coords.pop()
+        print("  path_pop. 2. length of coords and pressure:", len(self.coords), len(self.__pressure))
+
+        if len(coords) < 2:
+            return
+
         self.outline_recalculate()
         self.__bb = None
 
@@ -189,9 +221,11 @@ class Path(Drawable):
         #print("drawing path", self, "with brush", self.__brush, "of type",
         # self.__brush.brush_type())
         if not self.__brush.outline():
+            print("Warning: no outline for brush", self.__brush.brush_type())
             return
 
-        if len(self.__brush.outline()) < 4 or len(self.coords) < 3:
+        if len(self.__brush.outline()) < 2 or len(self.coords) < 2:
+            print("Warning: not enough coords or outline for path")
             return
 
         if self.rotation != 0:
@@ -231,4 +265,41 @@ class Path(Drawable):
         print("Path.from_object: invalid object")
         return obj
 
+class Path(PathRoot):
+    """ Path is like shape, but not closed and has an outline that depends on
+        line width and pressure."""
+    def __init__(self, coords, pen, outline = None, pressure = None, brush = None):
+        super().__init__("path", coords, pen = pen, pressure = pressure)
+
+        if brush:
+            self.brush(BrushFactory.create_brush(**brush))
+        else:
+            brush_type = pen.brush_type()
+            self.brush(BrushFactory.create_brush(brush_type))
+
+        if len(self.coords) > 3 and not self.brush().outline():
+            self.outline_recalculate()
+
+
+class SegmentedPath(PathRoot):
+    """Path with no smoothing at joints."""
+    def __init__(self, coords, pen, outline = None, pressure = None, brush = None):
+        super().__init__("segmented_path", coords, pen = pen, pressure = pressure)
+        self.__pressure  = pressure or []
+        self.__bb        = []
+
+        if brush:
+            print(brush)
+            brush['smooth_path'] = False
+            self.brush(BrushFactory.create_brush(**brush))
+        else:
+            brush_type = pen.brush_type()
+            self.brush(BrushFactory.create_brush(brush_type, smooth_path = False))
+
+        if len(self.coords) > 1 and not self.brush().outline():
+            self.outline_recalculate()
+
+
+
 Drawable.register_type("path", Path)
+Drawable.register_type("segmented_path", SegmentedPath)

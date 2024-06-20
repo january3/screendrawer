@@ -166,9 +166,10 @@ class EventManager:
             'mode_select':           {'action': state.mode, 'args': ["select"]},
             'mode_eraser':           {'action': state.mode, 'args': ["eraser"]},
             'mode_shape':            {'action': state.mode, 'args': ["shape"]},
+            'mode_segment':          {'action': state.mode, 'args': ["segment"]},
             'mode_colorpicker':      {'action': state.mode, 'args': ["colorpicker"]},
 
-            'finish_text_input':     {'action': bus.emit, 'args': ["finish_text_input"]},
+            'escape':                {'action': bus.emit, 'args': ["escape"]},
 
             'cycle_bg_transparency': {'action': state.cycle_background},
             'toggle_outline':        {'action': setter.outline_toggle},
@@ -285,6 +286,7 @@ class EventManager:
             't':                    "mode_text",
             'e':                    "mode_eraser",
             's':                    "mode_shape",
+            'Shift-s':              "mode_segment",
             'i':                    "mode_colorpicker",
             'space':                "mode_move",
 
@@ -292,7 +294,7 @@ class EventManager:
             'F1':                   "show_help_dialog",
             'question':             "show_help_dialog",
             'Shift-question':       "show_help_dialog",
-            'Escape':               "finish_text_input",
+            'Escape':               "escape",
             'Ctrl-l':               "clear_page",
             'Ctrl-b':               "cycle_bg_transparency",
             'x':                    "app_exit",
