@@ -49,9 +49,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * after rotating a "thick" path, the bounding box is incorrect (too
-   narrow, so not around the outline, but around the path). Moving it a bit
-   fixes it.
  * incidentally, undoing a rotation + scaling on shapes does not work
    properly either, the shape lands in the initial position, but is still
    sheared => why? it looks like the operations *are* being undone, but
@@ -81,6 +78,9 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * after rotating a "thick" path, the bounding box is incorrect (too
+   narrow, so not around the outline, but around the path). Moving it a bit
+   fixes it.
  * When drawing, sometimes there is no reaction => actually, the reason was
    that the wiglets were taking over the clicks. The reason for that was
    that the event for some reason gets modified and the x/y position can

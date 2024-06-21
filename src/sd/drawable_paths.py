@@ -63,7 +63,7 @@ class PathRoot(Drawable):
         self.rotation   = 0
         self.rot_origin = None
         # recalculate bbox
-        self.__bb = path_bbox(self.coords)
+        self.__bb = path_bbox(self.__brush.outline() or self.coords)
 
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the path."""

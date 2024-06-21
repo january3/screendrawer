@@ -192,17 +192,19 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
 
     This one is used in the pencil brush v2.
     """
-    rounded = False
+    #rounded = False
     n = len(coords)
 
     print("calc_normal_outline_pencil")
 
     if n < 2:
-        return [], []
+        return [], [], []
 
     if n == 2:
-        return calc_normal_outline_short(coords, pressure, line_width, rounded)
+        outline_l, outline_r = calc_normal_outline_short(coords, pressure, line_width, rounded)
+        return outline_l, outline_r, pressure
 
+    pressure_ret = [ ]
     line_width = line_width or 1
     outline_l = []
     outline_r = []
@@ -216,8 +218,10 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
         arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
         outline_r.extend(arc_coords[:5][::-1])
         outline_l.extend(arc_coords[5:])
+        pressure_ret = pressure_ret + [pressure[0]] * 5
     outline_l.append(l_seg1[0])
     outline_r.append(r_seg1[0])
+    pressure_ret.append(pressure[0])
 
     for i in range(n - 2):
         p2 = coords[i + 2]
@@ -225,26 +229,28 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
 
         l_seg2, r_seg2 = calc_segments_2(p1, p2, width)
 
-       #intersect_l = calc_intersect_2(l_seg1, l_seg2)
-       #intersect_r = calc_intersect_2(r_seg1, r_seg2)
-       #outline_l.append(intersect_l)
-       #outline_r.append(intersect_r)
-        outline_l.append(point_mean(l_seg1[1], l_seg2[0]))
-        outline_r.append(point_mean(r_seg1[1], r_seg2[0]))
+        intersect_l = calc_intersect_2(l_seg1, l_seg2)
+        intersect_r = calc_intersect_2(r_seg1, r_seg2)
+        outline_l.append(intersect_l)
+        outline_r.append(intersect_r)
+        pressure_ret.append(pressure[i])
 
         l_seg1, r_seg1 = l_seg2, r_seg2
         p0, p1 = p1, p2
 
     outline_l.append(l_seg1[1])
     outline_r.append(r_seg1[1])
+    pressure_ret.append(pressure[-1])
 
     if rounded:
         print("rounding")
         arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p0, 10)
         outline_r.extend(arc_coords[:5])
         outline_l.extend(arc_coords[5:][::-1])
+        pressure_ret = pressure_ret + [pressure[-1]] * 5
 
-    return outline_l, outline_r
+    print("calc_normal_outline_pencil, outline lengths:", len(outline_l), len(outline_r))
+    return outline_l, outline_r, pressure_ret
 
 def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_length):
     """Calculate the normal outline of a path for tapered brush."""
@@ -579,11 +585,16 @@ class BrushPencil(Brush):
                 cr.set_line_width(self.__bin_lw[i])
             for j in bins[i]:
                 print("i = ", i, "j = ", j)
-                cr.move_to(outline_l[j][0], outline_l[j][1])
-                cr.line_to(outline_l[j + 1][0], outline_l[j + 1][1])
-                cr.line_to(outline_r[j + 1][0], outline_r[j + 1][1])
-                cr.line_to(outline_r[j][0], outline_r[j][1])
-                cr.close_path()
+                if j < len(outline_l) - 1:
+                    print(outline_l[j], outline_r[j])
+                    print(outline_l[j + 1], outline_r[j + 1])
+                    cr.move_to(outline_l[j][0], outline_l[j][1])
+                    cr.line_to(outline_l[j + 1][0], outline_l[j + 1][1])
+                    cr.line_to(outline_r[j + 1][0], outline_r[j + 1][1])
+                    cr.line_to(outline_r[j][0], outline_r[j][1])
+                    cr.close_path()
+                else:
+                    print("warning: j out of bounds:", j, len(outline_l))
             if outline:
                 cr.stroke_preserve()
             else:
@@ -608,7 +619,7 @@ class BrushPencil(Brush):
             coords, pressure = smooth_path(coords, pressure, 20)
         #print("2.length of coords and pressure:", len(coords), len(pressure))
 
-        outline_l, outline_r = calc_normal_outline_pencil(coords, pressure, lwd, True)
+        outline_l, outline_r, pp = calc_normal_outline_pencil(coords, pressure, lwd, True)
        #print("outline lengths:", len(outline_l), len(outline_r))
 
         self.__outline_l = outline_l
@@ -618,7 +629,7 @@ class BrushPencil(Brush):
         self.outline(outline_l + outline_r[::-1])
 
         nbins = 32
-        pp = [pressure[0]] * 5 + pressure + [pressure[-1]] * 5
+        #pp = [pressure[0]] * 5 + pressure + [pressure[-1]] * 5
         plength = len(pp)
         self.__bins, binsize = find_intervals(pp[:(plength - 1)], nbins)
 
