@@ -89,7 +89,6 @@ class PathRoot(Drawable):
         """Smoothen the path."""
         if len(self.coords) < 3:
             return
-        print("smoothening path")
         self.coords, self.__pressure = smooth_path(self.coords, self.__pressure, 1)
         self.outline_recalculate()
 
@@ -102,14 +101,14 @@ class PathRoot(Drawable):
         """Append a point to the path, calculating the outline of the
            shape around the path. Only used when path is created to
            allow for a good preview. Later, the path is smoothed and recalculated."""
-        print("path_append. length of coords and pressure:", len(self.coords), len(self.__pressure))
+        #print("path_append. length of coords and pressure:", len(self.coords), len(self.__pressure))
         coords = self.coords
         width  = self.pen.line_width * pressure
 
         # record the number of append calls (not of the actually appended
         # points)
         self.__n_appended = self.__n_appended + 1
-        print("  appending. __n_appended now=", self.__n_appended)
+        #print("  appending. __n_appended now=", self.__n_appended)
 
         if len(coords) == 0:
             self.__pressure.append(pressure)
@@ -117,15 +116,17 @@ class PathRoot(Drawable):
             return
 
         lp = coords[-1]
+
+        # ignore events too close to the last point
         if abs(x - lp[0]) < 1 and abs(y - lp[1]) < 1:
-            print("  [too close] coords length now:", len(coords))
-            print("  [too close] pressure length now:", len(self.__pressure))
+            #print("  [too close] coords length now:", len(coords))
+            #print("  [too close] pressure length now:", len(self.__pressure))
             return
 
         self.__pressure.append(pressure)
         coords.append((x, y))
-        print("  coords length now:", len(coords))
-        print("  pressure length now:", len(self.__pressure))
+        #print("  coords length now:", len(coords))
+        #print("  pressure length now:", len(self.__pressure))
 
         if len(coords) < 2:
             return
@@ -136,8 +137,8 @@ class PathRoot(Drawable):
         """Remove the last point from the path."""
         coords = self.coords
 
-        print("path_pop. __n_appended=", self.__n_appended)
-        print("  path_pop. 1. length of coords and pressure:", len(self.coords), len(self.__pressure))
+        #print("path_pop. __n_appended=", self.__n_appended)
+        #print("  path_pop. 1. length of coords and pressure:", len(self.coords), len(self.__pressure))
         if len(coords) < 2:
             return
 
@@ -148,7 +149,7 @@ class PathRoot(Drawable):
 
         self.__pressure.pop()
         coords.pop()
-        print("  path_pop. 2. length of coords and pressure:", len(self.coords), len(self.__pressure))
+        #print("  path_pop. 2. length of coords and pressure:", len(self.coords), len(self.__pressure))
 
         if len(coords) < 2:
             return
@@ -210,11 +211,11 @@ class PathRoot(Drawable):
             cr.line_to(point[0], point[1])
         cr.stroke()
 
-    def draw_standard(self, cr):
+    def draw_standard(self, cr, outline = False):
         """standard drawing of the path."""
         cr.set_fill_rule(cairo.FillRule.WINDING)
         #print("draw_standard")
-        self.__brush.draw(cr)
+        self.__brush.draw(cr, outline)
 
     def draw(self, cr, hover=False, selected=False, outline = False):
         """Draw the path."""
@@ -238,7 +239,7 @@ class PathRoot(Drawable):
         if self.resizing:
             self.draw_simple(cr, bbox=self.resizing["bbox"])
         else:
-            self.draw_standard(cr)
+            self.draw_standard(cr, outline)
             if outline:
                 cr.set_line_width(0.4)
                 cr.stroke()

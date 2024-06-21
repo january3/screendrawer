@@ -192,6 +192,49 @@ def calculate_angle2(p0, p1):
     angle = math.atan2(det, dot)
     return angle
 
+def calc_intersect(seg1, seg2):
+    """Calculate intersection point between two line segments.
+       Each segment consists of two points, start and end"""
+
+    x1, y1 = seg1[0]
+    x2, y2 = seg1[1]
+    x3, y3 = seg2[0]
+    x4, y4 = seg2[1]
+
+    denom = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4)
+    if denom == 0:
+        return None  # Lines are parallel
+
+    t = ((x1-x3)*(y3-y4) - (y1-y3)*(x3-x4)) / denom
+    u = ((x1-x3)*(y1-y2) - (y1-y3)*(x1-x2)) / denom
+
+    if 0 <= t <= 1 and 0 <= u <= 1:
+        # The segments intersect
+        intersect_x = x1 + t * (x2 - x1)
+        intersect_y = y1 + t * (y2 - y1)
+        return (intersect_x, intersect_y)
+
+    return None  # No intersection
+
+def calc_intersect_2(seg1, seg2):
+    """Calculate intersection of two infinite lines given by two points each."""
+
+    x1, y1 = seg1[0]
+    x2, y2 = seg1[1]
+    x3, y3 = seg2[0]
+    x4, y4 = seg2[1]
+
+    denom = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4)
+    if denom == 0:
+        return None  # Lines are parallel
+
+    t = ((x1-x3)*(y3-y4) - (y1-y3)*(x3-x4)) / denom
+    u = ((x1-x3)*(y1-y2) - (y1-y3)*(x1-x2)) / denom
+
+    intersect_x = x1 + t * (x2 - x1)
+    intersect_y = y1 + t * (y2 - y1)
+    return (intersect_x, intersect_y)
+
 def calculate_angle(p0, p1, p2):
     """Calculate the angle between the line p0->p1 and p1->p2 in degrees."""
     a = math.sqrt((p1[0] - p0[0])**2 + (p1[1] - p0[1])**2)
@@ -338,6 +381,40 @@ def calc_arc_coords(p1, p2, p3, n = 20):
         y = y0 + radius * math.sin(a)
         coords.append((x, y))
 
+    return coords
+
+def calc_arc_coords2(p1, p2, c, n = 20):
+    """Calculate the coordinates of an arc between points p1 and p2.
+       The arc is a fragment of a circle with centre in c."""
+    x1, y1 = p1
+    x2, y2 = p2
+    xc, yc = c
+    print("calc_arc_coords2")
+    print("  p1: ", int(x1), int(y1))
+
+    # calculate the radius of the circle
+    radius = math.sqrt((x2 - xc)**2 + (y2 - yc)**2)
+    side = determine_side_math(p1, p2, c)
+
+    # calculate the angle between the line p1->c and p1->p2
+    a1 = math.atan2(y1 - c[1], x1 - c[0])
+    a2 = math.atan2(y2 - c[1], x2 - c[0])
+
+    if side == 'left' and a1 > a2:
+        a2 += 2 * math.pi
+    elif side == 'right' and a1 < a2:
+        a1 += 2 * math.pi
+
+    # calculate 20 points on the arc between a1 and a2
+    coords = []
+    for i in range(n):
+        a = a1 + (a2 - a1) * i / (n - 1)
+        x = c[0] + radius * math.cos(a)
+        y = c[1] + radius * math.sin(a)
+        coords.append((x, y))
+        print("  arc point: ", int(x), int(y))
+
+    print("  p2: ", int(x2), int(y2))
     return coords
 
 

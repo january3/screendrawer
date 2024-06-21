@@ -492,24 +492,19 @@ class WigletCreateSegments(Wiglet):
         print("segment on_click here")
 
         if mode != "segment" or ev.shift() or ev.ctrl():
-            print("  wrong modifiers")
             return False
 
         if self.__obj:
-            print("  Adding point to an existing segmented path")
             self.__obj.path_pop()
             ## append twice, once the "actual" point, once the moving end
             self.__obj.path_append(ev.x, ev.y, 1)
             self.__obj.path_append(ev.x, ev.y, 1)
         else:
-            print("  Creating a new segmented path")
             obj = DrawableFactory.create_drawable("segmented_path", pen = self.__state.pen(), ev=ev)
 
             if obj:
                 self.__obj = obj
                 self.__obj.path_append(ev.x, ev.y, 1)
-            else:
-                print("No object created for mode", mode)
 
         self.__bus.emit("queue_draw")
         return True
@@ -522,12 +517,10 @@ class WigletCreateSegments(Wiglet):
         if not obj:
             return False
 
-        print("finishing segmented path")
         obj.path_append(ev.x, ev.y, 0)
         obj.finish()
 
         # remove paths that are too small
-        print("Finalizing segment")
         self.__bus.emit("add_object", True, obj)
         self.__state.selection().clear()
 

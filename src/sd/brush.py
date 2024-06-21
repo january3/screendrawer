@@ -6,9 +6,10 @@ import cairo                                                       # <remove>
 from .utils import path_bbox, smooth_path                          # <remove>
 from .utils import calculate_angle2                                # <remove>
 from .utils import coords_rotate, transform_coords                 # <remove>
-from .utils import calc_arc_coords, normal_vec                     # <remove>
+from .utils import calc_arc_coords, calc_arc_coords2, normal_vec   # <remove>
 from .utils import calculate_length, distance                      # <remove>
 from .utils import first_point_after_length                        # <remove>
+from .utils import midpoint, calc_intersect, calc_intersect_2      # <remove>
 
 def get_current_color_and_alpha(ctx):
     """Get the current color and alpha from the Cairo context."""
@@ -75,7 +76,7 @@ def normal_vec_scaled(p0, p1, width):
     nx, ny = nx * width, ny * width
     return nx, ny
 
-def calc_segments(p0, p1, width):
+def calc_segments_2(p0, p1, width):
     """Calculate the segments of an outline."""
     nx, ny = normal_vec_scaled(p0, p1, width)
 
@@ -84,7 +85,7 @@ def calc_segments(p0, p1, width):
     l_seg_e = (p1[0] + nx, p1[1] + ny)
     r_seg_e = (p1[0] - nx, p1[1] - ny)
 
-    return l_seg_s, r_seg_s, l_seg_e, r_seg_e
+    return (l_seg_s, l_seg_e), (r_seg_s, r_seg_e)
 
 def calc_normal_outline_short(coords, pressure, line_width, rounded = False):
     """Calculate the normal outline for a 2-coordinate path"""
@@ -97,17 +98,19 @@ def calc_normal_outline_short(coords, pressure, line_width, rounded = False):
     p0, p1 = coords[0], coords[1]
     width  = line_width * pressure[0] / 2
 
-    l_seg1_s, r_seg1_s, l_seg1_e, r_seg1_e = calc_segments(p0, p1, width)
+    l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
 
     if rounded:
-        arc_coords = calc_arc_coords(l_seg1_s, r_seg1_s, p1, 10)
+        arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
         outline_r.extend(arc_coords)
-    outline_l.append(l_seg1_s)
-    outline_l.append(l_seg1_e)
-    outline_r.append(r_seg1_s)
-    outline_r.append(r_seg1_e)
+
+    outline_l.append(l_seg1[0])
+    outline_l.append(l_seg1[1])
+    outline_r.append(r_seg1[0])
+    outline_r.append(r_seg1[1])
+
     if rounded:
-        arc_coords = calc_arc_coords(l_seg1_e, r_seg1_e, p1, 10)
+        arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p1, 10)
         outline_l.extend(arc_coords)
 
     return outline_l, outline_r
@@ -116,6 +119,7 @@ def calc_normal_outline_short(coords, pressure, line_width, rounded = False):
 def calc_normal_outline(coords, pressure, line_width, rounded = False):
     """Calculate the normal outline of a path."""
     n = len(coords)
+    print("CALCULATING NORMAL OUTLINE")
 
     if n < 2:
         return [], []
@@ -127,32 +131,55 @@ def calc_normal_outline(coords, pressure, line_width, rounded = False):
     outline_r = []
     line_width = line_width or 1
 
+    p0, p1 = coords[0], coords[1]
+    width  = line_width * pressure[0] / 2
+    l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
+
+    ## append the points for the first coord
+    if rounded:
+        arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
+        outline_r.extend(arc_coords)
+    outline_l.append(l_seg1[0])
+    outline_r.append(r_seg1[0])
+
     for i in range(n - 2):
-        p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
+        print("calc_normal_outline: i = ", i)
+        p2 = coords[i + 2]
         width  = line_width * pressure[i] / 2
 
-        l_seg1_s, r_seg1_s, l_seg1_e, r_seg1_e = calc_segments(p0, p1, width)
-        l_seg2_s, r_seg2_s, l_seg2_e, r_seg2_e = calc_segments(p1, p2, width)
+        l_seg2, r_seg2 = calc_segments_2(p1, p2, width)
 
-        if i == 0:
-        ## append the points for the first coord
+        intersect_l = calc_intersect(l_seg1, l_seg2)
+        intersect_r = calc_intersect(r_seg1, r_seg2)
+
+        if intersect_l is not None:
+            outline_l.append(intersect_l)
+        else:
+            outline_l.append(l_seg1[1])
             if rounded:
-                arc_coords = calc_arc_coords(l_seg1_s, r_seg1_s, p1, 10)
-                outline_r.extend(arc_coords)
-            outline_l.append(l_seg1_s)
-            outline_r.append(r_seg1_s)
-
-        outline_l.append(l_seg1_e)
-        outline_l.append(l_seg2_s)
-        outline_r.append(r_seg1_e)
-        outline_r.append(r_seg2_s)
-
-        if i == n - 3:
-            outline_l.append(l_seg2_e)
-            outline_r.append(r_seg2_e)
-            if rounded:
-                arc_coords = calc_arc_coords(l_seg2_e, r_seg2_e, p1, 10)
+                arc_coords = calc_arc_coords2(l_seg1[1], l_seg2[0], p1, 10)
                 outline_l.extend(arc_coords)
+            outline_l.append(l_seg2[0])
+
+        if intersect_r is not None:
+            outline_r.append(intersect_r)
+        else:
+            outline_r.append(r_seg1[1])
+            if rounded:
+                arc_coords = calc_arc_coords2(r_seg1[1], r_seg2[0], p1, 10)
+                outline_r.extend(arc_coords)
+            outline_r.append(r_seg2[0])
+
+        p0, p1 = p1, p2
+        l_seg1, r_seg1 = l_seg2, r_seg2
+
+    outline_l.append(l_seg2[1])
+    outline_r.append(r_seg2[1])
+
+    if rounded:
+        arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p0, 10)
+        outline_l.extend(arc_coords)
+
     return outline_l, outline_r
 
 def point_mean(p1, p2):
@@ -165,7 +192,10 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
 
     This one is used in the pencil brush v2.
     """
+    rounded = False
     n = len(coords)
+
+    print("calc_normal_outline_pencil")
 
     if n < 2:
         return [], []
@@ -177,45 +207,56 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
     outline_l = []
     outline_r = []
 
-    print("calculating for coords:", len(coords), "pressure:", len(pressure))
+    p0, p1 = coords[0], coords[1]
+    width  = line_width * pressure[0] / 2
+    l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
+
+    ## append the points for the first coord
+    if rounded:
+        arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
+        outline_r.extend(arc_coords[:5][::-1])
+        outline_l.extend(arc_coords[5:])
+    outline_l.append(l_seg1[0])
+    outline_r.append(r_seg1[0])
+
     for i in range(n - 2):
-        p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
+        p2 = coords[i + 2]
         width  = line_width * pressure[i] / 2
 
-        l_seg1_s, r_seg1_s, l_seg1_e, r_seg1_e = calc_segments(p0, p1, width)
-        l_seg2_s, r_seg2_s, l_seg2_e, r_seg2_e = calc_segments(p1, p2, width)
+        l_seg2, r_seg2 = calc_segments_2(p1, p2, width)
 
-        if i == 0:
-        ## append the points for the first coord
-            if rounded:
-                arc_coords = calc_arc_coords(l_seg1_s, r_seg1_s, p1, 10)
-                outline_r.extend(arc_coords[:5][::-1])
-                outline_l.extend(arc_coords[5:])
-            outline_l.append(l_seg1_s)
-            outline_r.append(r_seg1_s)
+       #intersect_l = calc_intersect_2(l_seg1, l_seg2)
+       #intersect_r = calc_intersect_2(r_seg1, r_seg2)
+       #outline_l.append(intersect_l)
+       #outline_r.append(intersect_r)
+        outline_l.append(point_mean(l_seg1[1], l_seg2[0]))
+        outline_r.append(point_mean(r_seg1[1], r_seg2[0]))
 
-        outline_l.append(point_mean(l_seg1_e, l_seg2_s))
-        outline_r.append(point_mean(r_seg1_e, r_seg2_s))
+        l_seg1, r_seg1 = l_seg2, r_seg2
+        p0, p1 = p1, p2
 
-        if i == n - 3:
-            outline_l.append(l_seg2_e)
-            outline_r.append(r_seg2_e)
-            if rounded:
-                print("rounding")
-                arc_coords = calc_arc_coords(l_seg2_e, r_seg2_e, p1, 10)
-                outline_r.extend(arc_coords[:5])
-                outline_l.extend(arc_coords[5:][::-1])
+    outline_l.append(l_seg1[1])
+    outline_r.append(r_seg1[1])
+
+    if rounded:
+        print("rounding")
+        arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p0, 10)
+        outline_r.extend(arc_coords[:5])
+        outline_l.extend(arc_coords[5:][::-1])
+
     return outline_l, outline_r
 
 def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_length):
     """Calculate the normal outline of a path for tapered brush."""
     n = len(coords)
 
+    print("CALCULATING TAPERED NORMAL OUTLINE")
+
     if n < 2:
         return [], []
 
     if n == 2:
-        return calc_normal_outline_short(coords, pressure, line_width, rounded)
+        return calc_normal_outline_short(coords, pressure, line_width, False)
 
     line_width = line_width or 1
 
@@ -223,9 +264,11 @@ def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_l
     outline_r = []
 
     taper_l_cur = 0
+    p0, p1 = coords[0], coords[1]
 
     for i in range(n - 2):
-        p0, p1, p2 = coords[i], coords[i + 1], coords[i + 2]
+        p2 = coords[i + 2]
+
         if i >= taper_pos:
             taper_l_cur += distance(p0, p1)
             if taper_l_cur > taper_length:
@@ -234,23 +277,25 @@ def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_l
         else:
             width  = line_width * pressure[i] / 2
 
-        l_seg1_s, r_seg1_s, l_seg1_e, r_seg1_e = calc_segments(p0, p1, width)
-        l_seg2_s, r_seg2_s, l_seg2_e, r_seg2_e = calc_segments(p1, p2, width)
+        l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
+        l_seg2, r_seg2 = calc_segments_2(p1, p2, width)
 
         if i == 0:
         ## append the points for the first coord
-            arc_coords = calc_arc_coords(l_seg1_s, r_seg1_s, p1, 10)
+            arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
             outline_r.extend(arc_coords)
-            outline_l.append(l_seg1_s)
-            outline_r.append(r_seg1_s)
+            outline_l.append(l_seg1[0])
+            outline_r.append(r_seg1[0])
 
-        outline_l.append(l_seg1_e)
-        outline_l.append(l_seg2_s)
-        outline_r.append(r_seg1_e)
-        outline_r.append(r_seg2_s)
+        outline_l.append(l_seg1[1])
+        outline_l.append(l_seg2[0])
+        outline_r.append(r_seg1[1])
+        outline_r.append(r_seg2[0])
 
         if i == n - 3:
-            outline_l.append(point_mean(l_seg2_e, r_seg2_e))
+            outline_l.append(point_mean(l_seg2[1], r_seg2[1]))
+        p0, p1 = p1, p2
+
     return outline_l, outline_r
 
 
@@ -356,7 +401,7 @@ class Brush:
         """Get bounding box of the brush."""
         return path_bbox(self.__outline)
 
-    def draw(self, cr):
+    def draw(self, cr, outline = False):
         """Draw the brush on the Cairo context."""
         if not self.__outline or len(self.__outline) < 4:
             return
@@ -425,7 +470,7 @@ class BrushTapered(Brush):
 
         lwd = line_width
 
-        if len(coords) < 4:
+        if len(coords) < 2:
             return None
 
         n_taper = 5
@@ -508,10 +553,10 @@ class BrushPencil(Brush):
         self.__outline_l = transform_coords(self.__outline_l, old_bbox, new_bbox)
         self.__outline_r = transform_coords(self.__outline_r, old_bbox, new_bbox)
 
-    def draw(self, cr):
+    def draw(self, cr, outline = False):
         """Draw the brush on the Cairo context."""
         r, g, b, a = get_current_color_and_alpha(cr)
-        if not self.__coords or len(self.__coords) < 4:
+        if not self.__coords or len(self.__coords) < 2:
             return
 
         if len(self.__pressure) != len(self.__coords):
@@ -523,17 +568,26 @@ class BrushPencil(Brush):
         bins   = self.__bins
         outline_l, outline_r = self.__outline_l, self.__outline_r
         n = len(bins)
+        print("n bins:", n, "n outline_l: ", len(outline_l), "n outline_r:", len(outline_r))
+        if outline:
+            cr.set_line_width(0.4)
+            cr.stroke()
 
         for i in range(n):
             cr.set_source_rgba(r, g, b, a)# * self.__bin_transp[i])
-            cr.set_line_width(self.__bin_lw[i])
+            if not outline:
+                cr.set_line_width(self.__bin_lw[i])
             for j in bins[i]:
+                print("i = ", i, "j = ", j)
                 cr.move_to(outline_l[j][0], outline_l[j][1])
                 cr.line_to(outline_l[j + 1][0], outline_l[j + 1][1])
                 cr.line_to(outline_r[j + 1][0], outline_r[j + 1][1])
                 cr.line_to(outline_r[j][0], outline_r[j][1])
                 cr.close_path()
-            cr.fill()
+            if outline:
+                cr.stroke_preserve()
+            else:
+                cr.fill()
 
     def calculate(self, line_width, coords, pressure = None):
         """Recalculate the outline of the brush."""
