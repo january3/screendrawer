@@ -87,6 +87,19 @@ def calc_segments_2(p0, p1, width):
 
     return (l_seg_s, l_seg_e), (r_seg_s, r_seg_e)
 
+def calc_segments_3(p0, p1, w1, w2):
+    """Calculate the segments of an outline."""
+    nx1, ny1 = normal_vec_scaled(p0, p1, w1)
+    nx2, ny2 = normal_vec_scaled(p0, p1, w2)
+
+    l_seg_s = (p0[0] + nx1, p0[1] + ny1)
+    r_seg_s = (p0[0] - nx1, p0[1] - ny1)
+    l_seg_e = (p1[0] + nx2, p1[1] + ny2)
+    r_seg_e = (p1[0] - nx2, p1[1] - ny2)
+
+    return (l_seg_s, l_seg_e), (r_seg_s, r_seg_e)
+
+
 def calc_normal_outline_short(coords, pressure, line_width, rounded = False):
     """Calculate the normal outline for a 2-coordinate path"""
     n = len(coords)
@@ -132,8 +145,9 @@ def calc_normal_outline(coords, pressure, line_width, rounded = False):
     line_width = line_width or 1
 
     p0, p1 = coords[0], coords[1]
-    width  = line_width * pressure[0] / 2
-    l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
+    w1 = line_width * pressure[0] / 2
+    w2 = line_width * pressure[1] / 2
+    l_seg1, r_seg1 = calc_segments_3(p0, p1, w1, w2)
 
     ## append the points for the first coord
     if rounded:
@@ -143,11 +157,11 @@ def calc_normal_outline(coords, pressure, line_width, rounded = False):
     outline_r.append(r_seg1[0])
 
     for i in range(n - 2):
-        print("calc_normal_outline: i = ", i)
         p2 = coords[i + 2]
-        width  = line_width * pressure[i] / 2
+        w1 = line_width * pressure[i + 1] / 2
+        w2 = line_width * pressure[i + 2] / 2
 
-        l_seg2, r_seg2 = calc_segments_2(p1, p2, width)
+        l_seg2, r_seg2 = calc_segments_3(p1, p2, w1, w2)
 
         intersect_l = calc_intersect(l_seg1, l_seg2)
         intersect_r = calc_intersect(r_seg1, r_seg2)
@@ -210,7 +224,7 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
     outline_r = []
 
     p0, p1 = coords[0], coords[1]
-    width  = line_width * pressure[0] / 2
+    width  = line_width #* pressure[0] / 2
     l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
 
     ## append the points for the first coord
@@ -225,7 +239,7 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
 
     for i in range(n - 2):
         p2 = coords[i + 2]
-        width  = line_width * pressure[i] / 2
+        width  = line_width #* pressure[i] / 2
 
         l_seg2, r_seg2 = calc_segments_2(p1, p2, width)
 
@@ -574,7 +588,7 @@ class BrushPencil(Brush):
         bins   = self.__bins
         outline_l, outline_r = self.__outline_l, self.__outline_r
         n = len(bins)
-        print("n bins:", n, "n outline_l: ", len(outline_l), "n outline_r:", len(outline_r))
+        #print("n bins:", n, "n outline_l: ", len(outline_l), "n outline_r:", len(outline_r))
         if outline:
             cr.set_line_width(0.4)
             cr.stroke()
@@ -584,10 +598,10 @@ class BrushPencil(Brush):
             if not outline:
                 cr.set_line_width(self.__bin_lw[i])
             for j in bins[i]:
-                print("i = ", i, "j = ", j)
+                #print("i = ", i, "j = ", j)
                 if j < len(outline_l) - 1:
-                    print(outline_l[j], outline_r[j])
-                    print(outline_l[j + 1], outline_r[j + 1])
+                    #print(outline_l[j], outline_r[j])
+                    #print(outline_l[j + 1], outline_r[j + 1])
                     cr.move_to(outline_l[j][0], outline_l[j][1])
                     cr.line_to(outline_l[j + 1][0], outline_l[j + 1][1])
                     cr.line_to(outline_r[j + 1][0], outline_r[j + 1][1])

@@ -389,8 +389,6 @@ def calc_arc_coords2(p1, p2, c, n = 20):
     x1, y1 = p1
     x2, y2 = p2
     xc, yc = c
-    print("calc_arc_coords2")
-    print("  p1: ", int(x1), int(y1))
 
     # calculate the radius of the circle
     radius = math.sqrt((x2 - xc)**2 + (y2 - yc)**2)
@@ -412,9 +410,7 @@ def calc_arc_coords2(p1, p2, c, n = 20):
         x = c[0] + radius * math.cos(a)
         y = c[1] + radius * math.sin(a)
         coords.append((x, y))
-        print("  arc point: ", int(x), int(y))
 
-    print("  p2: ", int(x2), int(y2))
     return coords
 
 

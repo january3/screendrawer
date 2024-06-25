@@ -40,7 +40,7 @@ class MouseEvent:
 
         self.x, self.y         = event.x, event.y
         self.x_abs, self.y_abs = event.x, event.y
-        #print("Creating mouse event at", int(event.x), int(event.y))
+        #print("Creating mouse event at", int(event.x), int(event.y), "pressure", int(self.__info["pressure"]))
 
         if translate:
             self.x, self.y = self.x - translate[0], self.y - translate[1]

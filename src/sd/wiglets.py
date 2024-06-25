@@ -568,7 +568,7 @@ class WigletCreateObject(Wiglet):
         if mode not in [ "draw", "shape", "rectangle", "circle" ]:
             return False
 
-        print("Creating a new object")
+        print("WigletCreateObject: creating a new object at", int(ev.x), int(ev.y), "pressure", int(ev.pressure() * 1000))
         obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
 
         if obj:
@@ -585,6 +585,7 @@ class WigletCreateObject(Wiglet):
         if not obj:
             return False
 
+        #print("WigletCreateObject: updating object at", int(ev.x), int(ev.y), "pressure", int(ev.pressure() * 1000))
         obj.update(ev.x, ev.y, ev.pressure())
         self.__bus.emit("queue_draw")
         return True
