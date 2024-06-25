@@ -8,6 +8,9 @@ gi.require_version('Gdk', '3.0')                           # <remove>
 from gi.repository import Gdk, GLib # <remove>
 from .utils import find_obj_close_to_click, find_corners_next_to_click # <remove>
 
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
+
 ## ---------------------------------------------------------------------
 class MouseEvent:
     """
@@ -125,7 +128,7 @@ class MouseCatcher:
     # Button press event handlers -------------------------------------------
     def on_button_press(self, widget, event): # pylint: disable=unused-argument
         """Handle mouse button press events."""
-        print("on_button_press: type:", event.type, "button:", event.button, "state:", event.state)
+        log.debug(f"type:{event.type} button:{event.button} state:{event.state}")
         self.__state.modified(True)
         ev = MouseEvent(event, self.__gom.objects(),
                         translate = self.__gom.page().translate(),
@@ -144,7 +147,6 @@ class MouseCatcher:
     def __handle_button_3(self, ev):
         """Handle right click events, unless shift is pressed."""
         if self.__bus.emit("right_mouse_click", True, ev):
-            print("bus event caught the click")
             return True
 
         return False
@@ -153,9 +155,8 @@ class MouseCatcher:
         """Handle left click events."""
 
         if ev.double():
-            print("DOUBLE CLICK 1", int(ev.x), int(ev.y))
+            log.debug(f"DOUBLE CLICK 1 ({int(ev.x)}, {int(ev.y)}) raw: ({int(ev.event.x)}, {int(ev.event.y)})")
             self.__timeout = None
-            print("cancelling single click")
             self.__bus.emit("cancel_left_mouse_single_click", True, ev)
             self.__bus.emit("left_mouse_double_click", True, ev)
             return True
@@ -169,7 +170,7 @@ class MouseCatcher:
 #       """Handle left click events."""
 #
 #       # this function needs to return false to stop the timeout func
-        print("SINGLE CLICK 1", int(ev.x), int(ev.y), int(ev.event.x), int(ev.event.y))
+        log.debug(f"SINGLE CLICK 1 ({int(ev.x)}, {int(ev.y)}) raw: ({int(ev.event.x)}, {int(ev.event.y)})")
 #
 #       if not self.__timeout:
 #           print("timeout is None, canceling click")
