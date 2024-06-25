@@ -100,7 +100,7 @@ def calc_segments_3(p0, p1, w1, w2):
     return (l_seg_s, l_seg_e), (r_seg_s, r_seg_e)
 
 
-def calc_normal_outline_short(coords, pressure, line_width, rounded = False):
+def calc_outline_short_generic(coords, pressure, line_width, rounded = False):
     """Calculate the normal outline for a 2-coordinate path"""
     n = len(coords)
 
@@ -128,8 +128,35 @@ def calc_normal_outline_short(coords, pressure, line_width, rounded = False):
 
     return outline_l, outline_r
 
+def calc_normal_outline_short(coords, widths, rounded = False):
+    """Calculate the normal outline for a 2-coordinate path"""
+    n = len(coords)
 
-def calc_normal_outline(coords, pressure, line_width, rounded = False):
+    outline_l = []
+    outline_r = []
+
+    p0, p1 = coords[0], coords[1]
+    width  = widths[0] / 2
+
+    l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
+
+    if rounded:
+        arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
+        outline_r.extend(arc_coords)
+
+    outline_l.append(l_seg1[0])
+    outline_l.append(l_seg1[1])
+    outline_r.append(r_seg1[0])
+    outline_r.append(r_seg1[1])
+
+    if rounded:
+        arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p1, 10)
+        outline_l.extend(arc_coords)
+
+    return outline_l, outline_r
+
+
+def calc_normal_outline(coords, widths, rounded = False):
     """Calculate the normal outline of a path."""
     n = len(coords)
     print("CALCULATING NORMAL OUTLINE")
@@ -138,15 +165,14 @@ def calc_normal_outline(coords, pressure, line_width, rounded = False):
         return [], []
 
     if n == 2:
-        return calc_normal_outline_short(coords, pressure, line_width, rounded)
+        return calc_normal_outline_short(coords, widths, rounded)
 
     outline_l = []
     outline_r = []
-    line_width = line_width or 1
 
     p0, p1 = coords[0], coords[1]
-    w1 = line_width * pressure[0] / 2
-    w2 = line_width * pressure[1] / 2
+    w1 = widths[0] / 2
+    w2 = widths[1] / 2
     l_seg1, r_seg1 = calc_segments_3(p0, p1, w1, w2)
 
     ## append the points for the first coord
@@ -158,8 +184,8 @@ def calc_normal_outline(coords, pressure, line_width, rounded = False):
 
     for i in range(n - 2):
         p2 = coords[i + 2]
-        w1 = line_width * pressure[i + 1] / 2
-        w2 = line_width * pressure[i + 2] / 2
+        w1 = widths[i + 1] / 2
+        w2 = widths[i + 2] / 2
 
         l_seg2, r_seg2 = calc_segments_3(p1, p2, w1, w2)
 
@@ -215,7 +241,7 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
         return [], [], []
 
     if n == 2:
-        outline_l, outline_r = calc_normal_outline_short(coords, pressure, line_width, rounded)
+        outline_l, outline_r = calc_outline_short_generic(coords, pressure, line_width, rounded)
         return outline_l, outline_r, pressure
 
     pressure_ret = [ ]
@@ -276,7 +302,7 @@ def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_l
         return [], []
 
     if n == 2:
-        return calc_normal_outline_short(coords, pressure, line_width, False)
+        return outline_short_generic(coords, pressure, line_width, False)
 
     line_width = line_width or 1
 
@@ -442,6 +468,12 @@ class Brush:
         """Scale the outline."""
         self.__outline = transform_coords(self.__outline, old_bbox, new_bbox)
 
+    def calc_width(self, pressure, lwd):
+        """Calculate the width of the brush."""
+
+        widths = [ lwd * (0.25 + p) for p in pressure ]
+        return widths
+
     def calculate(self, line_width, coords, pressure = None):
         """Recalculate the outline of the brush."""
 
@@ -463,7 +495,9 @@ class Brush:
             coords, pressure = smooth_path(coords, pressure, 20)
         #print("2.length of coords and pressure:", len(coords), len(pressure))
 
-        outline_l, outline_r = calc_normal_outline(coords, pressure, lwd, self.__rounded)
+        widths = self.calc_width(pressure, lwd)
+
+        outline_l, outline_r = calc_normal_outline(coords, widths, self.__rounded)
 
         outline  = outline_l + outline_r[::-1]
 
