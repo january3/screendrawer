@@ -8,6 +8,8 @@ from .drawable import Drawable # <remove>
 from .brush import BrushFactory                   #<remove>
 from .utils import transform_coords, smooth_path, coords_rotate           # <remove>
 from .utils import is_click_close_to_path, path_bbox, move_coords # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 class PathRoot(Drawable):
     """ Path is like shape, but not closed and has an outline that depends on
@@ -20,7 +22,7 @@ class PathRoot(Drawable):
         self.__n_appended = 0
 
         if outline:
-            print("Warning: outline is not used in Path")
+            log.warning("outline is not used in Path")
 
     def brush(self, brush = None):
         """Set the brush for the path."""
@@ -221,12 +223,12 @@ class PathRoot(Drawable):
         """Draw the path."""
         #print("drawing path", self, "with brush", self.__brush, "of type",
         # self.__brush.brush_type())
-        if not self.__brush.outline():
-            print("Warning: no outline for brush", self.__brush.brush_type())
+        if len(self.__brush.outline()) < 2 or len(self.coords) < 2:
+            log.warning("not enough coords or outline for path")
             return
 
-        if len(self.__brush.outline()) < 2 or len(self.coords) < 2:
-            print("Warning: not enough coords or outline for path")
+        if not self.__brush.outline():
+            log.warning(f"no outline for brush {self.__brush.brush_type()}")
             return
 
         if self.rotation != 0:
@@ -259,11 +261,11 @@ class PathRoot(Drawable):
 
     @classmethod
     def from_object(cls, obj):
-        print("Path.from_object", obj)
+        log.debug(f"Path.from_object {obj}")
         if obj.coords and len(obj.coords) > 2 and obj.pen:
             return cls(obj.coords, obj.pen)
         # issue a warning
-        print("Path.from_object: invalid object")
+        log.warning("Path.from_object: invalid object")
         return obj
 
 class Path(PathRoot):

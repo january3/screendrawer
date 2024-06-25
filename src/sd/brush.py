@@ -303,7 +303,7 @@ def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_l
         return [], []
 
     if n == 2:
-        return outline_short_generic(coords, pressure, line_width, False)
+        return calc_outline_short_generic(coords, pressure, line_width, False)
 
     line_width = line_width or 1
 

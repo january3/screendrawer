@@ -117,11 +117,13 @@ class MouseCatcher:
 
     def on_pan(self, gesture, direction, offset):
         """Handle panning events."""
-        print(f"Panning: Direction: {direction}, Offset: {offset}, Gesture: {gesture}")
+        #print(f"Panning: Direction: {direction}, Offset: {offset}, Gesture: {gesture}")
+        pass
 
     def on_zoom(self, gesture, scale):
         """Handle zoom events."""
-        print(f"Zooming: Scale: {scale}, gesture: {gesture}")
+        #print(f"Zooming: Scale: {scale}, gesture: {gesture}")
+        pass
 
     # ---------------------------------------------------------------------
 
@@ -163,28 +165,17 @@ class MouseCatcher:
 
         self.__timeout = event.time
 
-#       GLib.timeout_add(50, self.__handle_button_1_single_click, ev)
-#       return True
-#
-#   def __handle_button_1_single_click(self, ev):
-#       """Handle left click events."""
-#
-#       # this function needs to return false to stop the timeout func
         log.debug(f"SINGLE CLICK 1 ({int(ev.x)}, {int(ev.y)}) raw: ({int(ev.event.x)}, {int(ev.event.y)})")
-#
-#       if not self.__timeout:
-#           print("timeout is None, canceling click")
-#           return False
 
         if self.__bus.emit("left_mouse_click", True, ev):
-            print("bus event caught the click")
+            log.debug("bus event caught the click")
             self.__bus.emit("queue_draw")
 
         return False
 
     def on_button_release(self, widget, event): # pylint: disable=unused-argument
         """Handle mouse button release events."""
-        print("button release: type:", event.type, "button:", event.button, "state:", event.state)
+        log.debug(f"button release: type:{event.type} button:{event.button} state:{event.state}")
         ev = MouseEvent(event, self.__gom.objects(),
                         translate = self.__gom.page().translate(),
                         state = self.__state)

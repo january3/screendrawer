@@ -79,7 +79,7 @@ from sd.bus import Bus #<placeholder sd/bus.py>
 
 logging.basicConfig(level=logging.DEBUG,
                     #format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    format='%(levelname)s|%(filename)s:%(lineno)d>%(funcName)s: %(message)s',
+                    format='%(levelname)s %(filename)s:%(lineno)d %(funcName)s: %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 logging.info("Application is starting")

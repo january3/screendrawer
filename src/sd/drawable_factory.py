@@ -1,6 +1,8 @@
 """Factory for drawable objects"""
 from .drawable_primitives import Text, Rectangle, Shape, Circle # <remove>
 from .drawable_paths import Path, SegmentedPath # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 
 class DrawableFactory:
@@ -16,32 +18,32 @@ class DrawableFactory:
         pressure = ev.pressure()
         ret_obj = None
 
-        print("create object in mode", mode)
+        log.debug(f"create object in mode {mode}")
         #if mode == "text" or (mode == "draw" and shift_click and no_active_area):
 
         if mode == "text":
-            print("creating text object")
+            log.debug(f"creating text object")
             ret_obj = Text([ pos ], pen = pen, content = "")
             ret_obj.move_caret("Home")
 
         elif mode == "draw":
-            print("creating path object")
+            log.debug(f"creating path object")
             ret_obj = Path([ pos ], pen = pen, pressure = [ pressure ])
 
         elif mode == "segmented_path":
-            print("creating segmented path object")
+            log.debug(f"creating segmented path object")
             ret_obj = SegmentedPath([ pos ], pen = pen, pressure = [ pressure ])
 
         elif mode == "rectangle":
-            print("creating rectangle object")
+            log.debug(f"creating rectangle object")
             ret_obj = Rectangle([ pos ], pen = pen)
 
         elif mode == "shape":
-            print("creating shape object")
+            log.debug(f"creating shape object")
             ret_obj = Shape([ pos ], pen = pen)
 
         elif mode == "circle":
-            print("creating circle object")
+            log.debug(f"creating circle object")
             ret_obj = Circle([ pos, (pos[0], pos[1]) ], pen = pen)
 
         else:
@@ -58,7 +60,7 @@ class DrawableFactory:
         into a single object, we convert all objects within the group into the
         new type by calling the transmute_to method of the group object.
         """
-        print("transmuting object to", mode)
+        log.debug(f"transmuting object to", mode)
 
         if obj.type == "group":
             # for now, we do not pass transmutations to groups, because
@@ -72,7 +74,7 @@ class DrawableFactory:
         elif mode == "rectangle":
             obj = Rectangle.from_object(obj)
         elif mode == "shape":
-            print("calling Shape.from_object")
+            log.debug(f"calling Shape.from_object")
             obj = Shape.from_object(obj)
         elif mode == "circle":
             obj = Circle.from_object(obj)

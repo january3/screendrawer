@@ -72,7 +72,7 @@ class DrawableRoot:
         """Finish the resizing operation."""
         self.resizing = None
         # not implemented
-        print("resize_end not implemented")
+        log.warning("resize_end not implemented")
         self.mod += 1
 
     def bbox(self, actual = False): # pylint: disable=unused-argument
@@ -149,7 +149,7 @@ class Drawable(DrawableRoot):
 
     def smoothen(self, threshold=20):
         """Smoothen the object."""
-        print(f"smoothening not implemented (threshold {threshold})")
+        log.warning(f"smoothening not implemented (threshold {threshold})")
         self.mod += 1
 
     def fill(self):
