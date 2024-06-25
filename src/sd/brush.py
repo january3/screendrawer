@@ -344,6 +344,7 @@ def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_l
 
     return outline_l, outline_r
 
+# ----------- Brush factory ----------------
 
 class BrushFactory:
     """
@@ -396,6 +397,8 @@ class BrushFactory:
             return BrushTapered(**kwargs)
 
         raise NotImplementedError("Brush type", brush_type, "not implemented")
+
+# ----------- Brushes ----------------
 
 class Brush:
     """Base class for brushes."""
@@ -496,9 +499,7 @@ class Brush:
         #print("2.length of coords and pressure:", len(coords), len(pressure))
 
         widths = self.calc_width(pressure, lwd)
-
         outline_l, outline_r = calc_normal_outline(coords, widths, self.__rounded)
-
         outline  = outline_l + outline_r[::-1]
 
         if len(coords) != len(pressure):
@@ -506,6 +507,18 @@ class Brush:
             print("Pressure and coords don't match:", len(coords), len(pressure))
         self.__outline = outline
         return outline
+
+class BrushMarker(Brush):
+    """Marker brush."""
+    def __init__(self, outline = None, smooth_path = True):
+        super().__init__(rounded = False, brush_type = "marker",
+                         outline = outline, smooth_path = smooth_path)
+
+class BrushRound(Brush):
+    """Round brush."""
+    def __init__(self, outline = None, smooth_path = True):
+        super().__init__(rounded = True, brush_type = "rounded",
+                         outline = outline, smooth_path = smooth_path)
 
 class BrushTapered(Brush):
     """Tapered brush."""
@@ -554,18 +567,6 @@ class BrushTapered(Brush):
             print("Pressure and coords don't match:", len(coords), len(pressure))
         self.outline(outline)
         return outline
-
-class BrushMarker(Brush):
-    """Marker brush."""
-    def __init__(self, outline = None, smooth_path = True):
-        super().__init__(rounded = False, brush_type = "marker",
-                         outline = outline, smooth_path = smooth_path)
-
-class BrushRound(Brush):
-    """Round brush."""
-    def __init__(self, outline = None, smooth_path = True):
-        super().__init__(rounded = True, brush_type = "rounded",
-                         outline = outline, smooth_path = smooth_path)
 
 class BrushPencil(Brush):
     """

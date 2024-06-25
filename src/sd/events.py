@@ -155,28 +155,29 @@ class MouseCatcher:
         if ev.double():
             print("DOUBLE CLICK 1", int(ev.x), int(ev.y))
             self.__timeout = None
+            print("cancelling single click")
+            self.__bus.emit("cancel_left_mouse_single_click", True, ev)
             self.__bus.emit("left_mouse_double_click", True, ev)
             return True
 
         self.__timeout = event.time
 
-        GLib.timeout_add(50, self.__handle_button_1_single_click, ev)
-        return True
-
-    def __handle_button_1_single_click(self, ev):
-        """Handle left click events."""
-
-        # this function needs to return false to stop the timeout func
+#       GLib.timeout_add(50, self.__handle_button_1_single_click, ev)
+#       return True
+#
+#   def __handle_button_1_single_click(self, ev):
+#       """Handle left click events."""
+#
+#       # this function needs to return false to stop the timeout func
         print("SINGLE CLICK 1", int(ev.x), int(ev.y), int(ev.event.x), int(ev.event.y))
-
-        if not self.__timeout:
-            print("timeout is None, canceling click")
-            return False
+#
+#       if not self.__timeout:
+#           print("timeout is None, canceling click")
+#           return False
 
         if self.__bus.emit("left_mouse_click", True, ev):
             print("bus event caught the click")
             self.__bus.emit("queue_draw")
-            return False
 
         return False
 

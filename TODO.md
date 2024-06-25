@@ -78,6 +78,10 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * quick strokes sometimes result in an apparent double click. Rather than 
+   doing the double click calculations on our own, we should rather 
+   be canceling the single click events after a double click. Send a signal
+   "cancel_single_click" to the wiglets?
  * after rotating a "thick" path, the bounding box is incorrect (too
    narrow, so not around the outline, but around the path). Moving it a bit
    fixes it.

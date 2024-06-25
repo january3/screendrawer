@@ -144,6 +144,7 @@ class WigletMove(Wiglet):
         self.__obj = None
 
         bus.on("left_mouse_click", self.on_click)
+        bus.on("cancel_left_mouse_single_click", self.cancel)
         bus.on("mouse_move", self.on_move)
         bus.on("mouse_release", self.on_release)
 
@@ -179,6 +180,15 @@ class WigletMove(Wiglet):
 
         self.__cmd.event_update(*ev.pos())
         self.__bus.emit("queue_draw")
+        return True
+
+    def cancel(self, ev):
+        if not self.__cmd:
+            return False
+
+        self.__cmd = None
+        self.__obj = None
+
         return True
 
     def on_release(self, ev):
