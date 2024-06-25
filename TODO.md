@@ -49,6 +49,7 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * Brush no. 4 is not working correctly with a tablet
  * incidentally, undoing a rotation + scaling on shapes does not work
    properly either, the shape lands in the initial position, but is still
    sheared => why? it looks like the operations *are* being undone, but

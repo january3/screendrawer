@@ -18,6 +18,7 @@ import time
 import math
 import base64
 import tempfile
+import logging
 from io import BytesIO
 
 import warnings
@@ -76,6 +77,13 @@ from sd.bus import Bus #<placeholder sd/bus.py>
 # ---------------------------------------------------------------------
 # defaults
 
+logging.basicConfig(level=logging.DEBUG,
+                    #format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    format='%(levelname)s|%(filename)s:%(lineno)d>%(funcName)s: %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
+
+logging.info("Application is starting")
+log = logging.getLogger(__name__)                                
 
 COLORS = {
         "black": (0, 0, 0),

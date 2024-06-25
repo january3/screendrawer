@@ -10,6 +10,8 @@ from .utils import calc_arc_coords, calc_arc_coords2, normal_vec   # <remove>
 from .utils import calculate_length, distance                      # <remove>
 from .utils import first_point_after_length                        # <remove>
 from .utils import midpoint, calc_intersect, calc_intersect_2      # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 def get_current_color_and_alpha(ctx):
     """Get the current color and alpha from the Cairo context."""
@@ -159,7 +161,7 @@ def calc_normal_outline_short(coords, widths, rounded = False):
 def calc_normal_outline(coords, widths, rounded = False):
     """Calculate the normal outline of a path."""
     n = len(coords)
-    print("CALCULATING NORMAL OUTLINE")
+    #print("CALCULATING NORMAL OUTLINE")
 
     if n < 2:
         return [], []
@@ -235,7 +237,7 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
     #rounded = False
     n = len(coords)
 
-    print("calc_normal_outline_pencil")
+    ##print("calc_normal_outline_pencil")
 
     if n < 2:
         return [], [], []
@@ -283,20 +285,19 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
     pressure_ret.append(pressure[-1])
 
     if rounded:
-        print("rounding")
         arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p0, 10)
         outline_r.extend(arc_coords[:5])
         outline_l.extend(arc_coords[5:][::-1])
         pressure_ret = pressure_ret + [pressure[-1]] * 5
 
-    print("calc_normal_outline_pencil, outline lengths:", len(outline_l), len(outline_r))
+    log.debug(f"calc_normal_outline_pencil, outline lengths: {len(outline_l)}, {len(outline_r)}")
     return outline_l, outline_r, pressure_ret
 
 def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_length):
     """Calculate the normal outline of a path for tapered brush."""
     n = len(coords)
 
-    print("CALCULATING TAPERED NORMAL OUTLINE")
+    #print("CALCULATING TAPERED NORMAL OUTLINE")
 
     if n < 2:
         return [], []
@@ -375,8 +376,7 @@ class BrushFactory:
         if not brush_type:
             brush_type = "rounded"
 
-        print("Selecting BRUSH " + brush_type)
-        print("BRUSH KWARGS", kwargs)
+        log.debug(f"Selecting BRUSH {brush_type}, kwargs: {kwargs}")
 
         if brush_type == "rounded":
             return BrushRound(**kwargs)
@@ -482,8 +482,7 @@ class Brush:
 
         if coords is not None and pressure is not None:
             if len(coords) != len(pressure):
-                print("Brush: Warning: Pressure and coords don't match (",
-                                 "coords=", len(coords), "pressure=", len(pressure), ")")
+                log.warning(f"Brush: Warning: Pressure and coords don't match (coords={len(coords)} pressure={len(pressure)})")
                 pressure = None
 
         pressure = pressure or [1] * len(coords)
@@ -504,7 +503,7 @@ class Brush:
 
         if len(coords) != len(pressure):
             #raise ValueError("Pressure and coords don't match")
-            print("Pressure and coords don't match:", len(coords), len(pressure))
+            log.warning(f"Brush: Warning: Pressure and coords don't match (coords={len(coords)} pressure={len(pressure)})")
         self.__outline = outline
         return outline
 
@@ -564,7 +563,7 @@ class BrushTapered(Brush):
 
         if len(coords) != len(pressure):
             #raise ValueError("Pressure and coords don't match")
-            print("Pressure and coords don't match:", len(coords), len(pressure))
+            log.warning(f"Brush: Warning: Pressure and coords don't match (coords={len(coords)} pressure={len(pressure)})")
         self.outline(outline)
         return outline
 
@@ -615,7 +614,7 @@ class BrushPencil(Brush):
             return
 
         if len(self.__pressure) != len(self.__coords):
-            print("Pressure and outline don't match:", len(self.__pressure), len(self.__coords))
+            log.warning(f"Pressure and outline don't match: {len(self.__pressure)} {len(self.__coords)}")
             return
 
         #print("drawing pencil brush with coords:", len(coords), len(self.__pressure))
@@ -643,7 +642,7 @@ class BrushPencil(Brush):
                     cr.line_to(outline_r[j][0], outline_r[j][1])
                     cr.close_path()
                 else:
-                    print("warning: j out of bounds:", j, len(outline_l))
+                    log.warning("warning: j out of bounds:", j, len(outline_l))
             if outline:
                 cr.stroke_preserve()
             else:

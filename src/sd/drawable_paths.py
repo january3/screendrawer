@@ -290,7 +290,6 @@ class SegmentedPath(PathRoot):
         self.__bb        = []
 
         if brush:
-            print(brush)
             brush['smooth_path'] = False
             self.brush(BrushFactory.create_brush(**brush))
         else:
@@ -299,7 +298,6 @@ class SegmentedPath(PathRoot):
 
         if len(self.coords) > 1 and not self.brush().outline():
             self.outline_recalculate()
-
 
 
 Drawable.register_type("path", Path)

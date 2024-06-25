@@ -5,6 +5,8 @@ also primitives like boxes, paths and text.
 
 from .pen import Pen           # <remove>
 from .utils import move_coords # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 
 class DrawableRoot:
@@ -232,7 +234,7 @@ class Drawable(DrawableRoot):
         type_map = cls.__registry
 
         obj_type = d.pop("type")
-        print("Generating object of type:", obj_type)
+        log.debug(f"Generating object of type: {obj_type}")
         if obj_type not in type_map:
             raise ValueError("Invalid type:", obj_type)
 
