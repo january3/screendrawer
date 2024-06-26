@@ -16,6 +16,8 @@ from .utils import path_bbox, move_coords      # <remove>
 from .utils import find_obj_in_bbox            # <remove>
 from .utils import transform_coords            # <remove>
 from .utils import smooth_path, coords_rotate  # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 class DrawableTrafo(Drawable):
     """
@@ -60,7 +62,6 @@ class DrawableTrafo(Drawable):
 
         for i, trafo in enumerate(reversed(self.__trafos)):
             trafo_type, trafo_args = trafo
-            #print("applying trafo", trafo_type, trafo_args)
 
             if trafo_type == "rotate":
                 cr.translate(trafo_args[0], trafo_args[1])
@@ -75,7 +76,7 @@ class DrawableTrafo(Drawable):
             elif trafo_type == "dummy":
                 pass
             else:
-                print("unknown trafo", trafo_type)
+                log.warning(f"unknown trafo {trafo_type}")
 
     def move(self, dx, dy):
         """Move the image by dx, dy."""
@@ -186,7 +187,7 @@ class Image(DrawableTrafo):
     """
     def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
 
-        print("CREATING IMAGE", transform)
+        log.debug(f"CREATING IMAGE, transform: {transform}")
         self.__image = ImageObj(image, image_base64)
 
         width, height = self.__image.size()
@@ -396,7 +397,7 @@ class Shape(Drawable):
 
     def finish(self):
         """Finish the shape."""
-        print("finishing shape")
+        log.debug("finishing shape")
         self.coords, _ = smooth_path(self.coords)
         self.mod += 1
 
@@ -558,12 +559,12 @@ class Shape(Drawable):
     @classmethod
     def from_object(cls, obj):
         """Create a shape from an object."""
-        print("Shape.from_object", obj)
+        log.debug(f"Shape.from_object {obj}")
         if obj.coords and len(obj.coords) > 2 and obj.pen:
             return cls(obj.coords, obj.pen)
 
         # issue a warning
-        print("Shape.from_object: invalid object")
+        log.warning("Shape.from_object: invalid object")
         return obj
 
 class Rectangle(Shape):
@@ -579,7 +580,7 @@ class Rectangle(Shape):
 
     def finish(self):
         """Finish the rectangle."""
-        print("finishing rectangle")
+        log.debug("finishing rectangle")
         #self.coords, _ = smooth_path(self.coords)
 
     def update(self, x, y, pressure):

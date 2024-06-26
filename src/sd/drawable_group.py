@@ -5,6 +5,8 @@ Classes that represent groups of drawable objects.
 from .utils import objects_bbox, flatten_and_unique         # <remove>
 from .utils import bbox_overlap, path_bbox, transform_coords # <remove>
 from .drawable import Drawable                # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 class DrawableGroup(Drawable):
     """
@@ -21,7 +23,6 @@ class DrawableGroup(Drawable):
         if objects_dict:
             objects = [ Drawable.from_dict(d) for d in objects_dict ]
 
-        #print("Creating DrawableGroup with ", len(objects), "objects")
         super().__init__(mytype, [ (None, None) ], None)
         self.objects = objects
         self.__modif = None
@@ -66,7 +67,7 @@ class DrawableGroup(Drawable):
 
     def transmute_to(self, mode):
         """Transmute all objects within the group to a new type."""
-        print("transmuting group to", mode)
+        log.debug(f"transmuting group to {mode}")
        #for i in range(len(self.objects)):
        #    self.objects[i] = DrawableFactory.transmute(self.objects[i], mode)
         self.mod += 1
@@ -300,7 +301,7 @@ class ClippingGroup(DrawableGroup):
 
     def to_dict(self):
         """Convert the group to a dictionary."""
-        print("my type is", self.type)
+        log.debug(f"my type is {self.type}")
         return {
             "type": self.type,
             "objects_dict": [ self.__clip_obj.to_dict(), self.__obj_group.to_dict() ]
@@ -324,13 +325,13 @@ class SelectionObject(DrawableGroup):
     def __init__(self, all_objects):
         super().__init__([ ], None, mytype = "selection_object")
 
-        print("Selection Object with ", len(all_objects), "objects")
+        log.debug(f"Selection Object with {len(all_objects)} objects")
         self._all_objects = all_objects
 
     def copy(self):
         """Return a copy of the selection object."""
         # the copy can be used for undo operations
-        print("copying selection to a new selection object")
+        log.debug("copying selection to a new selection object")
         return DrawableGroup(self.objects[:])
 
     def n(self):
@@ -347,21 +348,21 @@ class SelectionObject(DrawableGroup):
 
     def set(self, objects):
         """Set the selection to a list of objects."""
-        print("setting selection to", objects)
+        log.debug(f"setting selection to {objects}")
         self.objects = objects
 
     def add(self, obj):
         """Add an object to the selection."""
-        print("adding object to selection:", obj, "selection is", self.objects)
+        log.debug(f"adding object to selection: {obj} selection is {self.objects}")
         if not obj in self.objects:
             self.objects.append(obj)
 
     def all(self):
         """Select all objects."""
-        print("selecting everything")
+        log.debug("selecting everything")
         self.objects = self._all_objects[:]
-        print("selection has now", len(self.objects), "objects")
-        print("all objects have", len(self._all_objects), "objects")
+        log.debug(f"selection has now {len(self.objects)} objects")
+        log.debug(f"all objects have {len(self._all_objects)} objects")
 
     def next(self):
         """
@@ -413,7 +414,7 @@ class SelectionObject(DrawableGroup):
         Return a selection object with the objects in reverse order.
         """
         if not self.objects:
-            print("no selection yet, selecting everything")
+            log.debug("no selection yet, selecting everything")
             self.objects = self._all_objects[:]
             return
 

@@ -17,6 +17,8 @@ from sys import exc_info # <remove>
 import gi                                                  # <remove>
 gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gdk # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 COLORS = {
         "black": (0, 0, 0),
@@ -62,7 +64,7 @@ class EventManager:
         """
         #print("dispatch_action", action_name)
         if not action_name in self.__actions:
-            print(f"action {action_name} not found in actions")
+            log.warning(f"action {action_name} not found in actions")
             return
 
         action = self.__actions[action_name]['action']
@@ -76,11 +78,11 @@ class EventManager:
                 action(**kwargs)
         except Exception as e:
             exc_type, exc_value, exc_traceback = exc_info()
-            print("Exception type: ", exc_type)
-            print("Exception value:", exc_value)
-            print("Traceback:")
+            log.warning(f"Exception type: {exc_type}")
+            log.warning(f"Exception value:{exc_value}")
+            log.warning("Traceback:")
             traceback.print_tb(exc_traceback)
-            print(f"Error while dispatching action {action_name}: {e}")
+            log.warning(f"Error while dispatching action {action_name}: {e}")
 
     def dispatch_key_event(self, key_event, mode):
         """
@@ -89,22 +91,22 @@ class EventManager:
         #print("dispatch_key_event", key_event, mode)
 
         if not key_event in self.__keybindings:
-            print(f"key_event {key_event} not found in keybindings")
+            log.warning(f"key_event {key_event} not found in keybindings")
             return
 
         action_name = self.__keybindings[key_event]
 
         if not action_name in self.__actions:
-            print(f"action {action_name} not found in actions")
+            log.warning(f"action {action_name} not found in actions")
             return
 
         # check whether action allowed in the current mode
         if 'modes' in self.__actions[action_name]:
             if not mode in self.__actions[action_name]['modes']:
-                print("action not allowed in this mode")
+                log.warning("action not allowed in this mode")
                 return
 
-        print("keyevent", key_event, "dispatching action", action_name)
+        log.debug(f"keyevent {key_event} dispatching action {action_name}")
         self.dispatch_action(action_name)
 
     def on_key_press(self, widget, event):
@@ -119,7 +121,7 @@ class EventManager:
         ctrl    = event.state & Gdk.ModifierType.CONTROL_MASK
         shift   = event.state & Gdk.ModifierType.SHIFT_MASK
         alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
-        print("keyname", keyname, "char", char, "ctrl", ctrl, "shift", shift, "alt_l", alt_l)
+        log.debug(f"keyname {keyname} char {char} ctrl {ctrl} shift {shift} alt_l {alt_l}")
 
         mode = state.mode()
 

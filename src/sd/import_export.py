@@ -13,6 +13,8 @@ import cairo                                # <remove>
 from sd.drawable import Drawable            # <remove>
 from sd.drawable_group import DrawableGroup # <remove>
 from sd.page import Page                    # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 def guess_file_format(filename):
     """Guess the file format from the file extension."""
@@ -89,12 +91,12 @@ def convert_file_to_image(input_file, output_file, file_format = "png", border =
     if pages:
         if len(pages) <= page_no:
             raise ValueError(f"Page number out of range (max. {len(pages) - 1})")
-        print("read drawing from", input_file, "with", len(pages), "pages")
+        log.debug(f"read drawing from {input_file} with {len(pages)} pages")
         p = Page()
         p.import_page(pages[page_no])
         objects = p.objects_all_layers()
 
-    print("read drawing from", input_file, "with", len(objects), "objects")
+    log.debug(f"read drawing from {input_file} with {len(objects)} objects")
     objects = DrawableGroup(objects)
 
     bbox = objects.bbox()
@@ -118,7 +120,7 @@ def convert_to_multipage_pdf(input_file, output_file, border = None):
     :param output_file: The name of the file to save to.
     :param border: The border around the objects.
     """
-    print("Converting to multipage PDF")
+    log.debug("Converting to multipage PDF")
     config, _, pages = read_file_as_sdrw(input_file)
     if not pages:
         raise ValueError("No multiple pages found in the input file")
@@ -309,7 +311,7 @@ def export_image(obj, filename, file_format = "any", cfg = None):
 
     # if filename is None, we send the output to stdout
     if filename is None:
-        print("export_image: no filename provided")
+        log.debug("export_image: no filename provided")
         return
 
     if file_format == "any":
@@ -324,7 +326,7 @@ def export_image(obj, filename, file_format = "any", cfg = None):
         # check
         if file_format not in [ "png", "jpeg", "pdf", "svg" ]:
             raise ValueError("Unrecognized file extension")
-        print("export_image: guessing format from file name:", file_format)
+        log.debug(f"export_image: guessing format from file name: {file_format}")
 
     # Create a Cairo surface of the same size as the bbox
     if file_format == "png":
@@ -357,13 +359,13 @@ def export_file_as_yaml(filename, config, objects = None, pages = None):
     try:
         with open(filename, 'w', encoding = 'utf-8') as f:
             yaml.dump(state, f)
-        print("Saved drawing to", filename)
+        log.debug(f"Saved drawing to {filename}")
         return True
     except OSError as e:
-        print(f"Error saving file due to a file I/O error: {e}")
+        log.warning(f"Error saving file due to a file I/O error: {e}")
         return False
     except yaml.YAMLError as e:
-        print(f"Error saving file because: {e}")
+        log.warning(f"Error saving file because: {e}")
         return False
 
 
@@ -391,13 +393,13 @@ def save_file_as_sdrw(filename, config, objects = None, pages = None):
         with open(filename, 'wb') as f:
             #yaml.dump(state, f)
             pickle.dump(state, f)
-        print("Saved drawing to", filename)
+        log.debug(f"Saved drawing to {filename}")
         return True
     except OSError as e:
-        print(f"Error saving file due to a file I/O error: {e}")
+        log.warning(f"Error saving file due to a file I/O error: {e}")
         return False
     except pickle.PicklingError as e:
-        print(f"Error saving file because an object could not be pickled: {e}")
+        log.warning(f"Error saving file because an object could not be pickled: {e}")
         return False
 
 def read_file_as_sdrw(filename):
@@ -407,10 +409,10 @@ def read_file_as_sdrw(filename):
     :param filename: The name of the file to read from.
     """
     if not path.exists(filename):
-        print("No saved drawing found at", filename)
+        log.warning(f"No saved drawing found at {filename}")
         return None, None, None
 
-    print("READING file as sdrw:", filename)
+    log.debug(f"READING file as sdrw: {filename}")
 
     config, objects, pages = None, None, None
 
@@ -418,10 +420,10 @@ def read_file_as_sdrw(filename):
         with open(filename, "rb") as file:
             state = pickle.load(file)
             if "objects" in state:
-                print("found objects in savefile")
+                log.debug("found objects in savefile")
                 objects = [ Drawable.from_dict(d) for d in state['objects'] ] or [ ]
             if "pages" in state:
-                print("found pages in savefile")
+                log.debug("found pages in savefile")
                 pages = state['pages']
                 for p in pages:
                     # this is for compatibility; newer drawings are saved
@@ -432,9 +434,9 @@ def read_file_as_sdrw(filename):
 
             config = state['config']
     except OSError as e:
-        print(f"Error saving file due to a file I/O error: {e}")
+        log.warning(f"Error saving file due to a file I/O error: {e}")
         return None, None, None
     except pickle.PicklingError as e:
-        print(f"Error saving file because an object could not be pickled: {e}")
+        log.warning(f"Error saving file because an object could not be pickled: {e}")
         return None, None, None
     return config, objects, pages

@@ -539,10 +539,8 @@ class Brush:
         if len(coords) < 2:
             return None
 
-        #print("1.length of coords and pressure:", len(coords), len(pressure))
         if self.smooth_path():
             coords, pressure = smooth_path(coords, pressure, 20)
-        #print("2.length of coords and pressure:", len(coords), len(pressure))
 
         widths = self.calc_width(pressure, lwd)
         outline_l, outline_r = calc_normal_outline(coords, widths, self.__rounded)
@@ -593,10 +591,8 @@ class BrushTapered(Brush):
         length_to_taper = calculate_length(coords[:(len(coords) - n_taper)])
         tot_length = calculate_length(coords)
 
-        #print("1.length of coords and pressure:", len(coords), len(pressure))
         if self.smooth_path():
             coords, pressure = smooth_path(coords, pressure, 20)
-        #print("2.length of coords and pressure:", len(coords), len(pressure))
 
         taper_pos = first_point_after_length(coords, length_to_taper)
         #print("length to taper:", int(length_to_taper), int(tot_length), "taper pos:", taper_pos, "/", len(coords))
@@ -779,10 +775,8 @@ class BrushPencil(Brush):
         if len(coords) < 2:
             return None
 
-        print("1.length of coords and pressure:", len(coords), len(pressure))
         if self.smooth_path():
             coords, pressure = smooth_path(coords, pressure, 10)
-        print("2.length of coords and pressure:", len(coords), len(pressure))
 
         outline_l, outline_r, pp = calc_pencil_outline(coords, pressure, lwd)
        #print("outline lengths:", len(outline_l), len(outline_r))

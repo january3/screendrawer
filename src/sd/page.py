@@ -8,6 +8,8 @@ from .commands import RemoveCommand, CommandGroup # <remove>
 from .commands import DeletePageCommand, DeleteLayerCommand # <remove>
 from .commands import InsertPageCommand # <remove>
 from .drawer import Drawer                                           # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 
 class Layer:
@@ -65,7 +67,7 @@ class Page:
         If create is True, create a new page if it doesn't exist.
         """
         if not self.__next and create:
-            print("Creating new page")
+            log.debug("Creating new page")
             self.__next = Page(self)
         return self.__next
 
@@ -91,7 +93,7 @@ class Page:
     def delete(self):
         """Delete the page and create links between prev and next pages."""
         if not self.__prev and not self.__next:
-            print("only one page remaining")
+            log.debug("only one page remaining")
             return self
 
         cmd = DeletePageCommand(self)
@@ -125,7 +127,7 @@ class Page:
 
     def next_layer(self):
         """Switch to the next layer."""
-        print("appending a new layer")
+        log.debug("appending a new layer")
         self.__current_layer += 1
         if self.__current_layer == len(self.__layers):
             self.__layers.append(Layer())
@@ -219,14 +221,14 @@ class Page:
 
     def import_page(self, page_dict):
         """Imports a dict to self"""
-        print("importing pages")
+        log.debug("importing pages")
         self.__translate = page_dict.get("translate")
         if "objects" in page_dict:
             self.objects(page_dict["objects"])
         elif "layers" in page_dict:
-            print(len(page_dict["layers"]), "layers found")
-            print("however, we only have", len(self.__layers), "layers")
-            print("creating", len(page_dict["layers"]) - len(self.__layers), "new layers")
+            log.debug(f'{len(page_dict["layers"])} layers found')
+            log.debug(f"however, we only have {len(self.__layers)} layers")
+            log.debug(f'creating {len(page_dict["layers"]) - len(self.__layers)} new layers')
             self.__current_layer = 0
             for _ in range(len(page_dict["layers"]) - len(self.__layers)):
                 self.next_layer()

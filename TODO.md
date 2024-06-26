@@ -49,7 +49,11 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * Brush no. 4 is not working correctly with a tablet
+ * Segment creation does not stop when switching to a different mode. Same
+   for text object creation.
+ * There is no way of changing transparency or line width of an existing object. 
+   the ctrl-click and ctrl-shift-click should check that objects are underneath and 
+   their settings instead of changing the globals.
  * incidentally, undoing a rotation + scaling on shapes does not work
    properly either, the shape lands in the initial position, but is still
    sheared => why? it looks like the operations *are* being undone, but
@@ -57,10 +61,6 @@ Bugs:
  * fill toggle is low-level, not undoable and does not work always as
    expected
  * empty pages break pdf export
- * quick double clicking sometimes produces too many events leading to a
-   race condition betwen WigletCreateText and WigletCreateObject (the
-   former catches the double click, the later catches the extra single
-   click)
  * paths drawn with slanted brush report incorrect bounding box (fragments
    are cut by the cache)
  * when laptop set to low power and teams are running, the app does not
@@ -79,10 +79,15 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * Brush no. 4 is not working correctly with a tablet
  * quick strokes sometimes result in an apparent double click. Rather than 
    doing the double click calculations on our own, we should rather 
    be canceling the single click events after a double click. Send a signal
    "cancel_single_click" to the wiglets?
+ * quick double clicking sometimes produces too many events leading to a
+   race condition betwen WigletCreateText and WigletCreateObject (the
+   former catches the double click, the later catches the extra single
+   click)
  * after rotating a "thick" path, the bounding box is incorrect (too
    narrow, so not around the outline, but around the path). Moving it a bit
    fixes it.
