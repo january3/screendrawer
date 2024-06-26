@@ -44,6 +44,16 @@ def find_intervals(values, n_bins):
 
     return bins, bin_size
 
+def smooth_pressure(pressure, window_size = 3):
+    """Smooth the pressure values."""
+    n = len(pressure)
+    smoothed = [ ]
+    for i in range(n):
+        start = max(0, i - window_size)
+        end = min(n, i + window_size)
+        smoothed.append(sum(pressure[start:end]) / (end - start))
+    return smoothed
+
 def calculate_slant_outlines(coords, dx0, dy0, dx1, dy1):
     """Calculate the left and right outlines."""
     outline_l, outline_r = [ ], [ ]
@@ -252,7 +262,7 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
     outline_r = []
 
     p0, p1 = coords[0], coords[1]
-    width  = line_width #* pressure[0] / 2
+    width  = line_width / 3 #* pressure[0] / 2
     l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
 
     ## append the points for the first coord
@@ -267,7 +277,7 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
 
     for i in range(n - 2):
         p2 = coords[i + 2]
-        width  = line_width #* pressure[i] / 2
+        width  = line_width / 3#* pressure[i] / 2
 
         l_seg2, r_seg2 = calc_segments_2(p1, p2, width)
 
@@ -605,6 +615,7 @@ class BrushPencil(Brush):
         self.__outline_l = [ ]
         self.__outline_r = [ ]
         self.__coords = [ ]
+        self.__bin_fused = [ ]
 
     def move(self, dx, dy):
         """Move the outline."""
@@ -639,34 +650,85 @@ class BrushPencil(Brush):
 
         #print("drawing pencil brush with coords:", len(coords), len(self.__pressure))
 
-        bins   = self.__bins
-        outline_l, outline_r = self.__outline_l, self.__outline_r
-        n = len(bins)
-        #print("n bins:", n, "n outline_l: ", len(outline_l), "n outline_r:", len(outline_r))
+        fbins = self.__outline_segments
+
         if outline:
             cr.set_line_width(0.4)
             cr.stroke()
 
-        for i in range(n):
+        for i in range(len(fbins)):
             cr.set_source_rgba(r, g, b, a * self.__bin_transp[i])
             if not outline:
-                cr.set_line_width(self.__bin_lw[i])
-            for j in bins[i]:
-                #print("i = ", i, "j = ", j)
-                if j < len(outline_l) - 1:
-                    #print(outline_l[j], outline_r[j])
-                    #print(outline_l[j + 1], outline_r[j + 1])
-                    cr.move_to(outline_l[j][0], outline_l[j][1])
-                    cr.line_to(outline_l[j + 1][0], outline_l[j + 1][1])
-                    cr.line_to(outline_r[j + 1][0], outline_r[j + 1][1])
-                    cr.line_to(outline_r[j][0], outline_r[j][1])
-                    cr.close_path()
-                else:
-                    log.warning("warning: j out of bounds:", j, len(outline_l))
+                #cr.set_line_width(self.__bin_lw[i])
+                cr.set_line_width(1)
+            for segm in fbins[i]:
+                cr.move_to(segm[0][0], segm[0][1])
+                for p in segm:
+                    cr.line_to(p[0], p[1])
+                cr.close_path()
             if outline:
                 cr.stroke_preserve()
             else:
                 cr.fill()
+
+    def fuse_bins(self, bins, outline_l, outline_r):
+        """Fuse segments which are next to each other"""
+
+        ret = [ ]
+        n_bins = len(bins)
+        n_outline = len(outline_l)
+
+        for i in range(n_bins):
+            log.debug(f"bin {i} length: {len(bins[i])} contents: {bins[i]}")
+            cur_bin = [ ]
+            ret.append(cur_bin)
+            prev_j = None
+            cur    = [ ]
+
+            # find groups of consecutive indices in bins[i]
+            for j in bins[i]:
+                if prev_j is None:
+                    cur.append(j)
+                elif j == prev_j + 1:
+                    cur.append(j)
+                else:
+                    if prev_j < n_outline - 1:
+                        cur.append(prev_j + 1)
+                    cur_bin.append(cur)
+                    cur = [j]
+                prev_j = j
+
+            if cur:
+                if prev_j < n_outline - 1:
+                    cur.append(prev_j + 1)
+                cur_bin.append(cur)
+
+        for i, b in enumerate(ret):
+            log.debug(f"bin {i} contents: {b}")
+
+        return ret
+
+    def construct_segments(self, fused_bins, outline_l, outline_r):
+        """From bins, construct the segments of the outline."""
+        ret = [ ]
+        n_points = len(outline_l)
+
+        # construct the segments
+        for b in fused_bins:
+            cur = [ ]
+            ret.append(cur)
+            for segm in b:
+                cur_segm = [ ]
+                cur.append(cur_segm)
+                for j in segm:
+                    cur_segm.append(outline_l[j])
+               #if j < n_points - 1:
+               #    cur_segm.append(outline_l[j + 1])
+               #    cur_segm.append(outline_r[j + 1])
+                for j in segm[::-1]:
+                    cur_segm.append(outline_r[j])
+
+        return ret
 
     def calculate(self, line_width, coords, pressure = None):
         """Recalculate the outline of the brush."""
@@ -683,6 +745,7 @@ class BrushPencil(Brush):
             return None
 
         #print("1.length of coords and pressure:", len(coords), len(pressure))
+        # XXX
         if self.smooth_path():
             coords, pressure = smooth_path(coords, pressure, 20)
         #print("2.length of coords and pressure:", len(coords), len(pressure))
@@ -691,19 +754,25 @@ class BrushPencil(Brush):
        #print("outline lengths:", len(outline_l), len(outline_r))
         log.debug(f"outline: {len(outline_l)} {len(outline_r)} {len(pp)}")
 
-        self.__outline_l = outline_l
-        self.__outline_r = outline_r
         self.__pressure  = pressure
         self.__coords    = coords
         self.outline(outline_l + outline_r[::-1])
 
-        nbins = 32
-        #pp = [pressure[0]] * 5 + pressure + [pressure[-1]] * 5
+        nbins = 16
+        pp = smooth_pressure(pp, 5)
         plength = len(pp)
-        self.__bins, binsize = find_intervals(pp[:(plength - 1)], nbins)
+        bins, binsize = find_intervals(pp[:(plength - 1)], nbins)
 
-        self.__bin_lw = [ lwd * (0.75 + 0.25 * i * binsize) for i in range(1, nbins + 1) ]
+        for i, b in enumerate(bins):
+            log.debug(f"bin {i} length: {len(b)}")
+
+        #self.__bin_lw = [ lwd * (0.75 + 0.25 * i * binsize) for i in range(1, nbins + 1) ]
+
+        # transparency values from 0.25 to 1.00 in nbins steps
         self.__bin_transp = [ 0.25 + 0.75 * binsize * i for i in range(1, nbins + 1) ]
+
+        fused = self.fuse_bins(bins, outline_l, outline_r)
+        self.__outline_segments = self.construct_segments(fused, outline_l, outline_r)
 
         return self.outline()
 
