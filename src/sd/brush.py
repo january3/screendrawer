@@ -290,6 +290,8 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
     outline_r.append(r_seg1[0])
     pressure_ret.append(pressure[0])
 
+    np = 7
+
     for i in range(n - 2):
         p2 = coords[i + 2]
         width  = line_width / 3#* pressure[i] / 2
@@ -297,24 +299,22 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
         l_seg2, r_seg2 = calc_segments_2(p1, p2, width)
 
         intersect_l = calc_intersect(l_seg1, l_seg2)
+
         if intersect_l is None:
-            outline_l.append(l_seg1[1])
-            outline_l.append(l_seg2[0])
+            arc_coords = calc_arc_coords2(l_seg1[1], l_seg2[0], p1, np)
+            outline_l.extend(arc_coords)
+            log.debug(f"arc_coords length: {len(arc_coords)}")
         else:
-            outline_l.append(intersect_l)
-            outline_l.append(intersect_l)
+            outline_l.extend([intersect_l] * np)
 
         intersect_r = calc_intersect(r_seg1, r_seg2)
         if intersect_r is None:
-            outline_r.append(r_seg1[1])
-            outline_r.append(r_seg2[0])
+            arc_coords = calc_arc_coords2(r_seg1[1], r_seg2[0], p1, np)
+            outline_r.extend(arc_coords)
         else:
-            outline_r.append(intersect_r)
-            outline_r.append(intersect_r)
-        #outline_l.append(intersect_l)
-        #outline_r.append(intersect_r)
-        pressure_ret.append(pressure[i])
-        pressure_ret.append(pressure[i + 1])
+            outline_r.extend([intersect_r] * np)
+
+        pressure_ret.extend([ pressure[i] ] * np)
 
         l_seg1, r_seg1 = l_seg2, r_seg2
         p0, p1 = p1, p2
@@ -775,11 +775,10 @@ class BrushPencil(Brush):
         if len(coords) < 2:
             return None
 
-        #print("1.length of coords and pressure:", len(coords), len(pressure))
-        # XXX
+        print("1.length of coords and pressure:", len(coords), len(pressure))
         if self.smooth_path():
-            coords, pressure = smooth_path(coords, pressure, 20)
-        #print("2.length of coords and pressure:", len(coords), len(pressure))
+            coords, pressure = smooth_path(coords, pressure, 10)
+        print("2.length of coords and pressure:", len(coords), len(pressure))
 
         outline_l, outline_r, pp = calc_normal_outline_pencil(coords, pressure, lwd, True)
        #print("outline lengths:", len(outline_l), len(outline_r))
@@ -789,10 +788,10 @@ class BrushPencil(Brush):
         self.__coords    = coords
         self.outline(outline_l + outline_r[::-1])
 
-        nbins = 8
+        nbins = 5
         pp = smooth_pressure(pp, 5)
         pp = bin_values(pp, nbins)
-        log.debug(f"pressure values: {[int(100 * ppp) for ppp in pp]}")
+        #log.debug(f"pressure values: {[int(100 * ppp) for ppp in pp]}")
         plength = len(pp)
 
         #self.__bin_lw = [ lwd * (0.75 + 0.25 * i * binsize) for i in range(1, nbins + 1) ]
