@@ -271,11 +271,25 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
 
         l_seg2, r_seg2 = calc_segments_2(p1, p2, width)
 
-        intersect_l = calc_intersect_2(l_seg1, l_seg2)
-        intersect_r = calc_intersect_2(r_seg1, r_seg2)
-        outline_l.append(intersect_l)
-        outline_r.append(intersect_r)
+        intersect_l = calc_intersect(l_seg1, l_seg2)
+        if intersect_l is None:
+            outline_l.append(l_seg1[1])
+            outline_l.append(l_seg2[0])
+        else:
+            outline_l.append(intersect_l)
+            outline_l.append(intersect_l)
+
+        intersect_r = calc_intersect(r_seg1, r_seg2)
+        if intersect_r is None:
+            outline_r.append(r_seg1[1])
+            outline_r.append(r_seg2[0])
+        else:
+            outline_r.append(intersect_r)
+            outline_r.append(intersect_r)
+        #outline_l.append(intersect_l)
+        #outline_r.append(intersect_r)
         pressure_ret.append(pressure[i])
+        pressure_ret.append(pressure[i + 1])
 
         l_seg1, r_seg1 = l_seg2, r_seg2
         p0, p1 = p1, p2
@@ -320,12 +334,16 @@ def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_l
             taper_l_cur += distance(p0, p1)
             if taper_l_cur > taper_length:
                 taper_l_cur = taper_length
-            width  = line_width * pressure[i] / 2 * (1 - taper_l_cur / taper_length)
+            w0  = line_width * pressure[i] / 2 * (1 - taper_l_cur / taper_length)
+            w1  = line_width * pressure[i + 1] / 2 * (1 - taper_l_cur / taper_length)
+            w2  = line_width * pressure[i + 2] / 2 * (1 - taper_l_cur / taper_length)
         else:
-            width  = line_width * pressure[i] / 2
+            w0  = line_width * pressure[i] / 2
+            w1  = line_width * pressure[i + 1] / 2
+            w2  = line_width * pressure[i + 2] / 2
 
-        l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
-        l_seg2, r_seg2 = calc_segments_2(p1, p2, width)
+        l_seg1, r_seg1 = calc_segments_3(p0, p1, w0, w1)
+        l_seg2, r_seg2 = calc_segments_3(p1, p2, w1, w2)
 
         if i == 0:
         ## append the points for the first coord
@@ -568,6 +586,128 @@ class BrushTapered(Brush):
         return outline
 
 class BrushPencil(Brush):
+    """
+    Pencil brush, v3.
+
+    This is more or less an experimental pencil.
+
+    This version attempts to draw with the same stroke, but with
+    transparency varying depending on pressure. The idea is to create short
+    segments with different transparency.
+    """
+    def __init__(self, outline = None, bins = None, smooth_path = True): # pylint: disable=unused-argument
+        super().__init__(rounded = True, brush_type = "pencil",
+                         outline = outline, smooth_path = smooth_path)
+        self.__pressure  = [ ]
+        self.__bins = [ ]
+        self.__bin_lw = [ ]
+        self.__bin_transp = [ ]
+        self.__outline_l = [ ]
+        self.__outline_r = [ ]
+        self.__coords = [ ]
+
+    def move(self, dx, dy):
+        """Move the outline."""
+        self.outline([ (x + dx, y + dy) for x, y in self.outline() ])
+        self.__coords = [ (x + dx, y + dy) for x, y in self.__coords ]
+        self.__outline_l = [ (x + dx, y + dy) for x, y in self.__outline_l ]
+        self.__outline_r = [ (x + dx, y + dy) for x, y in self.__outline_r ]
+
+    def rotate(self, angle, rot_origin):
+        """Rotate the outline."""
+        self.outline(coords_rotate(self.outline(),   angle, rot_origin))
+        self.__coords = coords_rotate(self.__coords, angle, rot_origin)
+        self.__outline_l = coords_rotate(self.__outline_l, angle, rot_origin)
+        self.__outline_r = coords_rotate(self.__outline_r, angle, rot_origin)
+
+    def scale(self, old_bbox, new_bbox):
+        """Scale the outline."""
+        self.outline(transform_coords(self.outline(),   old_bbox, new_bbox))
+        self.__coords = transform_coords(self.__coords, old_bbox, new_bbox)
+        self.__outline_l = transform_coords(self.__outline_l, old_bbox, new_bbox)
+        self.__outline_r = transform_coords(self.__outline_r, old_bbox, new_bbox)
+
+    def draw(self, cr, outline = False):
+        """Draw the brush on the Cairo context."""
+        r, g, b, a = get_current_color_and_alpha(cr)
+        if not self.__coords or len(self.__coords) < 2:
+            return
+
+        if len(self.__pressure) != len(self.__coords):
+            log.warning(f"Pressure and outline don't match: {len(self.__pressure)} {len(self.__coords)}")
+            return
+
+        #print("drawing pencil brush with coords:", len(coords), len(self.__pressure))
+
+        bins   = self.__bins
+        outline_l, outline_r = self.__outline_l, self.__outline_r
+        n = len(bins)
+        #print("n bins:", n, "n outline_l: ", len(outline_l), "n outline_r:", len(outline_r))
+        if outline:
+            cr.set_line_width(0.4)
+            cr.stroke()
+
+        for i in range(n):
+            cr.set_source_rgba(r, g, b, a * self.__bin_transp[i])
+            if not outline:
+                cr.set_line_width(self.__bin_lw[i])
+            for j in bins[i]:
+                #print("i = ", i, "j = ", j)
+                if j < len(outline_l) - 1:
+                    #print(outline_l[j], outline_r[j])
+                    #print(outline_l[j + 1], outline_r[j + 1])
+                    cr.move_to(outline_l[j][0], outline_l[j][1])
+                    cr.line_to(outline_l[j + 1][0], outline_l[j + 1][1])
+                    cr.line_to(outline_r[j + 1][0], outline_r[j + 1][1])
+                    cr.line_to(outline_r[j][0], outline_r[j][1])
+                    cr.close_path()
+                else:
+                    log.warning("warning: j out of bounds:", j, len(outline_l))
+            if outline:
+                cr.stroke_preserve()
+            else:
+                cr.fill()
+
+    def calculate(self, line_width, coords, pressure = None):
+        """Recalculate the outline of the brush."""
+
+        if coords is not None and pressure is not None:
+            if len(coords) != len(pressure):
+                raise ValueError("Pressure and coords don't match")
+
+        pressure = pressure or [1] * len(coords)
+
+        lwd = line_width
+
+        if len(coords) < 2:
+            return None
+
+        #print("1.length of coords and pressure:", len(coords), len(pressure))
+        if self.smooth_path():
+            coords, pressure = smooth_path(coords, pressure, 20)
+        #print("2.length of coords and pressure:", len(coords), len(pressure))
+
+        outline_l, outline_r, pp = calc_normal_outline_pencil(coords, pressure, lwd, True)
+       #print("outline lengths:", len(outline_l), len(outline_r))
+        log.debug(f"outline: {len(outline_l)} {len(outline_r)} {len(pp)}")
+
+        self.__outline_l = outline_l
+        self.__outline_r = outline_r
+        self.__pressure  = pressure
+        self.__coords    = coords
+        self.outline(outline_l + outline_r[::-1])
+
+        nbins = 32
+        #pp = [pressure[0]] * 5 + pressure + [pressure[-1]] * 5
+        plength = len(pp)
+        self.__bins, binsize = find_intervals(pp[:(plength - 1)], nbins)
+
+        self.__bin_lw = [ lwd * (0.75 + 0.25 * i * binsize) for i in range(1, nbins + 1) ]
+        self.__bin_transp = [ 0.25 + 0.75 * binsize * i for i in range(1, nbins + 1) ]
+
+        return self.outline()
+
+class BrushPencil_v2(Brush):
     """
     Pencil brush, v2.
 
