@@ -77,13 +77,12 @@ from sd.bus import Bus #<placeholder sd/bus.py>
 # ---------------------------------------------------------------------
 # defaults
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     #format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     format='%(levelname)s %(filename)s:%(lineno)d %(funcName)s: %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
-
-logging.info("Application is starting")
-log = logging.getLogger(__name__)                                
+log = logging.getLogger(__name__)
+log.info("Application is starting")
 
 COLORS = {
         "black": (0, 0, 0),
@@ -222,7 +221,7 @@ class TransparentWindow(Gtk.Window):
     def exit(self):
         """Exit the application."""
         ## close the savefile_f
-        print("Exiting")
+        log.info("Exiting")
         self.__save_state()
         Gtk.main_quit()
 
@@ -441,17 +440,17 @@ class TransparentWindow(Gtk.Window):
         if self.state.current_obj(): # not while drawing!
             return
 
-        print("Autosaving")
+        log.debug("Autosaving")
         self.__save_state()
         self.state.modified(False)
 
     def __save_state(self):
         """Save the current drawing state to a file."""
         if not self.savefile:
-            print("No savefile set")
+            log.debug("No savefile set")
             return
 
-        print("savefile:", self.savefile)
+        log.debug(f"savefile: {self.savefile}")
         config = {
                 'bg_color':    self.state.bg_color(),
                 'transparent': self.state.alpha(),
@@ -471,7 +470,7 @@ class TransparentWindow(Gtk.Window):
         """Open a drawing from a file in native format."""
         file_name = open_drawing_dialog(self)
         if self.read_file(file_name):
-            print("Setting savefile to", file_name)
+            log.debug(f"Setting savefile to {file_name}")
             self.savefile = file_name
             self.state.modified(True)
 
@@ -529,6 +528,7 @@ Convert screendrawer file to given format (png, pdf, svg, yaml) and exit
                              """, 
                         type=int)
     parser.add_argument("-o", "--output", help="Output file for conversion")
+    parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
     parser.add_argument("files", nargs="*")
     args     = parser.parse_args()
     return args
@@ -584,7 +584,7 @@ def main():
 
     # Get user-specific config directory
     user_config_dir = appdirs.user_config_dir(APP_NAME, APP_AUTHOR)
-    print(f"User config directory: {user_config_dir}")
+    log.debug(f"User config directory: {user_config_dir}")
 
     #user_cache_dir = appdirs.user_cache_dir(APP_NAME, APP_AUTHOR)
     #user_log_dir   = appdirs.user_log_dir(APP_NAME, APP_AUTHOR)
@@ -594,8 +594,12 @@ def main():
 # ---------------------------------------------------------------------
 
     args = parse_arguments()
+    log.info(args.debug)
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+        log.info("Setting logging level to DEBUG")
     savefile = process_args(args, APP_NAME, APP_AUTHOR)
-    print("Save file is:", savefile)
+    log.debug(f"Save file is: {savefile}")
 
 # ---------------------------------------------------------------------
 

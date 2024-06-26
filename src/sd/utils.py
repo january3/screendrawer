@@ -15,6 +15,8 @@ import cairo                                                        #<remove>
 import appdirs                                                      #<remove>
 import pyautogui                                                    #<remove>
 from PIL import ImageGrab                                           #<remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 gi.require_version('Gtk', '3.0')                                    #<remove>
 
@@ -23,7 +25,7 @@ def get_default_savefile(app_name, app_author):
 
     # Get user-specific data directory
     user_data_dir = appdirs.user_data_dir(app_name, app_author)
-    print(f"User data directory: {user_data_dir}")
+    log.debug(f"User data directory: {user_data_dir}")
     # Create the directory if it does not exist
     os.makedirs(user_data_dir, exist_ok=True)
     # The filename for the save file: dir + "savefile"
