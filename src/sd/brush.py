@@ -22,6 +22,21 @@ def get_current_color_and_alpha(ctx):
     # For non-solid patterns, return a default or indicate it's not solid
     return None, None, None, None  # Or raise an exception or another appropriate response
 
+def bin_values(values, n_bins):
+    """Bin values into n_bin bins between 0 and 1"""
+
+    bin_size = 1 / n_bins
+    ret = [ ]
+
+    for value in values:
+        ret.append(int(value / bin_size) * bin_size)
+
+    return ret
+
+def min_pr(val):
+    """Scale the pressure such that it does not go below .2"""
+    return .2 + .8 * val
+
 def find_intervals(values, n_bins):
     """
     Divide the range [0, 1] into n_bins and return a list of bins with 
@@ -603,40 +618,44 @@ class BrushPencil(Brush):
 
     This version attempts to draw with the same stroke, but with
     transparency varying depending on pressure. The idea is to create short
-    segments with different transparency.
+    segments with different transparency. Each segment is drawn using a
+    gradient, from starting transparency to ending transparency.
     """
     def __init__(self, outline = None, bins = None, smooth_path = True): # pylint: disable=unused-argument
         super().__init__(rounded = True, brush_type = "pencil",
                          outline = outline, smooth_path = smooth_path)
         self.__pressure  = [ ]
-        self.__bins = [ ]
-        self.__bin_lw = [ ]
-        self.__bin_transp = [ ]
-        self.__outline_l = [ ]
-        self.__outline_r = [ ]
         self.__coords = [ ]
-        self.__bin_fused = [ ]
+        self.__gradients = None
+        self.__midpoints = None
+        self.__fused = None
+        self.__outline_segments = None
 
     def move(self, dx, dy):
         """Move the outline."""
         self.outline([ (x + dx, y + dy) for x, y in self.outline() ])
         self.__coords = [ (x + dx, y + dy) for x, y in self.__coords ]
-        self.__outline_l = [ (x + dx, y + dy) for x, y in self.__outline_l ]
-        self.__outline_r = [ (x + dx, y + dy) for x, y in self.__outline_r ]
+        for s in self.__outline_segments:
+            for i, p in enumerate(s):
+                s[i] = (p[0] + dx, p[1] + dy)
 
     def rotate(self, angle, rot_origin):
         """Rotate the outline."""
         self.outline(coords_rotate(self.outline(),   angle, rot_origin))
         self.__coords = coords_rotate(self.__coords, angle, rot_origin)
-        self.__outline_l = coords_rotate(self.__outline_l, angle, rot_origin)
-        self.__outline_r = coords_rotate(self.__outline_r, angle, rot_origin)
+        new_segm = [ ]
+        for s in self.__outline_segments:
+            new_segm.append(coords_rotate(s, angle, rot_origin))
+        self.__outline_segments = new_segm
 
     def scale(self, old_bbox, new_bbox):
         """Scale the outline."""
         self.outline(transform_coords(self.outline(),   old_bbox, new_bbox))
         self.__coords = transform_coords(self.__coords, old_bbox, new_bbox)
-        self.__outline_l = transform_coords(self.__outline_l, old_bbox, new_bbox)
-        self.__outline_r = transform_coords(self.__outline_r, old_bbox, new_bbox)
+        new_segm = [ ]
+        for s in self.__outline_segments:
+            new_segm.append(transform_coords(s, old_bbox, new_bbox))
+        self.__outline_segments = new_segm
 
     def draw(self, cr, outline = False):
         """Draw the brush on the Cairo context."""
@@ -649,64 +668,82 @@ class BrushPencil(Brush):
             return
 
         #print("drawing pencil brush with coords:", len(coords), len(self.__pressure))
+        log.debug(f"Drawing pencil brush with coords: {len(self.__coords)} {len(self.__pressure)}")
 
         fbins = self.__outline_segments
+        grads = self.__gradients
+        midp  = self.__midpoints
 
         if outline:
             cr.set_line_width(0.4)
             cr.stroke()
 
-        for i in range(len(fbins)):
-            cr.set_source_rgba(r, g, b, a * self.__bin_transp[i])
-            if not outline:
-                #cr.set_line_width(self.__bin_lw[i])
-                cr.set_line_width(1)
-            for segm in fbins[i]:
-                cr.move_to(segm[0][0], segm[0][1])
-                for p in segm:
-                    cr.line_to(p[0], p[1])
-                cr.close_path()
+        for i, segm in enumerate(fbins):
+            nn = int(len(segm)/2)
+           #log.debug(f"segm {i}:len={len(segm)} nn={nn}")
+           #log.debug(f"{[(segm[0][0] + segm[-1][0])/2, (segm[0][1] + segm[-1][1])/2, (segm[nn - 1][0] + segm[nn][0])/2, (segm[nn - 1][1] + segm[nn][1])/2]}")
+           #log.debug(f"midpoints: {midp[i]}")
+            gr = cairo.LinearGradient(midp[i][0][0], midp[i][0][1], midp[i][1][0], midp[i][1][1])
+            gr.add_color_stop_rgba(0, r, g, b, grads[i][0])
+            gr.add_color_stop_rgba(1, r, g, b, grads[i][1])
+
+            cr.move_to(segm[0][0], segm[0][1])
+            for p in segm:
+                cr.line_to(p[0], p[1])
+            cr.close_path()
             if outline:
                 cr.stroke_preserve()
             else:
+                cr.set_source(gr)
                 cr.fill()
 
-    def fuse_bins(self, bins, outline_l, outline_r):
+    def segment_midpoints(self, segments):
+        """Calculate the midpoints of the segments start and end edge."""
+        ret = [ ]
+
+        for segm in segments:
+            p0 = ((segm[0][0] + segm[-1][0])/2,
+                  (segm[0][1] + segm[-1][1])/2)
+            nn = int(len(segm)/2)
+            p1 = ((segm[nn - 1][0] + segm[nn][0])/2,
+                  (segm[nn - 1][1] + segm[nn][1])/2)
+            ret.append((p0, p1))
+        return ret
+        
+
+    def fuse_segments(self, pp):
         """Fuse segments which are next to each other"""
 
         ret = [ ]
-        n_bins = len(bins)
-        n_outline = len(outline_l)
+        n_segments = len(pp)
 
-        for i in range(n_bins):
-            log.debug(f"bin {i} length: {len(bins[i])} contents: {bins[i]}")
-            cur_bin = [ ]
-            ret.append(cur_bin)
-            prev_j = None
-            cur    = [ ]
+        prev_pp = pp[0]
+        ret_pp  = [ ]
+        cur = [ ]
 
-            # find groups of consecutive indices in bins[i]
-            for j in bins[i]:
-                if prev_j is None:
-                    cur.append(j)
-                elif j == prev_j + 1:
-                    cur.append(j)
-                else:
-                    if prev_j < n_outline - 1:
-                        cur.append(prev_j + 1)
-                    cur_bin.append(cur)
-                    cur = [j]
-                prev_j = j
+        # find groups of consecutive segments
+        log.debug(f"n_segments: {n_segments}")
+        for j in range(n_segments):
 
-            if cur:
-                if prev_j < n_outline - 1:
-                    cur.append(prev_j + 1)
-                cur_bin.append(cur)
+            if pp[j] == prev_pp:
+                #log.debug(f"pp[j]={pp[j]} prev_pp={prev_pp} appending {j} to the current segment")
+                cur.append(j)
+            else:
+                #log.debug(f"new segment at: {j}")
+                cur.append(j)
+                ret_pp.append((min_pr(prev_pp), min_pr(pp[j])))
+                ret.append(cur)
+                cur = [j]
 
+            prev_pp = pp[j]
+        ret_pp.append((min_pr(prev_pp), min_pr(pp[-1])))
+        ret.append(cur)
+
+        log.debug(f"length of ret: {len(ret)} length of ret_pp: {len(ret_pp)}")
         for i, b in enumerate(ret):
-            log.debug(f"bin {i} contents: {b}")
+            log.debug(f"bin {i} contents: {len(b)} pp: {[int(100 * ppp) for ppp in ret_pp[i]]}")
 
-        return ret
+        return ret, ret_pp
 
     def construct_segments(self, fused_bins, outline_l, outline_r):
         """From bins, construct the segments of the outline."""
@@ -714,19 +751,13 @@ class BrushPencil(Brush):
         n_points = len(outline_l)
 
         # construct the segments
-        for b in fused_bins:
-            cur = [ ]
-            ret.append(cur)
-            for segm in b:
-                cur_segm = [ ]
-                cur.append(cur_segm)
-                for j in segm:
-                    cur_segm.append(outline_l[j])
-               #if j < n_points - 1:
-               #    cur_segm.append(outline_l[j + 1])
-               #    cur_segm.append(outline_r[j + 1])
-                for j in segm[::-1]:
-                    cur_segm.append(outline_r[j])
+        for segm in fused_bins:
+            cur_segm = [ ]
+            ret.append(cur_segm)
+            for j in segm:
+                cur_segm.append(outline_l[j])
+            for j in segm[::-1]:
+                cur_segm.append(outline_r[j])
 
         return ret
 
@@ -758,21 +789,20 @@ class BrushPencil(Brush):
         self.__coords    = coords
         self.outline(outline_l + outline_r[::-1])
 
-        nbins = 16
+        nbins = 8
         pp = smooth_pressure(pp, 5)
+        pp = bin_values(pp, nbins)
+        log.debug(f"pressure values: {[int(100 * ppp) for ppp in pp]}")
         plength = len(pp)
-        bins, binsize = find_intervals(pp[:(plength - 1)], nbins)
-
-        for i, b in enumerate(bins):
-            log.debug(f"bin {i} length: {len(b)}")
 
         #self.__bin_lw = [ lwd * (0.75 + 0.25 * i * binsize) for i in range(1, nbins + 1) ]
 
         # transparency values from 0.25 to 1.00 in nbins steps
-        self.__bin_transp = [ 0.25 + 0.75 * binsize * i for i in range(1, nbins + 1) ]
+        #self.__bin_transp = [ 0.25 + 0.75 * binsize * i for i in range(1, nbins + 1) ]
 
-        fused = self.fuse_bins(bins, outline_l, outline_r)
-        self.__outline_segments = self.construct_segments(fused, outline_l, outline_r)
+        self.__fused, self.__gradients = self.fuse_segments(pp)
+        self.__outline_segments = self.construct_segments(self.__fused, outline_l, outline_r)
+        self.__midpoints = self.segment_midpoints(self.__outline_segments)
 
         return self.outline()
 
