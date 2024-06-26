@@ -684,8 +684,8 @@ class BrushPencil(Brush):
            #log.debug(f"{[(segm[0][0] + segm[-1][0])/2, (segm[0][1] + segm[-1][1])/2, (segm[nn - 1][0] + segm[nn][0])/2, (segm[nn - 1][1] + segm[nn][1])/2]}")
            #log.debug(f"midpoints: {midp[i]}")
             gr = cairo.LinearGradient(midp[i][0][0], midp[i][0][1], midp[i][1][0], midp[i][1][1])
-            gr.add_color_stop_rgba(0, r, g, b, grads[i][0])
-            gr.add_color_stop_rgba(1, r, g, b, grads[i][1])
+            gr.add_color_stop_rgba(0, r, g, b, a * grads[i][0])
+            gr.add_color_stop_rgba(1, r, g, b, a * grads[i][1])
 
             cr.move_to(segm[0][0], segm[0][1])
             for p in segm:
