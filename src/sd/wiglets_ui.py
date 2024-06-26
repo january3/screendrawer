@@ -9,6 +9,8 @@ import cairo                                   # <remove>
 from .wiglets import Wiglet #<remove>
 from .utils import draw_dot, is_click_in_bbox  # <remove>
 from .icons import Icons                       # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 def draw_rhomb(cr, bbox, fg = (0, 0, 0), bg = (1, 1, 1)):
     """
@@ -62,7 +64,7 @@ class WigletTransparency(Wiglet):
         self.__pen    = None
         self.__initial_transparency = None
         self.__active = False
-        print("initial transparency:", self.__initial_transparency)
+        log.debug(f"initial transparency: {self.__initial_transparency}")
 
         bus.on("left_mouse_click", self.on_click)
         bus.on("mouse_move", self.on_move)
@@ -74,20 +76,17 @@ class WigletTransparency(Wiglet):
         if not self.__active:
             return
 
-        print("drawing transparency widget")
+        log.debug("drawing transparency widget")
         cr.set_source_rgba(*self.__pen.color, self.__pen.transparency)
         draw_dot(cr, *self.coords, 50)
 
     def on_click(self, ev):
         """handle the click event"""
-        print("receiving call")
         # make sure we are in the correct mode
         if not ev.shift() or ev.alt() or not ev.ctrl():
-            print("wrong modifiers")
             return False
 
         if ev.hover() or ev.corner()[0] or ev.double():
-            print("wrong event", ev.hover(), ev.corner(), ev.double())
             return False
 
         self.coords = (ev.x_abs, ev.y_abs)
@@ -114,7 +113,7 @@ class WigletTransparency(Wiglet):
         if not self.__active:
             return False
 
-        print("got release event")
+        log.debug("got release event")
         self.__active = False
         return True
 
@@ -150,16 +149,14 @@ class WigletLineWidth(Wiglet):
         """handle the click event"""
         # make sure we are in the correct mode
         if ev.shift() or ev.alt() or not ev.ctrl():
-            print("wrong modifiers")
             return False
         if ev.hover() or ev.corner()[0] or ev.double():
-            print("wrong event", ev.hover(), ev.corner(), ev.double())
             return False
         self.coords = (ev.x_abs, ev.y_abs)
         self.__pen    = self.__state.pen()
         self.__initial_width = self.__pen.line_width
 
-        print("activating line width widget at", self.coords)
+        log.debug(f"activating line width widget at {int(self.coords[0])}, {int(self.coords[1])}, initial width {self.__initial_width}")
         self.__active = True
         return True
 
@@ -244,7 +241,7 @@ class WigletPageSelector(Wiglet):
             return False
 
         # which page is at this position?
-        print("page_selector: clicked inside the bbox, event", ev)
+        log.debug(f"page_selector: clicked inside the bbox, event {ev}")
         dy = y - self.__bbox[1]
 
         page_no = self.__page_n
@@ -253,16 +250,16 @@ class WigletPageSelector(Wiglet):
             if y0 <= dy <= y1:
                 page_no = i
                 break
-        print("selected page:", page_no)
+        log.debug(f"selected page: {page_no}")
 
         page_in_range = 0 <= page_no < self.__page_n
 
         if page_in_range:
-            print("setting page to", page_no)
+            log.debug(f"setting page to {page_no}")
             self.__gom.set_page_number(page_no)     # <- outside info
 
         if page_no == self.__page_n:
-            print("adding a new page")
+            log.debug(f"adding a new page")
             self.__gom.set_page_number(page_no - 1) # <- outside info
             self.__gom.next_page()                  # <- outside info
 
@@ -370,6 +367,8 @@ class WigletPageSelector(Wiglet):
                 draw_rhomb(cr, (wpos, curpos, width, 10))
 
 ## ---------------------------------------------------------------------
+
+## ---------------------------------------------------------------------
 class WigletToolSelector(Wiglet):
     """Wiglet for selecting the tool."""
     def __init__(self, bus, coords = (50, 0), func_mode = None):
@@ -378,9 +377,9 @@ class WigletToolSelector(Wiglet):
         width, height = 1000, 35
         self.__icons_only = True
 
-        self.__modes = [ "move", "draw", "shape", "rectangle",
+        self.__modes = [ "move", "draw", "segment", "shape", "rectangle",
                         "circle", "text", "eraser", "colorpicker" ]
-        self.__modes_dict = { "move": "Move", "draw": "Draw", "shape": "Shape",
+        self.__modes_dict = { "move": "Move", "draw": "Draw", "segment": "Seg.Path", "shape": "Shape",
                               "rectangle": "Rectangle", "circle": "Circle", "text": "Text",
                               "eraser": "Eraser", "colorpicker": "Col.Pick" }
 
@@ -568,21 +567,21 @@ class WigletColorSelector(Wiglet):
         if not is_click_in_bbox(x, y, self.__bbox):
             return False
 
-        print("color_selector: clicked inside the bbox")
+        log.debug(f"color_selector: clicked inside the bbox")
 
         dy = y - self.__bbox[1]
         # which color is at this position?
         sel_color = None
         for color, ypos in self.__colors_hpos.items():
             if ypos <= dy <= ypos + self.__color_dh:
-                print("selected color:", color)
+                log.debug(f"selected color: {color}")
                 sel_color = color
         if ev.shift():
-            print("setting bg to color", sel_color)
+            log.debug(f"setting bg to color {sel_color}")
             if sel_color and self.__func_bg and callable(self.__func_bg):
                 self.__func_bg(sel_color)
         else:
-            print("setting fg to color", sel_color)
+            log.debug(f"setting fg to color {sel_color}")
             self.__bus.emit("set_color", True, sel_color)
 
         self.__bus.emit("queue_draw")
