@@ -253,22 +253,25 @@ def point_mean(p1, p2):
     """Calculate the mean of two points."""
     return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
 
-def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
+def calc_pencil_outline(coords, pressure, line_width):
     """
     Calculate the normal outline of a path.
 
-    This one is used in the pencil brush v2.
-    """
-    #rounded = False
-    n = len(coords)
+    This one is used in the pencil brush v3.
 
-    ##print("calc_normal_outline_pencil")
+    The main difference from normal outlines is that we are creating two
+    outlines and a pressure vector, all with exactly the same number of
+    points. This allows to create segments with different transparency
+    values.
+    """
+
+    n = len(coords)
 
     if n < 2:
         return [], [], []
 
     if n == 2:
-        outline_l, outline_r = calc_outline_short_generic(coords, pressure, line_width, rounded)
+        outline_l, outline_r = calc_outline_short_generic(coords, pressure, line_width, True)
         return outline_l, outline_r, pressure
 
     pressure_ret = [ ]
@@ -281,11 +284,11 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
     l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
 
     ## append the points for the first coord
-    if rounded:
-        arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
-        outline_r.extend(arc_coords[:5][::-1])
-        outline_l.extend(arc_coords[5:])
-        pressure_ret = pressure_ret + [pressure[0]] * 5
+    arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
+    outline_r.extend(arc_coords[:5][::-1])
+    outline_l.extend(arc_coords[5:])
+    pressure_ret = pressure_ret + [pressure[0]] * 5
+
     outline_l.append(l_seg1[0])
     outline_r.append(r_seg1[0])
     pressure_ret.append(pressure[0])
@@ -298,16 +301,20 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
 
         l_seg2, r_seg2 = calc_segments_2(p1, p2, width)
 
+        # in the following, if the two outline segments intersect, we simplify
+        # them; if they don't, we add a curve
         intersect_l = calc_intersect(l_seg1, l_seg2)
 
         if intersect_l is None:
             arc_coords = calc_arc_coords2(l_seg1[1], l_seg2[0], p1, np)
             outline_l.extend(arc_coords)
-            log.debug(f"arc_coords length: {len(arc_coords)}")
         else:
             outline_l.extend([intersect_l] * np)
 
+        # in the following, if the two outline segments intersect, we simplify
+        # them; if they don't, we add a curve
         intersect_r = calc_intersect(r_seg1, r_seg2)
+
         if intersect_r is None:
             arc_coords = calc_arc_coords2(r_seg1[1], r_seg2[0], p1, np)
             outline_r.extend(arc_coords)
@@ -323,20 +330,17 @@ def calc_normal_outline_pencil(coords, pressure, line_width, rounded = True):
     outline_r.append(r_seg1[1])
     pressure_ret.append(pressure[-1])
 
-    if rounded:
-        arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p0, 10)
-        outline_r.extend(arc_coords[:5])
-        outline_l.extend(arc_coords[5:][::-1])
-        pressure_ret = pressure_ret + [pressure[-1]] * 5
+    arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p0, 10)
+    outline_r.extend(arc_coords[:5])
+    outline_l.extend(arc_coords[5:][::-1])
+    pressure_ret = pressure_ret + [pressure[-1]] * 5
 
-    log.debug(f"calc_normal_outline_pencil, outline lengths: {len(outline_l)}, {len(outline_r)}")
+    log.debug(f"outline lengths: {len(outline_l)}, {len(outline_r)}")
     return outline_l, outline_r, pressure_ret
 
 def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_length):
     """Calculate the normal outline of a path for tapered brush."""
     n = len(coords)
-
-    #print("CALCULATING TAPERED NORMAL OUTLINE")
 
     if n < 2:
         return [], []
@@ -780,7 +784,7 @@ class BrushPencil(Brush):
             coords, pressure = smooth_path(coords, pressure, 10)
         print("2.length of coords and pressure:", len(coords), len(pressure))
 
-        outline_l, outline_r, pp = calc_normal_outline_pencil(coords, pressure, lwd, True)
+        outline_l, outline_r, pp = calc_pencil_outline(coords, pressure, lwd)
        #print("outline lengths:", len(outline_l), len(outline_r))
         log.debug(f"outline: {len(outline_l)} {len(outline_r)} {len(pp)}")
 
@@ -905,7 +909,7 @@ class BrushPencil_v2(Brush):
             coords, pressure = smooth_path(coords, pressure, 20)
         #print("2.length of coords and pressure:", len(coords), len(pressure))
 
-        outline_l, outline_r, pp = calc_normal_outline_pencil(coords, pressure, lwd, True)
+        outline_l, outline_r, pp = calc_pencil_outline(coords, pressure, lwd)
        #print("outline lengths:", len(outline_l), len(outline_r))
 
         self.__outline_l = outline_l
