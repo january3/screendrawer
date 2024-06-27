@@ -160,7 +160,7 @@ def find_max_width_height(obj_list):
 
     return width, height
 
-def export_objects_to_multipage_pdf(obj_list, output_file, config, border = None):
+def export_objects_to_multipage_pdf(obj_list, output_file, config, border = 10):
     """
     Export a list of objects to a multipage PDF file.
 
@@ -173,6 +173,8 @@ def export_objects_to_multipage_pdf(obj_list, output_file, config, border = None
     """
     if not border:
         border = 0
+
+    log.debug(f"Exporting {len(obj_list)} objects to multipage PDF with border {border}")
 
     width, height = find_max_width_height(obj_list)
 
@@ -189,15 +191,18 @@ def export_objects_to_multipage_pdf(obj_list, output_file, config, border = None
 
     nobj = len(obj_list)
 
+    # each object is a DrawableGroup for a single page
     for i, o in enumerate(obj_list):
         bb = o.bbox()
 
+        # some pages might be empty
         if bb:
             cr.save()
             cr.translate(border - bb[0], border - bb[1])
             o.draw(cr)
             cr.restore()
 
+        # do not show_page on the last page.
         if i < nobj - 1:
             surface.show_page()
     surface.finish()

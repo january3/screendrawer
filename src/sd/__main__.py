@@ -524,8 +524,9 @@ Convert screendrawer file to given format (png, pdf, svg, yaml) and exit
     parser.add_argument("-b", "--border", 
                         help="""
                              Border width for conversion. If not
-                             specified, whole page will be converted.
+                             specified, the default is 10 px.
                              """, 
+                        default=10,
                         type=int)
     parser.add_argument("-o", "--output", help="Output file for conversion")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
