@@ -65,7 +65,6 @@ Bugs:
    with slight errors.
  * fill toggle is low-level, not undoable and does not work always as
    expected
- * empty pages break multi-page pdf conversion from command line
  * paths drawn with slanted brush report incorrect bounding box (fragments
    are cut by the cache)
  * when laptop set to low power and teams are running, the app does not
@@ -83,6 +82,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * empty pages break multi-page pdf conversion from command line
  * export / conversion with an empty page fails
  * Segment creation does not stop when switching to a different mode. Same
    for text object creation.

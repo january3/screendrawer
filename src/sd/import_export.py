@@ -68,6 +68,7 @@ def convert_file(input_file, output_file, file_format = "any", border = None, pa
    #    export_file_as_yaml(output_file, config, objects=objects.to_dict())
 
     elif file_format == "pdf":
+        log.debug("Converting to multipage PDF")
         convert_to_multipage_pdf(input_file, output_file, border)
     else:
         raise NotImplementedError("Conversion to " + file_format + " is not implemented")
@@ -147,6 +148,10 @@ def find_max_width_height(obj_list):
 
     for o in obj_list:
         bb = o.bbox()
+
+        if bb is None:
+            continue
+
         if not width or not height:
             width, height = bb[2], bb[3]
             continue
@@ -187,10 +192,12 @@ def export_objects_to_multipage_pdf(obj_list, output_file, config, border = None
     for i, o in enumerate(obj_list):
         bb = o.bbox()
 
-        cr.save()
-        cr.translate(border - bb[0], border - bb[1])
-        o.draw(cr)
-        cr.restore()
+        if bb:
+            cr.save()
+            cr.translate(border - bb[0], border - bb[1])
+            o.draw(cr)
+            cr.restore()
+
         if i < nobj - 1:
             surface.show_page()
     surface.finish()
