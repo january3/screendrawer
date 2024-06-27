@@ -354,6 +354,7 @@ class WigletEditText(Wiglet):
         bus.on("left_mouse_click",  self.on_click, priority = 99)
         bus.on("mouse_move",        self.on_move, priority = 99)
         bus.on("mouse_release",     self.on_release, priority = 99)
+        bus.on("mode_set",         self.finish_text_input,     priority = 99)
         bus.on("finish_text_input", self.finish_text_input, priority = 99)
         bus.on("escape",            self.finish_text_input, priority = 99)
         bus.on("left_mouse_double_click",
@@ -422,7 +423,7 @@ class WigletEditText(Wiglet):
         self.__bus.emit("queue_draw")
         return True
 
-    def finish_text_input(self):
+    def finish_text_input(self, new_mode = False):
         """Finish text input"""
         if not self.__active:
             return False
@@ -453,22 +454,32 @@ class WigletCreateSegments(Wiglet):
         self.__bus   = bus
         self.__state = state
         self.__obj   = None
-        bus.on("left_mouse_click", self.on_click,   priority = 99)
+        bus.on("left_mouse_click", self.on_click,   priority = 90)
+        bus.on("mode_set",         self.cancel,     priority = 99)
         bus.on("escape", self.cancel,   priority = 99)
         bus.on("left_mouse_double_click", self.on_finish,   priority = 99)
         bus.on("mouse_move",       self.on_move,    priority = 99)
         bus.on("obj_draw",         self.draw_obj,   priority = 99)
 
-    def cancel(self):
+    def cancel(self, new_mode = None):
         """Cancel creating a segmented path"""
 
         mode = self.__state.mode()
-        if mode != "segment":
+
+        if new_mode is not None and self.__obj:
+            self.__bus.emit("add_object", True, self.__obj)
+            self.__state.selection().clear()
+
+            self.__obj = None
+            self.__bus.emit("queue_draw")
             return False
 
         if self.__obj:
             log.debug("WigletCreateSegments: cancel")
             self.__obj = None
+
+        if mode != "segment":
+            return False
 
         return True
 
@@ -531,7 +542,6 @@ class WigletCreateSegments(Wiglet):
         obj.path_append(ev.x, ev.y, 0)
         obj.finish()
 
-        # remove paths that are too small
         self.__bus.emit("add_object", True, obj)
         self.__state.selection().clear()
 
@@ -596,7 +606,6 @@ class WigletCreateObject(Wiglet):
         if not obj:
             return False
 
-        #print("WigletCreateObject: updating object at", int(ev.x), int(ev.y), "pressure", int(ev.pressure() * 1000))
         obj.update(ev.x, ev.y, ev.pressure())
         self.__bus.emit("queue_draw")
         return True

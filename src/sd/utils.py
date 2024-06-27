@@ -65,7 +65,7 @@ def get_screenshot(window, x0, y0, x1, y1):
         screenshot.save(temp_file, format="PNG")
         temp_file_name = temp_file.name
 
-    print("Saved screenshot to temporary file:", temp_file_name)
+    log.debug(f"Saved screenshot to temporary file: {temp_file_name}")
 
     pixbuf = GdkPixbuf.Pixbuf.new_from_file(temp_file_name)
     return pixbuf, temp_file_name
@@ -143,7 +143,7 @@ def remove_intersections(outline_l, outline_r):
     if n < 2:
         return outline_l, outline_r
     if n != len(outline_r):
-        print("outlines of different length")
+        log.warning("outlines of different length")
         return outline_l, outline_r
 
     out_ret_l = []
@@ -153,12 +153,12 @@ def remove_intersections(outline_l, outline_r):
 
         out_ret_l.append(outline_l[i])
         for j in range(i + 1, n - 1):
-            print("i", i, "left segment: ", pp(outline_l[i]), pp(outline_l[i + 1]))
-            print("j", j, "right segment: ", pp(outline_r[j]), pp(outline_r[j + 1]))
+            #print("i", i, "left segment: ", pp(outline_l[i]), pp(outline_l[i + 1]))
+            #print("j", j, "right segment: ", pp(outline_r[j]), pp(outline_r[j + 1]))
             intersect, point = segment_intersection(outline_l[i], outline_l[i + 1],
                                                 outline_r[j], outline_r[j + 1])
-            if intersect:
-                print("FOUND Intersection at", point, "i", i, "j", j)
+            #if intersect:
+                #print("FOUND Intersection at", point, "i", i, "j", j)
                 #out_ret_l, out_ret_r = out_ret_r, out_ret_l
 
             out_ret_r.append(outline_r[i])
@@ -262,7 +262,7 @@ def smooth_path(coords, pressure=None, threshold=20):
 
     if pressure and len(pressure) != len(coords):
         #raise ValueError("Pressure and coords must have the same length")
-        print("Pressure and coords must have the same length:", len(pressure), len(coords))
+        log.warning(f"Pressure and coords must have the same length, however p={len(pressure)} c={len(coords)}")
         return coords, pressure
 
     #print("smoothing path with", len(coords), "points")
@@ -555,8 +555,8 @@ def objects_bbox(objects, actual = True):
 def is_click_in_bbox(click_x, click_y, bbox):
     """Check if a click is inside a bounding box."""
     x, y, w, h = bbox
-    print("Checking click, bbox: ", int(x), int(y), int(x + w), int(y + h))
-    print("Click:", int(click_x), int(click_y))
+    log.debug("Checking click, bbox: %d,%d,%d,%d", int(x), int(y), int(x + w), int(y + h))
+    log.debug("Click: %d,%d", int(click_x), int(click_y))
     return x <= click_x <= x + w and y <= click_y <= y + h
 
 def is_click_in_bbox_corner(click_x, click_y, bbox, threshold):

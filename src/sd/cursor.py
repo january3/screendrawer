@@ -10,6 +10,8 @@ gi.require_version('Gtk', '3.0')                           # <remove>
 gi.require_version('Gdk', '3.0')                           # <remove>
 from gi.repository import Gdk         # <remove>
 from .icons import Icons            # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 ## ---------------------------------------------------------------------
 
@@ -84,7 +86,7 @@ class CursorManager:
         """Set the default cursor to the specified cursor."""
         if self.__current_cursor == cursor_name:
             return
-        print("setting default cursor to", cursor_name)
+        log.debug(f"setting default cursor to {cursor_name}")
         self.__default_cursor = cursor_name
         self.__current_cursor = cursor_name
 
@@ -101,6 +103,5 @@ class CursorManager:
         """Change the cursor to the specified cursor."""
         if self.__current_cursor == cursor_name:
             return
-        #print("changing cursor to", cursor_name)
         self.__window.get_window().set_cursor(self.__cursors[cursor_name])
         self.__current_cursor = cursor_name

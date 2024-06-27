@@ -49,8 +49,8 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * Segment creation does not stop when switching to a different mode. Same
-   for text object creation.
+ * Separation between State and Setter is non-existent, it is unclear which
+   does what.
  * There is no way of changing transparency or line width of an existing object. 
    the ctrl-click and ctrl-shift-click should check that objects are underneath and 
    their settings instead of changing the globals.
@@ -79,6 +79,8 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * Segment creation does not stop when switching to a different mode. Same
+   for text object creation.
  * Brush no. 4 is not working correctly with a tablet
  * quick strokes sometimes result in an apparent double click. Rather than 
    doing the double click calculations on our own, we should rather 

@@ -1,4 +1,7 @@
 """An event bus class for dispatching events between objects."""
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
+log.setLevel(logging.INFO)
 
 class Bus:
     """A simple event bus for dispatching events between objects."""
@@ -24,6 +27,8 @@ class Bus:
 
         Exclusive events will stop dispatching if a listener returns a truthy value.
         """
+
+        log.debug(f"emitting event {event} with {args} and {kwargs}")
         caught = False
         if event in self.__listeners:
             for listener, _ in self.__listeners[event]:

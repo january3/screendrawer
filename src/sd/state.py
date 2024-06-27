@@ -1,5 +1,7 @@
 """Status singleton class for holding key app information."""
 from sd.pen      import Pen                                        # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 class State:
     """Singleton class for holding key app information."""
@@ -12,6 +14,7 @@ class State:
 
     def __init__(self, app, bus, gom, cursor):
         bus.on("queue_draw", self.queue_draw)
+        self.__bus  = bus
         self.__mode = 'draw'
         self.__app = app
         self.__gom = gom
@@ -89,8 +92,12 @@ class State:
     def mode(self, mode = None):
         """Get or set the cursor mode."""
         if mode:
+            if mode == self.__mode:
+                return mode
+            log.debug(f"setting mode to {mode}")
             self.__mode = mode
             self.__cursor.default(mode)
+            self.__bus.emit("mode_set", False, mode)
         return self.__mode
 
     # -------------------------------------------------------------------------
