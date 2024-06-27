@@ -4,6 +4,8 @@ from .drawable import Drawable                                       # <remove>
 from .page import Page                                               # <remove>
 from .utils import sort_by_stack                                     # <remove>
 from .history import History                                         # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 
 ## ---------------------------------------------------------------------
@@ -174,19 +176,24 @@ class GraphicsObjectManager:
         self.__history.add(AddCommand([obj], self.__page.objects(), page=self.__page))
         return obj
 
-    def export_pages(self):
-        """Export all pages."""
-        # XXX
-        # find the first page
+    def get_all_pages(self):
+        """Return all pages."""
         p = self.__page
         while p.prev() != p:
             p = p.prev()
 
-        # create a list of pages for all pages
         pages = [ ]
+
         while p:
-            pages.append(p.export())
+            pages.append(p)
             p = p.next(create = False)
+
+        return pages
+
+    def export_pages(self):
+        """Export all pages."""
+
+        pages = [ p.export() for p in self.get_all_pages() ]
         return pages
 
     def kill_object(self, obj):
