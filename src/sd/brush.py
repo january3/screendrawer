@@ -667,8 +667,7 @@ class BrushPencil(Brush):
             log.warning(f"Pressure and outline don't match: {len(self.__pressure)} {len(self.__coords)}")
             return
 
-        #print("drawing pencil brush with coords:", len(coords), len(self.__pressure))
-        log.debug(f"Drawing pencil brush with coords: {len(self.__coords)} {len(self.__pressure)}")
+        #log.debug(f"Drawing pencil brush with coords: {len(self.__coords)} {len(self.__pressure)}")
 
         fbins = self.__outline_segments
         grads = self.__gradients
@@ -722,7 +721,7 @@ class BrushPencil(Brush):
         cur = [ ]
 
         # find groups of consecutive segments
-        log.debug(f"n_segments: {n_segments}")
+        #log.debug(f"n_segments: {n_segments}")
         for j in range(n_segments):
 
             if pp[j] == prev_pp:
@@ -739,9 +738,9 @@ class BrushPencil(Brush):
         ret_pp.append((min_pr(prev_pp), min_pr(pp[-1])))
         ret.append(cur)
 
-        log.debug(f"length of ret: {len(ret)} length of ret_pp: {len(ret_pp)}")
-        for i, b in enumerate(ret):
-            log.debug(f"bin {i} contents: {len(b)} pp: {[int(100 * ppp) for ppp in ret_pp[i]]}")
+        #log.debug(f"length of ret: {len(ret)} length of ret_pp: {len(ret_pp)}")
+        #for i, b in enumerate(ret):
+        #    log.debug(f"bin {i} contents: {len(b)} pp: {[int(100 * ppp) for ppp in ret_pp[i]]}")
 
         return ret, ret_pp
 

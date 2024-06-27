@@ -97,7 +97,13 @@ def convert_file_to_image(input_file, output_file, file_format = "png", border =
         objects = p.objects_all_layers()
 
     log.debug(f"read drawing from {input_file} with {len(objects)} objects")
+
+    if not objects:
+        log.warning(f"No objects found in the input file on page {page_no}")
+        return
+
     objects = DrawableGroup(objects)
+
 
     bbox = objects.bbox()
     if border:

@@ -49,6 +49,11 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * export to pdf only exports the current page. Both options should be
+   possible (multi-page and single page)
+ * brushes should better cache the calculations. Only real changes should
+   trigger the recalculation of brush outlines.
+ * maybe numpy should be used for brush calculations.
  * Separation between State and Setter is non-existent, it is unclear which
    does what.
  * There is no way of changing transparency or line width of an existing object. 
@@ -60,7 +65,7 @@ Bugs:
    with slight errors.
  * fill toggle is low-level, not undoable and does not work always as
    expected
- * empty pages break pdf export
+ * empty pages break multi-page pdf conversion from command line
  * paths drawn with slanted brush report incorrect bounding box (fragments
    are cut by the cache)
  * when laptop set to low power and teams are running, the app does not
@@ -71,7 +76,6 @@ Bugs:
  * sometimes when editing text the release-button event does not seem to be
    properly processed and when exiting with "Esc", the object is being
    moved even though mouse button is not down.
- * export / conversion with an empty page fails
  * when pasting the object, the new object should be placed next to the
    cursor.
  * when paste an object multiple times, the second and following copies
@@ -79,6 +83,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * export / conversion with an empty page fails
  * Segment creation does not stop when switching to a different mode. Same
    for text object creation.
  * Brush no. 4 is not working correctly with a tablet
