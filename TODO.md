@@ -49,8 +49,7 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * export to pdf only exports the current page. Both options should be
-   possible (multi-page and single page)
+ * Brush two sucks.
  * brushes should better cache the calculations. Only real changes should
    trigger the recalculation of brush outlines.
  * maybe numpy should be used for brush calculations.
@@ -59,29 +58,32 @@ Bugs:
  * There is no way of changing transparency or line width of an existing object. 
    the ctrl-click and ctrl-shift-click should check that objects are underneath and 
    their settings instead of changing the globals.
- * incidentally, undoing a rotation + scaling on shapes does not work
-   properly either, the shape lands in the initial position, but is still
-   sheared => why? it looks like the operations *are* being undone, but
-   with slight errors.
  * fill toggle is low-level, not undoable and does not work always as
    expected
- * paths drawn with slanted brush report incorrect bounding box (fragments
-   are cut by the cache)
- * when laptop set to low power and teams are running, the app does not
-   work efficiently. Not sure what can be done about that, as it seems that
-   it is more of a polling issue. Maybe create a very simple pen with no
-   calculations at all and see how it works? -> then again, it is even
-   worse in inkscape.
- * sometimes when editing text the release-button event does not seem to be
-   properly processed and when exiting with "Esc", the object is being
-   moved even though mouse button is not down.
  * when pasting the object, the new object should be placed next to the
-   cursor.
+   cursor. Maybe. I don't really know.
  * when paste an object multiple times, the second and following copies
    fall on the same position as the first one
  * when drawing very slow the line looks like shit.
 
 Done:
+ * export to pdf only exports the current page. Both options should be
+   possible (multi-page and single page) (note to self: customizing the
+   gtk file chooser dialog is a world of pain)
+ * sometimes when editing text the release-button event does not seem to be
+   properly processed and when exiting with "Esc", the object is being
+   moved even though mouse button is not down. (can't reproduce)
+ * when laptop set to low power and teams are running, the app does not
+   work efficiently. Not sure what can be done about that, as it seems that
+   it is more of a polling issue. Maybe create a very simple pen with no
+   calculations at all and see how it works? -> then again, it is even
+   worse in inkscape. (the problem was handling the double clicks, I think)
+ * incidentally, undoing a rotation + scaling on shapes does not work
+   properly either, the shape lands in the initial position, but is still
+   sheared => why? it looks like the operations *are* being undone, but
+   with slight errors. (seems to work now)
+ * paths drawn with slanted brush report incorrect bounding box (fragments
+   are cut by the cache)
  * empty pages break multi-page pdf conversion from command line
  * export / conversion with an empty page fails
  * Segment creation does not stop when switching to a different mode. Same

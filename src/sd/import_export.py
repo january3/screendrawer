@@ -16,6 +16,42 @@ from sd.page import Page                    # <remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 
+def __draw_object(cr, obj, bg, bbox, transparency):
+    """Draw an object on a Cairo context."""
+
+    cr.save()
+
+    # we translate the object to the origin of the context
+    cr.translate(-bbox[0], -bbox[1])
+
+    # paint the background
+    cr.set_source_rgba(*bg, transparency)
+    cr.paint()
+
+    obj.draw(cr)
+
+    cr.restore()
+
+
+def __find_max_width_height(obj_list):
+    """Find the maximum width and height of a list of objects."""
+    width, height = None, None
+
+    for o in obj_list:
+        bb = o.bbox()
+
+        if bb is None:
+            continue
+
+        if not width or not height:
+            width, height = bb[2], bb[3]
+            continue
+
+        width  = max(width, bb[2])
+        height = max(height, bb[3])
+
+    return width, height
+
 def guess_file_format(filename):
     """Guess the file format from the file extension."""
 
@@ -46,6 +82,7 @@ def convert_file(input_file, output_file, file_format = "any", border = None, pa
     :param border: The border around the objects.
     :param page_no: The page number to export (if the drawing has multiple pages).
     """
+    log.debug(f"Converting file {input_file} to {output_file} as {file_format}, page_no={page_no}")
     if file_format == "any":
         if output_file is None:
             raise ValueError("No output file format provided")
@@ -142,24 +179,6 @@ def convert_to_multipage_pdf(input_file, output_file, border = None):
 
     export_objects_to_multipage_pdf(page_obj, output_file, config, border)
 
-def find_max_width_height(obj_list):
-    """Find the maximum width and height of a list of objects."""
-    width, height = None, None
-
-    for o in obj_list:
-        bb = o.bbox()
-
-        if bb is None:
-            continue
-
-        if not width or not height:
-            width, height = bb[2], bb[3]
-            continue
-        width = max(width, bb[2])
-        height = max(height, bb[3])
-
-    return width, height
-
 def export_objects_to_multipage_pdf(obj_list, output_file, config, border = 10):
     """
     Export a list of objects to a multipage PDF file.
@@ -176,7 +195,7 @@ def export_objects_to_multipage_pdf(obj_list, output_file, config, border = 10):
 
     log.debug(f"Exporting {len(obj_list)} objects to multipage PDF with border {border}")
 
-    width, height = find_max_width_height(obj_list)
+    width, height = __find_max_width_height(obj_list)
 
     bg           = config.get("bg_color", (1, 1, 1))
     transparency = config.get("transparent", 1.0)
@@ -207,33 +226,17 @@ def export_objects_to_multipage_pdf(obj_list, output_file, config, border = 10):
             surface.show_page()
     surface.finish()
 
-def __draw_object(cr, obj, bg, bbox, transparency):
-    """Draw an object on a Cairo context."""
-
-    cr.save()
-
-    # we translate the object to the origin of the context
-    cr.translate(-bbox[0], -bbox[1])
-
-    # paint the background
-    cr.set_source_rgba(*bg, transparency)
-    cr.paint()
-
-    obj.draw(cr)
-
-    cr.restore()
-
-def export_image_jpg(obj, filename, bg = (1, 1, 1), bbox = None, transparency = 1.0):
+def export_image_jpg(obj, output_file, bg = (1, 1, 1), bbox = None, transparency = 1.0):
     """Export the drawing to a JPEG file."""
     raise NotImplementedError("JPEG export is not implemented")
 
-def export_image_pdf(obj, filename, cfg):
+def export_image_pdf(obj, output_file, cfg):
     """
     Export the drawing to a single-page PDF file.
 
     :param obj: The object to export. This is a single object, since
     generating a DrawableGroup object from multiple objects is trivial.
-    :param filename: The name of the file to save to.
+    :param output_file: The name of the file to save to.
     :param bg: The background color of the image.
     :param bbox: The bounding box of the image. If None, it will be calculated
     from the object.
@@ -249,18 +252,18 @@ def export_image_pdf(obj, filename, cfg):
 
     # to integers
     width, height = int(bbox[2]), int(bbox[3])
-    surface = cairo.PDFSurface(filename, width, height)
+    surface = cairo.PDFSurface(output_file, width, height)
     cr = cairo.Context(surface)
     __draw_object(cr, obj, bg, bbox, transparency)
     surface.finish()
 
-def export_image_svg(obj, filename, cfg):
+def export_image_svg(obj, output_file, cfg):
     """
     Export the drawing to a SVG file.
 
     :param obj: The object to export. This is a single object, since
     generating a DrawableGroup object from multiple objects is trivial.
-    :param filename: The name of the file to save to.
+    :param output_file: The name of the file to save to.
     :param bg: The background color of the image.
     :param bbox: The bounding box of the image. If None, it will be calculated
     from the object.
@@ -276,19 +279,19 @@ def export_image_svg(obj, filename, cfg):
 
     # to integers
     width, height = int(bbox[2]), int(bbox[3])
-    surface = cairo.SVGSurface(filename, width, height)
+    surface = cairo.SVGSurface(output_file, width, height)
     cr = cairo.Context(surface)
     __draw_object(cr, obj, bg, bbox, transparency)
 
     surface.finish()
 
-def export_image_png(obj, filename, cfg):
+def export_image_png(obj, output_file, cfg):
     """
     Export the drawing to a PNG file.
 
     :param obj: The object to export. This is a single object, since
     generating a DrawableGroup object from multiple objects is trivial.
-    :param filename: The name of the file to save to.
+    :param output_file: The name of the file to save to.
     :param bg: The background color of the image.
     :param bbox: The bounding box of the image. If None, it will be calculated
     from the object.
@@ -308,33 +311,36 @@ def export_image_png(obj, filename, cfg):
     cr = cairo.Context(surface)
     __draw_object(cr, obj, bg, bbox, transparency)
 
-    surface.write_to_png(filename)
+    surface.write_to_png(output_file)
 
-def export_image(obj, filename, file_format = "any", cfg = None):
+def export_image(obj, output_file, file_format = "any", config = None, all_pages_pdf = False):
     """
     Export the drawing to a file.
 
     :param obj: The object to export. This is a single object, since
     generating a DrawableGroup object from multiple objects is trivial.
-    :param filename: The name of the file to save to.
+    :param output_file: The name of the file to save to.
     :param file_format: The format of the file to save to. If "any", the
     format will be guessed from the file extension.
     :param bg: The background color of the image.
     :param bbox: The bounding box of the image. If None, it will be calculated
     from the object.
     :param transparency: The transparency of the image.
+    :param all_pages_pdf: If True, all pages will be exported to a single PDF file.
     """
-    if not cfg:
-        cfg = { "bg": (1, 1, 1), "bbox": None, "transparency": 1.0, "border": None }
+    if not config:
+        config = { "bg": (1, 1, 1), "bbox": None, "transparency": 1.0, "border": None }
 
-    # if filename is None, we send the output to stdout
-    if filename is None:
-        log.debug("export_image: no filename provided")
+    log.debug(f"export_image: exporting to {file_format} file {output_file}, all_pages_pdf: {all_pages_pdf}")
+
+    # if output_file is None, we send the output to stdout
+    if output_file is None:
+        log.debug("export_image: no output_file provided")
         return
 
     if file_format == "any":
         # get the format from the file name
-        _, file_format = path.splitext(filename)
+        _, file_format = path.splitext(output_file)
         file_format = file_format[1:]
         # lower case
         file_format = file_format.lower()
@@ -348,19 +354,22 @@ def export_image(obj, filename, file_format = "any", cfg = None):
 
     # Create a Cairo surface of the same size as the bbox
     if file_format == "png":
-        export_image_png(obj, filename, cfg)
+        export_image_png(obj, output_file, config)
     elif file_format == "svg":
-        export_image_svg(obj, filename, cfg)
+        export_image_svg(obj, output_file, config)
     elif file_format == "pdf":
-        export_image_pdf(obj, filename, cfg)
+        if all_pages_pdf:
+            export_objects_to_multipage_pdf(obj, output_file, config, border=10)
+        else:
+            export_image_pdf(obj, output_file, config)
     else:
         raise NotImplementedError("Export to " + file_format + " is not implemented")
 
-def export_file_as_yaml(filename, config, objects = None, pages = None):
+def export_file_as_yaml(output_file, config, objects = None, pages = None):
     """
     Save the objects to a YAML file.
 
-    :param filename: The name of the file to save to.
+    :param output_file: The name of the file to save to.
     :param config: The configuration of the drawing (dict).
     :param objects: The objects to save (dict).
     :param pages: The pages to save (dict).
@@ -375,9 +384,9 @@ def export_file_as_yaml(filename, config, objects = None, pages = None):
     if objects:
         state['objects'] = objects
     try:
-        with open(filename, 'w', encoding = 'utf-8') as f:
+        with open(output_file, 'w', encoding = 'utf-8') as f:
             yaml.dump(state, f)
-        log.debug(f"Saved drawing to {filename}")
+        log.debug(f"Saved drawing to {output_file}")
         return True
     except OSError as e:
         log.warning(f"Error saving file due to a file I/O error: {e}")
@@ -389,11 +398,11 @@ def export_file_as_yaml(filename, config, objects = None, pages = None):
 
 # ------------------- handling of the native format -------------------
 
-def save_file_as_sdrw(filename, config, objects = None, pages = None):
+def save_file_as_sdrw(output_file, config, objects = None, pages = None):
     """
     Save the objects to a file in native format.
 
-    :param filename: The name of the file to save to.
+    :param output_file: The name of the file to save to.
     :param config: The configuration of the drawing (dict).
     :param objects: The objects to save (dict).
     :param pages: The pages to save (dict).
@@ -408,10 +417,10 @@ def save_file_as_sdrw(filename, config, objects = None, pages = None):
     if objects:
         state['objects'] = objects
     try:
-        with open(filename, 'wb') as f:
+        with open(output_file, 'wb') as f:
             #yaml.dump(state, f)
             pickle.dump(state, f)
-        log.debug(f"Saved drawing to {filename}")
+        log.debug(f"Saved drawing to {output_file}")
         return True
     except OSError as e:
         log.warning(f"Error saving file due to a file I/O error: {e}")
@@ -420,22 +429,22 @@ def save_file_as_sdrw(filename, config, objects = None, pages = None):
         log.warning(f"Error saving file because an object could not be pickled: {e}")
         return False
 
-def read_file_as_sdrw(filename):
+def read_file_as_sdrw(input_file):
     """
     Read the objects from a file in native format.
 
-    :param filename: The name of the file to read from.
+    :param input_file: The name of the file to read from.
     """
-    if not path.exists(filename):
-        log.warning(f"No saved drawing found at {filename}")
+    if not path.exists(input_file):
+        log.warning(f"No saved drawing found at {input_file}")
         return None, None, None
 
-    log.debug(f"READING file as sdrw: {filename}")
+    log.debug(f"READING file as sdrw: {input_file}")
 
     config, objects, pages = None, None, None
 
     try:
-        with open(filename, "rb") as file:
+        with open(input_file, "rb") as file:
             state = pickle.load(file)
             if "objects" in state:
                 log.debug("found objects in savefile")

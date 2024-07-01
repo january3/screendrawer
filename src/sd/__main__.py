@@ -336,26 +336,38 @@ class TransparentWindow(Gtk.Window):
         # Choose where to save the file
         #    self.export(filename, "svg")
         bbox = None
+        selected = False
         if self.gom.selected_objects():
             # only export the selected objects
             obj = self.gom.selected_objects()
+            selected = True
         else:
             # set bbox so we export the whole screen
             obj = self.gom.objects()
             bbox = (0, 0, *self.get_size())
 
         if not obj:
-            print("Nothing to draw")
+            log.warning("Nothing to draw")
             return
 
         obj = DrawableGroup(obj)
-        file_name, file_format = export_dialog(self)
+        file_name, file_format, all_as_pdf = export_dialog(self)
 
-        if file_name:
-            cfg = { "bg": self.state.bg_color(), 
-                   "bbox": bbox, 
-                   "transparency": self.state.alpha() }
-            export_image(obj, file_name, file_format, cfg)
+        if not file_name:
+            return
+
+        cfg = { "bg": self.state.bg_color(), 
+               "bbox": bbox, 
+               "transparency": self.state.alpha() }
+
+        if all_as_pdf:
+            # get all objects from all pages and layers
+            # create drawable group for each page
+            obj = self.gom.get_all_pages()
+            obj = [ p.objects_all_layers() for p in obj ]
+            obj = [ DrawableGroup(o) for o in obj ]
+
+        export_image(obj, file_name, file_format, cfg, all_as_pdf)
 
     def select_image_and_create_pixbuf(self):
         """Select an image file and create a pixbuf from it."""

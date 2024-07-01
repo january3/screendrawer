@@ -143,7 +143,7 @@ class EventManager:
         cobj = state.current_obj()
 
         if cobj and cobj.type == "text" and not(ctrl or keyname == "Escape"):
-            print("updating text input")
+            log.debug("updating text input")
             cobj.update_by_key(keyname, char)
             state.queue_draw()
             return
