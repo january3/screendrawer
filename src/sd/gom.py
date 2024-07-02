@@ -34,6 +34,10 @@ class GraphicsObjectManager:
         self.__bus.on("clear_page", self.clear, priority = 9)
         self.__bus.on("clear_page", self.remove_all, priority = 8)
         self.__bus.on("rotate_selection", self.rotate_selection)
+        self.__bus.on("selection_zmove", self.selection_zmove)
+        self.__bus.on("move_selection", self.move_selection)
+        self.__bus.on("selection_fill", self.selection_fill)
+        self.__bus.on("transmute_selection", self.transmute_selection)
 
     def clear(self):
         """Clear the list of objects."""

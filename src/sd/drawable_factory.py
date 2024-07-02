@@ -60,7 +60,7 @@ class DrawableFactory:
         into a single object, we convert all objects within the group into the
         new type by calling the transmute_to method of the group object.
         """
-        log.debug(f"transmuting object to", mode)
+        log.debug(f"transmuting object to {mode}")
 
         if obj.type == "group":
             # for now, we do not pass transmutations to groups, because
