@@ -178,7 +178,6 @@ class TransparentWindow(Gtk.Window):
 
         # em has to know about all that to link actions to methods
         em  = EventManager(bus = self.bus,
-                                gom = self.gom,
                                 state  = self.state)
         mm  = MenuMaker(self.bus, self.gom, em, self)
 

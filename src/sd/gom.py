@@ -38,6 +38,22 @@ class GraphicsObjectManager:
         self.__bus.on("move_selection", self.move_selection)
         self.__bus.on("selection_fill", self.selection_fill)
         self.__bus.on("transmute_selection", self.transmute_selection)
+        self.__bus.on("set_selection", self.select)
+        self.__bus.on("selection_clip", self.selection_clip)
+        self.__bus.on("selection_unclip", self.selection_unclip)
+        self.__bus.on("selection_group", self.selection_group)
+        self.__bus.on("selection_ungroup", self.selection_ungroup)
+        self.__bus.on("selection_delete", self.selection_delete)
+        self.__bus.on("history_redo", self.redo)
+        self.__bus.on("history_undo", self.undo)
+        self.__bus.on("next_page", self.next_page)
+        self.__bus.on("prev_page", self.prev_page)
+        self.__bus.on("insert_page", self.insert_page)
+        self.__bus.on("delete_page", self.delete_page)
+        self.__bus.on("next_layer", self.next_layer)
+        self.__bus.on("prev_layer", self.prev_layer)
+        self.__bus.on("delete_layer", self.delete_layer)
+        self.__bus.on("apply_pen_to_selection", self.selection_apply_pen)
 
     def clear(self):
         """Clear the list of objects."""
@@ -302,6 +318,24 @@ class GraphicsObjectManager:
                                          selection_object=page.selection(),
                                          page=page))
 
+    def select(self, what):
+        """Dispatch to the correct selection function"""
+
+        if not what:
+            return False
+
+        if what == "all":
+            self.select_all()
+        elif what == "next":
+            self.select_next_object()
+        elif what == "previous":
+            self.select_previous_object()
+        elif what == "reverse":
+            self.select_reverse()
+        else:
+            log.error(f"Unknown selection command: {what}")
+
+        return True
 
     def select_reverse(self):
         """Reverse the selection."""

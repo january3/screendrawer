@@ -48,13 +48,13 @@ class EventManager:
             cls._instance = super(EventManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, bus, gom, state):
+    def __init__(self, bus, state):
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
             self.__state = state
             self.__bus = bus
-            self.make_actions_dictionary(bus, gom)
+            self.make_actions_dictionary(bus)
             self.make_default_keybindings()
 
     def dispatch_action(self, action_name, **kwargs):
@@ -66,7 +66,8 @@ class EventManager:
             log.warning(f"action {action_name} not found in actions")
             return
 
-        action = self.__actions[action_name]['action']
+        action = self.__actions[action_name].get('action') or self.__bus.emit
+
         if not callable(action):
             raise ValueError(f"Action is not callable: {action_name}")
         try:
@@ -154,125 +155,122 @@ class EventManager:
         state.queue_draw()
 
 
-    def make_actions_dictionary(self, bus, gom):
+    def make_actions_dictionary(self, bus):
         """
         This dictionary maps key events to actions.
         """
         self.__actions = {
-            'mode_draw':             {'action': bus.emit, 'args': [ "mode_set", False, "draw"]},
-            'mode_rectangle':        {'action': bus.emit, 'args': [ "mode_set", False, "rectangle"]},
-            'mode_circle':           {'action': bus.emit, 'args': [ "mode_set", False, "circle"]},
-            'mode_move':             {'action': bus.emit, 'args': [ "mode_set", False, "move"]},
-            'mode_text':             {'action': bus.emit, 'args': [ "mode_set", False, "text"]},
-            'mode_select':           {'action': bus.emit, 'args': [ "mode_set", False, "select"]},
-            'mode_eraser':           {'action': bus.emit, 'args': [ "mode_set", False, "eraser"]},
-            'mode_shape':            {'action': bus.emit, 'args': [ "mode_set", False, "shape"]},
-            'mode_segment':          {'action': bus.emit, 'args': [ "mode_set", False, "segment"]},
-            'mode_colorpicker':      {'action': bus.emit, 'args': [ "mode_set", False, "colorpicker"]},
+            'mode_draw':             {'args': [ "mode_set", False, "draw"]},
+            'mode_rectangle':        {'args': [ "mode_set", False, "rectangle"]},
+            'mode_circle':           {'args': [ "mode_set", False, "circle"]},
+            'mode_move':             {'args': [ "mode_set", False, "move"]},
+            'mode_text':             {'args': [ "mode_set", False, "text"]},
+            'mode_select':           {'args': [ "mode_set", False, "select"]},
+            'mode_eraser':           {'args': [ "mode_set", False, "eraser"]},
+            'mode_shape':            {'args': [ "mode_set", False, "shape"]},
+            'mode_segment':          {'args': [ "mode_set", False, "segment"]},
+            'mode_colorpicker':      {'args': [ "mode_set", False, "colorpicker"]},
 
-            'escape':                {'action': bus.emit, 'args': ["escape"]},
-            'toggle_grouping':       {'action': bus.emit, 'args': ["toggle_grouping"]},
-            'toggle_outline':        {'action': bus.emit, 'args': ["toggle_outline"]},
+            'escape':                {'args': ["escape"]},
+            'toggle_grouping':       {'args': ["toggle_grouping"]},
+            'toggle_outline':        {'args': ["toggle_outline"]},
 
-            'cycle_bg_transparency': {'action': bus.emit, 'args': ["cycle_bg_transparency"]},
-            'toggle_wiglets':        {'action': bus.emit, 'args': ["toggle_wiglets"]},
-            'toggle_grid':           {'action': bus.emit, 'args': ["toggle_grid"]},
-            'switch_pens':           {'action': bus.emit, 'args': ["switch_pens"]},
-            'apply_pen_to_bg':       {'action': bus.emit, 'args': ["apply_pen_to_bg"], 'modes': ["move"]},
+            'cycle_bg_transparency': {'args': ["cycle_bg_transparency"]},
+            'toggle_wiglets':        {'args': ["toggle_wiglets"]},
+            'toggle_grid':           {'args': ["toggle_grid"]},
+            'switch_pens':           {'args': ["switch_pens"]},
+            'apply_pen_to_bg':       {'args': ["apply_pen_to_bg"], 'modes': ["move"]},
 
-            'clear_page':            {'action': bus.emit, 'args': ["clear_page"]},
+            'clear_page':            {'args': ["clear_page"]},
 
 
             # dialogs and app events
-            'app_exit':              {'action': bus.emit, 'args': ["app_exit"]},
-            'show_help_dialog':      {'action': bus.emit, 'args': ["show_help_dialog"]},
-            "export_drawing":        {'action': bus.emit, 'args': ["export_drawing"]},
-            "save_drawing_as":       {'action': bus.emit, 'args': ["save_drawing_as"]},
-            "select_color":          {'action': bus.emit, 'args': ["select_color"]},
-            "select_color_bg":       {'action': bus.emit, 'args': ["select_color_bg"]},
-            "select_font":           {'action': bus.emit, 'args': ["select_font"]},
-            "import_image":          {'action': bus.emit, 'args': ["import_image"]},
-            "open_drawing":          {'action': bus.emit, 'args': ["open_drawing"]},
+            'app_exit':              {'args': ["app_exit"]},
+            'show_help_dialog':      {'args': ["show_help_dialog"]},
+            "export_drawing":        {'args': ["export_drawing"]},
+            "save_drawing_as":       {'args': ["save_drawing_as"]},
+            "select_color":          {'args': ["select_color"]},
+            "select_color_bg":       {'args': ["select_color_bg"]},
+            "select_font":           {'args': ["select_font"]},
+            "import_image":          {'args': ["import_image"]},
+            "open_drawing":          {'args': ["open_drawing"]},
 
-            'copy_content':          {'action': bus.emit, 'args': ["copy_content"]},
-            'cut_content':           {'action': bus.emit, 'args': ["cut_content"]},
-            'paste_content':         {'action': bus.emit, 'args': ["paste_content"]},
-            'screenshot':            {'action': bus.emit, 'args': ["screenshot"]},
+            'copy_content':          {'args': ["copy_content"]},
+            'cut_content':           {'args': ["cut_content"]},
+            'paste_content':         {'args': ["paste_content"]},
+            'screenshot':            {'args': ["screenshot"]},
 
-            'selection_fill':        {'action': bus.emit, 'args': [ "selection_fill" ], 'modes': ["move"]},
+            'selection_fill':        {'args': [ "selection_fill" ], 'modes': ["move"]},
 
-            'transmute_to_shape':    {'action': bus.emit, 'args': [ "transmute_selection", True, "shape" ]},
-            'transmute_to_draw':     {'action': bus.emit, 'args': [ "transmute_selection", True, "draw" ]},
+            'transmute_to_shape':    {'args': [ "transmute_selection", True, "shape" ]},
+            'transmute_to_draw':     {'args': [ "transmute_selection", True, "draw" ]},
 
-            'move_up_10':            {'action': bus.emit, 'args': [ "move_selection", True, 0, -10],   'modes': ["move"]},
-            'move_up_1':             {'action': bus.emit, 'args': [ "move_selection", True, 0, -1],    'modes': ["move"]},
-            'move_up_100':           {'action': bus.emit, 'args': [ "move_selection", True, 0, -100],  'modes': ["move"]},
-            'move_down_10':          {'action': bus.emit, 'args': [ "move_selection", True, 0, 10],    'modes': ["move"]},
-            'move_down_1':           {'action': bus.emit, 'args': [ "move_selection", True, 0, 1],     'modes': ["move"]},
-            'move_down_100':         {'action': bus.emit, 'args': [ "move_selection", True, 0, 100],   'modes': ["move"]},
-            'move_left_10':          {'action': bus.emit, 'args': [ "move_selection", True, -10, 0],   'modes': ["move"]},
-            'move_left_1':           {'action': bus.emit, 'args': [ "move_selection", True, -1, 0],    'modes': ["move"]},
-            'move_left_100':         {'action': bus.emit, 'args': [ "move_selection", True, -100, 0],  'modes': ["move"]},
-            'move_right_10':         {'action': bus.emit, 'args': [ "move_selection", True, 10, 0],    'modes': ["move"]},
-            'move_right_1':          {'action': bus.emit, 'args': [ "move_selection", True, 1, 0],     'modes': ["move"]},
-            'move_right_100':        {'action': bus.emit, 'args': [ "move_selection", True, 100, 0],   'modes': ["move"]},
+            'move_up_10':            {'args': [ "move_selection", True, 0, -10],   'modes': ["move"]},
+            'move_up_1':             {'args': [ "move_selection", True, 0, -1],    'modes': ["move"]},
+            'move_up_100':           {'args': [ "move_selection", True, 0, -100],  'modes': ["move"]},
+            'move_down_10':          {'args': [ "move_selection", True, 0, 10],    'modes': ["move"]},
+            'move_down_1':           {'args': [ "move_selection", True, 0, 1],     'modes': ["move"]},
+            'move_down_100':         {'args': [ "move_selection", True, 0, 100],   'modes': ["move"]},
+            'move_left_10':          {'args': [ "move_selection", True, -10, 0],   'modes': ["move"]},
+            'move_left_1':           {'args': [ "move_selection", True, -1, 0],    'modes': ["move"]},
+            'move_left_100':         {'args': [ "move_selection", True, -100, 0],  'modes': ["move"]},
+            'move_right_10':         {'args': [ "move_selection", True, 10, 0],    'modes': ["move"]},
+            'move_right_1':          {'args': [ "move_selection", True, 1, 0],     'modes': ["move"]},
+            'move_right_100':        {'args': [ "move_selection", True, 100, 0],   'modes': ["move"]},
 
-            'rotate_selection_ccw_10': {'action': bus.emit, 'args': [ "rotate_selection", True, 10],  'modes': ["move"]},
-            'rotate_selection_ccw_1':  {'action': bus.emit, 'args': [ "rotate_selection", True, 1],   'modes': ["move"]},
-            'rotate_selection_ccw_90': {'action': bus.emit, 'args': [ "rotate_selection", True, 90],  'modes': ["move"]},
-            'rotate_selection_cw_10':  {'action': bus.emit, 'args': [ "rotate_selection", True, -10], 'modes': ["move"]},
-            'rotate_selection_cw_1':   {'action': bus.emit, 'args': [ "rotate_selection", True, -1],  'modes': ["move"]},
-            'rotate_selection_cw_90':  {'action': bus.emit, 'args': [ "rotate_selection", True, -90], 'modes': ["move"]},
+            'rotate_selection_ccw_10': {'args': [ "rotate_selection", True, 10],  'modes': ["move"]},
+            'rotate_selection_ccw_1':  {'args': [ "rotate_selection", True, 1],   'modes': ["move"]},
+            'rotate_selection_ccw_90': {'args': [ "rotate_selection", True, 90],  'modes': ["move"]},
+            'rotate_selection_cw_10':  {'args': [ "rotate_selection", True, -10], 'modes': ["move"]},
+            'rotate_selection_cw_1':   {'args': [ "rotate_selection", True, -1],  'modes': ["move"]},
+            'rotate_selection_cw_90':  {'args': [ "rotate_selection", True, -90], 'modes': ["move"]},
 
-            'zmove_selection_top':    {'action': bus.emit, 'args': [ "selection_zmove", True, "top" ],    'modes': ["move"]},
-            'zmove_selection_bottom': {'action': bus.emit, 'args': [ "selection_zmove", True, "bottom" ], 'modes': ["move"]},
-            'zmove_selection_raise':  {'action': bus.emit, 'args': [ "selection_zmove", True, "raise" ],  'modes': ["move"]},
-            'zmove_selection_lower':  {'action': bus.emit, 'args': [ "selection_zmove", True, "lower" ],  'modes': ["move"]},
+            'zmove_selection_top':     {'args': [ "selection_zmove", True, "top" ],    'modes': ["move"]},
+            'zmove_selection_bottom':  {'args': [ "selection_zmove", True, "bottom" ], 'modes': ["move"]},
+            'zmove_selection_raise':   {'args': [ "selection_zmove", True, "raise" ],  'modes': ["move"]},
+            'zmove_selection_lower':   {'args': [ "selection_zmove", True, "lower" ],  'modes': ["move"]},
 
-            'set_color_white':       {'action': bus.emit, 'args': [ "set_color", True, COLORS["white"]]},
-            'set_color_black':       {'action': bus.emit, 'args': [ "set_color", True, COLORS["black"]]},
-            'set_color_red':         {'action': bus.emit, 'args': [ "set_color", True, COLORS["red"]]},
-            'set_color_green':       {'action': bus.emit, 'args': [ "set_color", True, COLORS["green"]]},
-            'set_color_blue':        {'action': bus.emit, 'args': [ "set_color", True, COLORS["blue"]]},
-            'set_color_yellow':      {'action': bus.emit, 'args': [ "set_color", True, COLORS["yellow"]]},
-            'set_color_cyan':        {'action': bus.emit, 'args': [ "set_color", True, COLORS["cyan"]]},
-            'set_color_magenta':     {'action': bus.emit, 'args': [ "set_color", True, COLORS["magenta"]]},
-            'set_color_purple':      {'action': bus.emit, 'args': [ "set_color", True, COLORS["purple"]]},
-            'set_color_grey':        {'action': bus.emit, 'args': [ "set_color", True, COLORS["grey"]]},
+            'set_color_white':       {'args': [ "set_color", True, COLORS["white"]]},
+            'set_color_black':       {'args': [ "set_color", True, COLORS["black"]]},
+            'set_color_red':         {'args': [ "set_color", True, COLORS["red"]]},
+            'set_color_green':       {'args': [ "set_color", True, COLORS["green"]]},
+            'set_color_blue':        {'args': [ "set_color", True, COLORS["blue"]]},
+            'set_color_yellow':      {'args': [ "set_color", True, COLORS["yellow"]]},
+            'set_color_cyan':        {'args': [ "set_color", True, COLORS["cyan"]]},
+            'set_color_magenta':     {'args': [ "set_color", True, COLORS["magenta"]]},
+            'set_color_purple':      {'args': [ "set_color", True, COLORS["purple"]]},
+            'set_color_grey':        {'args': [ "set_color", True, COLORS["grey"]]},
 
-            'set_brush_rounded':     {'action': bus.emit, 'args': [ "set_brush", True, "rounded"] },
-            'set_brush_marker':      {'action': bus.emit, 'args': [ "set_brush", True, "marker"] },
-            'set_brush_slanted':     {'action': bus.emit, 'args': [ "set_brush", True, "slanted"] },
-            'set_brush_pencil':      {'action': bus.emit, 'args': [ "set_brush", True, "pencil"] },
-            'set_brush_tapered':     {'action': bus.emit, 'args': [ "set_brush", True, "tapered"] },
+            'set_brush_rounded':     {'args': [ "set_brush", True, "rounded"] },
+            'set_brush_marker':      {'args': [ "set_brush", True, "marker"] },
+            'set_brush_slanted':     {'args': [ "set_brush", True, "slanted"] },
+            'set_brush_pencil':      {'args': [ "set_brush", True, "pencil"] },
+            'set_brush_tapered':     {'args': [ "set_brush", True, "tapered"] },
 
-            'stroke_increase':       {'action': bus.emit, 'args': [ "stroke_change", True, 1]},
-            'stroke_decrease':       {'action': bus.emit, 'args': [ "stroke_change", True, -1]},
-
+            'stroke_increase':       {'args': [ "stroke_change", True, 1]},
+            'stroke_decrease':       {'args': [ "stroke_change", True, -1]},
 
             # selections and moving objects
-            'select_next_object':     {'action': gom.select_next_object,     'modes': ["move"]},
-            'select_previous_object': {'action': gom.select_previous_object, 'modes': ["move"]},
-            'select_all':             {'action': gom.select_all},
-            'select_reverse':         {'action': gom.select_reverse},
-            'selection_clip':         {'action': gom.selection_clip,    'modes': ["move"]},
-            'selection_unclip':       {'action': gom.selection_unclip,  'modes': ["move"]},
-            'selection_group':        {'action': gom.selection_group,   'modes': ["move"]},
-            'selection_ungroup':      {'action': gom.selection_ungroup, 'modes': ["move"]},
-            'selection_delete':       {'action': gom.selection_delete,  'modes': ["move"]},
-            'redo':                   {'action': gom.redo},
-            'undo':                   {'action': gom.undo},
+            'select_next_object':     {'args': [ "set_selection", True, "next_object" ],     'modes': ["move"]},
+            'select_previous_object': {'args': [ "set_selection", True, "previous_object" ], 'modes': ["move"]},
+            'select_all':             {'args': [ "set_selection", True, "all" ]},
+            'select_reverse':         {'args': [ "set_selection", True, "reverse" ]},
 
-            'next_page':              {'action': gom.next_page},
-            'prev_page':              {'action': gom.prev_page},
-            'insert_page':            {'action': gom.insert_page},
-            'delete_page':            {'action': gom.delete_page},
-
-            'next_layer':             {'action': gom.next_layer},
-            'prev_layer':             {'action': gom.prev_layer},
-            'delete_layer':           {'action': gom.delete_layer},
-
-            'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
+            'selection_clip':         {'args': [ "selection_clip"   ], 'modes': ["move"]},
+            'selection_unclip':       {'args': [ "selection_unclip" ], 'modes': ["move"]},
+            'selection_group':        {'args': [ "selection_group"  ], 'modes': ["move"]},
+            'selection_ungroup':      {'args': [ "selection_ungroup"], 'modes': ["move"]},
+            'selection_delete':       {'args': [ "selection_delete" ], 'modes': ["move"]},
+            'redo':                   {'args': [ "history_redo" ]},
+            'undo':                   {'args': [ "history_undo" ]},
+            'next_page':              {'args': [ "next_page" ]},
+            'prev_page':              {'args': [ "prev_page" ]},
+            'insert_page':            {'args': [ "insert_page" ]},
+            'delete_page':            {'args': [ "delete_page" ]},
+            'next_layer':             {'args': [ "next_layer" ]},
+            'prev_layer':             {'args': [ "prev_layer" ]},
+            'delete_layer':           {'args': [ "delete_layer" ]},
+            'apply_pen_to_selection': {'args': [ "selection_apply_pen" ],    'modes': ["move"]},
         }
 
     def make_default_keybindings(self):
