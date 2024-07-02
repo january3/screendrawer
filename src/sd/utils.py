@@ -540,6 +540,11 @@ def objects_bbox(objects, actual = True):
     if not objects:
         return (0, 0, 0, 0)
 
+    bb = objects[0].bbox(actual = actual)
+
+    if not bb:
+        return (0, 0, 0, 0)
+
     left, top, width, height = objects[0].bbox(actual = actual)
     bottom, right = top + height, left + width
 
