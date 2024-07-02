@@ -44,8 +44,9 @@ class GraphicsObjectManager:
         self.__bus.on("selection_group", self.selection_group)
         self.__bus.on("selection_ungroup", self.selection_ungroup)
         self.__bus.on("selection_delete", self.selection_delete)
-        self.__bus.on("history_redo", self.redo)
-        self.__bus.on("history_undo", self.undo)
+        self.__bus.on("history_redo", self.history_redo)
+        self.__bus.on("history_undo", self.history_undo)
+        self.__bus.on("history_append", self.history_append)
         self.__bus.on("next_page", self.next_page)
         self.__bus.on("prev_page", self.prev_page)
         self.__bus.on("insert_page", self.insert_page)
@@ -390,18 +391,22 @@ class GraphicsObjectManager:
   #         pen = self.__state.pen()
   #         self.__history.append(SetPenCommand(self.__page.selection(), pen))
 
-    def redo(self):
+    def history_redo(self):
         """Redo the last action."""
         page = self.__history.redo()
         if page:
             self.page_set(page)
 
-    def undo(self):
+    def history_undo(self):
         """Undo the last action."""
         log.debug(f"Undo, history size is {self.__history.length()}")
         page = self.__history.undo()
         if page:
             self.page_set(page)
+
+    def history_append(self, cmd):
+        """Add a command to the history."""
+        self.__history.add(cmd)
 
     def move_obj(self, obj, dx, dy):
         """Move the object by the given amount."""

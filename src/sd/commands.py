@@ -31,6 +31,10 @@ class Command:
         """Return the type of the command."""
         return self.__type
 
+    def type(self):
+        """Return the type of the command."""
+        return self.__type
+
     def undo(self):
         """Undo the command."""
         raise NotImplementedError("undo method not implemented")
@@ -281,6 +285,38 @@ class UnClipCommand(Command):
         if self.__selection:
             self.__selection.set([ self.__group ])
         return self.__page
+
+class AddToGroupCommand(Command):
+    """
+    Add an object to an existing group
+    """
+
+    def __init__(self, group, obj, page=None):
+        super().__init__("add_to_group", objects=None)
+        self.__page      = page
+        self.__group     = group
+        self.__obj       = obj
+
+        group.add(obj)
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return None
+        self.__group.remove(self.__obj)
+        self.undone_set(True)
+
+        return self.__page
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return None
+        self.__group.add(self.__obj)
+        self.undone_set(False)
+
+        return self.__page
+
 
 
 class GroupObjectCommand(Command):

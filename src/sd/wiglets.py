@@ -6,7 +6,7 @@ such as line width, color, and transparency.
 from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 from .drawable_primitives import SelectionTool                   # <remove>
 from .commands import RotateCommand, ResizeCommand, MoveCommand  # <remove>
-from .commands import RemoveCommand                              # <remove>
+from .commands import RemoveCommand, AddToGroupCommand           # <remove>
 from .drawable_factory import DrawableFactory                    # <remove>
 from .drawable_group import DrawableGroup                        # <remove>
 import logging                                                   # <remove>
@@ -559,6 +559,7 @@ class WigletCreateGroup(Wiglet):
         self.__bus   = bus
         self.__state = state
         self.__group_obj   = None
+        self.__added = False
         bus.on("toggle_grouping",  self.toggle_grouping, priority = 0)
 
     def draw_obj(self, cr, state):
@@ -582,6 +583,7 @@ class WigletCreateGroup(Wiglet):
         if not self.__group_obj:
             log.debug("creating a new group object")
             self.__group_obj = DrawableGroup()
+            self.__added = False
             self.__bus.on("add_object", self.add_object, priority = 99)
             self.__bus.on("obj_draw",   self.draw_obj,   priority = 20)
             self.__bus.on("escape",     self.toggle_grouping, priority = 99)
@@ -593,7 +595,6 @@ class WigletCreateGroup(Wiglet):
 
             if self.__group_obj and self.__group_obj.length() > 0:
                 log.debug("finishing and adding group object")
-                self.__bus.emit("add_object", True, self.__group_obj)
 
             self.__group_obj = None
 
@@ -607,7 +608,16 @@ class WigletCreateGroup(Wiglet):
             return False
 
         log.debug("adding object to group")
-        self.__group_obj.add(obj)
+
+        if not self.__added:
+            self.__bus.off("add_object", self.add_object)
+            self.__bus.emit("add_object", True, self.__group_obj)
+            self.__bus.on("add_object", self.add_object, priority = 99)
+            self.__added = True
+
+        #self.__group_obj.add(obj)
+        cmd = AddToGroupCommand(self.__group_obj, obj)
+        self.__bus.emit("history_append", True, cmd)
 
         return True
 

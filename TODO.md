@@ -1,15 +1,13 @@
 To do (sorted by priority):
 
- * make a "grouping" mode. All objects that are created during the grouping
-   mode are added automatically to the same group. That would allow
-   for example producing consistent handwriting that does not need to be
+ * make a "moving guides" thingy, like vertical and horizontal moving line
  * make a "recent colors" (or "recent pens") widget
+ * menus should use the bus as well
+ * make a little wiglet that shows the file name
  * think hard how I want the color setting / pen thing to work
- * events in em should go through the bus
- * draw a dustbin wiglet in lower left corner
- * unit tests. more, more, more
  * zoom in and out. I think the time is ripe for it 
- * different brushes should have different cursors
+ * unit tests. more, more, more
+ * different brushes should have different cursors (ha, ha, haahaha)
  * clean up font code. Maybe use the Pango.FontDescription class for
    everything - why not?
  * idea for path editing: "thumb" - moving a point on path and dragging
@@ -25,6 +23,7 @@ To do (sorted by priority):
    (or actually abandon color selection dialog?)
  * show corners of the bounding box
  * horizontal and vertical guides
+ * draw a dustbin wiglet in lower left corner
  * create a pen wiglet (that does what exactly...?)
  * implement page dnd rearrangements in the page selector wiglet
  * make wiglets movable
@@ -32,17 +31,26 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
- * There is a problem with the way that the double clicks are handled. The
-   50ms delay is actually quite counterproductive; rather than handling the
-   single click after 50ms, the responders to single click event should be
-   also catching the double click events and e.g. cancel the drawing of the
-   current object.
+ * History should be a separate single instance class that gets called
+   through the bus. However: gom must collaborate with history, because
+   when undoing, we should return to the given page. But: maybe the current page
+   should be held by the state?
+
+   Or, another take: how about gom doing the history internally, OK. BUT:
+   rather than adding the page to the command object (which then returns it
+   to gom, so gom knows to which page we should change the view), add it
+   through the history, so that history records the view and returns page
+   no when gom is asking for undoing a command.
+
+ * all shit and their family goes into a mouse event. Isn't that too much?
+   Should it not be defined clearer, who needs what from a mouse event?
  * why is history in gom? shouldn't it be in the commands? As in, commands
    should actually add themselves to history? -> but how: undo has to call
    on history object, so we would have to pass the history to each command
    that we create. Unless we make history a singleton, and then commands
    can simply create the history object and get always the same instance.
-   Or history is one of the "superobjects" like gom.
+   Or history is one of the "superobjects" like gom. => actually, it makes
+   sense, since gom is doing most of the heavy lifting
  * the interaction between canvas, gom, dm, em is tangled. 
  * It is not entirely clear where the file is saved. In theory it is, but
    in practice I find myself wondering.
@@ -69,6 +77,31 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * in the grouping mode, you cannot really undo shit. Also, everything
+   disappears if you exit without pressing escape or ctrl-shift-g. Also, if
+   you clear a canvas. This is because while the grouping has not been
+   finished yet, the objects aren't really in the scope of GOM yet, but
+   kept private by the grouping wiglet. At least mode changes should
+   trigger finishing the group, because otherwise you switch to mode and
+   you can't do shit with the object. So, what are the options:
+    * simulate the undo history while doing something else (i.e., simulate
+      adding objects, but in reality, add them to the group) -> how should
+      the group be handled? if we undo to 0, the group will be still in the
+      gom, but empty, which shouldn't be
+    * add a special history command for adding and removing objects to an
+      existing group. We can add the initial object with the group
+      container in one go to GOM, then create the command that adds an
+      object to group, then add the command object to history => that
+      should work
+ * There is a problem with the way that the double clicks are handled. The
+   50ms delay is actually quite counterproductive; rather than handling the
+   single click after 50ms, the responders to single click event should be
+   also catching the double click events and e.g. cancel the drawing of the
+   current object.
+ * events in em should go through the bus
+ * make a "grouping" mode. All objects that are created during the grouping
+   mode are added automatically to the same group. That would allow
+   for example producing consistent handwriting that does not need to be
  * add a line mode and Line object class
  * when exporting with ctrl-e there should be selection option to choose
    the format, including pdf vs multipage pdf (and multipage pdf should be

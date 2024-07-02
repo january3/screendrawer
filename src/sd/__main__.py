@@ -123,7 +123,6 @@ class TransparentWindow(Gtk.Window):
         self.set_keep_above(True)
         self.maximize()
 
-
         # transparency
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
@@ -136,9 +135,7 @@ class TransparentWindow(Gtk.Window):
 
         # Drawing setup
         self.cursor             = CursorManager(self)
-
-        self.bus = Bus()
-
+        self.bus                = Bus()
         self.gom                = GraphicsObjectManager(self.bus)
 
         # we pass the app to the state, because it has the queue_draw
@@ -152,8 +149,46 @@ class TransparentWindow(Gtk.Window):
 
         self.setter = Setter(bus = self.bus, app = self, state = self.state)
 
-
         # initialize the wiglets - which listen to events
+        self.__init_wiglets()
+
+        # em has to know about all that to link actions to methods
+        em  = EventManager(bus = self.bus, state  = self.state)
+        mm  = MenuMaker(self.bus, self.gom, em, self)
+
+        # mouse gets the mouse events
+        self.mouse = MouseCatcher(bus = self.bus, state = self.state)
+
+        # canvas orchestrates the drawing
+        self.canvas = Canvas(state = self.state, bus = self.bus)
+
+        # load the drawing from the savefile
+        self.read_file(self.savefile)
+
+        # connecting events
+        self.__add_bus_events()
+        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK |
+                        Gdk.EventMask.BUTTON_RELEASE_MASK |
+                        Gdk.EventMask.POINTER_MOTION_MASK |
+                        Gdk.EventMask.TOUCH_MASK)
+
+        self.connect("key-press-event",      em.on_key_press)
+        self.connect("draw",                 self.canvas.on_draw)
+        self.connect("button-press-event",   self.mouse.on_button_press)
+        self.connect("button-release-event", self.mouse.on_button_release)
+        self.connect("motion-notify-event",  self.mouse.on_motion_notify)
+
+    def exit(self):
+        """Exit the application."""
+        ## close the savefile_f
+        log.info("Exiting")
+        self.__save_state()
+        Gtk.main_quit()
+
+    # ---------------------------------------------------------------------
+
+    def __init_wiglets(self):
+        """Initialize the wiglets."""
         wiglets = [
                    WigletEraser(bus = self.bus, state = self.state),
                    WigletCreateObject(bus = self.bus, state = self.state),
@@ -176,59 +211,7 @@ class TransparentWindow(Gtk.Window):
         ]
 
 
-        # em has to know about all that to link actions to methods
-        em  = EventManager(bus = self.bus,
-                                state  = self.state)
-        mm  = MenuMaker(self.bus, self.gom, em, self)
-
-        # dm needs to know about gom because gom manipulates the selection
-        # and history (object creation etc)
-        #self.dm                  = DrawManager(bus = self.bus, state = self.state)
-        self.mouse = MouseCatcher(bus = self.bus, state = self.state)
-
-        # canvas orchestrates the drawing
-        self.canvas              = Canvas(state = self.state, bus = self.bus)
-
-        # distance for selecting objects
-        self.max_dist   = 15
-
-        # load the drawing from the savefile
-        self.load_state()
-
-        # connecting events
-
-       #XXX doesn't work
-       #self.gesture_pan = Gtk.GesturePan.new(self, orientation=Gtk.Orientation.VERTICAL)
-       #self.gesture_pan.connect('pan', self.dm.on_pan)
-       #self.gesture_pan.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
-
-       ## Gesture for zoom
-       #self.gesture_zoom = Gtk.GestureZoom.new(self)
-       #self.gesture_zoom.connect('begin', self.dm.on_zoom)
-       #self.gesture_zoom.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
-
-        self.add_bus_events()
-        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK |
-                        Gdk.EventMask.BUTTON_RELEASE_MASK |
-                        Gdk.EventMask.POINTER_MOTION_MASK |
-                        Gdk.EventMask.TOUCH_MASK)
-
-        self.connect("key-press-event",      em.on_key_press)
-        self.connect("draw",                 self.canvas.on_draw)
-        self.connect("button-press-event",   self.mouse.on_button_press)
-        self.connect("button-release-event", self.mouse.on_button_release)
-        self.connect("motion-notify-event",  self.mouse.on_motion_notify)
-
-    def exit(self):
-        """Exit the application."""
-        ## close the savefile_f
-        log.info("Exiting")
-        self.__save_state()
-        Gtk.main_quit()
-
-    # ---------------------------------------------------------------------
-
-    def add_bus_events(self):
+    def __add_bus_events(self):
         """Add bus events."""
 
         self.bus.on("app_exit", self.exit)
@@ -244,7 +227,6 @@ class TransparentWindow(Gtk.Window):
         self.bus.on("cut_content",      self.cut_content)
         self.bus.on("paste_content",    self.paste_content)
         self.bus.on("screenshot",       self.screenshot)
-
 
 
     def paste_text(self, clip_text):
@@ -281,10 +263,10 @@ class TransparentWindow(Gtk.Window):
         content = self.gom.selection()
         if content.is_empty():
             # nothing selected
-            print("Nothing selected, selecting all objects")
+            log.debug("Nothing selected, selecting all objects")
             content = DrawableGroup(self.gom.objects())
 
-        print("Copying content", content)
+        log.debug("Copying content", content)
         self.clipboard.copy_content(content)
 
         if destroy:
@@ -299,11 +281,11 @@ class TransparentWindow(Gtk.Window):
 
         # internal paste
         if clip_type == "internal":
-            print("Pasting content internally")
+            log.debug("Pasting content internally")
             if clip.type != "group":
                 raise ValueError("Internal clipboard is not a group")
             bb = clip.bbox()
-            print("clipboard bbox:", bb)
+            log.debug(f"clipboard bbox {bb}")
             for obj in clip.objects:
                 self.__object_create_copy(obj, bb)
             return
@@ -529,10 +511,6 @@ class TransparentWindow(Gtk.Window):
             self.state.modified(True)
             return True
         return False
-
-    def load_state(self):
-        """Load the drawing state from a file."""
-        self.read_file(self.savefile)
 
 
 ## ---------------------------------------------------------------------
