@@ -23,7 +23,6 @@ class GraphicsObjectManager:
 
         # private attr
         self.__bus        = bus
-        self.__history    = History()
         self.__page = None
         self.page_set(Page())
         self.__add_bus_listeners()
@@ -44,12 +43,10 @@ class GraphicsObjectManager:
         self.__bus.on("selection_group", self.selection_group)
         self.__bus.on("selection_ungroup", self.selection_ungroup)
         self.__bus.on("selection_delete", self.selection_delete)
-        self.__bus.on("history_redo", self.history_redo)
-        self.__bus.on("history_undo", self.history_undo)
-        self.__bus.on("history_append", self.history_append)
         self.__bus.on("next_page", self.next_page)
         self.__bus.on("prev_page", self.prev_page)
         self.__bus.on("insert_page", self.insert_page)
+        self.__bus.on("page_set", self.page_set)
         self.__bus.on("delete_page", self.delete_page)
         self.__bus.on("next_layer", self.next_layer)
         self.__bus.on("prev_layer", self.prev_layer)
@@ -62,6 +59,7 @@ class GraphicsObjectManager:
 
     def page_set(self, page):
         """Set the current page."""
+        self.__bus.emit("page_changed", False, page)
         self.__page = page
 
     def next_page(self):
@@ -71,7 +69,7 @@ class GraphicsObjectManager:
     def insert_page(self):
         """Insert a new page."""
         curpage, cmd = self.__page.insert()
-        self.__history.add(cmd)
+        bus.__emit("history_append", True, cmd)
         self.page_set(curpage)
 
     def prev_page(self):
@@ -81,8 +79,8 @@ class GraphicsObjectManager:
     def delete_page(self):
         """Delete the current page."""
         curpage, cmd = self.__page.delete()
-        self.__history.add(cmd)
         self.page_set(curpage)
+        self.__bus.emit("history_append", True, cmd)
 
     def next_layer(self):
         """Go to the next layer."""
@@ -98,7 +96,7 @@ class GraphicsObjectManager:
         #cmd = 
         #self.__page.delete_layer(self.__page.layer_no())
         cmd = DeleteLayerCommand(self.__page, self.__page.layer_no())
-        self.__history.add(cmd)
+        self.__bus.emit("history_append", True, cmd)
 
     def page(self):
         """Return the current page."""
@@ -172,7 +170,7 @@ class GraphicsObjectManager:
                                new_type=mode,
                                selection_objects=self.__page.selection().objects,
                                page = self.__page)
-        self.__history.add(cmd)
+        self.__bus.emit("history_append", True, cmd)
 
     def transmute_selection(self, mode):
         """
@@ -210,7 +208,8 @@ class GraphicsObjectManager:
         if not isinstance(obj, Drawable):
             raise ValueError("Only Drawables can be added to the stack")
 
-        self.__history.add(AddCommand([obj], self.__page.objects(), page=self.__page))
+        cmd = AddCommand([obj], self.__page.objects(), page=self.__page)
+        self.__bus.emit("history_append", True, cmd)
 
         return obj
 
@@ -246,44 +245,49 @@ class GraphicsObjectManager:
         """Remove the selected objects from the list of objects."""
         if self.__page.selection().is_empty():
             return
-        self.__history.add(RemoveCommand(self.__page.selection().objects,
+        cmd = RemoveCommand(self.__page.selection().objects,
                                             self.__page.objects(),
-                                            page=self.__page))
+                                            page=self.__page)
+        self.__bus.emit("history_append", True, cmd)
         self.__page.selection().clear()
 
     def remove_objects(self, objects, clear_selection = False):
         """Remove an object from the list of objects."""
-        self.__history.add(RemoveCommand(objects, self.__page.objects(), page=self.__page))
+        cmd = RemoveCommand(objects, self.__page.objects(), page=self.__page)
+        self.__bus.emit("history_append", True, cmd)
         if clear_selection:
             self.__page.selection().clear()
 
     def remove_all(self):
         """Clear the list of objects."""
-        self.__history.add(self.__page.clear())
+        self.__bus.emit("history_append", True, self.__page.clear())
 
     def command_append(self, command_list):
         """Append a group of commands to the history."""
         ## append in reverse order!
-        self.__history.add(CommandGroup(command_list[::-1]))
+        cmd = CommandGroup(command_list[::-1])
+        self.__bus.emit("history_append", True, cmd)
 
     def selection_group(self):
         """Group selected objects."""
         if self.__page.selection().n() < 2:
             return
         log.debug(f"Grouping n={self.__page.selection().n()} objects")
-        self.__history.add(GroupObjectCommand(self.__page.selection().objects,
+        cmd = GroupObjectCommand(self.__page.selection().objects,
                                                  self.__page.objects(),
                                                  selection_object=self.__page.selection(),
-                                                 page=self.__page))
+                                                 page=self.__page)
+        self.__bus.emit("history_append", True, cmd)
 
     def selection_ungroup(self):
         """Ungroup selected objects."""
         if self.__page.selection().is_empty():
             return
-        self.__history.add(UngroupObjectCommand(self.__page.selection().objects,
+        cmd = UngroupObjectCommand(self.__page.selection().objects,
                                                    self.__page.objects(),
                                                    selection_object=self.__page.selection(),
-                                                   page=self.__page))
+                                                   page=self.__page)
+        self.__bus.emit("history_append", True, cmd)
 
     def selection_clip(self):
         """Clip the selected objects."""
@@ -301,10 +305,11 @@ class GraphicsObjectManager:
             log.warning(f"Need a shape, rectangle or circle to clip, not {obj[-1].type}")
             return
 
-        self.__history.add(ClipCommand(obj[-1], obj[:-1],
+        cmd = ClipCommand(obj[-1], obj[:-1],
                                        page.objects(),
                                        selection_object=page.selection(),
-                                       page=page))
+                                       page=page)
+        self.__bus.emit("history_append", True, cmd)
 
         log.debug("clipping selection")
 
@@ -314,10 +319,11 @@ class GraphicsObjectManager:
         if page.selection().is_empty():
             return
         log.debug("unclipping selection")
-        self.__history.add(UnClipCommand(page.selection().objects,
+        cmd = UnClipCommand(page.selection().objects,
                                          page.objects(),
                                          selection_object=page.selection(),
-                                         page=page))
+                                         page=page)
+        self.__bus.emit("history_append", True, cmd)
 
     def select(self, what):
         """Dispatch to the correct selection function"""
@@ -358,8 +364,9 @@ class GraphicsObjectManager:
         """Delete selected objects."""
         #self.__page.selection_delete()
         if self.__page.selection().objects:
-            self.__history.add(RemoveCommand(self.__page.selection().objects,
-                                                self.__page.objects(), page=self.__page))
+            cmd = RemoveCommand(self.__page.selection().objects,
+                                                self.__page.objects(), page=self.__page)
+            self.__bus.emit("history_append", True, cmd)
             self.__page.selection().clear()
 
     def select_next_object(self):
@@ -378,11 +385,13 @@ class GraphicsObjectManager:
     def selection_color_set(self, color):
         """Set the color of the selected objects."""
         if not self.__page.selection().is_empty():
-            self.__history.add(SetColorCommand(self.__page.selection(), color))
+            cmd = SetColorCommand(self.__page.selection(), color)
+            self.__bus.emit("history_append", True, cmd)
 
     def selection_font_set(self, font_description):
         """Set the font of the selected objects."""
-        self.__history.add(SetFontCommand(self.__page.selection(), font_description))
+        cmd = SetFontCommand(self.__page.selection(), font_description)
+        self.__bus.emit("history_append", True, cmd)
 
   # XXX! this is not implemented
     def selection_apply_pen(self):
@@ -391,28 +400,11 @@ class GraphicsObjectManager:
   #         pen = self.__state.pen()
   #         self.__history.append(SetPenCommand(self.__page.selection(), pen))
 
-    def history_redo(self):
-        """Redo the last action."""
-        page = self.__history.redo()
-        if page:
-            self.page_set(page)
-
-    def history_undo(self):
-        """Undo the last action."""
-        log.debug(f"Undo, history size is {self.__history.length()}")
-        page = self.__history.undo()
-        if page:
-            self.page_set(page)
-
-    def history_append(self, cmd):
-        """Add a command to the history."""
-        self.__history.add(cmd)
-
     def move_obj(self, obj, dx, dy):
         """Move the object by the given amount."""
         event_obj = MoveCommand(obj, (0, 0), page=self.__page)
         event_obj.event_update(dx, dy)
-        self.__history.add(event_obj)
+        self.__bus.emit("history_append", True, event_obj)
 
     def move_selection(self, dx, dy):
         """Move the selected objects by the given amount."""
@@ -425,7 +417,7 @@ class GraphicsObjectManager:
         log.debug(f"rotating by {angle}")
         event_obj = RotateCommand(obj, angle=radians(angle), page = self.__page)
         event_obj.event_finish()
-        self.__history.add(event_obj)
+        self.__bus.emit("history_append", True, event_obj)
 
     def rotate_selection(self, angle):
         """Rotate the selected objects by the given angle (degrees)."""
@@ -437,7 +429,6 @@ class GraphicsObjectManager:
         """move the selected objects long the z-axis."""
         if self.__page.selection().is_empty():
             return
-        self.__history.add(ZStackCommand(self.__page.selection().objects,
-                                            self.__page.objects(), operation, page=self.__page))
-
-
+        cmd = ZStackCommand(self.__page.selection().objects,
+                                            self.__page.objects(), operation, page=self.__page)
+        self.__bus.emit("history_append", True, cmd)

@@ -31,17 +31,6 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
- * History should be a separate single instance class that gets called
-   through the bus. However: gom must collaborate with history, because
-   when undoing, we should return to the given page. But: maybe the current page
-   should be held by the state?
-
-   Or, another take: how about gom doing the history internally, OK. BUT:
-   rather than adding the page to the command object (which then returns it
-   to gom, so gom knows to which page we should change the view), add it
-   through the history, so that history records the view and returns page
-   no when gom is asking for undoing a command.
-
  * all shit and their family goes into a mouse event. Isn't that too much?
    Should it not be defined clearer, who needs what from a mouse event?
  * why is history in gom? shouldn't it be in the commands? As in, commands
@@ -58,6 +47,7 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * undo for rotate doesn't work if rotating was done via keypress
  * stroke change does not update the bbox
  * Brush two sucks.
  * brushes should better cache the calculations. Only real changes should
@@ -77,6 +67,25 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * History should be a separate single instance class that gets called
+   through the bus. However: gom must collaborate with history, because
+   when undoing, we should return to the given page. But: maybe the current page
+   should be held by the state?
+
+   Or, another take: how about gom doing the history internally, OK. BUT:
+   rather than adding the page to the command object (which then returns it
+   to gom, so gom knows to which page we should change the view), add it
+   through the history, so that history records the view and returns page
+   no when gom is asking for undoing a command.
+  
+    * Actually, history could emit a signal "change to page so and so", and
+      gom could react to it. We actually almost have that already.
+    * Fine, but when an object is added to history, how does history / the
+      object / the caller know what page we have? Only gom knows that.
+
+      Maybe gom should emit a signal "the current page is so and so", and
+      then the history can react to it, so that when an command comes up,
+      history knows on what page that command is happening.
  * in the grouping mode, you cannot really undo shit. Also, everything
    disappears if you exit without pressing escape or ctrl-shift-g. Also, if
    you clear a canvas. This is because while the grouping has not been
