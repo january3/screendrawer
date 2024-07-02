@@ -1,5 +1,7 @@
 """An event bus class for dispatching events between objects."""
 import logging                                                   # <remove>
+import traceback                                                 # <remove>
+from sys import exc_info                                         # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 log.setLevel(logging.INFO)
 
@@ -11,8 +13,18 @@ class Bus:
     
     def on(self, event, listener, priority = 0):
         """Add a listener for an event."""
+        if listener is None:
+            raise ValueError("Listener cannot be None")
+
+        if not callable(listener):
+            raise ValueError("Listener must be callable")
+
+        if event is None:
+            raise ValueError("Event cannot be None")
+
         if event not in self.__listeners:
             self.__listeners[event] = []
+
         self.__listeners[event].append((listener, priority))
         self.__listeners[event].sort(key = lambda x: -x[1])
     
@@ -33,7 +45,17 @@ class Bus:
         if event in self.__listeners:
             for listener, _ in self.__listeners[event]:
                 #print("event", event, "calling", listener, "with", args, kwargs)
-                ret = listener(*args, **kwargs)
+                try:
+                    ret = listener(*args, **kwargs)
+                except Exception as e:
+                    ret = None
+                    exc_type, exc_value, exc_traceback = exc_info()
+                    log.warning(f"Exception type: {exc_type}")
+                    log.warning(f"Exception value:{exc_value}")
+                    log.warning("Traceback:")
+                    traceback.print_tb(exc_traceback)
+                    log.warning(f"Error while dispatching signal {event} to {listener}: {e}")
+
                 if ret:
                     #print("Event", event, "caught by:", listener)
                     caught = True

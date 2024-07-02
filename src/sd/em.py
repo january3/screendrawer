@@ -48,14 +48,13 @@ class EventManager:
             cls._instance = super(EventManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, bus, gom, app, state, setter):
+    def __init__(self, bus, gom, state):
         # singleton pattern
         if not hasattr(self, '_initialized'):
             self._initialized = True
             self.__state = state
-            self.__setter = setter
             self.__bus = bus
-            self.make_actions_dictionary(bus, gom, app, state, setter)
+            self.make_actions_dictionary(bus, gom)
             self.make_default_keybindings()
 
     def dispatch_action(self, action_name, **kwargs):
@@ -155,34 +154,50 @@ class EventManager:
         state.queue_draw()
 
 
-    def make_actions_dictionary(self, bus, gom, app, state, setter):
+    def make_actions_dictionary(self, bus, gom):
         """
         This dictionary maps key events to actions.
         """
         self.__actions = {
-            'mode_draw':             {'action': state.mode, 'args': ["draw"]},
-            'mode_rectangle':        {'action': state.mode, 'args': ["rectangle"]},
-            'mode_circle':           {'action': state.mode, 'args': ["circle"]},
-            'mode_move':             {'action': state.mode, 'args': ["move"]},
-            'mode_text':             {'action': state.mode, 'args': ["text"]},
-            'mode_select':           {'action': state.mode, 'args': ["select"]},
-            'mode_eraser':           {'action': state.mode, 'args': ["eraser"]},
-            'mode_shape':            {'action': state.mode, 'args': ["shape"]},
-            'mode_segment':          {'action': state.mode, 'args': ["segment"]},
-            'mode_colorpicker':      {'action': state.mode, 'args': ["colorpicker"]},
+            'mode_draw':             {'action': bus.emit, 'args': [ "mode_set", False, "draw"]},
+            'mode_rectangle':        {'action': bus.emit, 'args': [ "mode_set", False, "rectangle"]},
+            'mode_circle':           {'action': bus.emit, 'args': [ "mode_set", False, "circle"]},
+            'mode_move':             {'action': bus.emit, 'args': [ "mode_set", False, "move"]},
+            'mode_text':             {'action': bus.emit, 'args': [ "mode_set", False, "text"]},
+            'mode_select':           {'action': bus.emit, 'args': [ "mode_set", False, "select"]},
+            'mode_eraser':           {'action': bus.emit, 'args': [ "mode_set", False, "eraser"]},
+            'mode_shape':            {'action': bus.emit, 'args': [ "mode_set", False, "shape"]},
+            'mode_segment':          {'action': bus.emit, 'args': [ "mode_set", False, "segment"]},
+            'mode_colorpicker':      {'action': bus.emit, 'args': [ "mode_set", False, "colorpicker"]},
 
             'escape':                {'action': bus.emit, 'args': ["escape"]},
             'toggle_grouping':       {'action': bus.emit, 'args': ["toggle_grouping"]},
+            'toggle_outline':        {'action': bus.emit, 'args': ["toggle_outline"]},
 
-            'cycle_bg_transparency': {'action': state.cycle_background},
-            'toggle_outline':        {'action': setter.outline_toggle},
+            'cycle_bg_transparency': {'action': bus.emit, 'args': ["cycle_bg_transparency"]},
+            'toggle_wiglets':        {'action': bus.emit, 'args': ["toggle_wiglets"]},
+            'toggle_grid':           {'action': bus.emit, 'args': ["toggle_grid"]},
+            'switch_pens':           {'action': bus.emit, 'args': ["switch_pens"]},
+            'apply_pen_to_bg':       {'action': bus.emit, 'args': ["apply_pen_to_bg"], 'modes': ["move"]},
 
-            'clear_page':            {'action': setter.clear},
-            'toggle_wiglets':        {'action': state.toggle_wiglets},
-            'toggle_grid':           {'action': state.toggle_grid},
+            'clear_page':            {'action': bus.emit, 'args': ["clear_page"]},
 
-            'show_help_dialog':      {'action': app.show_help_dialog},
-            'app_exit':              {'action': app.exit},
+
+            # dialogs and app events
+            'app_exit':              {'action': bus.emit, 'args': ["app_exit"]},
+            'show_help_dialog':      {'action': bus.emit, 'args': ["show_help_dialog"]},
+            "export_drawing":        {'action': bus.emit, 'args': ["export_drawing"]},
+            "save_drawing_as":       {'action': bus.emit, 'args': ["save_drawing_as"]},
+            "select_color":          {'action': bus.emit, 'args': ["select_color"]},
+            "select_color_bg":       {'action': bus.emit, 'args': ["select_color_bg"]},
+            "select_font":           {'action': bus.emit, 'args': ["select_font"]},
+            "import_image":          {'action': bus.emit, 'args': ["import_image"]},
+            "open_drawing":          {'action': bus.emit, 'args': ["open_drawing"]},
+
+            'copy_content':          {'action': bus.emit, 'args': ["copy_content"]},
+            'cut_content':           {'action': bus.emit, 'args': ["cut_content"]},
+            'paste_content':         {'action': bus.emit, 'args': ["paste_content"]},
+            'screenshot':            {'action': bus.emit, 'args': ["screenshot"]},
 
             'selection_fill':        {'action': gom.selection_fill},
             'transmute_to_shape':    {'action': gom.transmute_selection, 'args': [ "shape" ]},
@@ -215,34 +230,26 @@ class EventManager:
             'zmove_selection_raise':  {'action': gom.selection_zmove, 'args': [ "raise" ],  'modes': ["move"]},
             'zmove_selection_lower':  {'action': gom.selection_zmove, 'args': [ "lower" ],  'modes': ["move"]},
 
-            'set_color_white':       {'action': setter.set_color, 'args': [COLORS["white"]]},
-            'set_color_black':       {'action': setter.set_color, 'args': [COLORS["black"]]},
-            'set_color_red':         {'action': setter.set_color, 'args': [COLORS["red"]]},
-            'set_color_green':       {'action': setter.set_color, 'args': [COLORS["green"]]},
-            'set_color_blue':        {'action': setter.set_color, 'args': [COLORS["blue"]]},
-            'set_color_yellow':      {'action': setter.set_color, 'args': [COLORS["yellow"]]},
-            'set_color_cyan':        {'action': setter.set_color, 'args': [COLORS["cyan"]]},
-            'set_color_magenta':     {'action': setter.set_color, 'args': [COLORS["magenta"]]},
-            'set_color_purple':      {'action': setter.set_color, 'args': [COLORS["purple"]]},
-            'set_color_grey':        {'action': setter.set_color, 'args': [COLORS["grey"]]},
+            'set_color_white':       {'action': bus.emit, 'args': [ "set_color", True, COLORS["white"]]},
+            'set_color_black':       {'action': bus.emit, 'args': [ "set_color", True, COLORS["black"]]},
+            'set_color_red':         {'action': bus.emit, 'args': [ "set_color", True, COLORS["red"]]},
+            'set_color_green':       {'action': bus.emit, 'args': [ "set_color", True, COLORS["green"]]},
+            'set_color_blue':        {'action': bus.emit, 'args': [ "set_color", True, COLORS["blue"]]},
+            'set_color_yellow':      {'action': bus.emit, 'args': [ "set_color", True, COLORS["yellow"]]},
+            'set_color_cyan':        {'action': bus.emit, 'args': [ "set_color", True, COLORS["cyan"]]},
+            'set_color_magenta':     {'action': bus.emit, 'args': [ "set_color", True, COLORS["magenta"]]},
+            'set_color_purple':      {'action': bus.emit, 'args': [ "set_color", True, COLORS["purple"]]},
+            'set_color_grey':        {'action': bus.emit, 'args': [ "set_color", True, COLORS["grey"]]},
 
-            'set_brush_rounded':     {'action': setter.set_brush, 'args': ["rounded"] },
-            'set_brush_marker':      {'action': setter.set_brush, 'args': ["marker"] },
-            'set_brush_slanted':     {'action': setter.set_brush, 'args': ["slanted"] },
-            'set_brush_pencil':      {'action': setter.set_brush, 'args': ["pencil"] },
-            'set_brush_tapered':     {'action': setter.set_brush, 'args': ["tapered"] },
+            'set_brush_rounded':     {'action': bus.emit, 'args': [ "set_brush", True, "rounded"] },
+            'set_brush_marker':      {'action': bus.emit, 'args': [ "set_brush", True, "marker"] },
+            'set_brush_slanted':     {'action': bus.emit, 'args': [ "set_brush", True, "slanted"] },
+            'set_brush_pencil':      {'action': bus.emit, 'args': [ "set_brush", True, "pencil"] },
+            'set_brush_tapered':     {'action': bus.emit, 'args': [ "set_brush", True, "tapered"] },
 
-            'apply_pen_to_bg':       {'action': state.apply_pen_to_bg,        'modes': ["move"]},
-            'toggle_pens':           {'action': state.switch_pens},
+            'stroke_increase':       {'action': bus.emit, 'args': [ "stroke_change", True, 1]},
+            'stroke_decrease':       {'action': bus.emit, 'args': [ "stroke_change", True, -1]},
 
-            # dialogs
-            "export_drawing":        {'action': app.export_drawing},
-            "save_drawing_as":       {'action': app.save_drawing_as},
-            "select_color":          {'action': app.select_color},
-            "select_color_bg":       {'action': app.select_color_bg},
-            "select_font":           {'action': app.select_font},
-            "import_image":          {'action': app.select_image_and_create_pixbuf},
-            "open_drawing":          {'action': app.open_drawing},
 
             # selections and moving objects
             'select_next_object':     {'action': gom.select_next_object,     'modes': ["move"]},
@@ -267,14 +274,6 @@ class EventManager:
             'delete_layer':           {'action': gom.delete_layer},
 
             'apply_pen_to_selection': {'action': gom.selection_apply_pen,    'modes': ["move"]},
-
-            'copy_content':           {'action': app.copy_content,        },
-            'cut_content':            {'action': app.cut_content,         'modes': ["move"]},
-            'paste_content':          {'action': app.paste_content},
-            'screenshot':             {'action': app.screenshot},
-
-            'stroke_increase':        {'action': setter.stroke_change, 'args': [1]},
-            'stroke_decrease':        {'action': setter.stroke_change, 'args': [-1]},
         }
 
     def make_default_keybindings(self):
@@ -366,7 +365,7 @@ class EventManager:
             'Ctrl-Shift-k':         "select_color_bg",
             'Ctrl-f':               "select_font",
             'Ctrl-i':               "import_image",
-            'Ctrl-p':               "toggle_pens",
+            'Ctrl-p':               "switch_pens",
             'Ctrl-o':               "open_drawing",
 
 

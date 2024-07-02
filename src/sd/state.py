@@ -21,6 +21,15 @@ class State:
         self.__cursor = cursor
         self.__modified = True
 
+        bus.on("mode_set", self.mode, 999)
+        bus.on("cycle_bg_transparency", self.cycle_background, 0)
+        bus.on("toggle_wiglets", self.toggle_wiglets, 0)
+        bus.on("toggle_grid", self.toggle_grid, 0)
+        bus.on("switch_pens", self.switch_pens, 0)
+        bus.on("apply_pen_to_bg", self.apply_pen_to_bg, 0)
+        bus.on("clear_page", self.current_obj_clear, 0)
+        bus.on("set_bg_color", self.bg_color, 0)
+
         self.__gr = {
                 "bg_color": (.8, .75, .65),
                 "transparency": 0,
@@ -67,6 +76,7 @@ class State:
     def current_obj_clear(self):
         """Clear the current object."""
         self.__objs["current"] = None
+        self.queue_draw()
 
     def hover_obj(self, obj = None):
         """Get or set the hover object."""
@@ -97,7 +107,6 @@ class State:
             log.debug(f"setting mode to {mode}")
             self.__mode = mode
             self.__cursor.default(mode)
-            self.__bus.emit("mode_set", False, mode)
         return self.__mode
 
     # -------------------------------------------------------------------------
@@ -208,7 +217,9 @@ class Setter:
         self.__cursor = state.cursor()
 
         bus.on("set_color", self.set_color)
-
+        bus.on("set_brush", self.set_brush)
+        bus.on("toggle_outline", self.toggle_outline)
+        bus.on("stroke_change", self.stroke_change)
 
     # -------------------------------------------------------------------------
     def set_font(self, font_description):
@@ -229,6 +240,7 @@ class Setter:
 
     def set_color(self, color = None):
         """Get or set the color."""
+        log.debug(f"Setting color to {color}")
         if color is None:
             return self.__state.pen().color
         self.__state.pen().color_set(color)
@@ -253,16 +265,7 @@ class Setter:
         elif self.__state.mode() == "text":
             self.__state.pen().font_size = max(1, self.__state.pen().font_size + direction)
 
-    def outline_toggle(self):
+    def toggle_outline(self):
         """Toggle outline mode."""
         self.__state.outline(not self.__state.outline())
         self.__bus.emit("force_redraw")
-
-    # ---------------------------------------------------------------------
-    def clear(self):
-        """Clear the drawing."""
-        self.__gom.selection().clear()
-        #self.__resizeobj      = None
-        self.__state.current_obj_clear()
-        self.__gom.remove_all()
-        self.__state.queue_draw()

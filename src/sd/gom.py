@@ -1,3 +1,4 @@
+from math import radians                                             # <remove>
 from .commands import *                                              # <remove>
 from .drawable_group import DrawableGroup                            # <remove>
 from .drawable import Drawable                                       # <remove>
@@ -25,7 +26,18 @@ class GraphicsObjectManager:
         self.__history    = History()
         self.__page = None
         self.page_set(Page())
+        self.__add_bus_listeners()
+
+    def __add_bus_listeners(self):
+        """Add listeners to the bus."""
         self.__bus.on("add_object", self.add_object, priority = 1)
+        self.__bus.on("clear_page", self.clear, priority = 9)
+        self.__bus.on("clear_page", self.remove_all, priority = 8)
+        self.__bus.on("rotate_selection", self.rotate_selection)
+
+    def clear(self):
+        """Clear the list of objects."""
+        self.selection().clear()
 
     def page_set(self, page):
         """Set the current page."""
@@ -368,7 +380,7 @@ class GraphicsObjectManager:
     def rotate_obj(self, obj, angle):
         """Rotate the object by the given angle (degrees)."""
         log.debug(f"rotating by {angle}")
-        event_obj = RotateCommand(obj, angle=math.radians(angle), page = self.__page)
+        event_obj = RotateCommand(obj, angle=radians(angle), page = self.__page)
         event_obj.event_finish()
         self.__history.add(event_obj)
 

@@ -138,6 +138,7 @@ class TransparentWindow(Gtk.Window):
         self.cursor             = CursorManager(self)
 
         self.bus = Bus()
+
         self.gom                = GraphicsObjectManager(self.bus)
 
         # we pass the app to the state, because it has the queue_draw
@@ -177,9 +178,8 @@ class TransparentWindow(Gtk.Window):
 
         # em has to know about all that to link actions to methods
         em  = EventManager(bus = self.bus,
-                                gom = self.gom, app = self,
-                                state  = self.state,
-                                setter = self.setter)
+                                gom = self.gom,
+                                state  = self.state)
         mm  = MenuMaker(self.bus, self.gom, em, self)
 
         # dm needs to know about gom because gom manipulates the selection
@@ -208,6 +208,7 @@ class TransparentWindow(Gtk.Window):
        #self.gesture_zoom.connect('begin', self.dm.on_zoom)
        #self.gesture_zoom.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
 
+        self.add_bus_events()
         self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK |
                         Gdk.EventMask.BUTTON_RELEASE_MASK |
                         Gdk.EventMask.POINTER_MOTION_MASK |
@@ -227,6 +228,25 @@ class TransparentWindow(Gtk.Window):
         Gtk.main_quit()
 
     # ---------------------------------------------------------------------
+
+    def add_bus_events(self):
+        """Add bus events."""
+
+        self.bus.on("app_exit", self.exit)
+        self.bus.on("show_help_dialog", self.show_help_dialog)
+        self.bus.on("export_drawing",   self.export_drawing)
+        self.bus.on("save_drawing_as",  self.save_drawing_as)
+        self.bus.on("select_color",     self.select_color)
+        self.bus.on("select_color_bg",  self.select_color_bg)
+        self.bus.on("select_font",      self.select_font)
+        self.bus.on("import_image",     self.import_image)
+        self.bus.on("open_drawing",     self.open_drawing)
+        self.bus.on("copy_content",     self.copy_content)
+        self.bus.on("cut_content",      self.cut_content)
+        self.bus.on("paste_content",    self.paste_content)
+        self.bus.on("screenshot",       self.screenshot)
+
+
 
     def paste_text(self, clip_text):
         """Enter some text in the current object or create a new object."""
@@ -370,7 +390,7 @@ class TransparentWindow(Gtk.Window):
 
         export_image(obj, file_name, file_format, cfg, all_as_pdf)
 
-    def select_image_and_create_pixbuf(self):
+    def import_image(self):
         """Select an image file and create a pixbuf from it."""
 
         image_file = import_image_dialog(self)

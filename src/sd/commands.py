@@ -703,7 +703,7 @@ class RotateCommand(MoveResizeCommand):
         self.__page = page
 
         if not angle is None:
-            self.obj.rotate(angle, set = False)
+            self.obj.rotate(angle, set_angle = False)
 
         self._angle = 0
 

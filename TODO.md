@@ -50,6 +50,7 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * stroke change does not update the bbox
  * Brush two sucks.
  * brushes should better cache the calculations. Only real changes should
    trigger the recalculation of brush outlines.

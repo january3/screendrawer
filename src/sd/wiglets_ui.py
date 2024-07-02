@@ -505,7 +505,7 @@ class WigletColorSelector(Wiglet):
         self.__func_bg    = func_bg
         self.__bus = bus
         self.recalculate()
-        bus.on("left_mouse_click", self.on_click, priority = 99)
+        bus.on("left_mouse_click", self.on_click, priority = 999)
         bus.on("update_size", self.update_size)
         bus.on("draw", self.draw)
 
@@ -576,10 +576,14 @@ class WigletColorSelector(Wiglet):
             if ypos <= dy <= ypos + self.__color_dh:
                 log.debug(f"selected color: {color}")
                 sel_color = color
+
+        if not sel_color:
+            log.debug(f"no color selected")
+            return True
+
         if ev.shift():
             log.debug(f"setting bg to color {sel_color}")
-            if sel_color and self.__func_bg and callable(self.__func_bg):
-                self.__func_bg(sel_color)
+            self.__bus.emit("set_bg_color", True, sel_color)
         else:
             log.debug(f"setting fg to color {sel_color}")
             self.__bus.emit("set_color", True, sel_color)

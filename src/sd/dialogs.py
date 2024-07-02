@@ -51,7 +51,7 @@ Draw on the screen with Gnome and Cairo. Quick and dirty.
 w: Toggle UI (hide / show widgets)         F1, h, ?: Show this help dialog
 Ctrl-q, x, q: Quit                         
 
-<b>UI:</b>
+<b>UI:</b> (toggle with 'w')
 Color selector: click to select pen color, shift-click to select background color
 Tool selector: click to select tool
 Page selector: click to select page, click on '+' to add a new page
@@ -73,7 +73,8 @@ Moving object to left lower screen corner deletes it.
 <b>d:</b> Draw mode (pencil)                 <b>m, |SPACE|:</b> Move mode (move objects around, copy and paste)
 <b>t:</b> Text mode (text entry)             <b>r:</b> rectangle mode  (draw a rectangle)
 <b>c:</b> Circle mode (draw an ellipse)      <b>e:</b> Eraser mode (delete objects with a click)
-<b>s:</b> Shape mode (draw a filled shape)   <b>i:</b> Color p<b>I</b>cker mode (pick a color from the screen)
+<b>s:</b> Shape mode (draw a filled shape)   <b>i:</b> Color p<b>i</b>cker mode (pick a color from the screen)
+<b>Shift-s:</b> Segmented path mode (double-click to finish a segmented path)
 
 <b>Works always:</b>                                                             <b>Move mode only:</b>
 <b>With Ctrl:</b>              <b>Simple key (not when entering text)</b>               <b>With Ctrl:</b>             <b>Simple key (not when entering text)</b>
@@ -83,7 +84,7 @@ Ctrl-l: Clear drawing   l: Clear drawing                                  Ctrl-v
                                                                                                  Shift-r for red
 Ctrl-i: insert image                                                                             |Del|: Delete selected object(s)
 Ctrl-z: undo            |Esc|: Finish text input                                                 g, u: group, ungroup
-Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up, Alt-Down: Move object up, down
+Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up, Alt-Down: Move object up, down in stack
                                                                           Alt-PgUp, Alt-PgDown: Move object to front, back
 Ctrl-k: Select color                     f: fill with current color       Alt-s: convert drawing(s) to shape(s)
 Ctrl-Shift-k: Select bg color
@@ -92,6 +93,8 @@ Ctrl-b: Cycle background transparency                                     Alt-p:
 Ctrl-p: toggle between two pens                                           Alt-Shift-p: apply pen color to background
 Ctrl-g: toggle grid                      1-3: select brush
 
+Ctrl-Shift-g: toggle "group while drawing" mode                           
+
 <b>Pages and layers:</b>
 
 Pages (= slides) can hold multiple layers. When you select and move
@@ -99,9 +102,11 @@ objects, you are always acting on the current layer.
 
 Shift-n: Next / new page                  Ctrl-Shift-n: Next / new layer
 Shift-p: Previous page                    Ctrl-Shift-p: Previous layer
+Shift-d: Delete current page              Ctrl-Shift-d: Delete layer
 Shift-i: Insert new page after current
 
-If you have more than one page, exporting to PDF will create a multipage PDF.
+If you have more than one page, exporting to PDF will create a multipage PDF
+if you check the "multipage" checkbox.
 
 <b>Taking screenshots:</b>
 Ctrl-Shift-f: screenshot: for a screenshot, if you have at least one rectangle                    This is likely to change in the future.
@@ -117,9 +122,19 @@ Ctrl-o: Open a drawing from a file (.sdrw, that is the "native format") -
 Ctrl-e: Export selection or whole drawing to a file (png, jpeg, pdf)
 Ctrl-Shift-s: "Save as" - save drawing to a file (.sdrw, that is the "native format") - note
         that the subsequent modifications will be saved to that file only
+Ctrl-c, Ctrl-v: copy and paste objects
 
 When you copy a selection or individual objects, you can paste them into
 other programs as a PNG image.
+
+If you have more than one page, exporting to PDF will create a multipage PDF
+if you check the "multipage" checkbox.
+
+<b>Group while drawing mode:</b>
+To make drawing complex objects (or handwriting, for that matter) easier,
+you can press Ctrl-Shift-g to toggle "group while drawing" mode. In this mode,
+all objects you draw are automatically grouped together. Stop by pressing
+either the escape key or Ctrl-Shift-g again.
 
 </span>
 
