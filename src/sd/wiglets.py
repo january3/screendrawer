@@ -8,6 +8,7 @@ from .drawable_primitives import SelectionTool                   # <remove>
 from .commands import RotateCommand, ResizeCommand, MoveCommand  # <remove>
 from .commands import RemoveCommand                              # <remove>
 from .drawable_factory import DrawableFactory                    # <remove>
+from .drawable_group import DrawableGroup                        # <remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 
@@ -549,6 +550,67 @@ class WigletCreateSegments(Wiglet):
         self.__bus.emit("queue_draw")
         return True
 
+class WigletCreateGroup(Wiglet):
+    """Create a group of objects while drawing"""
+
+    def __init__(self, bus, state):
+        super().__init__("pan", None)
+
+        self.__bus   = bus
+        self.__state = state
+        self.__group_obj   = None
+        bus.on("toggle_grouping",  self.toggle_grouping, priority = 0)
+
+    def draw_obj(self, cr, state):
+        """Draw the object currently being created"""
+
+        if not self.__group_obj:
+            return False
+
+        if self.__group_obj.length() == 0:
+            return False
+
+        self.__group_obj.draw(cr)
+
+        return True
+
+    def toggle_grouping(self):
+        """Toggle grouping of objects"""
+
+        log.debug(f"toggling grouping, group_obj {self.__group_obj}")
+
+        if not self.__group_obj:
+            log.debug("creating a new group object")
+            self.__group_obj = DrawableGroup()
+            self.__bus.on("add_object", self.add_object, priority = 99)
+            self.__bus.on("obj_draw",   self.draw_obj,   priority = 20)
+            self.__bus.on("escape",     self.toggle_grouping, priority = 99)
+        else:
+            log.debug("removing group object")
+            self.__bus.off("add_object", self.add_object)
+            self.__bus.off("obj_draw",   self.draw_obj)
+            self.__bus.off("escape",      self.toggle_grouping)
+
+            if self.__group_obj and self.__group_obj.length() > 0:
+                log.debug("finishing and adding group object")
+                self.__bus.emit("add_object", True, self.__group_obj)
+
+            self.__group_obj = None
+
+        return True
+
+    def add_object(self, obj):
+        """Add object to the group"""
+
+        if not self.__group_obj:
+            log.debug("add_object: no group object")
+            return False
+
+        log.debug("adding object to group")
+        self.__group_obj.add(obj)
+
+        return True
+
 
 class WigletCreateObject(Wiglet):
     """Create object when clicked"""
@@ -560,9 +622,6 @@ class WigletCreateObject(Wiglet):
         self.__state = state
         self.__obj   = None
         bus.on("left_mouse_click", self.on_click,   priority = 0)
-        bus.on("mouse_move",       self.on_move,    priority = 99)
-        bus.on("mouse_release",    self.on_release, priority = 99)
-        bus.on("obj_draw",         self.draw_obj,   priority = 99)
 
     def draw_obj(self, cr, state):
         """Draw the object currently being created"""
@@ -594,6 +653,9 @@ class WigletCreateObject(Wiglet):
 
         if obj:
             self.__obj = obj
+            self.__bus.on("mouse_move",       self.on_move,    priority = 99)
+            self.__bus.on("mouse_release",    self.on_release, priority = 99)
+            self.__bus.on("obj_draw",         self.draw_obj,   priority = 99)
         else:
             log.debug(f"No object created for mode {mode}")
 
@@ -643,6 +705,9 @@ class WigletCreateObject(Wiglet):
             self.__state.selection().clear()
 
         self.__obj = None
+        self.__bus.off("mouse_move",    self.on_move)
+        self.__bus.off("mouse_release", self.on_release)
+        self.__bus.off("obj_draw",      self.draw_obj)
         self.__bus.emit("queue_draw")
         return True
 

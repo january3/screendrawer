@@ -172,6 +172,7 @@ class EventManager:
             'mode_colorpicker':      {'action': state.mode, 'args': ["colorpicker"]},
 
             'escape':                {'action': bus.emit, 'args': ["escape"]},
+            'toggle_grouping':       {'action': bus.emit, 'args': ["toggle_grouping"]},
 
             'cycle_bg_transparency': {'action': state.cycle_background},
             'toggle_outline':        {'action': setter.outline_toggle},
@@ -305,10 +306,12 @@ class EventManager:
             'l':                    "clear_page",
             'o':                    "toggle_outline",
             'w':                    "toggle_wiglets",
-            'Ctrl-g':              "toggle_grid",
+            'Ctrl-g':               "toggle_grid",
             'Alt-s':                "transmute_to_shape",
             'Alt-d':                "transmute_to_draw",
             'f':                    "selection_fill",
+
+            'Ctrl-Shift-g':         "toggle_grouping",
 
             'Up':                   "move_up_10",
             'Shift-Up':             "move_up_1",

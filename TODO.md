@@ -1,10 +1,12 @@
 To do (sorted by priority):
 
+ * make a "grouping" mode. All objects that are created during the grouping
+   mode are added automatically to the same group. That would allow
+   for example producing consistent handwriting that does not need to be
+ * make a "recent colors" (or "recent pens") widget
+ * think hard how I want the color setting / pen thing to work
  * events in em should go through the bus
  * draw a dustbin wiglet in lower left corner
- * when exporting with ctrl-e there should be selection option to choose
-   the format, including pdf vs multipage pdf (and multipage pdf should be
-   default)
  * unit tests. more, more, more
  * zoom in and out. I think the time is ripe for it 
  * different brushes should have different cursors
@@ -13,8 +15,6 @@ To do (sorted by priority):
  * idea for path editing: "thumb" - moving a point on path and dragging
    surrounding points with it in a rubber-like fashion; how many - that depends on current line
    width (so broader line make more points move)
- * brushes. (1) brush that generates short diagonal thin strokes (2) brush
-   that creates a Gary Larson-like hatching (3) brush that creates a
  * keys 1-0 should select one of 10 pens; ctrl-1 to 0 should set the pen
    to the corresponding pen
  * wiglets for pen / line width / tool. They should be drawinggroup
@@ -22,13 +22,14 @@ To do (sorted by priority):
  * Help should be actually a new screendrawer window with written on it!
  * welcome screen as screendrawer pages
  * how should the color picker and the color selection dialog colaborate?
- * think hard how I want the color setting / pen thing to work
- * add a line mode and Line object class
+   (or actually abandon color selection dialog?)
  * show corners of the bounding box
  * horizontal and vertical guides
- * create a pen wiglet (that does what...?)
+ * create a pen wiglet (that does what exactly...?)
  * implement page dnd rearrangements in the page selector wiglet
  * make wiglets movable
+ * brushes. (1) brush that generates short diagonal thin strokes (2) brush
+   that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
  * There is a problem with the way that the double clicks are handled. The
@@ -63,10 +64,14 @@ Bugs:
  * when pasting the object, the new object should be placed next to the
    cursor. Maybe. I don't really know.
  * when paste an object multiple times, the second and following copies
-   fall on the same position as the first one
+   fall on the same position as the irst one
  * when drawing very slow the line looks like shit.
 
 Done:
+ * add a line mode and Line object class
+ * when exporting with ctrl-e there should be selection option to choose
+   the format, including pdf vs multipage pdf (and multipage pdf should be
+   default)
  * export to pdf only exports the current page. Both options should be
    possible (multi-page and single page) (note to self: customizing the
    gtk file chooser dialog is a world of pain)

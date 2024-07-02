@@ -25,7 +25,7 @@ class GraphicsObjectManager:
         self.__history    = History()
         self.__page = None
         self.page_set(Page())
-        self.__bus.on("add_object", self.add_object)
+        self.__bus.on("add_object", self.add_object, priority = 1)
 
     def page_set(self, page):
         """Set the current page."""
@@ -53,7 +53,7 @@ class GraphicsObjectManager:
 
     def next_layer(self):
         """Go to the next layer."""
-        print("creating a new layer")
+        log.debug("creating a new layer")
         self.__page.next_layer()
 
     def prev_layer(self):
@@ -155,7 +155,7 @@ class GraphicsObjectManager:
     def set_objects(self, objects):
         """Set the list of objects."""
         ## no undo
-        print("GOM: setting n=", len(objects), "objects")
+        log.debug(f"GOM: setting n={len(objects)} objects")
         self.__page.objects(objects)
 
     def set_pages(self, pages):
@@ -168,12 +168,17 @@ class GraphicsObjectManager:
 
     def add_object(self, obj):
         """Add an object to the list of objects."""
+
+        log.debug(f"Adding object {obj}")
+
         if obj in self.__page.objects():
-            print("object already in list")
+            log.debug(f"object {obj} already in list")
             return None
         if not isinstance(obj, Drawable):
             raise ValueError("Only Drawables can be added to the stack")
+
         self.__history.add(AddCommand([obj], self.__page.objects(), page=self.__page))
+
         return obj
 
     def get_all_pages(self):
@@ -232,7 +237,7 @@ class GraphicsObjectManager:
         """Group selected objects."""
         if self.__page.selection().n() < 2:
             return
-        print("Grouping", self.__page.selection().n(), "objects")
+        log.debug(f"Grouping n={self.__page.selection().n()} objects")
         self.__history.add(GroupObjectCommand(self.__page.selection().objects,
                                                  self.__page.objects(),
                                                  selection_object=self.__page.selection(),
@@ -255,12 +260,12 @@ class GraphicsObjectManager:
         obj = page.selection().objects
 
         if len(obj) < 2:
-            print("need at least two objects to clip")
+            log.warning("need at least two objects to clip")
             return
 
-        print("object:", obj[-1].type)
+        log.debug(f"object: {obj[-1].type}")
         if not obj[-1].type in [ "rectangle", "shape", "circle" ]:
-            print("Need a shape, rectangle or circle to clip")
+            log.warning(f"Need a shape, rectangle or circle to clip, not {obj[-1].type}")
             return
 
         self.__history.add(ClipCommand(obj[-1], obj[:-1],
@@ -268,14 +273,14 @@ class GraphicsObjectManager:
                                        selection_object=page.selection(),
                                        page=page))
 
-        print("clipping selection")
+        log.debug("clipping selection")
 
     def selection_unclip(self):
         page = self.__page
         """Unclip the selected objects."""
         if page.selection().is_empty():
             return
-        print("unclipping selection")
+        log.debug("unclipping selection")
         self.__history.add(UnClipCommand(page.selection().objects,
                                          page.objects(),
                                          selection_object=page.selection(),
@@ -291,7 +296,7 @@ class GraphicsObjectManager:
     def select_all(self):
         """Select all objects."""
         if not self.__page.objects():
-            print("no objects found")
+            log.debug("no objects found")
             return
 
         self.__page.selection().all()
@@ -343,7 +348,7 @@ class GraphicsObjectManager:
 
     def undo(self):
         """Undo the last action."""
-        print("Undo, history size is", self.__history.length())
+        log.debug(f"Undo, history size is {self.__history.length()}")
         page = self.__history.undo()
         if page:
             self.page_set(page)
@@ -362,7 +367,7 @@ class GraphicsObjectManager:
 
     def rotate_obj(self, obj, angle):
         """Rotate the object by the given angle (degrees)."""
-        print("rotating by", angle)
+        log.debug(f"rotating by {angle}")
         event_obj = RotateCommand(obj, angle=math.radians(angle), page = self.__page)
         event_obj.event_finish()
         self.__history.add(event_obj)
