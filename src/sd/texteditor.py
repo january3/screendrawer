@@ -81,7 +81,6 @@ class TextEditor:
                 self.__caret_pos = 0
             else:
                 return
-        log.debug("caret_pos: %d char: %s", self.__caret_pos, self.__cont[self.__line][self.__caret_pos])
         while self.__caret_pos < len(self.__cont[self.__line]) and self.__cont[self.__line][self.__caret_pos].isspace():
             self.__caret_pos += 1
         while self.__caret_pos < len(self.__cont[self.__line]) and not self.__cont[self.__line][self.__caret_pos].isspace():
@@ -96,7 +95,6 @@ class TextEditor:
                 self.__caret_pos = len(self.__cont[self.__line])
             else:
                 return
-        log.debug("caret_pos: %d char: %s", self.__caret_pos, self.__cont[self.__line][self.__caret_pos - 1])
         while self.__caret_pos > 0 and self.__cont[self.__line][self.__caret_pos - 1].isspace():
             self.__caret_pos -= 1
         while self.__caret_pos > 0 and not self.__cont[self.__line][self.__caret_pos - 1].isspace():

@@ -206,7 +206,7 @@ class GraphicsObjectManager:
         log.debug(f"Adding object {obj}")
 
         if obj in self.__page.objects():
-            log.debug(f"object {obj} already in list")
+            log.warning(f"object {obj} already in list")
             return None
         if not isinstance(obj, Drawable):
             raise ValueError("Only Drawables can be added to the stack")

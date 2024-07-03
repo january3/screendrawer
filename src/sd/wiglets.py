@@ -374,15 +374,29 @@ class WigletEditText(Wiglet):
         self.__state = state
         self.__obj   = None
         self.__active = False
+        self.__edit_existing = False
         bus.on("left_mouse_click",  self.on_click, priority = 99)
         bus.on("left_mouse_double_click",
                self.on_double_click, priority = 9)
+
+    def start_listening(self):
+        bus = self.__bus
 
         bus.on("mouse_move",        self.on_move, priority = 99)
         bus.on("mouse_release",     self.on_release, priority = 99)
         bus.on("mode_set",          self.finish_text_input,     priority = 99)
         bus.on("finish_text_input", self.finish_text_input, priority = 99)
         bus.on("escape",            self.finish_text_input, priority = 99)
+
+    def stop_listening(self):
+        bus = self.__bus
+
+        bus.off("mouse_move",        self.on_move)
+        bus.off("mouse_release",     self.on_release)
+        bus.off("mode_set",          self.finish_text_input)
+        bus.off("finish_text_input", self.finish_text_input)
+        bus.off("escape",            self.finish_text_input)
+
 
     def on_double_click(self, ev):
         """Double click on text launches text editing"""
@@ -400,11 +414,13 @@ class WigletEditText(Wiglet):
             return False
 
         log.debug("Starting to edit a text object")
+        self.__edit_existing = True
         self.__obj = obj
         self.__active = True
         self.__state.current_obj(obj)
         self.__obj.move_caret("End")
         self.__bus.emit("queue_draw")
+        self.start_listening()
         return True
 
     def on_click(self, ev):
@@ -424,6 +440,7 @@ class WigletEditText(Wiglet):
             return False
 
         log.debug("Creating a new text object")
+        self.__edit_existing = False
         obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
 
         if obj:
@@ -432,7 +449,9 @@ class WigletEditText(Wiglet):
             self.__obj = obj
         else:
             log.debug(f"No object created for mode {mode}")
+            return False
 
+        self.start_listening()
         return True
 
     def on_release(self, ev):
@@ -456,7 +475,7 @@ class WigletEditText(Wiglet):
         obj = self.__obj
         obj.show_caret(False)
 
-        if obj.strlen() > 0:
+        if obj.strlen() > 0 and not self.__edit_existing:
             self.__bus.emit("add_object", True, obj)
 
         self.__state.current_obj_clear()
@@ -465,6 +484,7 @@ class WigletEditText(Wiglet):
         self.__obj = None
 
         self.__bus.emit("queue_draw")
+        self.stop_listening()
         return True
 
 
@@ -656,7 +676,11 @@ class WigletCreateGroup(Wiglet):
             log.debug("add_object: no group object")
             return False
 
-        log.debug("adding object to group")
+        if obj.type != "path":
+            log.warning(f"add_object: object of type {obj.type} cannot be added to automatic path group")
+            return
+
+        log.debug(f"adding object of type {obj.type} to group")
 
         if not self.__added:
             # temporarily stop listening to add_object events
