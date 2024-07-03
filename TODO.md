@@ -49,11 +49,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * groupes with a single object should be automatically ungrouped
-   => problem with automatic grouping: when we create text objects, they
-   are "grouped" in single-object groups. However, that means that they
-   cannot be edited simply by double-clicking on them! Maybe automated
-   grouping only in drawing mode? -> yeah, that would be swell
  * color change (which affects directly the pen) does not update the object
    mod flag, so object is not redrawn
  * stroke change does not update the bbox
@@ -75,6 +70,11 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * groupes with a single object should be automatically ungrouped
+   => problem with automatic grouping: when we create text objects, they
+   are "grouped" in single-object groups. However, that means that they
+   cannot be edited simply by double-clicking on them! Maybe automated
+   grouping only in drawing mode? -> yeah, that would be swell
  * make a little wiglet that shows the file name
  * group drawing mode is cool. Maybe that should be the default? i.e., when
    drawing, all the objects drawn without leaving the mode are grouped. And

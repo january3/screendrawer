@@ -647,6 +647,11 @@ class WigletCreateGroup(Wiglet):
     def add_object(self, obj):
         """Add object to the group"""
 
+        mode = self.__state.mode()
+
+        if not mode == "draw":
+            return False
+
         if not self.__group_obj:
             log.debug("add_object: no group object")
             return False
