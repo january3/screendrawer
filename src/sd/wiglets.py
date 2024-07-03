@@ -51,8 +51,6 @@ class WigletResizeRotate(Wiglet):
         self.__state = state
 
         bus.on("left_mouse_click", self.on_click)
-        bus.on("mouse_move", self.on_move)
-        bus.on("mouse_release", self.on_release)
 
     def on_click(self, ev):
         log.debug("resize widget clicked")
@@ -77,6 +75,8 @@ class WigletResizeRotate(Wiglet):
 
         self.__gom.selection().set([corner_obj])
         self.__state.cursor().set(corner)
+        self.__bus.on("mouse_move", self.on_move)
+        self.__bus.on("mouse_release", self.on_release)
         self.__bus.emit("queue_draw")
 
         return True
@@ -97,6 +97,8 @@ class WigletResizeRotate(Wiglet):
         self.__gom.command_append([ self.__cmd ])
         self.__state.cursor().revert()
         self.__cmd = None
+        self.__bus.off("mouse_move", self.on_move)
+        self.__bus.off("mouse_release", self.on_release)
         self.__bus.emit("queue_draw")
         return True
 
@@ -147,9 +149,6 @@ class WigletMove(Wiglet):
         self.__obj = None
 
         bus.on("left_mouse_click", self.on_click)
-        bus.on("cancel_left_mouse_single_click", self.cancel)
-        bus.on("mouse_move", self.on_move)
-        bus.on("mouse_release", self.on_release)
 
     def on_click(self, ev):
         obj = ev.hover()
@@ -170,6 +169,10 @@ class WigletMove(Wiglet):
         if not selection.contains(obj):
             selection.set([obj])
 
+        self.__bus.on("cancel_left_mouse_single_click", self.cancel)
+        self.__bus.on("mouse_move", self.on_move)
+        self.__bus.on("mouse_release", self.on_release)
+
         self.__obj = selection.copy()
         self.__cmd = MoveCommand(self.__obj, ev.pos())
         self.__state.cursor().set("grabbing")
@@ -189,6 +192,10 @@ class WigletMove(Wiglet):
         if not self.__cmd:
             return False
 
+        self.__bus.off("cancel_left_mouse_single_click", self.cancel)
+        self.__bus.off("mouse_move", self.on_move)
+        self.__bus.off("mouse_release", self.on_release)
+
         self.__cmd = None
         self.__obj = None
 
@@ -197,6 +204,10 @@ class WigletMove(Wiglet):
     def on_release(self, ev):
         if not self.__cmd:
             return False
+
+        self.__bus.off("cancel_left_mouse_single_click", self.cancel)
+        self.__bus.off("mouse_move", self.on_move)
+        self.__bus.off("mouse_release", self.on_release)
 
         _, height = self.__state.get_win_size()
         cmd = self.__cmd
@@ -215,6 +226,7 @@ class WigletMove(Wiglet):
             gom.selection().clear()
         else:
             gom.command_append([ cmd ])
+
         self.__state.cursor().revert()
         self.__cmd = None
         self.__obj = None
@@ -551,52 +563,74 @@ class WigletCreateSegments(Wiglet):
         return True
 
 class WigletCreateGroup(Wiglet):
-    """Create a group of objects while drawing"""
+    """
+    Create a groups of objects while drawing
 
-    def __init__(self, bus, state):
+    Basically, by default, objects are grouped automatically
+    until you change the mode or press escape.
+
+    This makes pencil drawings a lot easier!
+    """
+
+    def __init__(self, bus, state, grouping = True):
         super().__init__("pan", None)
 
         self.__bus   = bus
         self.__state = state
         self.__group_obj   = None
         self.__added = False
+        self.__grouping = grouping
+
         bus.on("toggle_grouping",  self.toggle_grouping, priority = 0)
 
-    def draw_obj(self, cr, state):
-        """Draw the object currently being created"""
+        if self.__grouping:
+            self.start_grouping()
 
-        if not self.__group_obj:
-            return False
+    def toggle_grouping(self):
+        """Toggle automatic grouping of objects"""
 
-        if self.__group_obj.length() == 0:
-            return False
+        self.__grouping = not self.__grouping
 
-        self.__group_obj.draw(cr)
+        if self.__grouping:
+            self.start_grouping()
+        else:
+            self.end_grouping()
 
         return True
 
-    def toggle_grouping(self):
-        """Toggle grouping of objects"""
+    def start_grouping(self, mode = None):
+        """Start automatic grouping of objects"""
 
-        log.debug(f"toggling grouping, group_obj {self.__group_obj}")
+        log.debug(f"starting grouping, group_obj {self.__group_obj}")
+        if self.__group_obj:
+            raise Exception("Group object already exists")
+
+        self.__group_obj = DrawableGroup()
+        self.__added = False
+        self.__bus.on("add_object", self.add_object, priority = 99)
+        self.__bus.on("escape",     self.end_grouping, priority = 99)
+        self.__bus.on("clear_page", self.end_grouping, priority = 200)
+        self.__bus.on("mode_set",   self.end_grouping, priority = 200)
+        self.__bus.off("toggle_grouping",  self.start_grouping)
+
+        return True
+    
+    def end_grouping(self, mode = None):
+        """End automatic grouping of objects"""
 
         if not self.__group_obj:
-            log.debug("creating a new group object")
-            self.__group_obj = DrawableGroup()
-            self.__added = False
-            self.__bus.on("add_object", self.add_object, priority = 99)
-            self.__bus.on("obj_draw",   self.draw_obj,   priority = 20)
-            self.__bus.on("escape",     self.toggle_grouping, priority = 99)
-        else:
-            log.debug("removing group object")
-            self.__bus.off("add_object", self.add_object)
-            self.__bus.off("obj_draw",   self.draw_obj)
-            self.__bus.off("escape",      self.toggle_grouping)
+            log.warning("end_grouping: no group object")
 
-            if self.__group_obj and self.__group_obj.length() > 0:
-                log.debug("finishing and adding group object")
+        log.debug("removing group object")
+        self.__bus.off("add_object", self.add_object)
+        self.__bus.off("escape",     self.end_grouping)
+        self.__bus.off("clear_page", self.end_grouping)
+        self.__bus.off("mode_set",   self.end_grouping)
 
-            self.__group_obj = None
+        self.__group_obj = None
+
+        if self.__grouping:
+            self.start_grouping()
 
         return True
 
@@ -610,12 +644,13 @@ class WigletCreateGroup(Wiglet):
         log.debug("adding object to group")
 
         if not self.__added:
+            # temporarily stop listening to add_object events
+            # so that we can add the group object without recursion
             self.__bus.off("add_object", self.add_object)
             self.__bus.emit("add_object", True, self.__group_obj)
             self.__bus.on("add_object", self.add_object, priority = 99)
             self.__added = True
 
-        #self.__group_obj.add(obj)
         cmd = AddToGroupCommand(self.__group_obj, obj)
         self.__bus.emit("history_append", True, cmd)
 

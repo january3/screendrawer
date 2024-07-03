@@ -345,13 +345,13 @@ class GraphicsObjectManager:
         else:
             log.error(f"Unknown selection command: {what}")
 
+        self.__bus.emit("mode_set", False, "move")
         return True
 
     def select_reverse(self):
         """Reverse the selection."""
         self.__page.selection().reverse()
-        # XXX
-        #self.__state.mode("move")
+        self.__bus.emit("mode_set", False, "move")
 
     def select_all(self):
         """Select all objects."""
@@ -360,8 +360,7 @@ class GraphicsObjectManager:
             return
 
         self.__page.selection().all()
-        # XXX
-        #self.__state.mode("move")
+        self.__bus.emit("mode_set", False, "move")
 
     def selection_delete(self):
         """Delete selected objects."""
@@ -375,10 +374,12 @@ class GraphicsObjectManager:
     def select_next_object(self):
         """Select the next object."""
         self.__page.selection().next()
+        self.__bus.emit("mode_set", False, "move")
 
     def select_previous_object(self):
         """Select the previous object."""
         self.__page.selection().previous()
+        self.__bus.emit("mode_set", False, "move")
 
     def selection_fill(self):
         """Toggle the fill of the selected objects."""

@@ -42,11 +42,6 @@ class DrawableTrafo(Drawable):
         super().__init__(mytype, coords, pen)
         self.__bbox = None
 
-       #if rotation:
-       #    self.rotation = rotation
-       #    self.rotate_start((coords[0][0] + width / 2, coords[0][1] + height / 2))
-
-        #self.__trafos = [ ("move", (coords[0][0], coords[0][1])) ]
         if transform:
             self.__trafos = transform
         else:

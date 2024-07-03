@@ -183,7 +183,6 @@ class EventManager:
 
             'clear_page':            {'args': ["clear_page"]},
 
-
             # dialogs and app events
             'app_exit':              {'args': ["app_exit"]},
             'show_help_dialog':      {'args': ["show_help_dialog"]},

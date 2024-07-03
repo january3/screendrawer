@@ -896,7 +896,6 @@ class SetPropCommand(Command):
     def __init__(self, mytype, objects, prop, get_prop_func, set_prop_func):
         super().__init__(mytype, objects.get_primitive())
         self.__prop = prop
-        #self.__get_prop_func = get_prop_func
         self.__set_prop_func = set_prop_func
         self.__undo_dict = { obj: get_prop_func(obj) for obj in self.obj }
 
@@ -921,45 +920,20 @@ class SetPropCommand(Command):
             self.__set_prop_func(obj, self.__prop)
         self.undone_set(False)
 
-
-def pen_set_func(obj, prop):
-    """Set the pen of the object."""
-    obj.pen_set(prop)
-
-def pen_get_func(obj):
-    """Get the pen of the object."""
-    return obj.pen
-
 class SetPenCommand(SetPropCommand):
     """Simple class for handling color changes."""
     def __init__(self, objects, pen):
-        set_prop_func = pen_set_func
-        get_prop_func = pen_get_func
+        set_prop_func = lambda obj, prop: obj.pen_set(prop)
+        get_prop_func = lambda obj: obj.pen
         pen = pen.copy()
         super().__init__("set_pen", objects, pen, get_prop_func, set_prop_func)
-
-def color_set_func(obj, prop):
-    """Set the color of the object."""
-    obj.color_set(prop)
-
-def color_get_func(obj):
-    """Get the color of the object."""
-    return obj.pen.color
 
 class SetColorCommand(SetPropCommand):
     """Simple class for handling color changes."""
     def __init__(self, objects, color):
-        set_prop_func = color_set_func
-        get_prop_func = color_get_func
+        set_prop_func = lambda obj, prop: obj.pen.color_set(prop)
+        get_prop_func = lambda obj: obj.pen.color
         super().__init__("set_color", objects, color, get_prop_func, set_prop_func)
-
-def set_font_func(obj, prop):
-    """Set the font of the object."""
-    obj.pen.font_set(prop)
-
-def get_font_func(obj):
-    """Get the font of the object."""
-    return obj.pen.font_get()
 
 class SetFontCommand(SetPropCommand):
     """Simple class for handling font changes."""
@@ -992,6 +966,3 @@ class ChangeStrokeCommand(Command):
         for obj in self.obj:
             obj.stroke_change(self.__direction)
         self.undone_set(False)
-
-
-

@@ -1,5 +1,6 @@
 To do (sorted by priority):
 
+ * properties dialog called with right-click on an object
  * identical commands (like move) should be merged
  * make a "moving guides" thingy, like vertical and horizontal moving line
  * make a "recent colors" (or "recent pens") widget
@@ -48,6 +49,8 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * color change (which affects directly the pen) does not update the object
+   mod flag, so object is not redrawn
  * stroke change does not update the bbox
  * Brush two sucks.
  * brushes should better cache the calculations. Only real changes should
@@ -55,9 +58,9 @@ Bugs:
  * maybe numpy should be used for brush calculations.
  * Separation between State and Setter is non-existent, it is unclear which
    does what.
- * There is no way of changing transparency or line width of an existing object. 
-   the ctrl-click and ctrl-shift-click should check that objects are underneath and 
-   their settings instead of changing the globals.
+ * There is no way of changing transparency or line width of an existing
+   object. the ctrl-click and ctrl-shift-click should check that objects
+   are underneath and their settings instead of changing the globals.
  * fill toggle is low-level, not undoable and does not work always as
    expected
  * when pasting the object, the new object should be placed next to the
@@ -67,6 +70,9 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * group drawing mode is cool. Maybe that should be the default? i.e., when
+   drawing, all the objects drawn without leaving the mode are grouped. And
+   ctrl-shift-g simply closes one group and starts another.
  * undo for rotate doesn't work if rotating was done via keypress
  * changing line width with ctrl-- / ctrl-+ can't be undone
  * History should be a separate single instance class that gets called
