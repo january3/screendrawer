@@ -33,30 +33,34 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
+ * text object editing: ditch that fucker, just create a gtk widget to do
+   the job, why on earth would we want to do it ourselves??
  * all shit and their family goes into a mouse event. Isn't that too much?
    Should it not be defined clearer, who needs what from a mouse event?
- * why is history in gom? shouldn't it be in the commands? As in, commands
-   should actually add themselves to history? -> but how: undo has to call
-   on history object, so we would have to pass the history to each command
-   that we create. Unless we make history a singleton, and then commands
-   can simply create the history object and get always the same instance.
-   Or history is one of the "superobjects" like gom. => actually, it makes
-   sense, since gom is doing most of the heavy lifting
+ * brushes should better cache the calculations. Only real changes should
+   trigger the recalculation of brush outlines.
+ * maybe numpy should be used for brush calculations.
  * the interaction between canvas, gom, dm, em is tangled. 
- * It is not entirely clear where the file is saved. In theory it is, but
-   in practice I find myself wondering.
  * should the EM also take care of pre- and post-dispatch actions? Like
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * changing pages or layers while creating automatic groups messes them up.
+   same for delete page etc.
+ * single path objects still get wrapped up in a group. Maybe it would be
+   possible for a single-object-group to act like the actual object? Better
+   - this should be done by the grouping wiglet; it should silently
+   replace the group with the path when the group is finished. so,
+   basically:
+
+    * create a group
+    * add the first path to the group
+    * remove the group from the page
+    * add the path to the page
+ * ctrl-v / ctrl-c do not work while editing text objects
  * text editing cannot be undone
- * color change (which affects directly the pen) does not update the object
-   mod flag, so object is not redrawn
  * stroke change does not update the bbox
  * Brush two sucks.
- * brushes should better cache the calculations. Only real changes should
-   trigger the recalculation of brush outlines.
- * maybe numpy should be used for brush calculations.
  * Separation between State and Setter is non-existent, it is unclear which
    does what.
  * There is no way of changing transparency or line width of an existing
@@ -71,6 +75,11 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * property changes are not noticed when applied to a group, because they
+   are applied only to the primitives, and the group mod flag stays what it
+   was. => maybe groups should be aware of their members?
+ * color change (which affects directly the pen) does not update the object
+   mod flag, so object is not redrawn
  * duplicates when creating objects - probably due to some automatic
    grouping shit
  * groupes with a single object should be automatically ungrouped
@@ -79,6 +88,8 @@ Done:
    cannot be edited simply by double-clicking on them! Maybe automated
    grouping only in drawing mode? -> yeah, that would be swell
  * make a little wiglet that shows the file name
+ * It is not entirely clear where the file is saved. In theory it is, but
+   in practice I find myself wondering.
  * group drawing mode is cool. Maybe that should be the default? i.e., when
    drawing, all the objects drawn without leaving the mode are grouped. And
    ctrl-shift-g simply closes one group and starts another.
@@ -103,6 +114,13 @@ Done:
       Maybe gom should emit a signal "the current page is so and so", and
       then the history can react to it, so that when an command comes up,
       history knows on what page that command is happening.
+ * why is history in gom? shouldn't it be in the commands? As in, commands
+   should actually add themselves to history? -> but how: undo has to call
+   on history object, so we would have to pass the history to each command
+   that we create. Unless we make history a singleton, and then commands
+   can simply create the history object and get always the same instance.
+   Or history is one of the "superobjects" like gom. => actually, it makes
+   sense, since gom is doing most of the heavy lifting
  * in the grouping mode, you cannot really undo shit. Also, everything
    disappears if you exit without pressing escape or ctrl-shift-g. Also, if
    you clear a canvas. This is because while the grouping has not been

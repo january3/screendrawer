@@ -18,6 +18,7 @@ class History:
         bus.on("history_redo",   self.redo)
         bus.on("history_undo",   self.undo)
         bus.on("history_append", self.add)
+        bus.on("history_remove", self.history_remove)
 
     def length(self):
         """Return the number of items in the history."""
@@ -33,6 +34,14 @@ class History:
         log.debug(f"appending {cmd.type()} on page={self.__cur_page}")
         self.__history.append({'cmd': cmd, 'page': self.__cur_page})
         self.__redo = []
+
+    def history_remove(self, cmd):
+        """Remove an item from the history."""
+        log.debug(f"removing {cmd.type()} from history")
+        n = len(self.__history)
+        self.__history = [ item for item in self.__history if item['cmd'] != cmd ]
+        if n == len(self.__history):
+            log.warning(f"could not remove {cmd.type()} from history")
 
     def undo(self):
         """Undo the last action."""

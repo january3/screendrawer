@@ -85,22 +85,6 @@ class GraphicsObjectManager:
         self.page_set(curpage)
         self.__bus.emit("history_append", True, cmd)
 
-    def next_layer(self):
-        """Go to the next layer."""
-        log.debug("creating a new layer")
-        self.__page.next_layer()
-
-    def prev_layer(self):
-        """Go to the previous layer."""
-        self.__page.prev_layer()
-
-    def delete_layer(self):
-        """Delete the current layer."""
-        #cmd = 
-        #self.__page.delete_layer(self.__page.layer_no())
-        cmd = DeleteLayerCommand(self.__page, self.__page.layer_no())
-        self.__bus.emit("history_append", True, cmd)
-
     def page(self):
         """Return the current page."""
         return self.__page
@@ -120,7 +104,6 @@ class GraphicsObjectManager:
         else:
             for _ in range(cur_n - n):
                 self.prev_page()
-
 
     def number_of_pages(self):
         """Return the total number of pages."""
@@ -148,6 +131,22 @@ class GraphicsObjectManager:
             p = p.prev()
         return p
 
+    def next_layer(self):
+        """Go to the next layer."""
+        log.debug("creating a new layer")
+        self.__page.next_layer()
+
+    def prev_layer(self):
+        """Go to the previous layer."""
+        self.__page.prev_layer()
+
+    def delete_layer(self):
+        """Delete the current layer."""
+        #cmd = 
+        #self.__page.delete_layer(self.__page.layer_no())
+        cmd = DeleteLayerCommand(self.__page, self.__page.layer_no())
+        self.__bus.emit("history_append", True, cmd)
+
     def objects(self):
         """Return the list of objects."""
         return self.__page.objects()
@@ -171,8 +170,7 @@ class GraphicsObjectManager:
         cmd = TransmuteCommand(objects=objects,
                                stack=self.__page.objects(),
                                new_type=mode,
-                               selection_objects=self.__page.selection().objects,
-                               page = self.__page)
+                               selection_objects=self.__page.selection().objects)
         self.__bus.emit("history_append", True, cmd)
 
     def transmute_selection(self, mode):
@@ -211,7 +209,7 @@ class GraphicsObjectManager:
         if not isinstance(obj, Drawable):
             raise ValueError("Only Drawables can be added to the stack")
 
-        cmd = AddCommand([obj], self.__page.objects(), page=self.__page)
+        cmd = AddCommand([obj], self.__page.objects())
         self.__bus.emit("history_append", True, cmd)
 
         return obj
@@ -249,14 +247,13 @@ class GraphicsObjectManager:
         if self.__page.selection().is_empty():
             return
         cmd = RemoveCommand(self.__page.selection().objects,
-                                            self.__page.objects(),
-                                            page=self.__page)
+                                            self.__page.objects())
         self.__bus.emit("history_append", True, cmd)
         self.__page.selection().clear()
 
     def remove_objects(self, objects, clear_selection = False):
         """Remove an object from the list of objects."""
-        cmd = RemoveCommand(objects, self.__page.objects(), page=self.__page)
+        cmd = RemoveCommand(objects, self.__page.objects())
         self.__bus.emit("history_append", True, cmd)
         if clear_selection:
             self.__page.selection().clear()
@@ -367,7 +364,7 @@ class GraphicsObjectManager:
         #self.__page.selection_delete()
         if self.__page.selection().objects:
             cmd = RemoveCommand(self.__page.selection().objects,
-                                                self.__page.objects(), page=self.__page)
+                                                self.__page.objects())
             self.__bus.emit("history_append", True, cmd)
             self.__page.selection().clear()
 
@@ -390,18 +387,21 @@ class GraphicsObjectManager:
         """Set the color of the selected objects."""
         if not self.__page.selection().is_empty():
             cmd = SetColorCommand(self.__page.selection(), color)
+            self.__page.selection().modified(True)
             self.__bus.emit("history_append", True, cmd)
 
     def selection_font_set(self, font_description):
         """Set the font of the selected objects."""
         if not self.__page.selection().is_empty():
             cmd = SetFontCommand(self.__page.selection(), font_description)
+            self.__page.selection().modified(True)
             self.__bus.emit("history_append", True, cmd)
 
     def selection_change_stroke(self, direction):
         """Change the stroke size of the selected objects."""
         if not self.__page.selection().is_empty():
             cmd = ChangeStrokeCommand(self.__page.selection(), direction)
+            self.__page.selection().modified(True)
             self.__bus.emit("history_append", True, cmd)
 
   # XXX! this is not implemented

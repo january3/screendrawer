@@ -435,11 +435,10 @@ class RemoveCommand(Command):
 
     :param objects: a list of objects to be removed.
     """
-    def __init__(self, objects, stack, page = None):
+    def __init__(self, objects, stack):
         super().__init__("remove", objects)
         self.__stack = stack
         self.__stack_copy = self.__stack[:]
-        self.__page = page
 
         # remove the objects from the stack
         for obj in self.obj:
@@ -450,14 +449,12 @@ class RemoveCommand(Command):
             return None
         swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(True)
-        return self.__page
 
     def redo(self):
         if not self.undone():
             return None
         swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(False)
-        return self.__page
 
 class AddCommand(Command):
     """
@@ -465,10 +462,9 @@ class AddCommand(Command):
 
     :param objects: a list of objects to be removed.
     """
-    def __init__(self, objects, stack, page = None):
+    def __init__(self, objects, stack):
         super().__init__("add", objects)
         self.__stack = stack
-        self.__page = page
         self.__add_objects()
 
     def __add_objects(self):
@@ -483,14 +479,12 @@ class AddCommand(Command):
             self.__stack.remove(o)
 
         self.undone_set(True)
-        return self.__page
 
     def redo(self):
         if not self.undone():
             return None
         self.__add_objects()
         self.undone_set(False)
-        return self.__page
 
 class TransmuteCommand(Command):
     """
@@ -904,6 +898,7 @@ class SetPropCommand(Command):
         for obj in self.obj:
             log.debug(f"setting prop type {mytype} for {obj}")
             set_prop_func(obj, prop)
+            obj.modified(True)
 
     def undo(self):
         """Undo the command."""
@@ -912,6 +907,7 @@ class SetPropCommand(Command):
         for obj in self.obj:
             if obj in self.__undo_dict:
                 self.__set_prop_func(obj, self.__undo_dict[obj])
+                obj.modified(True)
         self.undone_set(True)
 
     def redo(self):
@@ -920,6 +916,7 @@ class SetPropCommand(Command):
             return
         for obj in self.obj:
             self.__set_prop_func(obj, self.__prop)
+            obj.modified(True)
         self.undone_set(False)
 
 class SetPenCommand(SetPropCommand):

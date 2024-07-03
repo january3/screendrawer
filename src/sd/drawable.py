@@ -26,6 +26,11 @@ class DrawableRoot:
         """Called when the mouse moves during drawing."""
         self.mod += 1
 
+    def modified(self, mod=None):
+        if mod:
+            self.mod += 1
+        return self.mod
+
     def finish(self):
         """Called when building (drawing, typing etc.) is concluded."""
         self.mod += 1

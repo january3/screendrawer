@@ -250,7 +250,7 @@ class Page:
         """
         ret_commands = []
         for layer in self.__layers:
-            cmd = RemoveCommand(layer.objects()[:], layer.objects(), page = self)
+            cmd = RemoveCommand(layer.objects()[:], layer.objects())
             ret_commands.append(cmd)
         return CommandGroup(ret_commands[::-1])
 

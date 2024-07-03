@@ -7,6 +7,7 @@ from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 from .drawable_primitives import SelectionTool                   # <remove>
 from .commands import RotateCommand, ResizeCommand, MoveCommand  # <remove>
 from .commands import RemoveCommand, AddToGroupCommand           # <remove>
+from .commands import CommandGroup, AddCommand                   # <remove>
 from .drawable_factory import DrawableFactory                    # <remove>
 from .drawable_group import DrawableGroup                        # <remove>
 import logging                                                   # <remove>
@@ -657,6 +658,17 @@ class WigletCreateGroup(Wiglet):
         self.__bus.off("clear_page", self.end_grouping)
         self.__bus.off("mode_set",   self.end_grouping)
 
+        n = self.__group_obj.length()
+
+        if n == 1:
+            page = self.__state.current_page()
+            obj = self.__group_obj.objects[0]
+            cmd1 = RemoveCommand([ self.__group_obj ], page.objects())
+            self.__bus.emit("history_append", True, cmd1)
+            cmd2 = AddCommand([ obj ], page.objects())
+            #cmd = CommandGroup([ cmd1, cmd2 ])
+            self.__bus.emit("history_append", True, cmd2)
+
         self.__group_obj = None
 
         if self.__grouping:
@@ -685,9 +697,12 @@ class WigletCreateGroup(Wiglet):
         if not self.__added:
             # temporarily stop listening to add_object events
             # so that we can add the group object without recursion
-            self.__bus.off("add_object", self.add_object)
-            self.__bus.emit("add_object", True, self.__group_obj)
-            self.__bus.on("add_object", self.add_object, priority = 99)
+           #self.__bus.off("add_object", self.add_object)
+           #self.__bus.emit("add_object", True, self.__group_obj)
+           #self.__bus.on("add_object", self.add_object, priority = 99)
+            page = self.__state.current_page()
+            cmd = AddCommand([ self.__group_obj ], page.objects())
+            self.__bus.emit("history_append", True, cmd)
             self.__added = True
 
         cmd = AddToGroupCommand(self.__group_obj, obj)
