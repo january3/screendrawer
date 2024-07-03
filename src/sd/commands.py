@@ -65,7 +65,7 @@ class CommandGroup(Command):
         """Undo the command."""
         if self.undone():
             return None
-        for cmd in self.__commands:
+        for cmd in self.__commands[::-1]:
             cmd.undo()
         self.undone_set(True)
         return self.__page
