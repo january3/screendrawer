@@ -11,6 +11,7 @@ To do (sorted by priority):
  * different brushes should have different cursors (ha, ha, haahaha)
  * clean up font code. Maybe use the Pango.FontDescription class for
    everything - why not?
+ * save history! Because why the fuck not
  * idea for path editing: "thumb" - moving a point on path and dragging
    surrounding points with it in a rubber-like fashion; how many - that depends on current line
    width (so broader line make more points move)

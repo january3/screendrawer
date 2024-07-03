@@ -9,6 +9,8 @@ from .utils import calc_rotation_angle, sort_by_stack ## <remove>
 from .drawable_factory import DrawableFactory ## <remove>
 from .drawable_group import DrawableGroup ## <remove>
 from .drawable_group import ClippingGroup ## <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 def swap_stacks(stack1, stack2):
     """Swap two stacks"""
@@ -246,8 +248,8 @@ class UnClipCommand(Command):
 
         for obj in self.obj:
             if not obj.type == "clipping_group":
-                print("Object is not a clipping_group, ignoring:", obj)
-                print("object type:", obj.type)
+                log.warning(f"Object is not a clipping_group, ignoring: {obj}")
+                log.warning(f"object type: {obj.type}")
                 continue
 
             n += 1
@@ -386,8 +388,8 @@ class UngroupObjectCommand(Command):
 
         for obj in self.obj:
             if not obj.type == "group":
-                print("Object is not a group, ignoring:", obj)
-                print("object type:", obj.type)
+                log.warning(f"Object is not a group, ignoring: {obj}")
+                log.warning(f"object type: {obj.type}")
                 continue
 
             n += 1
@@ -509,7 +511,7 @@ class TransmuteCommand(Command):
         self.__stack    = stack
         self.__selection_objects = selection_objects
         self.__page = page
-        print("executing transmute; undone = ", self.undone())
+        log.debug(f"executing transmute; undone = {self.undone()}")
 
         for obj in self.obj:
             new_obj = DrawableFactory.transmute(obj, new_type)
@@ -773,7 +775,7 @@ class MoveCommand(MoveResizeCommand):
     def __init__(self, obj, origin):
         super().__init__("move", obj, origin)
         self.__last_pt = origin
-        print("MoveCommand: origin is", origin)
+        log.debug(f"MoveCommand: origin is {[int(x) for x in origin]}")
 
     def event_update(self, x, y):
         """Update the move event."""
@@ -785,13 +787,13 @@ class MoveCommand(MoveResizeCommand):
 
     def event_finish(self):
         """Finish the move event."""
-        print("MoveCommand: finish")
+        log.debug("MoveCommand: finish")
 
     def undo(self):
         """Undo the command."""
         if self.undone():
             return
-        print("MoveCommand: undo")
+        log.debug("MoveCommand: undo")
         dx = self.start_point[0] - self.__last_pt[0]
         dy = self.start_point[1] - self.__last_pt[1]
         self.obj.move(dx, dy)
@@ -900,7 +902,7 @@ class SetPropCommand(Command):
         self.__undo_dict = { obj: get_prop_func(obj) for obj in self.obj }
 
         for obj in self.obj:
-            print("setting prop for", obj)
+            log.debug(f"setting prop type {mytype} for {obj}")
             set_prop_func(obj, prop)
 
     def undo(self):
