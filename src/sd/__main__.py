@@ -148,7 +148,7 @@ class TransparentWindow(Gtk.Window):
 
         self.clipboard           = Clipboard()
 
-        self.setter = Setter(bus = self.bus, app = self, state = self.state)
+        self.setter = Setter(bus = self.bus, state = self.state)
 
         # initialize the wiglets - which listen to events
         self.__init_wiglets()
@@ -317,7 +317,7 @@ class TransparentWindow(Gtk.Window):
         font_description = FontChooser(self.state.pen(), self)
 
         if font_description:
-            self.setter.set_font(font_description)
+            self.bus.emit("set_font", True, font_description)
 
     def show_help_dialog(self):
         """Show the help dialog."""

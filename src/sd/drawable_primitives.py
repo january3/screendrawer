@@ -265,11 +265,19 @@ class Text(DrawableTrafo):
             self.mod += 1
         return self.__show_caret
 
+    def stroke(self, font_size = None):
+        """Return the stroke of the text."""
+        if font_size is not None:
+            self.pen.font_size = font_size
+            self.mod += 1
+        return self.pen.font_size
+
     def stroke_change(self, direction):
         """Change text size up or down."""
         self.pen.font_size += direction
         self.pen.font_size = max(8, min(128, self.pen.font_size))
         self.mod += 1
+        return self.pen.font_size
 
     def to_dict(self):
         return {

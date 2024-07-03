@@ -209,23 +209,21 @@ class Setter:
             cls.__new_instance = super(Setter, cls).__new__(cls)
         return cls.__new_instance
 
-    def __init__(self, bus, app, state):
+    def __init__(self, bus, state):
         self.__bus  = bus
         self.__state = state
-        self.__app = app
-        self.__gom = state.gom()
         self.__cursor = state.cursor()
 
         bus.on("set_color", self.set_color)
         bus.on("set_brush", self.set_brush)
         bus.on("toggle_outline", self.toggle_outline)
-        bus.on("stroke_change", self.stroke_change)
+        bus.on("stroke_change", self.stroke_change, 90)
+        bus.on("set_font", self.set_font)
 
     # -------------------------------------------------------------------------
     def set_font(self, font_description):
         """Set the font."""
         self.__state.pen().font_set_from_description(font_description)
-        self.__gom.selection_font_set(font_description)
 
         obj = self.__state.current_obj()
         if obj and obj.type == "text":
@@ -234,36 +232,37 @@ class Setter:
     def set_brush(self, brush = None):
         """Set the brush."""
         if brush is not None:
-            print("setting pen", self.__state.pen(), "brush to", brush)
+            log.debug(f"setting pen {self.__state.pen()} brush to {brush}")
             self.__state.pen().brush_type(brush)
         return self.__state.pen().brush_type()
 
     def set_color(self, color = None):
         """Get or set the color."""
-        log.debug(f"Setting color to {color}")
+
         if color is None:
             return self.__state.pen().color
+
+        log.debug(f"Setting color to {color}")
         self.__state.pen().color_set(color)
-        self.__gom.selection_color_set(color)
         return color
 
     def stroke_change(self, direction):
         """Modify the line width or text size."""
-        print("Changing stroke", direction)
+        log.debug(f"Changing stroke {direction}")
         cobj = self.__state.current_obj()
-        if cobj and cobj.type == "text":
-            print("Changing text size")
-            cobj.stroke_change(direction)
-            self.__state.pen().font_size = cobj.pen.font_size
-        else:
-            for obj in self.__gom.selected_objects():
-                obj.stroke_change(direction)
-
         # without a selected object, change the default pen, but only if in the correct mode
         if self.__state.mode() == "draw":
             self.__state.pen().line_width = max(1, self.__state.pen().line_width + direction)
         elif self.__state.mode() == "text":
             self.__state.pen().font_size = max(1, self.__state.pen().font_size + direction)
+
+        if cobj and cobj.type == "text":
+            log.debug(f"Changing text size")
+            cobj.stroke_change(direction)
+            self.__state.pen().font_size = cobj.pen.font_size
+            return True
+
+        return False
 
     def toggle_outline(self):
         """Toggle outline mode."""

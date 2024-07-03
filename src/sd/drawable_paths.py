@@ -82,10 +82,18 @@ class PathRoot(Drawable):
             "brush": self.__brush.to_dict()
         }
 
+    def stroke(self, line_width = None):
+        """Change the stroke size."""
+        if line_width:
+            self.pen.line_width = line_width
+        self.outline_recalculate()
+        return self.pen.stroke()
+
     def stroke_change(self, direction):
         """Change the stroke size."""
         self.pen.stroke_change(direction)
         self.outline_recalculate()
+        return self.pen.stroke()
 
     def smoothen(self, threshold=20):
         """Smoothen the path."""

@@ -96,9 +96,20 @@ class Pen:
         """Get pen color"""
         return self.color
 
-    def line_width_set(self, line_width):
+    def stroke(self, line_width = None):
         """Set pen line width"""
-        self.line_width = line_width
+        if line_width is not None:
+            self.line_width = line_width
+        return self.line_width
+
+    def stroke_change(self, direction):
+        """Change the line width of the pen"""
+        # for thin lines, a fine tuned change of line width
+        if self.line_width > 2:
+            self.line_width += direction
+        else:
+            self.line_width += direction / 10
+        self.line_width = max(0.1, self.line_width)
 
     def font_get(self):
         """Get the font description"""
@@ -140,15 +151,6 @@ class Pen:
 
         print("setting font to",
               self.font_family, self.font_size, self.font_weight, self.font_style)
-
-    def stroke_change(self, direction):
-        """Change the line width of the pen"""
-        # for thin lines, a fine tuned change of line width
-        if self.line_width > 2:
-            self.line_width += direction
-        else:
-            self.line_width += direction / 10
-        self.line_width = max(0.1, self.line_width)
 
     def to_dict(self):
         """Convert pen properties to a dictionary"""

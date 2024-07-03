@@ -730,23 +730,23 @@ class RotateCommand(MoveResizeCommand):
         angle (float, optional): set the rotation angle directly
     """
 
-    def __init__(self, obj, origin=None, corner=None, angle = None, page = None):
+    def __init__(self, obj, origin=None, corner=None, angle = None):
         super().__init__("rotate", obj, origin)
         self.corner      = corner
         bb = obj.bbox()
         self.__rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
         obj.rotate_start(self.__rotation_centre)
-        self.__page = page
+
+        self.__angle = 0
 
         if not angle is None:
             self.obj.rotate(angle, set_angle = False)
-
-        self._angle = 0
+            self.__angle = angle
 
     def event_update(self, x, y):
         angle = calc_rotation_angle(self.__rotation_centre, self.start_point, (x, y))
-        d_a = angle - self._angle
-        self._angle = angle
+        d_a = angle - self.__angle
+        self.__angle = angle
         self.obj.rotate(d_a, set_angle = False)
 
     def event_finish(self):
@@ -754,28 +754,25 @@ class RotateCommand(MoveResizeCommand):
 
     def undo(self):
         if self.undone():
-            return None
+            return
         self.obj.rotate_start(self.__rotation_centre)
-        self.obj.rotate(-self._angle)
+        self.obj.rotate(-self.__angle)
         self.obj.rotate_end()
         self.undone_set(True)
-        return self.__page
 
     def redo(self):
         if not self.undone():
-            return None
+            return
         self.obj.rotate_start(self.__rotation_centre)
-        self.obj.rotate(self._angle)
+        self.obj.rotate(self.__angle)
         self.obj.rotate_end()
         self.undone_set(False)
-        return self.__page
 
 class MoveCommand(MoveResizeCommand):
     """Simple class for handling move events."""
-    def __init__(self, obj, origin, page = None):
+    def __init__(self, obj, origin):
         super().__init__("move", obj, origin)
         self.__last_pt = origin
-        self.__page = page
         print("MoveCommand: origin is", origin)
 
     def event_update(self, x, y):
@@ -793,28 +790,26 @@ class MoveCommand(MoveResizeCommand):
     def undo(self):
         """Undo the command."""
         if self.undone():
-            return None
+            return
         print("MoveCommand: undo")
         dx = self.start_point[0] - self.__last_pt[0]
         dy = self.start_point[1] - self.__last_pt[1]
         self.obj.move(dx, dy)
         self.undone_set(True)
-        return self.__page
 
     def redo(self):
         """Redo the command."""
         if not self.undone():
-            return None
+            return
         dx = self.start_point[0] - self.__last_pt[0]
         dy = self.start_point[1] - self.__last_pt[1]
         self.obj.move(-dx, -dy)
         self.undone_set(False)
-        return self.__page
 
 
 class ResizeCommand(MoveResizeCommand):
     """Simple class for handling resize events."""
-    def __init__(self, obj, origin, corner, proportional = False, page = None):
+    def __init__(self, obj, origin, corner, proportional = False):
         super().__init__("resize", obj, origin)
         self.corner = corner
         obj.resize_start(corner, origin)
@@ -825,30 +820,27 @@ class ResizeCommand(MoveResizeCommand):
 
         self._orig_bb_ratio = self._orig_bb[3] / self._orig_bb[2]
         self.__newbb = None
-        self.__page = page
 
     def undo(self):
         """Undo the command."""
         if self.undone():
-            return None
+            return
         obj = self.obj
         pt  = (self._orig_bb[0], self._orig_bb[1])
         obj.resize_start(self.corner, pt)
         self.obj.resize_update(self._orig_bb)
         obj.resize_end()
         self.undone_set(True)
-        return self.__page
 
     def redo(self):
         """Redo the command."""
         if not self.undone():
-            return None
+            return
         obj = self.obj
         obj.resize_start(self.corner, self.start_point)
         obj.resize_update(self.__newbb)
         obj.resize_end()
         self.undone_set(False)
-        return self.__page
 
     def event_finish(self):
         """Finish the resize event."""
@@ -901,10 +893,9 @@ class SetPropCommand(Command):
     In principle, we need one function to extract the current property, and
     one to set the property.
     """
-    def __init__(self, mytype, objects, prop, get_prop_func, set_prop_func, page = None):
+    def __init__(self, mytype, objects, prop, get_prop_func, set_prop_func):
         super().__init__(mytype, objects.get_primitive())
         self.__prop = prop
-        self.__page = page
         #self.__get_prop_func = get_prop_func
         self.__set_prop_func = set_prop_func
         self.__undo_dict = { obj: get_prop_func(obj) for obj in self.obj }
@@ -916,21 +907,19 @@ class SetPropCommand(Command):
     def undo(self):
         """Undo the command."""
         if self.undone():
-            return None
+            return
         for obj in self.obj:
             if obj in self.__undo_dict:
                 self.__set_prop_func(obj, self.__undo_dict[obj])
         self.undone_set(True)
-        return self.__page
 
     def redo(self):
         """Redo the command."""
         if not self.undone():
-            return None
+            return
         for obj in self.obj:
             self.__set_prop_func(obj, self.__prop)
         self.undone_set(False)
-        return self.__page
 
 
 def pen_set_func(obj, prop):
@@ -949,7 +938,6 @@ class SetPenCommand(SetPropCommand):
         pen = pen.copy()
         super().__init__("set_pen", objects, pen, get_prop_func, set_prop_func)
 
-
 def color_set_func(obj, prop):
     """Set the color of the object."""
     obj.color_set(prop)
@@ -965,7 +953,6 @@ class SetColorCommand(SetPropCommand):
         get_prop_func = color_get_func
         super().__init__("set_color", objects, color, get_prop_func, set_prop_func)
 
-
 def set_font_func(obj, prop):
     """Set the font of the object."""
     obj.pen.font_set(prop)
@@ -977,6 +964,34 @@ def get_font_func(obj):
 class SetFontCommand(SetPropCommand):
     """Simple class for handling font changes."""
     def __init__(self, objects, font):
-        set_prop_func = set_font_func
-        get_prop_func = get_font_func
+        set_prop_func = lambda obj, prop: obj.pen.font_set(prop)
+        get_prop_func = lambda obj: obj.pen.font_get()
         super().__init__("set_font", objects, font, get_prop_func, set_prop_func)
+
+class ChangeStrokeCommand(Command):
+    """Simple class for handling line width changes."""
+    def __init__(self, objects, direction):
+        super().__init__("change_stroke", objects.get_primitive())
+
+        self.__direction = direction
+        self.__undo_dict = { obj: obj.stroke_change(direction) for obj in self.obj }
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return
+        for obj in self.obj:
+            if obj in self.__undo_dict:
+                obj.stroke(self.__undo_dict[obj])
+        self.undone_set(True)
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return
+        for obj in self.obj:
+            obj.stroke_change(self.__direction)
+        self.undone_set(False)
+
+
+

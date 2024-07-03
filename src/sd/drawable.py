@@ -142,10 +142,17 @@ class Drawable(DrawableRoot):
         self.pen = pen.copy()
         self.mod += 1
 
+    def stroke(self, lw):
+        """Set the line width of the object."""
+        self.mod += 1
+        self.pen.stroke(lw)
+        return self.pen.stroke()
+
     def stroke_change(self, direction):
         """Change the stroke size of the object."""
         self.pen.stroke_change(direction)
         self.mod += 1
+        return self.pen.stroke()
 
     def smoothen(self, threshold=20):
         """Smoothen the object."""
@@ -165,11 +172,6 @@ class Drawable(DrawableRoot):
         """Fill the object with a color."""
         self.mod += 1
         self.__filled = fill
-
-    def line_width_set(self, lw):
-        """Set the color of the object."""
-        self.mod += 1
-        self.pen.line_width_set(lw)
 
     def color_set(self, color):
         """Set the color of the object."""

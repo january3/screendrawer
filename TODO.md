@@ -1,5 +1,6 @@
 To do (sorted by priority):
 
+ * identical commands (like move) should be merged
  * make a "moving guides" thingy, like vertical and horizontal moving line
  * make a "recent colors" (or "recent pens") widget
  * menus should use the bus as well
@@ -47,7 +48,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * undo for rotate doesn't work if rotating was done via keypress
  * stroke change does not update the bbox
  * Brush two sucks.
  * brushes should better cache the calculations. Only real changes should
@@ -67,6 +67,8 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * undo for rotate doesn't work if rotating was done via keypress
+ * changing line width with ctrl-- / ctrl-+ can't be undone
  * History should be a separate single instance class that gets called
    through the bus. However: gom must collaborate with history, because
    when undoing, we should return to the given page. But: maybe the current page

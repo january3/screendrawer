@@ -52,6 +52,9 @@ class GraphicsObjectManager:
         self.__bus.on("prev_layer", self.prev_layer)
         self.__bus.on("delete_layer", self.delete_layer)
         self.__bus.on("apply_pen_to_selection", self.selection_apply_pen)
+        self.__bus.on("set_color", self.selection_color_set)
+        self.__bus.on("set_font", self.selection_font_set)
+        self.__bus.on("stroke_change", self.selection_change_stroke)
 
     def clear(self):
         """Clear the list of objects."""
@@ -390,8 +393,15 @@ class GraphicsObjectManager:
 
     def selection_font_set(self, font_description):
         """Set the font of the selected objects."""
-        cmd = SetFontCommand(self.__page.selection(), font_description)
-        self.__bus.emit("history_append", True, cmd)
+        if not self.__page.selection().is_empty():
+            cmd = SetFontCommand(self.__page.selection(), font_description)
+            self.__bus.emit("history_append", True, cmd)
+
+    def selection_change_stroke(self, direction):
+        """Change the stroke size of the selected objects."""
+        if not self.__page.selection().is_empty():
+            cmd = ChangeStrokeCommand(self.__page.selection(), direction)
+            self.__bus.emit("history_append", True, cmd)
 
   # XXX! this is not implemented
     def selection_apply_pen(self):
@@ -402,7 +412,7 @@ class GraphicsObjectManager:
 
     def move_obj(self, obj, dx, dy):
         """Move the object by the given amount."""
-        event_obj = MoveCommand(obj, (0, 0), page=self.__page)
+        event_obj = MoveCommand(obj, (0, 0))
         event_obj.event_update(dx, dy)
         self.__bus.emit("history_append", True, event_obj)
 
@@ -415,7 +425,7 @@ class GraphicsObjectManager:
     def rotate_obj(self, obj, angle):
         """Rotate the object by the given angle (degrees)."""
         log.debug(f"rotating by {angle}")
-        event_obj = RotateCommand(obj, angle=radians(angle), page = self.__page)
+        event_obj = RotateCommand(obj, angle=radians(angle))
         event_obj.event_finish()
         self.__bus.emit("history_append", True, event_obj)
 
