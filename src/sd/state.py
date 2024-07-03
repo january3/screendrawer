@@ -1,7 +1,7 @@
 """Status singleton class for holding key app information."""
-from sd.pen      import Pen                                        # <remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
+from sd.pen      import Pen                                        # <remove>
 
 class State:
     """Singleton class for holding key app information."""
@@ -15,22 +15,18 @@ class State:
     def __init__(self, app, bus, gom, cursor):
         bus.on("queue_draw", self.queue_draw)
         self.__bus  = bus
-        self.__mode = 'draw'
-        self.__app = app
-        self.__gom = gom
-        self.__cursor = cursor
-        self.__modified = True
-        self.__filename = None
 
-        bus.on("mode_set", self.mode, 999)
-        bus.on("cycle_bg_transparency", self.cycle_background, 0)
-        bus.on("toggle_wiglets", self.toggle_wiglets, 0)
-        bus.on("toggle_grid", self.toggle_grid, 0)
-        bus.on("switch_pens", self.switch_pens, 0)
-        bus.on("apply_pen_to_bg", self.apply_pen_to_bg, 0)
-        bus.on("clear_page", self.current_obj_clear, 0)
-        bus.on("set_bg_color", self.bg_color, 0)
-        bus.on("set_filename", self.filename, 0)
+        self.__vars = {
+                "mode": "draw",
+                "modified": True,
+                "filename": None,
+                }
+
+        self.__obj = {
+                "gom": gom,
+                "app": app,
+                "cursor": cursor
+                }
 
         self.__gr = {
                 "bg_color": (.8, .75, .65),
@@ -55,25 +51,36 @@ class State:
                         Pen(line_width = 40, color = (1, 1, 0),
                             font_size = 24, transparency = .2) ]
 
+        bus.on("mode_set", self.mode, 999)
+        bus.on("cycle_bg_transparency", self.cycle_background, 0)
+        bus.on("toggle_wiglets", self.toggle_wiglets, 0)
+        bus.on("toggle_grid", self.toggle_grid, 0)
+        bus.on("switch_pens", self.switch_pens, 0)
+        bus.on("apply_pen_to_bg", self.apply_pen_to_bg, 0)
+        bus.on("clear_page", self.current_obj_clear, 0)
+        bus.on("set_bg_color", self.bg_color, 0)
+        bus.on("set_filename", self.filename, 0)
+
+
     # -------------------------------------------------------------------------
 
     def filename(self, name = None):
         """Get or set the filename."""
         if name:
-            self.__filename = name
-        return self.__filename
+            self.__vars["filename"] = name
+        return self.__vars["filename"]
 
     def gom(self):
         """Return GOM"""
-        return self.__gom
+        return self.__obj["gom"]
 
     def page(self):
         """Current page"""
-        return self.__gom.page()
+        return self.gom().page()
 
     def selection(self):
         """Current selection"""
-        return self.__gom.selection()
+        return self.gom().selection()
 
     def current_obj(self, obj = None):
         """Get or set the current object."""
@@ -98,29 +105,29 @@ class State:
 
     def current_page(self):
         """Get the current page object from gom."""
-        return self.__gom.page()
+        return self.gom().page()
 
     def modified(self, value = None):
         """Get or set the modified flag."""
         if value is not None:
-            self.__modified = value
-        return self.__modified
+            self.__vars["modified"] = value
+        return self.__vars["modified"]
 
     # -------------------------------------------------------------------------
     def mode(self, mode = None):
         """Get or set the cursor mode."""
         if mode:
-            if mode == self.__mode:
+            if mode == self.__vars["mode"]:
                 return mode
             log.debug(f"setting mode to {mode}")
-            self.__mode = mode
-            self.__cursor.default(mode)
-        return self.__mode
+            self.__vars["mode"] = mode
+            self.cursor().default(mode)
+        return self.__vars["mode"]
 
     # -------------------------------------------------------------------------
     def cursor(self):
         """expose the cursor manager."""
-        return self.__cursor
+        return self.__obj["cursor"]
 
     # -------------------------------------------------------------------------
     def show_grid(self):
@@ -169,7 +176,7 @@ class State:
         self.__gr["transparency"] = {1: 0, 0: 0.5, 0.5: 1}[self.__gr["transparency"]]
 
     def alpha(self, value=None):
-        """Get or set the transparency."""
+        """Get or set the bg transparency."""
         if value:
             self.__gr["transparency"] = value
         return self.__gr["transparency"]
@@ -189,11 +196,11 @@ class State:
     # -------------------------------------------------------------------------
     def get_win_size(self):
         """Get the window size."""
-        return self.__app.get_size()
+        return self.__obj["app"].get_size()
 
     def queue_draw(self):
         """Queue a draw."""
-        self.__app.queue_draw()
+        self.__obj["app"].queue_draw()
 
     def hidden(self, value = None):
         """Hide or show the drawing."""
@@ -220,7 +227,6 @@ class Setter:
     def __init__(self, bus, state):
         self.__bus  = bus
         self.__state = state
-        self.__cursor = state.cursor()
 
         bus.on("set_color", self.set_color)
         bus.on("set_brush", self.set_brush)

@@ -192,7 +192,7 @@ class TransparentWindow(Gtk.Window):
     def __init_wiglets(self):
         """Initialize the wiglets."""
         wiglets = [
-                   WigletFileName(bus = self.bus, state = self.state),
+                   WigletStatusLine(bus = self.bus, state = self.state),
                    WigletEraser(bus = self.bus, state = self.state),
                    WigletCreateObject(bus = self.bus, state = self.state),
                    WigletCreateGroup(bus = self.bus, state = self.state),

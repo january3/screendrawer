@@ -489,12 +489,12 @@ class WigletToolSelector(Wiglet):
 
         return True
 
-class WigletFileName(Wiglet):
+class WigletStatusLine(Wiglet):
     """Show file name on the bottom of the screen"""
 
     def __init__(self, bus, state, bbox = (100, 100, 15, 500)):
         coords = (bbox[0], bbox[1])
-        super().__init__("file_name", coords)
+        super().__init__("status_line", coords)
 
         self.__state = state
         self.__screen_wh = (100, 100) # screen width and height
@@ -504,12 +504,14 @@ class WigletFileName(Wiglet):
         bus.on("update_size", self.update_size)
         bus.on("draw", self.draw)
 
-    def update_size(self, width=None, height=None):
+    def update_size(self, width, height):
         """update the size of the widget"""
-        if width is None or height is None:
-            width, height = self.__screen_wh
-        else:
-            self.__screen_wh = (width, height)
+
+        self.__screen_wh = (width, height)
+        return True
+
+    def calc_size(self):
+        width, height = self.__screen_wh
 
         # we can only update the size if we have the text parameters
         if not self.__text_par:
@@ -527,7 +529,20 @@ class WigletFileName(Wiglet):
         if not state.show_wiglets():
             return
 
-        file_name = self.__state.filename()
+        status_line = self.__state.filename() + f" |mode: {self.__state.mode()}|"
+
+        status_line += ' (!)' if self.__state.modified() else ''
+
+        bg_cols = [ int(x * 100) for x in self.__state.bg_color()]
+        tr      = int(self.__state.alpha() * 100)
+        bg_cols.append(tr)
+        status_line += f"  bg: {bg_cols}"
+
+        pen = self.__state.pen()
+        status_line += f"  pen: col={pen.color} lw={int(100*pen.line_width)/100} tr={int(100*pen.transparency)} {pen.brush_type()}"
+
+        hov = self.__state.hover_obj()
+        status_line += f"  hover: {hov.type}" if hov else ''
 
         cr.select_font_face("monospace", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
         cr.set_font_size(14)
@@ -538,9 +553,9 @@ class WigletFileName(Wiglet):
         # height: The height of the text.
         # x_advance: The distance to advance horizontally after drawing the text.
         # y_advance: The distance to advance vertically after drawing the text (usually 0 for horizontal text).
-        dx, dy, tw, th, _, _ = cr.text_extents(file_name)
+        dx, dy, tw, th, _, _ = cr.text_extents(status_line)
         self.__text_par = (dx, dy, tw, th)
-        self.update_size()
+        self.calc_size()
 
         cr.set_source_rgba(1, 1, 1, 0.5)
         cr.rectangle(*self.__bbox)
@@ -548,7 +563,7 @@ class WigletFileName(Wiglet):
 
         cr.set_source_rgb(0.2, 0.2, 0.2)
         cr.move_to(*self.coords)
-        cr.show_text(file_name)
+        cr.show_text(status_line)
 
 class WigletColorSelector(Wiglet):
     """Wiglet for selecting the color."""

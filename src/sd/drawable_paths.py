@@ -232,7 +232,6 @@ class PathRoot(Drawable):
         #print("drawing path", self, "with brush", self.__brush, "of type",
         # self.__brush.brush_type())
         if len(self.__brush.outline()) < 2 or len(self.coords) < 2:
-            log.warning("not enough coords or outline for path")
             return
 
         if not self.__brush.outline():
