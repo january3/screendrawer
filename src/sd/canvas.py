@@ -27,6 +27,7 @@ class Canvas:
         self.__bus = bus
         self.__force_redraw = False
         self.__bus.on("force_redraw", self.force_redraw)
+        self.__winsize = (0, 0)
 
     def force_redraw(self):
         """Set the marker to refresh the cache."""
@@ -57,7 +58,11 @@ class Canvas:
         cr.restore()
 
         ws = self.__state.get_win_size()
-        self.__bus.emit("update_size", exclusive = False, width = ws[0], height = ws[1])
+
+        if ws != self.__winsize:
+            self.__winsize = ws
+            self.__bus.emit("update_size", exclusive = False, width = ws[0], height = ws[1])
+
         self.__bus.emit("draw", exclusive = False, cr = cr, state = self.__state)
         self.__force_redraw = False
         return True

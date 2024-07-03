@@ -612,6 +612,16 @@ class WigletCreateGroup(Wiglet):
         self.__added = False
         self.__grouping = grouping
 
+        # the logic is as follows: listen to all events. If we catch an
+        # event which is not in the ignore list, we finish the group. This
+        # ensures that weird stuff doesn't happen.
+        self.__ignore_events = [ "queue_draw", "mouse_move",
+                                 "history_append", "add_object",
+                                 "draw", "obj_draw",
+                                 "left_mouse_click",
+                                 "update_size",
+                                 "mouse_release" ]
+
         bus.on("toggle_grouping",  self.toggle_grouping, priority = 0)
 
         if self.__grouping:
@@ -642,9 +652,18 @@ class WigletCreateGroup(Wiglet):
         self.__bus.on("escape",     self.end_grouping, priority = 99)
         self.__bus.on("clear_page", self.end_grouping, priority = 200)
         self.__bus.on("mode_set",   self.end_grouping, priority = 200)
+        self.__bus.on("*",          self.abort)
         self.__bus.off("toggle_grouping",  self.start_grouping)
 
         return True
+
+    def abort(self, event, *args, **kwargs):
+        if event in self.__ignore_events:
+            return False
+        log.debug(f"event: {event} {args}, aborting grouping")
+        self.end_grouping()
+
+        return False
     
     def end_grouping(self, mode = None):
         """End automatic grouping of objects"""
@@ -657,6 +676,7 @@ class WigletCreateGroup(Wiglet):
         self.__bus.off("escape",     self.end_grouping)
         self.__bus.off("clear_page", self.end_grouping)
         self.__bus.off("mode_set",   self.end_grouping)
+        self.__bus.off("*",          self.abort)
 
         n = self.__group_obj.length()
 

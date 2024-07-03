@@ -45,18 +45,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * changing pages or layers while creating automatic groups messes them up.
-   same for delete page etc.
- * single path objects still get wrapped up in a group. Maybe it would be
-   possible for a single-object-group to act like the actual object? Better
-   - this should be done by the grouping wiglet; it should silently
-   replace the group with the path when the group is finished. so,
-   basically:
-
-    * create a group
-    * add the first path to the group
-    * remove the group from the page
-    * add the path to the page
  * ctrl-v / ctrl-c do not work while editing text objects
  * text editing cannot be undone
  * stroke change does not update the bbox
@@ -73,6 +61,17 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * changing pages or layers while creating automatic groups messes them up.
+   same for delete page etc.
+ * single path objects still get wrapped up in a group. Maybe it would be
+   possible for a single-object-group to act like the actual object? Better
+   - this should be done by the grouping wiglet; it should silently
+   replace the group with the path when the group is finished. so,
+   basically:
+    * create a group
+    * add the first path to the group
+    * remove the group from the page
+    * add the path to the page
  * fill toggle is low-level, not undoable and does not work always as
    expected
  * property changes are not noticed when applied to a group, because they

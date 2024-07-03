@@ -32,7 +32,24 @@ class Bus:
         """Remove a listener for an event."""
         if event in self.__listeners:
             self.__listeners[event][:] = [x for x in self.__listeners[event] if x[0] != listener]
-    
+
+    def call(self, listener, event, args, kwargs):
+        """Call the listener with the specified arguments."""
+        try:
+            if event is not None:
+                ret = listener(event, *args, **kwargs)
+            else:
+                ret = listener(*args, **kwargs)
+        except Exception as e:
+            ret = None
+            exc_type, exc_value, exc_traceback = exc_info()
+            log.warning(f"Exception type: {exc_type}")
+            log.warning(f"Exception value:{exc_value}")
+            log.warning("Traceback:")
+            traceback.print_tb(exc_traceback)
+            log.warning(f"Error while dispatching signal {event} to {listener}: {e}")
+        return ret
+
     def emit(self, event, exclusive = False, *args, **kwargs):
         """
         Dispatch an event to all listeners.
@@ -41,24 +58,21 @@ class Bus:
         """
 
         log.debug(f"emitting event {event} with {args} and {kwargs}")
-        caught = False
-        if event in self.__listeners:
-            for listener, _ in self.__listeners[event]:
-                #print("event", event, "calling", listener, "with", args, kwargs)
-                try:
-                    ret = listener(*args, **kwargs)
-                except Exception as e:
-                    ret = None
-                    exc_type, exc_value, exc_traceback = exc_info()
-                    log.warning(f"Exception type: {exc_type}")
-                    log.warning(f"Exception value:{exc_value}")
-                    log.warning("Traceback:")
-                    traceback.print_tb(exc_traceback)
-                    log.warning(f"Error while dispatching signal {event} to {listener}: {e}")
 
-                if ret:
-                    #print("Event", event, "caught by:", listener)
-                    caught = True
-                    if exclusive:
-                        return ret
+        # completely ignore events that have no listeners
+        if not event in self.__listeners:
+            return False
+
+        # call the promiscous listeners first, but they don't stop the event
+        for listener, _ in self.__listeners.get('*', []):
+            ret = self.call(listener, event, args, kwargs)
+
+        caught = False
+        for listener, _ in self.__listeners.get(event, []):
+            ret = self.call(listener, None, args, kwargs)
+            if ret:
+                caught = True
+                if exclusive:
+                    return ret
+
         return caught
