@@ -66,8 +66,6 @@ Bugs:
  * There is no way of changing transparency or line width of an existing
    object. the ctrl-click and ctrl-shift-click should check that objects
    are underneath and their settings instead of changing the globals.
- * fill toggle is low-level, not undoable and does not work always as
-   expected
  * when pasting the object, the new object should be placed next to the
    cursor. Maybe. I don't really know.
  * when paste an object multiple times, the second and following copies
@@ -75,6 +73,8 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * fill toggle is low-level, not undoable and does not work always as
+   expected
  * property changes are not noticed when applied to a group, because they
    are applied only to the primitives, and the group mod flag stays what it
    was. => maybe groups should be aware of their members?

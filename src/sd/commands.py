@@ -941,6 +941,30 @@ class SetFontCommand(SetPropCommand):
         get_prop_func = lambda obj: obj.pen.font_get()
         super().__init__("set_font", objects, font, get_prop_func, set_prop_func)
 
+class ToggleFillCommand(Command):
+    """Simple class for handling toggling fill."""
+    def __init__(self, objects):
+        super().__init__("fill_toggle", objects.get_primitive())
+
+        for obj in self.obj:
+            obj.fill_toggle()
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return
+        for obj in self.obj:
+            obj.fill_toggle()
+        self.undone_set(True)
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return
+        for obj in self.obj:
+            obj.fill_toggle()
+        self.undone_set(False)
+
 class ChangeStrokeCommand(Command):
     """Simple class for handling line width changes."""
     def __init__(self, objects, direction):
