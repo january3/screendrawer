@@ -165,6 +165,7 @@ class TransparentWindow(Gtk.Window):
 
         # load the drawing from the savefile
         self.read_file(self.savefile)
+        self.bus.emit("set_filename", False, self.savefile)
 
         # connecting events
         self.__add_bus_events()
@@ -191,6 +192,7 @@ class TransparentWindow(Gtk.Window):
     def __init_wiglets(self):
         """Initialize the wiglets."""
         wiglets = [
+                   WigletFileName(bus = self.bus, state = self.state),
                    WigletEraser(bus = self.bus, state = self.state),
                    WigletCreateObject(bus = self.bus, state = self.state),
                    WigletCreateGroup(bus = self.bus, state = self.state),
@@ -327,11 +329,12 @@ class TransparentWindow(Gtk.Window):
 
     def save_drawing_as(self):
         """Save the drawing to a file."""
-        print("opening save file dialog")
+        log.debug("opening save file dialog")
         file = save_dialog(self)
         if file:
             self.savefile = file
-            print("setting savefile to", file)
+            log.debug(f"setting savefile to {self.savefile}")
+            self.bus.emit("set_filename", False, self.savefile)
             self.__save_state()
 
     def export_drawing(self):
@@ -488,6 +491,7 @@ class TransparentWindow(Gtk.Window):
             log.debug(f"Setting savefile to {file_name}")
             self.savefile = file_name
             self.state.modified(True)
+            self.bus.emit("set_filename", False, self.savefile)
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""

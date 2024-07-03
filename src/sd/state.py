@@ -20,6 +20,7 @@ class State:
         self.__gom = gom
         self.__cursor = cursor
         self.__modified = True
+        self.__filename = None
 
         bus.on("mode_set", self.mode, 999)
         bus.on("cycle_bg_transparency", self.cycle_background, 0)
@@ -29,6 +30,7 @@ class State:
         bus.on("apply_pen_to_bg", self.apply_pen_to_bg, 0)
         bus.on("clear_page", self.current_obj_clear, 0)
         bus.on("set_bg_color", self.bg_color, 0)
+        bus.on("set_filename", self.filename, 0)
 
         self.__gr = {
                 "bg_color": (.8, .75, .65),
@@ -54,6 +56,12 @@ class State:
                             font_size = 24, transparency = .2) ]
 
     # -------------------------------------------------------------------------
+
+    def filename(self, name = None):
+        """Get or set the filename."""
+        if name:
+            self.__filename = name
+        return self.__filename
 
     def gom(self):
         """Return GOM"""

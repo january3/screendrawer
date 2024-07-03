@@ -489,6 +489,67 @@ class WigletToolSelector(Wiglet):
 
         return True
 
+class WigletFileName(Wiglet):
+    """Show file name on the bottom of the screen"""
+
+    def __init__(self, bus, state, bbox = (100, 100, 15, 500)):
+        coords = (bbox[0], bbox[1])
+        super().__init__("file_name", coords)
+
+        self.__state = state
+        self.__screen_wh = (100, 100) # screen width and height
+        self.__text_par   = None
+        self.__bbox = bbox
+
+        bus.on("update_size", self.update_size)
+        bus.on("draw", self.draw)
+
+    def update_size(self, width=None, height=None):
+        """update the size of the widget"""
+        if width is None or height is None:
+            width, height = self.__screen_wh
+        else:
+            self.__screen_wh = (width, height)
+
+        # we can only update the size if we have the text parameters
+        if not self.__text_par:
+            return False
+
+        (dx, dy, tw, th) = self.__text_par
+        x0 = 5 - dx
+        y0 = height - 5 - th - dy
+        self.coords = (x0, y0)
+        self.__bbox = (x0 + dx - 5, y0 + dy - 5, tw + 10, th + 10)
+        return True
+
+    def draw(self, cr, state):
+        """draw the widget"""
+        if not state.show_wiglets():
+            return
+
+        file_name = self.__state.filename()
+
+        cr.select_font_face("monospace", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        cr.set_font_size(14)
+
+        # x_bearing: The horizontal distance from the origin to the leftmost part of the glyphs.
+        # y_bearing: The vertical distance from the origin to the topmost part of the glyphs.
+        # width: The width of the text.
+        # height: The height of the text.
+        # x_advance: The distance to advance horizontally after drawing the text.
+        # y_advance: The distance to advance vertically after drawing the text (usually 0 for horizontal text).
+        dx, dy, tw, th, _, _ = cr.text_extents(file_name)
+        self.__text_par = (dx, dy, tw, th)
+        self.update_size()
+
+        cr.set_source_rgba(1, 1, 1, 0.5)
+        cr.rectangle(*self.__bbox)
+        cr.fill()
+
+        cr.set_source_rgb(0.2, 0.2, 0.2)
+        cr.move_to(*self.coords)
+        cr.show_text(file_name)
+
 class WigletColorSelector(Wiglet):
     """Wiglet for selecting the color."""
     def __init__(self, bus, bbox = (0, 0, 15, 500),

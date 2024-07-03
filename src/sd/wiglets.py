@@ -243,9 +243,6 @@ class WigletSelectionTool(Wiglet):
         self.__bus = bus
         self.__gom   = gom
         bus.on("left_mouse_click", self.on_click, priority = -1)
-        bus.on("mouse_move",       self.on_move)
-        bus.on("mouse_release",   self.on_release)
-        bus.on("draw", self.draw)
 
     def draw(self, cr, state):
         """draw the widget"""
@@ -266,6 +263,11 @@ class WigletSelectionTool(Wiglet):
             return False
 
         log.debug("taking the call")
+
+        self.__bus.on("mouse_move",       self.on_move)
+        self.__bus.on("mouse_release",   self.on_release)
+        self.__bus.on("draw", self.draw)
+
         self.__gom.selection().clear()
         x, y, = ev.event.x, ev.event.y
         self.coords = (x, y)
@@ -295,7 +297,11 @@ class WigletSelectionTool(Wiglet):
         else:
             self.__gom.selection().clear()
 
+        self.__bus.off("mouse_move",       self.on_move)
+        self.__bus.off("mouse_release",   self.on_release)
+        self.__bus.off("draw", self.draw)
         self.__bus.emit("queue_draw")
+
         self.__selection_tool = None
         return True
 
@@ -309,18 +315,18 @@ class WigletPan(Wiglet):
         self.__origin = None
         self.__page   = None
         bus.on("left_mouse_click", self.on_click, priority = 9)
-        bus.on("mouse_move",       self.on_move, priority = 99)
-        bus.on("mouse_release",   self.on_release, priority = 99)
 
     def on_click(self, ev):
         """Start paning"""
         if ev.shift() or ev.ctrl() or not ev.alt():
             return False
 
-        log.debug("Panning: start")
-
         self.__origin = (ev.event.x, ev.event.y)
         self.__page   = self.__state.page()
+        log.debug(f"Panning: start on page {self.__page} at {self.__origin}")
+
+        self.__bus.on("mouse_move",     self.on_move, priority = 99)
+        self.__bus.on("mouse_release",  self.on_release, priority = 99)
 
         return True
 
@@ -330,7 +336,7 @@ class WigletPan(Wiglet):
         if not self.__origin:
             return False
 
-        log.debug(f"my origin: {self.__origin}")
+        log.debug(f"my origin: {[int(x) for x in self.__origin]}")
 
         page = self.__page
         tr = page.translate()
@@ -339,7 +345,7 @@ class WigletPan(Wiglet):
 
         dx, dy = ev.event.x - self.__origin[0], ev.event.y - self.__origin[1]
         tr = (tr[0] + dx, tr[1] + dy)
-        log.debug(f"Translating page by {tr}")
+        log.debug(f"Translating page by {[int(x) for x in tr]}")
 
         page.translate(tr)
 
@@ -349,7 +355,11 @@ class WigletPan(Wiglet):
 
     def on_release(self, ev):
         """Handle mouse release event"""
+        self.__bus.off("mouse_move",     self.on_move)
+        self.__bus.off("mouse_release",  self.on_release)
+
         if not self.__origin:
+            log.warning("no origin")
             return False
 
         self.__origin = None
@@ -365,13 +375,14 @@ class WigletEditText(Wiglet):
         self.__obj   = None
         self.__active = False
         bus.on("left_mouse_click",  self.on_click, priority = 99)
-        bus.on("mouse_move",        self.on_move, priority = 99)
-        bus.on("mouse_release",     self.on_release, priority = 99)
-        bus.on("mode_set",         self.finish_text_input,     priority = 99)
-        bus.on("finish_text_input", self.finish_text_input, priority = 99)
-        bus.on("escape",            self.finish_text_input, priority = 99)
         bus.on("left_mouse_double_click",
                self.on_double_click, priority = 9)
+
+        bus.on("mouse_move",        self.on_move, priority = 99)
+        bus.on("mouse_release",     self.on_release, priority = 99)
+        bus.on("mode_set",          self.finish_text_input,     priority = 99)
+        bus.on("finish_text_input", self.finish_text_input, priority = 99)
+        bus.on("escape",            self.finish_text_input, priority = 99)
 
     def on_double_click(self, ev):
         """Double click on text launches text editing"""
@@ -396,9 +407,8 @@ class WigletEditText(Wiglet):
         self.__bus.emit("queue_draw")
         return True
 
-
     def on_click(self, ev):
-        """Start drawing"""
+        """Start typing text"""
 
         if self.__active: # currently editing
             self.__bus.emit("finish_text_input")
