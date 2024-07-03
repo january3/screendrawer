@@ -2,6 +2,9 @@
 Class for editing text.
 """
 
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
+
 class TextEditor:
     """
     Class for editing text.
@@ -69,6 +72,36 @@ class TextEditor:
             self.__line -= 1
             self.__caret_pos = len(self.__cont[self.__line])
 
+    def __move_right_word(self):
+        """Move the caret to the right."""
+        log.debug("moving right one word")
+        if self.__caret_pos == len(self.__cont[self.__line]):
+            if self.__line < len(self.__cont) - 1:
+                self.__line += 1
+                self.__caret_pos = 0
+            else:
+                return
+        log.debug("caret_pos: %d char: %s", self.__caret_pos, self.__cont[self.__line][self.__caret_pos])
+        while self.__caret_pos < len(self.__cont[self.__line]) and self.__cont[self.__line][self.__caret_pos].isspace():
+            self.__caret_pos += 1
+        while self.__caret_pos < len(self.__cont[self.__line]) and not self.__cont[self.__line][self.__caret_pos].isspace():
+            self.__caret_pos += 1
+
+    def __move_left_word(self):
+        """Move the caret to the left."""
+        log.debug("moving left one word")
+        if self.__caret_pos == 0:
+            if self.__line > 0:
+                self.__line -= 1
+                self.__caret_pos = len(self.__cont[self.__line])
+            else:
+                return
+        log.debug("caret_pos: %d char: %s", self.__caret_pos, self.__cont[self.__line][self.__caret_pos - 1])
+        while self.__caret_pos > 0 and self.__cont[self.__line][self.__caret_pos - 1].isspace():
+            self.__caret_pos -= 1
+        while self.__caret_pos > 0 and not self.__cont[self.__line][self.__caret_pos - 1].isspace():
+            self.__caret_pos -= 1
+
     def __move_down(self):
         """Move the caret down."""
         if self.__line < len(self.__cont) - 1:
@@ -85,6 +118,8 @@ class TextEditor:
         """Move the caret in the text."""
         { "End":   self.__move_end,
           "Home":  self.__move_home,
+          "Ctrl-Right": self.__move_right_word,
+          "Ctrl-Left":  self.__move_left_word,
           "Right": self.__move_right,
           "Left":  self.__move_left,
           "Down":  self.__move_down,
@@ -130,7 +165,7 @@ class TextEditor:
         """Update the text by key press."""
         if keyname == "BackSpace": # and cur["caret_pos"] > 0:
             self.__backspace()
-        elif keyname in ["Home", "End", "Down", "Up", "Right", "Left"]:
+        elif keyname in ["Home", "End", "Down", "Up", "Right", "Left", "Ctrl-Left", "Ctrl-Right"]:
             self.move_caret(keyname)
         elif keyname == "Return":
             self.__newline()

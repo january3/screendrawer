@@ -142,9 +142,9 @@ class EventManager:
         # call the ctrl keybindings and pass the rest to the text object.
         cobj = state.current_obj()
 
-        if cobj and cobj.type == "text" and not(ctrl or keyname == "Escape"):
-            log.debug("updating text input")
-            cobj.update_by_key(keyname, char)
+        if cobj and cobj.type == "text" and not keyname == "Escape":
+            log.debug(f"updating text input, keyname={keyname} char={char} keyfull={keyfull} mode={mode}")
+            cobj.update_by_key(keyfull, char)
             state.queue_draw()
             return
 
