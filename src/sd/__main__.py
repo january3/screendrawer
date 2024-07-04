@@ -169,16 +169,19 @@ class TransparentWindow(Gtk.Window):
 
         # connecting events
         self.__add_bus_events()
-        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK |
+        self.drawing_area = Gtk.DrawingArea()
+        self.add(self.drawing_area)
+
+        self.drawing_area.set_events(Gdk.EventMask.BUTTON_PRESS_MASK |
                         Gdk.EventMask.BUTTON_RELEASE_MASK |
                         Gdk.EventMask.POINTER_MOTION_MASK |
                         Gdk.EventMask.TOUCH_MASK)
 
         self.connect("key-press-event",      em.on_key_press)
-        self.connect("draw",                 self.canvas.on_draw)
-        self.connect("button-press-event",   self.mouse.on_button_press)
-        self.connect("button-release-event", self.mouse.on_button_release)
-        self.connect("motion-notify-event",  self.mouse.on_motion_notify)
+        self.drawing_area.connect("draw",                 self.canvas.on_draw)
+        self.drawing_area.connect("button-press-event",   self.mouse.on_button_press)
+        self.drawing_area.connect("button-release-event", self.mouse.on_button_release)
+        self.drawing_area.connect("motion-notify-event",  self.mouse.on_motion_notify)
 
     def exit(self):
         """Exit the application."""

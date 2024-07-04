@@ -1,5 +1,6 @@
 To do (sorted by priority):
 
+ * gtk text widget for text editing
  * properties dialog called with right-click on an object
  * identical commands (like move) should be merged
  * make a "moving guides" thingy, like vertical and horizontal moving line
@@ -35,6 +36,13 @@ To do (sorted by priority):
 Design issues:
  * text object editing: ditch that fucker, just create a gtk widget to do
    the job, why on earth would we want to do it ourselves??
+ * the logic behind automated groups is as follows: while automated group
+   is created, there is a method listening in on any events. And anything
+   that is not on the ignore list causes the current group to be finished.
+   This should ensure that e.g. we don't change the page while drawing, yet
+   certain operations should be still possible. Maybe a more efficient
+   alternative would be smth like "notify me if anything *but* these
+   specific events happens'. That might save some time on function calls.
  * all shit and their family goes into a mouse event. Isn't that too much?
    Should it not be defined clearer, who needs what from a mouse event?
  * brushes should better cache the calculations. Only real changes should
