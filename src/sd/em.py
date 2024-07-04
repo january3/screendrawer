@@ -56,6 +56,7 @@ class EventManager:
             self.__bus = bus
             self.make_actions_dictionary(bus)
             self.make_default_keybindings()
+            bus.on("key_press_event", self.process_key_event)
 
     def dispatch_action(self, action_name, **kwargs):
         """
@@ -114,6 +115,11 @@ class EventManager:
         This method is called when a key is pressed.
         """
 
+        log.debug(f"key pressed {event.keyval} state {event.state}")
+        self.__bus.emit("key_press_event", True, event)
+
+    def process_key_event(self, event):
+        """Process the key event and send message to the bus"""
         state = self.__state
 
         keyname = Gdk.keyval_name(event.keyval)
