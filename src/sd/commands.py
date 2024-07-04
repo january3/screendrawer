@@ -928,6 +928,13 @@ class SetPenCommand(SetPropCommand):
         pen = pen.copy()
         super().__init__("set_pen", objects, pen, get_prop_func, set_prop_func)
 
+class SetTransparencyCommand(SetPropCommand):
+    """Simple class for handling line width changes."""
+    def __init__(self, objects, width):
+        set_prop_func = lambda obj, prop: obj.pen.transparency_set(prop)
+        get_prop_func = lambda obj: obj.pen.transparency
+        super().__init__("set_line_width", objects, width, get_prop_func, set_prop_func)
+
 class SetLineWidthCommand(SetPropCommand):
     """Simple class for handling line width changes."""
     def __init__(self, objects, width):

@@ -55,9 +55,6 @@ Bugs:
  * Brush two sucks.
  * Separation between State and Setter is non-existent, it is unclear which
    does what.
- * There is no way of changing transparency or line width of an existing
-   object. the ctrl-click and ctrl-shift-click should check that objects
-   are underneath and their settings instead of changing the globals.
  * when pasting the object, the new object should be placed next to the
    cursor. Maybe. I don't really know.
  * when paste an object multiple times, the second and following copies
@@ -65,6 +62,9 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * There is no way of changing transparency or line width of an existing
+   object. the ctrl-click and ctrl-shift-click should check that objects
+   are underneath and their settings instead of changing the globals.
  * menus should use the bus as well
  * changing pages or layers while creating automatic groups messes them up.
    same for delete page etc.

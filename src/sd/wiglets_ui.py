@@ -64,12 +64,10 @@ class WigletTransparency(Wiglet):
         self.__pen    = None
         self.__initial_transparency = None
         self.__active = False
+        self.__bus    = bus
         log.debug(f"initial transparency: {self.__initial_transparency}")
 
         bus.on("left_mouse_click", self.on_click)
-        bus.on("mouse_move", self.on_move)
-        bus.on("mouse_release", self.on_release)
-        bus.on("draw", self.draw)
 
     def draw(self, cr, state):
         """draw the widget"""
@@ -89,6 +87,10 @@ class WigletTransparency(Wiglet):
         if ev.hover() or ev.corner()[0] or ev.double():
             return False
 
+        self.__bus.on("mouse_move", self.on_move)
+        self.__bus.on("mouse_release", self.on_release)
+        self.__bus.on("draw", self.draw)
+
         self.coords = (ev.x_abs, ev.y_abs)
 
         self.__pen    = self.__state.pen()
@@ -103,8 +105,11 @@ class WigletTransparency(Wiglet):
             return False
         x = ev.x_abs
         dx = x - self.coords[0]
+
         ## we want to change the transparency by 0.1 for every 20 pixels
-        self.__pen.transparency = max(0, min(1, self.__initial_transparency + dx/500))
+        transparency = max(0, min(1, self.__initial_transparency + dx/500))
+        self.__bus.emitMult("set_transparency", transparency)
+
         return True
 
     def on_release(self, ev):
@@ -115,6 +120,9 @@ class WigletTransparency(Wiglet):
 
         log.debug("got release event")
         self.__active = False
+        self.__bus.off("mouse_move", self.on_move)
+        self.__bus.off("mouse_release", self.on_release)
+        self.__bus.off("draw", self.draw)
         return True
 
 class WigletLineWidth(Wiglet):

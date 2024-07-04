@@ -232,6 +232,7 @@ class Setter:
         bus.on("set_brush", self.set_brush)
         bus.on("set_font", self.set_font)
         bus.on("set_line_width", self.set_line_width)
+        bus.on("set_transparency", self.set_transparency)
         bus.on("toggle_outline", self.toggle_outline)
         bus.on("stroke_change",  self.stroke_change, 90)
 
@@ -259,6 +260,14 @@ class Setter:
             self.__state.pen().color_set(color)
 
         return self.__state.pen().color
+
+    def set_transparency(self, transparency = None):
+        """Set the line width."""
+
+        if transparency is not None:
+            self.__state.pen().transparency = transparency
+
+        return self.__state.pen().line_width
 
     def set_line_width(self, width = None):
         """Set the line width."""
