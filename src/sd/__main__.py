@@ -19,6 +19,7 @@ import math
 import base64
 import tempfile
 import logging
+import hashlib
 from io import BytesIO
 
 import warnings

@@ -382,8 +382,6 @@ class GraphicsObjectManager:
 
     def selection_fill(self):
         """Toggle the fill of the selected objects."""
-       #for obj in self.__page.selection().objects:
-       #    obj.fill_toggle()
         if not self.__page.selection().is_empty():
             cmd = ToggleFillCommand(self.__page.selection())
             self.__page.selection().modified(True)

@@ -10,6 +10,7 @@ from .drawable_factory import DrawableFactory ## <remove>
 from .drawable_group import DrawableGroup ## <remove>
 from .drawable_group import ClippingGroup ## <remove>
 import logging                                                   # <remove>
+import hashlib                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 
 def swap_stacks(stack1, stack2):
@@ -22,12 +23,60 @@ def swap_stacks(stack1, stack2):
 ## be undoable and redoable. It is their responsibility to update the
 ## state of the objects they are acting on.
 
+## The hash is used to identify the command. By default, it is unique for
+## for a type of command and the objects it is acting on.
+## That way, a command affecting a certain group of primitives can be
+## joined with another command that does the same thing on the same group.
+## ---------------------------------------------------------------------
+
+def compute_id_hash(objects):
+    # Extract IDs and concatenate them into a single string
+    ids_concatenated = ''.join(str(id(obj)) for obj in objects)
+    
+    # Compute the hash of the concatenated string
+    hash_object = hashlib.md5(ids_concatenated.encode())
+    hash_hex    = hash_object.hexdigest()
+    
+    return hash_hex
+
 class Command:
     """Base class for commands."""
     def __init__(self, mytype, objects):
         self.obj   = objects
         self.__type   = mytype
         self.__undone = False
+        if objects:
+            self.__hash = compute_id_hash(objects)
+        else:
+            self.__hash = compute_id_hash([ self ])
+        self.__hash = mytype + ':' + self.__hash
+
+    def __eq__(self, other):
+        """Return whether the command is equal to another command."""
+        return self.hash() == other.hash()
+
+    def __gt__(self, other):
+        """Return whether the command is a group that contains commands with identical hashes."""
+        return self.hash() ==  'group:' + other.hash()
+
+    def __add__(self, other):
+        """Add two commands together."""
+
+        if self.__type == "group":
+            if other.__type == "group":
+                return CommandGroup(self.__commands + other.__commands)
+            self.add(other)
+            return self
+
+        if other.__type == "group":
+            other.add(self)
+            return other
+
+        return CommandGroup([ self, other ])
+
+    def hash(self):
+        """Return a hash of the command."""
+        return self.__hash
 
     def command_type(self):
         """Return the type of the command."""
@@ -60,6 +109,29 @@ class CommandGroup(Command):
         super().__init__("group", objects=None)
         self.__commands = commands
         self.__page = page
+
+    def hash(self):
+        """Return a hash of the command."""
+        cmds = self.__commands
+        hashes = [ cmd.hash() for cmd in cmds ]
+
+        ## how many unique values in the hashes array?
+        unique_hashes = set(hashes)
+        if len(unique_hashes) == 1:
+            return 'group:' + hashes[0]
+
+        return self.__hash
+
+    def commands(self, cmd = None):
+        """Return or set the commands in the group."""
+        if cmd:
+            self.__commands = cmd
+        return self.__commands
+
+    def add(self, cmd):
+        """Add a command to the group."""
+        self.__commands.append(cmd)
+        return self
 
     def undo(self):
         """Undo the command."""

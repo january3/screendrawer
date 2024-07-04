@@ -32,6 +32,15 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
+ * the grouping of commands works in that for the user, only one ctrl-z
+   does the trick. However, rather than the current solution, history
+   should attempt to call some "merge" method on commands somehow
+   identified as similar. Then this merge function would take a look and
+   decide whether commands can be directly merged into one or whether they
+   can be merged into a CommandGroup. For example, multiple sets to a
+   property can be safely replaced by the very last command used. However,
+   increasing the line width / stroke by 1 should be merged cleverly, as
+   one command increasing the line multiple times.
  * the logic behind automated groups is as follows: while automated group
    is created, there is a method listening in on any events. And anything
    that is not on the ignore list causes the current group to be finished.
@@ -62,6 +71,18 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * when setting transparency / line width with the UI, this results in
+   hundreds if not thousands of undo events. However, I have not the
+   slightest HOW I could fuse together the history events. Maybe something
+   like a status hashtag? or objects hashtag? like a time stamp that
+   denotes that the objects affected did not change? One possibility:
+
+    * when a command is added to the history stack, history looks up the
+      previous command. It checks
+       - whether the hashtag (e.g. from the affected object IDs) is the
+         same
+       - whether the command is of the same type
+      if yes, it combines them in a single CommandGroup object.
  * There is no way of changing transparency or line width of an existing
    object. the ctrl-click and ctrl-shift-click should check that objects
    are underneath and their settings instead of changing the globals.
