@@ -50,6 +50,16 @@ class Bus:
             log.warning(f"Error while dispatching signal {event} to {listener}: {e}")
         return ret
 
+    def emitOnce(self, event, *args, **kwargs):
+        """Emit an exclusive event - stops dispatching if a listener returns a truthy value."""
+
+        return self.emit(event, True, *args, **kwargs)
+
+    def emitMult(self, event, *args, **kwargs):
+        """Emit a non-exclusive event - dispatches to all listeners regardless of return value."""
+
+        return self.emit(event, False, *args, **kwargs)
+
     def emit(self, event, exclusive = False, *args, **kwargs):
         """
         Dispatch an event to all listeners.
