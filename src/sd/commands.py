@@ -45,10 +45,15 @@ class Command:
         self.obj   = objects
         self.__type   = mytype
         self.__undone = False
+
         if objects:
-            self.__hash = compute_id_hash(objects)
+            if isinstance(objects, list):
+                self.__hash = compute_id_hash(objects)
+            else:
+                self.__hash = compute_id_hash([ objects ])
         else:
             self.__hash = compute_id_hash([ self ])
+
         self.__hash = mytype + ':' + self.__hash
 
     def __eq__(self, other):
@@ -109,6 +114,10 @@ class CommandGroup(Command):
         super().__init__("group", objects=None)
         self.__commands = commands
         self.__page = page
+
+        self.__hash = compute_id_hash([ self ])
+        self.__hash = "group" + ':' + self.__hash
+
 
     def hash(self):
         """Return a hash of the command."""
@@ -1005,7 +1014,7 @@ class SetTransparencyCommand(SetPropCommand):
     def __init__(self, objects, width):
         set_prop_func = lambda obj, prop: obj.pen.transparency_set(prop)
         get_prop_func = lambda obj: obj.pen.transparency
-        super().__init__("set_line_width", objects, width, get_prop_func, set_prop_func)
+        super().__init__("set_transparency", objects, width, get_prop_func, set_prop_func)
 
 class SetLineWidthCommand(SetPropCommand):
     """Simple class for handling line width changes."""
