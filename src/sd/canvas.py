@@ -65,7 +65,7 @@ class Canvas:
 
         self.__bus.emit("draw", exclusive = False, cr = cr, state = self.__state)
         self.__force_redraw = False
-        return True
+        return False
 
     def draw_bg(self, cr, tr):
         """

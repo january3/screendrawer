@@ -1,6 +1,5 @@
 To do (sorted by priority):
 
- * gtk text widget for text editing
  * properties dialog called with right-click on an object
  * identical commands (like move) should be merged
  * make a "moving guides" thingy, like vertical and horizontal moving line
@@ -575,6 +574,9 @@ Parked ideas:
    much harder than I thought it would be, but fun.
 
 Rejected ideas:
+ * gtk text widget for text editing => well a prototype (without proper
+   positioning) is working (called WigletEditText2). However, this will not
+   be able to show all the text trasformations (rotation, scaling etc).
  * selectiontool in erase mode should remove the selected objects =>
    actually not, because I would prefer to erase the objects along the
    track.

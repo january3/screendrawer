@@ -293,6 +293,11 @@ class Text(DrawableTrafo):
         """Return the length of the text."""
         return self.__text.strlen()
 
+    def set_text(self, text):
+        """Set the text of the object."""
+        self.__text.set_text(text)
+        self.mod += 1
+
     def add_text(self, text):
         """Add text to the object."""
         self.__text.add_text(text)

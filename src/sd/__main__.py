@@ -130,6 +130,9 @@ class TransparentWindow(Gtk.Window):
             self.set_visual(visual)
         self.set_app_paintable(True)
 
+        self.fixed = Gtk.Fixed()
+        self.add(self.fixed)
+
         # autosave
         GLib.timeout_add(AUTOSAVE_INTERVAL, self.__autosave)
 
@@ -169,21 +172,24 @@ class TransparentWindow(Gtk.Window):
 
         # connecting events
         self.__add_bus_events()
-        self.drawing_area = Gtk.DrawingArea()
-        self.add(self.drawing_area)
 
-        self.drawing_area.set_events(Gdk.EventMask.BUTTON_PRESS_MASK |
+        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK |
                         Gdk.EventMask.BUTTON_RELEASE_MASK |
                         Gdk.EventMask.POINTER_MOTION_MASK |
                         Gdk.EventMask.TOUCH_MASK)
 
         self.connect("key-press-event",      em.on_key_press)
-        self.drawing_area.connect("draw",                 self.canvas.on_draw)
-        self.drawing_area.connect("button-press-event",   self.mouse.on_button_press)
-        self.drawing_area.connect("button-release-event", self.mouse.on_button_release)
-        self.drawing_area.connect("motion-notify-event",  self.mouse.on_motion_notify)
+        self.connect("draw",                 self.canvas.on_draw)
+        self.connect("button-press-event",   self.mouse.on_button_press)
+        self.connect("button-release-event", self.mouse.on_button_release)
+        self.connect("motion-notify-event",  self.mouse.on_motion_notify)
 
-    def exit(self):
+      # self.button = Gtk.Button(label="Add Text Entry")
+      # self.button.set_size_request(100, 130)
+      # self.button.connect("clicked", self.exit)
+      # self.fixed.put(self.button, 200, 200)
+
+    def exit(self, event = None):
         """Exit the application."""
         ## close the savefile_f
         log.info("Exiting")
@@ -201,6 +207,7 @@ class TransparentWindow(Gtk.Window):
                    WigletCreateGroup(bus = self.bus, state = self.state),
                    WigletCreateSegments(bus = self.bus, state = self.state),
                    WigletEditText(bus = self.bus, state = self.state),
+                   #WigletEditText2(bus = self.bus, state = self.state, app = self),
                    WigletPan(bus = self.bus, state = self.state),
                    WigletHover(bus = self.bus, state = self.state),
                    WigletSelectionTool(bus = self.bus, gom = self.gom),

@@ -159,6 +159,14 @@ class TextEditor:
                 self.__cont.insert(self.__line + i, line)
                 self.__caret_pos = len(line)
 
+    def set_text(self, text):
+        """Set the text."""
+
+        lines = text.split("\n")
+        self.__cont = lines
+        self.__line = len(lines) - 1
+        self.__caret_pos = len(lines[-1])
+
     def update_by_key(self, keyname, char):
         """Update the text by key press."""
         if keyname == "BackSpace": # and cur["caret_pos"] > 0:

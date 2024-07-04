@@ -3,6 +3,10 @@ Wiglets are small dialog-like objects that can be drawn on the canvas.
 They are used to provide interactive controls for changing drawing properties
 such as line width, color, and transparency.
 """
+import gi                                                        # <remove>
+gi.require_version('Gtk', '3.0')                                 # <remove>
+from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib       # <remove>
+
 from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 from .drawable_primitives import SelectionTool                   # <remove>
 from .commands import RotateCommand, ResizeCommand, MoveCommand  # <remove>
@@ -365,6 +369,187 @@ class WigletPan(Wiglet):
 
         self.__origin = None
         return True
+
+
+class WigletEditText2(Wiglet):
+    """Create or edit text objects"""
+    def __init__(self, bus, state, app):
+        super().__init__("pan", None)
+
+        self.__bus   = bus
+        self.__app   = app
+        self.__state = state
+        self.__obj   = None
+        self.__active = False
+        self.__edit_existing = False
+        self.__editor = None
+        bus.on("left_mouse_click",  self.on_click, priority = 99)
+        bus.on("left_mouse_double_click",
+               self.on_double_click, priority = 9)
+
+    def start_listening(self):
+        bus = self.__bus
+
+        bus.on("mouse_move",        self.on_move, priority = 99)
+        bus.on("mouse_release",     self.on_release, priority = 99)
+        bus.on("mode_set",          self.finish_text_input,     priority = 99)
+        bus.on("finish_text_input", self.finish_text_input, priority = 99)
+        bus.on("escape",            self.finish_text_input, priority = 99)
+
+    def stop_listening(self):
+        bus = self.__bus
+
+        bus.off("mouse_move",        self.on_move)
+        bus.off("mouse_release",     self.on_release)
+        bus.off("mode_set",          self.finish_text_input)
+        bus.off("finish_text_input", self.finish_text_input)
+        bus.off("escape",            self.finish_text_input)
+
+    def text_editor_on_key_press(self, event):
+        """Handle key press events in the text editor"""
+
+        key = event.keyval
+        keyname = Gdk.keyval_name(event.keyval)
+        log.debug(f"key press {key}")
+
+        # escape key
+        if keyname == "Escape":
+            self.finish_text_input()
+            return True
+
+        return True
+
+    def create_text_editor(self, obj):
+        """Create a text editor for the object"""
+
+        if not obj:
+            log.warning("No object to edit")
+            return False
+
+        x, y = 100, 100
+        w, h = 500, 200
+        text = "Lorem ipsum dolor sit amet\nconsectetur\nadipiscing elit"
+
+        self.__bus.on("key_press_event", self.text_editor_on_key_press, priority = 99)
+        editor = Gtk.TextView()
+        buf = editor.get_buffer()
+        buf.set_text(obj.to_string())
+        editor.set_size_request(w, h)
+        self.__app.fixed.put(editor, x, y)
+        editor.show()
+        editor.grab_focus()
+        #editor.connect("key-press-event", self.text_editor_on_key_press)
+
+        self.__editor = editor
+
+    def on_double_click(self, ev):
+        """Double click on text launches text editing"""
+
+        if self.__active: # currently editing
+            log.debug("are active, double click finishes the input")
+            self.__bus.emit("finish_text_input")
+            return True
+
+        if ev.shift() or ev.ctrl() or ev.alt():
+            return False
+
+        obj = ev.hover()
+        if not (obj and obj.type == "text"):
+            return False
+        
+        self.create_text_editor(obj)
+
+        log.debug("Starting to edit a text object")
+        self.__edit_existing = True
+        self.__obj = obj
+        self.__active = True
+        self.__state.current_obj(obj)
+        self.__obj.move_caret("End")
+        self.__bus.emit("queue_draw")
+        self.start_listening()
+        return True
+
+    def on_click(self, ev):
+        """Start typing text"""
+
+        if self.__active: # currently editing
+            self.__bus.emit("finish_text_input")
+            return False
+
+        mode = self.__state.mode()
+        log.debug(f"mode {mode}")
+
+        if ev.shift() and not ev.ctrl() and mode != "move":
+            mode = "text"
+
+        if mode != "text":
+            return False
+
+        log.debug("Creating a new text object")
+        self.__edit_existing = False
+        obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
+
+        if not obj:
+            log.debug(f"No object created for mode {mode}")
+            return False
+
+        self.__state.current_obj(obj)
+        self.__active = True
+        self.__obj = obj
+        self.create_text_editor(obj)
+
+        self.start_listening()
+        return True
+
+    def on_release(self, ev):
+        """Finish drawing object"""
+
+        obj = self.__obj
+
+        if not obj:
+            return False
+
+        self.__bus.emit("queue_draw")
+        return True
+
+    def finish_text_input(self, new_mode = False):
+        """Finish text input"""
+        if not self.__active:
+            return False
+
+        log.debug("finishing text input")
+        self.__bus.off("key_press_event", self.text_editor_on_key_press)
+
+        if not self.__editor:
+            raise ValueError("No text editor")
+
+        new_text = self.__editor.get_buffer().get_text(
+            self.__editor.get_buffer().get_start_iter(),
+            self.__editor.get_buffer().get_end_iter(),
+            True)
+
+        log.debug(f"new text: {new_text}")
+        self.__editor.destroy()
+        self.__app.fixed.remove(self.__editor)
+        self.__editor = None
+
+        obj = self.__obj
+        obj.show_caret(False)
+        obj.set_text(new_text)
+
+        if obj.strlen() > 0 and not self.__edit_existing:
+            self.__bus.emit("add_object", True, obj)
+
+        self.__state.current_obj_clear()
+        self.__state.cursor().revert()
+        self.__active = False
+        self.__obj = None
+
+        self.__bus.emit("queue_draw")
+        self.stop_listening()
+        return True
+
+
 
 class WigletEditText(Wiglet):
     """Create or edit text objects"""
