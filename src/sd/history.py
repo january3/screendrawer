@@ -46,6 +46,7 @@ class History:
     def undo(self):
         """Undo the last action."""
         if not self.__history:
+            log.warning("Nothing to undo")
             return None
 
         item = self.__history.pop()

@@ -5,6 +5,8 @@ This module holds the MenuMaker class, which is a singleton class that creates m
 import gi                                                  # <remove>
 gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gtk # <remove>
+import logging                                                   # <remove>
+log = logging.getLogger(__name__)                                # <remove>
 
 class MenuMaker:
     """A class holding methods to create menus. Singleton."""
@@ -41,12 +43,15 @@ class MenuMaker:
         menu.show_all()
         return menu
 
-    def on_menu_item_activated(self, widget, action):
+    def on_menu_item_activated(self, widget, params):
         """Callback for when a menu item is activated."""
-        print("Menu item activated:", action, "from", widget)
+        log.debug("Menu item activated: %s from %s", params, widget)
 
-        self.__em.dispatch_action(action)
+        #self.__em.dispatch_action(action)
         self.__app.queue_draw()
+        action = params[0]
+        args   = params[1:]
+        self.__bus.emit(action, *args)
 
 
     def context_menu(self):
@@ -56,43 +61,44 @@ class MenuMaker:
         if self.__context_menu:
             return self.__context_menu
 
+        cb = self.on_menu_item_activated
         menu_items = [
-                { "label": "Toggle UI    [w]",          "callback": self.on_menu_item_activated, "action": "toggle_wiglets" },
+                { "label": "Toggle UI    [w]",                "callback": cb, "action": [ "toggle_wiglets" ] },
                 { "separator": True },
-                { "label": "Move         [m]",          "callback": self.on_menu_item_activated, "action": "mode_move" },
-                { "label": "Pencil       [d]",          "callback": self.on_menu_item_activated, "action": "mode_draw" },
-                { "label": "Shape        [s]",          "callback": self.on_menu_item_activated, "action": "mode_shape" },
-                { "label": "Text         [t]",          "callback": self.on_menu_item_activated, "action": "mode_text" },
-                { "label": "Rectangle    [r]",          "callback": self.on_menu_item_activated, "action": "mode_box" },
-                { "label": "Circle       [c]",          "callback": self.on_menu_item_activated, "action": "mode_circle" },
-                { "label": "Eraser       [e]",          "callback": self.on_menu_item_activated, "action": "mode_eraser" },
-                { "label": "Color picker [i]",          "callback": self.on_menu_item_activated, "action": "mode_colorpicker" },
+                { "label": "Move         [m]",                "callback": cb, "action": [ "mode_set", False, "move" ] },
+                { "label": "Pencil       [d]",                "callback": cb, "action": [ "mode_set", False, "draw" ] },
+                { "label": "Shape        [s]",                "callback": cb, "action": [ "mode_set", False, "shape" ] },
+                { "label": "Text         [t]",                "callback": cb, "action": [ "mode_set", False, "text" ] },
+                { "label": "Rectangle    [r]",                "callback": cb, "action": [ "mode_set", False, "box" ] },
+                { "label": "Circle       [c]",                "callback": cb, "action": [ "mode_set", False, "circle" ] },
+                { "label": "Eraser       [e]",                "callback": cb, "action": [ "mode_set", False, "eraser" ] },
+                { "label": "Color picker [i]",                "callback": cb, "action": [ "mode_set", False, "colorpicker" ] },
                 { "separator": True },
-                { "label": "Select all    (Ctrl-a)",    "callback": self.on_menu_item_activated, "action": "select_all" },
-                { "label": "Paste         (Ctrl-v)",    "callback": self.on_menu_item_activated, "action": "paste_content" },
-                { "label": "Clear drawing (Ctrl-l)",    "callback": self.on_menu_item_activated, "action": "clear_page" },
+                { "label": "Select all    (Ctrl-a)",          "callback": cb, "action": [ "set_selection", True, "all" ] },
+                { "label": "Paste         (Ctrl-v)",          "callback": cb, "action": [ "paste_content" ] },
+                { "label": "Clear drawing (Ctrl-l)",          "callback": cb, "action": [ "clear_page" ] },
                 { "separator": True },
-                { "label": "Next Page     (Shift-n)",    "callback": self.on_menu_item_activated, "action": "next_page" },
-                { "label": "Prev Page     (Shift-p)",    "callback": self.on_menu_item_activated, "action": "prev_page" },
-                { "label": "Delete Page   (Shift-d)",    "callback": self.on_menu_item_activated, "action": "delete_page" },
-                { "label": "Next Layer    (Ctrl-Shift-n)",    "callback": self.on_menu_item_activated, "action": "next_layer" },
-                { "label": "Prev Layer    (Ctrl-Shift-p)",    "callback": self.on_menu_item_activated, "action": "prev_layer" },
-                { "label": "Delete Layer  (Ctrl-Shift-d)",    "callback": self.on_menu_item_activated, "action": "delete_layer" },
+                { "label": "Next Page     (Shift-n)",         "callback": cb, "action": [ "next_page" ] },
+                { "label": "Prev Page     (Shift-p)",         "callback": cb, "action": [ "prev_page" ] },
+                { "label": "Delete Page   (Shift-d)",         "callback": cb, "action": [ "delete_page" ] },
+                { "label": "Next Layer    (Ctrl-Shift-n)",    "callback": cb, "action": [ "next_layer" ] },
+                { "label": "Prev Layer    (Ctrl-Shift-p)",    "callback": cb, "action": [ "prev_layer" ] },
+                { "label": "Delete Layer  (Ctrl-Shift-d)",    "callback": cb, "action": [ "delete_layer" ] },
                 { "separator": True },
-                { "label": "Bg transparency (Ctrl-b)",  "callback": self.on_menu_item_activated, "action": "cycle_bg_transparency" },
-                { "label": "Toggle outline       [o]",  "callback": self.on_menu_item_activated, "action": "toggle_outline" },
+                { "label": "Bg transparency (Ctrl-b)",        "callback": cb, "action": [ "cycle_bg_transparency" ] },
+                { "label": "Toggle outline       [o]",        "callback": cb, "action": [ "toggle_outline" ] },
                 { "separator": True },
-                { "label": "Color           (Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color" },
-                { "label": "Bg Color  (Shift-Ctrl-k)",  "callback": self.on_menu_item_activated, "action": "select_color_bg" },
-                { "label": "Font            (Ctrl-f)",  "callback": self.on_menu_item_activated, "action": "select_font" },
+                { "label": "Color           (Ctrl-k)",        "callback": cb, "action": [ "select_color" ] },
+                { "label": "Bg Color  (Shift-Ctrl-k)",        "callback": cb, "action": [ "select_color_bg" ] },
+                { "label": "Font            (Ctrl-f)",        "callback": cb, "action": [ "select_font" ] },
                 { "separator": True },
-                { "label": "Open drawing    (Ctrl-o)",  "callback": self.on_menu_item_activated, "action": "open_drawing" },
-                { "label": "Image from file (Ctrl-i)",  "callback": self.on_menu_item_activated, "action": "import_image" },
-                { "label": "Screenshot      (Ctrl-Shift-f)",  "callback": self.on_menu_item_activated, "action": "screenshot" },
-                { "label": "Save as         (Ctrl-s)",  "callback": self.on_menu_item_activated, "action": "save_drawing_as" },
-                { "label": "Export          (Ctrl-e)",  "callback": self.on_menu_item_activated, "action": "export_drawing" },
-                { "label": "Help            [F1]",      "callback": self.on_menu_item_activated, "action": "show_help_dialog" },
-                { "label": "Quit            (Ctrl-q)",  "callback": self.on_menu_item_activated, "action": "app_exit" },
+                { "label": "Open drawing    (Ctrl-o)",        "callback": cb, "action": [ "open_drawing" ] },
+                { "label": "Image from file (Ctrl-i)",        "callback": cb, "action": [ "import_image" ] },
+                { "label": "Screenshot      (Ctrl-Shift-f)",  "callback": cb, "action": [ "screenshot" ] },
+                { "label": "Save as         (Ctrl-s)",        "callback": cb, "action": [ "save_drawing_as" ] },
+                { "label": "Export          (Ctrl-e)",        "callback": cb, "action": [ "export_drawing" ] },
+                { "label": "Help            [F1]",            "callback": cb, "action": [ "show_help_dialog" ] },
+                { "label": "Quit            (Ctrl-q)",        "callback": cb, "action": [ "app_exit" ] },
         ]
 
         self.__context_menu = self.build_menu(menu_items)
@@ -101,38 +107,40 @@ class MenuMaker:
     def object_menu(self, objects):
         """Build the object context menu"""
         # when right-clicking on an object
+        cb = self.on_menu_item_activated
+
         menu_items = [
-                { "label": "Copy (Ctrl-c)",        "callback": self.on_menu_item_activated, "action": "copy_content" },
-                { "label": "Cut (Ctrl-x)",         "callback": self.on_menu_item_activated, "action": "cut_content" },
+                { "label": "Copy (Ctrl-c)",                  "callback": cb, "action": [ "copy_content" ] },
+                { "label": "Cut (Ctrl-x)",                   "callback": cb, "action": [ "cut_content" ] },
                 { "separator": True },
-                { "label": "Delete (|Del|)",       "callback": self.on_menu_item_activated, "action": "selection_delete" },
-                { "label": "Group (g)",            "callback": self.on_menu_item_activated, "action": "selection_group" },
-                { "label": "Ungroup (u)",          "callback": self.on_menu_item_activated, "action": "selection_ungroup" },
-                { "label": "Export (Ctrl-e)",      "callback": self.on_menu_item_activated, "action": "export_drawing" },
+                { "label": "Delete (|Del|)",                 "callback": cb, "action": [ "selection_delete" ] },
+                { "label": "Group (g)",                      "callback": cb, "action": [ "selection_group" ] },
+                { "label": "Ungroup (u)",                    "callback": cb, "action": [ "selection_ungroup" ] },
+                { "label": "Export (Ctrl-e)",                "callback": cb, "action": [ "export_drawing" ] },
                 { "separator": True },
-                { "label": "Move to top (Alt-Page_Up)", "callback": self.on_menu_item_activated, "action": "zmove_selection_top" },
-                { "label": "Raise (Alt-Up)",       "callback": self.on_menu_item_activated, "action": "zmove_selection_up" },
-                { "label": "Lower (Alt-Down)",     "callback": self.on_menu_item_activated, "action": "zmove_selection_down" },
-                { "label": "Move to bottom (Alt-Page_Down)", "callback": self.on_menu_item_activated, "action": "zmove_selection_bottom" },
+                { "label": "Move to top (Alt-Page_Up)",      "callback": cb, "action": [ "zmove_selection_top" ] },
+                { "label": "Raise (Alt-Up)",                 "callback": cb, "action": [ "zmove_selection_up" ] },
+                { "label": "Lower (Alt-Down)",               "callback": cb, "action": [ "zmove_selection_down" ] },
+                { "label": "Move to bottom (Alt-Page_Down)", "callback": cb, "action": [ "zmove_selection_bottom" ] },
                 { "separator": True },
-                { "label": "To shape   (Alt-s)",   "callback": self.on_menu_item_activated, "action": "transmute_to_shape" },
-                { "label": "To drawing (Alt-d)",   "callback": self.on_menu_item_activated, "action": "transmute_to_drawing" },
-                #{ "label": "Fill       (f)",       "callback": self.on_menu_item_activated, "action": "f" },
+                { "label": "To shape   (Alt-s)",             "callback": cb, "action": [ "transmute_selection", True, "shape" ] },
+                { "label": "To drawing (Alt-d)",             "callback": cb, "action": [ "transmute_selection", True, "draw" ] },
+                { "label": "Fill       (f)",                 "callback": cb, "action": [ "selection_fill" ] },
                 { "separator": True },
-                { "label": "Color (Ctrl-k)",       "callback": self.on_menu_item_activated, "action": "select_color" },
-                { "label": "Font (Ctrl-f)",        "callback": self.on_menu_item_activated, "action": "select_font" },
-                { "label": "Help [F1]",            "callback": self.on_menu_item_activated, "action": "show_help_dialog" },
-                { "label": "Quit (Ctrl-q)",        "callback": self.on_menu_item_activated, "action": "app_exit" },
+                { "label": "Color (Ctrl-k)",                 "callback": cb, "action": [ "select_color" ] },
+                { "label": "Font (Ctrl-f)",                  "callback": cb, "action": [ "select_font" ] },
+                { "label": "Help [F1]",                      "callback": cb, "action": [ "show_help_dialog" ] },
+                { "label": "Quit (Ctrl-q)",                  "callback": cb, "action": [ "app_exit" ] },
         ]
 
         # if there is only one object, remove the group menu item
         if len(objects) == 1:
-            print("only one object")
+            log.debug("only one object")
             menu_items = [m for m in menu_items if "action" not in m or "selection_group" not in m["action"]]
 
         group_found = [o for o in objects if o.type == "group"]
         if not group_found:
-            print("no group found")
+            log.debug("no group found")
             menu_items = [m for m in menu_items if "action" not in m or "selection_ungroup" not in m["action"]]
 
         self.__object_menu = self.build_menu(menu_items)

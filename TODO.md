@@ -4,7 +4,6 @@ To do (sorted by priority):
  * identical commands (like move) should be merged
  * make a "moving guides" thingy, like vertical and horizontal moving line
  * make a "recent colors" (or "recent pens") widget
- * menus should use the bus as well
  * think hard how I want the color setting / pen thing to work
  * zoom in and out. I think the time is ripe for it 
  * unit tests. more, more, more
@@ -33,8 +32,6 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
- * text object editing: ditch that fucker, just create a gtk widget to do
-   the job, why on earth would we want to do it ourselves??
  * the logic behind automated groups is as follows: while automated group
    is created, there is a method listening in on any events. And anything
    that is not on the ignore list causes the current group to be finished.
@@ -68,6 +65,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * menus should use the bus as well
  * changing pages or layers while creating automatic groups messes them up.
    same for delete page etc.
  * single path objects still get wrapped up in a group. Maybe it would be
@@ -577,6 +575,8 @@ Rejected ideas:
  * gtk text widget for text editing => well a prototype (without proper
    positioning) is working (called WigletEditText2). However, this will not
    be able to show all the text trasformations (rotation, scaling etc).
+ * text object editing: ditch that fucker, just create a gtk widget to do
+   the job, why on earth would we want to do it ourselves??
  * selectiontool in erase mode should remove the selected objects =>
    actually not, because I would prefer to erase the objects along the
    track.

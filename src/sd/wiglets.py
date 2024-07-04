@@ -827,7 +827,6 @@ class WigletCreateGroup(Wiglet):
     def start_grouping(self, mode = None):
         """Start automatic grouping of objects"""
 
-        log.debug(f"starting grouping, group_obj {self.__group_obj}")
         if self.__group_obj:
             raise Exception("Group object already exists")
 
@@ -856,7 +855,6 @@ class WigletCreateGroup(Wiglet):
         if not self.__group_obj:
             log.warning("end_grouping: no group object")
 
-        log.debug("removing group object")
         self.__bus.off("add_object", self.add_object)
         self.__bus.off("escape",     self.end_grouping)
         self.__bus.off("clear_page", self.end_grouping)
