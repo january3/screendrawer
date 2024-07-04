@@ -131,11 +131,9 @@ class WigletLineWidth(Wiglet):
         self.__pen    = None
         self.__initial_width = None
         self.__active = False
+        self.__bus = bus
 
         bus.on("left_mouse_click", self.on_click)
-        bus.on("mouse_move", self.on_move)
-        bus.on("mouse_release", self.on_release)
-        bus.on("draw", self.draw)
 
     def draw(self, cr, state):
         """draw the widget"""
@@ -148,13 +146,19 @@ class WigletLineWidth(Wiglet):
     def on_click(self, ev):
         """handle the click event"""
         # make sure we are in the correct mode
+
         if ev.shift() or ev.alt() or not ev.ctrl():
             return False
         if ev.hover() or ev.corner()[0] or ev.double():
             return False
+
         self.coords = (ev.x_abs, ev.y_abs)
         self.__pen    = self.__state.pen()
         self.__initial_width = self.__pen.line_width
+
+        self.__bus.on("mouse_move", self.on_move)
+        self.__bus.on("mouse_release", self.on_release)
+        self.__bus.on("draw", self.draw)
 
         log.debug(f"activating line width widget at {int(self.coords[0])}, {int(self.coords[1])}, initial width {self.__initial_width}")
         self.__active = True
@@ -165,6 +169,11 @@ class WigletLineWidth(Wiglet):
         if not self.__active:
             return False
         self.__active = False
+
+        self.__bus.off("mouse_move", self.on_move)
+        self.__bus.off("mouse_release", self.on_release)
+        self.__bus.off("draw", self.draw)
+
         return True
 
     def on_move(self, ev):
@@ -173,7 +182,9 @@ class WigletLineWidth(Wiglet):
             return False
         x = ev.x_abs
         dx = x - self.coords[0]
-        self.__pen.line_width = max(1, min(60, self.__initial_width + dx/20))
+        width = max(1, min(60, self.__initial_width + dx/20))
+
+        self.__bus.emitMult("set_line_width", width)
         return True
 
 ## ---------------------------------------------------------------------

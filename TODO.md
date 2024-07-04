@@ -146,6 +146,12 @@ Done:
    single click after 50ms, the responders to single click event should be
    also catching the double click events and e.g. cancel the drawing of the
    current object.
+ * when text is grouped with other objects, and the group is resized in
+   unproportional way, then due to the fact that the bb of the text is
+   resized (more or less) proportionally, after a few resize operations the
+   text size is very small. -> this might be handled by resizing the text
+   through tranformation rather than font change. However, it is neither
+   easy nor the results are spectacular. I think for now we will park it.
  * events in em should go through the bus
  * make a "grouping" mode. All objects that are created during the grouping
    mode are added automatically to the same group. That would allow
@@ -560,14 +566,9 @@ Parked ideas:
  * rotating the whole selection does not work (b/c the way selection
    behaves). However, you can group, rotate and ungroup, so I will park
    that for now.
- * when text is grouped with other objects, and the group is resized in
-   unproportional way, then due to the fact that the bb of the text is
-   resized (more or less) proportionally, after a few resize operations the
-   text size is very small. -> this might be handled by resizing the text
-   through tranformation rather than font change. However, it is neither
-   easy nor the results are spectacular. I think for now we will park it.
  * import SVG: that would be a nice thing, but it is a lot of work. Also,
    to do it properly it would require specialized libraries.
+ * import PDF. Imagine replacing xournal in annotating PDFs!
  * For outlines, split each outline into non-overlapping segments. This is
    much harder than I thought it would be, but fun.
 

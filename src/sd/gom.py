@@ -54,6 +54,7 @@ class GraphicsObjectManager:
         self.__bus.on("apply_pen_to_selection", self.selection_apply_pen)
         self.__bus.on("set_color", self.selection_color_set)
         self.__bus.on("set_font", self.selection_font_set)
+        self.__bus.on("set_line_width", self.selection_set_line_width)
         self.__bus.on("stroke_change", self.selection_change_stroke)
 
     def clear(self):
@@ -398,6 +399,14 @@ class GraphicsObjectManager:
         """Set the font of the selected objects."""
         if not self.__page.selection().is_empty():
             cmd = SetFontCommand(self.__page.selection(), font_description)
+            self.__page.selection().modified(True)
+            self.__bus.emit("history_append", True, cmd)
+
+    def selection_set_line_width(self, width):
+        """Set the line width of the selected objects."""
+        log.debug(f"setting line width to {width}")
+        if not self.__page.selection().is_empty():
+            cmd = SetLineWidthCommand(self.__page.selection(), width)
             self.__page.selection().modified(True)
             self.__bus.emit("history_append", True, cmd)
 

@@ -894,6 +894,7 @@ class SetPropCommand(Command):
         self.__prop = prop
         self.__set_prop_func = set_prop_func
         self.__undo_dict = { obj: get_prop_func(obj) for obj in self.obj }
+        log.debug("undo_dict: %s", self.__undo_dict)
 
         for obj in self.obj:
             log.debug(f"setting prop type {mytype} for {obj}")
@@ -926,6 +927,13 @@ class SetPenCommand(SetPropCommand):
         get_prop_func = lambda obj: obj.pen
         pen = pen.copy()
         super().__init__("set_pen", objects, pen, get_prop_func, set_prop_func)
+
+class SetLineWidthCommand(SetPropCommand):
+    """Simple class for handling line width changes."""
+    def __init__(self, objects, width):
+        set_prop_func = lambda obj, prop: obj.stroke(prop)
+        get_prop_func = lambda obj: obj.stroke()
+        super().__init__("set_line_width", objects, width, get_prop_func, set_prop_func)
 
 class SetColorCommand(SetPropCommand):
     """Simple class for handling color changes."""

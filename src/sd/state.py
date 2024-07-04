@@ -230,9 +230,10 @@ class Setter:
 
         bus.on("set_color", self.set_color)
         bus.on("set_brush", self.set_brush)
-        bus.on("toggle_outline", self.toggle_outline)
-        bus.on("stroke_change", self.stroke_change, 90)
         bus.on("set_font", self.set_font)
+        bus.on("set_line_width", self.set_line_width)
+        bus.on("toggle_outline", self.toggle_outline)
+        bus.on("stroke_change",  self.stroke_change, 90)
 
     # -------------------------------------------------------------------------
     def set_font(self, font_description):
@@ -253,12 +254,20 @@ class Setter:
     def set_color(self, color = None):
         """Get or set the color."""
 
-        if color is None:
-            return self.__state.pen().color
+        if color is not None:
+            log.debug(f"Setting color to {color}")
+            self.__state.pen().color_set(color)
 
-        log.debug(f"Setting color to {color}")
-        self.__state.pen().color_set(color)
-        return color
+        return self.__state.pen().color
+
+    def set_line_width(self, width = None):
+        """Set the line width."""
+
+        if width is not None:
+            log.debug(f"Setting line width to {width}")
+            self.__state.pen().line_width = width
+
+        return self.__state.pen().line_width
 
     def stroke_change(self, direction):
         """Modify the line width or text size."""

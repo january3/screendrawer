@@ -147,10 +147,11 @@ class Drawable(DrawableRoot):
         self.pen = pen.copy()
         self.mod += 1
 
-    def stroke(self, lw):
+    def stroke(self, lw = None):
         """Set the line width of the object."""
         self.mod += 1
-        self.pen.stroke(lw)
+        if lw is not None:
+            self.pen.stroke(lw)
         return self.pen.stroke()
 
     def stroke_change(self, direction):
