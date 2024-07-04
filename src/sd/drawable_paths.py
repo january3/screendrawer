@@ -35,6 +35,7 @@ class PathRoot(Drawable):
         self.__brush.calculate(self.pen.line_width,
                                  coords = self.coords,
                                  pressure = self.__pressure)
+        self.__bb = path_bbox(self.__brush.outline() or self.coords)
         self.mod += 1
 
     def finish(self):
@@ -64,8 +65,6 @@ class PathRoot(Drawable):
         self.outline_recalculate()
         self.rotation   = 0
         self.rot_origin = None
-        # recalculate bbox
-        self.__bb = path_bbox(self.__brush.outline() or self.coords)
 
     def is_close_to_click(self, click_x, click_y, threshold):
         """Check if a click is close to the path."""
@@ -183,7 +182,6 @@ class PathRoot(Drawable):
         self.outline_recalculate()
         #self.pen.brush().scale(old_bbox, self.resizing["bbox"])
         self.resizing  = None
-        self.__bb = path_bbox(self.__brush.outline() or self.coords)
 
     def draw_outline(self, cr):
         """draws each segment separately and makes a dot at each coord."""

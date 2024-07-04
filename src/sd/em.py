@@ -92,7 +92,6 @@ class EventManager:
         #print("dispatch_key_event", key_event, mode)
 
         if not key_event in self.__keybindings:
-            log.warning(f"key_event {key_event} not found in keybindings")
             return
 
         action_name = self.__keybindings[key_event]

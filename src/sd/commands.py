@@ -369,6 +369,28 @@ class UnClipCommand(Command):
             self.__selection.set([ self.__group ])
         return self.__page
 
+class TextEditCommand(Command):
+    """Simple class for handling text editing."""
+
+    def __init__(self, obj, oldtext, newtext):
+        super().__init__("text_edit", obj)
+        self.__oldtext = oldtext
+        self.__newtext = newtext
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return None
+        self.obj.set_text(self.__oldtext)
+        self.undone_set(True)
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return None
+        self.obj.set_text(self.__newtext)
+        self.undone_set(False)
+
 class AddToGroupCommand(Command):
     """
     Add an object to an existing group

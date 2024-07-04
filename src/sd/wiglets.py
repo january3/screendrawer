@@ -12,6 +12,7 @@ from .drawable_primitives import SelectionTool                   # <remove>
 from .commands import RotateCommand, ResizeCommand, MoveCommand  # <remove>
 from .commands import RemoveCommand, AddToGroupCommand           # <remove>
 from .commands import CommandGroup, AddCommand                   # <remove>
+from .commands import TextEditCommand                            # <remove>
 from .drawable_factory import DrawableFactory                    # <remove>
 from .drawable_group import DrawableGroup                        # <remove>
 import logging                                                   # <remove>
@@ -600,7 +601,7 @@ class WigletEditText(Wiglet):
             return False
 
         log.debug("Starting to edit a text object")
-        self.__edit_existing = True
+        self.__edit_existing = obj.to_string()
         self.__obj = obj
         self.__active = True
         self.__state.current_obj(obj)
@@ -627,6 +628,7 @@ class WigletEditText(Wiglet):
 
         log.debug("Creating a new text object")
         self.__edit_existing = False
+
         obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
 
         if obj:
@@ -661,7 +663,20 @@ class WigletEditText(Wiglet):
         obj = self.__obj
         obj.show_caret(False)
 
-        if obj.strlen() > 0 and not self.__edit_existing:
+        if self.__edit_existing:
+            page = self.__state.page()
+
+            if obj.strlen() > 0:
+                # create a command to allow undo
+                cmd = TextEditCommand(obj, self.__edit_existing, obj.to_string())
+                self.__bus.emit("history_append", True, cmd)
+            else:
+                # remove the object
+                cmd1 = TextEditCommand(obj, self.__edit_existing, obj.to_string())
+                cmd2 = RemoveCommand([ obj ], page.objects())
+                self.__bus.emit("history_append", True, CommandGroup([ cmd1, cmd2 ]))
+                pass
+        elif obj.strlen() > 0:
             self.__bus.emit("add_object", True, obj)
 
         self.__state.current_obj_clear()

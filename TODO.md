@@ -59,8 +59,6 @@ Design issues:
 
 Bugs:
  * ctrl-v / ctrl-c do not work while editing text objects
- * text editing cannot be undone
- * stroke change does not update the bbox
  * Brush two sucks.
  * Separation between State and Setter is non-existent, it is unclear which
    does what.
@@ -71,6 +69,8 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * text editing cannot be undone
+ * stroke change does not update the bbox
  * when setting transparency / line width with the UI, this results in
    hundreds if not thousands of undo events. However, I have not the
    slightest HOW I could fuse together the history events. Maybe something
