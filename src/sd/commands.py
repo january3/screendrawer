@@ -1099,6 +1099,13 @@ class ChangeStrokeCommand(Command):
         self.__direction = direction
         self.__undo_dict = { obj: obj.stroke_change(direction) for obj in self.obj }
 
+    def __add__(self, other):
+        """Add two commands together."""
+        if self == other:
+            self.__direction += other.__direction
+            return self
+        return super().__add__(other)
+
     def undo(self):
         """Undo the command."""
         if self.undone():

@@ -1,7 +1,6 @@
 To do (sorted by priority):
 
  * properties dialog called with right-click on an object
- * identical commands (like move) should be merged
  * make a "moving guides" thingy, like vertical and horizontal moving line
  * make a "recent colors" (or "recent pens") widget
  * think hard how I want the color setting / pen thing to work
@@ -69,6 +68,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * identical commands (like move) should be merged
  * text editing cannot be undone
  * stroke change does not update the bbox
  * when setting transparency / line width with the UI, this results in
