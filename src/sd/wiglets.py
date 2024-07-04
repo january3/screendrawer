@@ -797,6 +797,12 @@ class WigletCreateGroup(Wiglet):
         self.__added = False
         self.__grouping = grouping
 
+        # the first command in the group. In case we need to abort before
+        # the second element is added, we will undo this command and
+        # instead add a single object to the page.
+        self.__first_cmd = None
+        self.__first_obj = None
+
         # the logic is as follows: listen to all events. If we catch an
         # event which is not in the ignore list, we finish the group. This
         # ensures that weird stuff doesn't happen.
@@ -866,8 +872,8 @@ class WigletCreateGroup(Wiglet):
         if n == 1:
             page = self.__state.current_page()
             obj = self.__group_obj.objects[0]
-            cmd1 = RemoveCommand([ self.__group_obj ], page.objects())
-            self.__bus.emit("history_append", True, cmd1)
+            #cmd1 = RemoveCommand([ self.__group_obj ], page.objects())
+            self.__bus.emit("history_undo_cmd", True, self.__first_cmd)
             cmd2 = AddCommand([ obj ], page.objects())
             #cmd = CommandGroup([ cmd1, cmd2 ])
             self.__bus.emit("history_append", True, cmd2)
@@ -898,18 +904,17 @@ class WigletCreateGroup(Wiglet):
         log.debug(f"adding object of type {obj.type} to group")
 
         if not self.__added:
-            # temporarily stop listening to add_object events
-            # so that we can add the group object without recursion
-           #self.__bus.off("add_object", self.add_object)
-           #self.__bus.emit("add_object", True, self.__group_obj)
-           #self.__bus.on("add_object", self.add_object, priority = 99)
             page = self.__state.current_page()
-            cmd = AddCommand([ self.__group_obj ], page.objects())
+            cmd1 = AddCommand([ self.__group_obj ], page.objects())
+            cmd2 = AddToGroupCommand(self.__group_obj, obj)
+            cmd  = CommandGroup([ cmd1, cmd2 ])
             self.__bus.emit("history_append", True, cmd)
+            self.__first_cmd = cmd
+            self.__first_obj = obj
             self.__added = True
-
-        cmd = AddToGroupCommand(self.__group_obj, obj)
-        self.__bus.emit("history_append", True, cmd)
+        else:
+            cmd = AddToGroupCommand(self.__group_obj, obj)
+            self.__bus.emit("history_append", True, cmd)
 
         return True
 

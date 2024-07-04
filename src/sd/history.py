@@ -14,11 +14,12 @@ class History:
         self.__redo = []
         self.__bus = bus
         self.__cur_page = "None"
-        bus.on("page_changed",   self.set_page)
-        bus.on("history_redo",   self.redo)
-        bus.on("history_undo",   self.undo)
-        bus.on("history_append", self.add)
-        bus.on("history_remove", self.history_remove)
+        bus.on("page_changed",     self.set_page)
+        bus.on("history_redo",     self.redo)
+        bus.on("history_undo",     self.undo)
+        bus.on("history_undo_cmd", self.undo_command)
+        bus.on("history_append",   self.add)
+        bus.on("history_remove",   self.history_remove)
 
     def length(self):
         """Return the number of items in the history."""
@@ -42,6 +43,33 @@ class History:
         self.__history = [ item for item in self.__history if item['cmd'] != cmd ]
         if n == len(self.__history):
             log.warning(f"could not remove {cmd.type()} from history")
+
+    def undo_command(self, cmd):
+        """
+        Undo a specific command.
+
+        Dangerous! Use with caution. Make sure that the command does not
+        have any side effects.
+        """
+        log.debug(f"undoing specific command, type {cmd.type()}")
+        if not self.__history:
+            log.warning("Nothing to undo")
+            return None
+
+        if self.__history[-1]['cmd'] == cmd:
+            return self.undo()
+        else:
+            log.warning(f"Command {cmd.type()} is not the last command, beware")
+
+        for i, item in enumerate(self.__history):
+            if item['cmd'] == cmd:
+                self.__history.pop(i)
+                self.__redo.append(item)
+                if item['page'] != self.__cur_page:
+                    self.__bus.emit("page_set", False, item['page'])
+                return cmd.undo()
+        log.warning(f"Command {cmd.type()} not found in history")
+        return None
 
     def undo(self):
         """Undo the last action."""
