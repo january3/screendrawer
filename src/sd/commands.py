@@ -1004,6 +1004,14 @@ class SetPropCommand(Command):
             set_prop_func(obj, prop)
             obj.modified(True)
 
+    def __add__(self, other):
+
+        if self == other:
+            self.__prop = other.__prop
+            return self
+
+        return super().__add__(other)
+
     def undo(self):
         """Undo the command."""
         if self.undone():
