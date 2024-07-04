@@ -67,12 +67,6 @@ class Command:
     def __add__(self, other):
         """Add two commands together."""
 
-        if self.__type == "group":
-            if other.__type == "group":
-                return CommandGroup(self.__commands + other.__commands)
-            self.add(other)
-            return self
-
         if other.__type == "group":
             other.add(self)
             return other
@@ -118,6 +112,11 @@ class CommandGroup(Command):
         self.__hash = compute_id_hash([ self ])
         self.__hash = "group" + ':' + self.__hash
 
+    def __add__(self, other):
+        """Add two commands together."""
+        if other.type() == "group":
+            return CommandGroup(self.__commands + other.__commands)
+        return CommandGroup(self.__commands + [ other ])
 
     def hash(self):
         """Return a hash of the command."""

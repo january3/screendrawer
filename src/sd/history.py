@@ -41,6 +41,7 @@ class History:
 
         if oldcmd and oldpage == self.__cur_page:
             if oldcmd == cmd or oldcmd > cmd:
+                log.debug(f"cmd hash={cmd.hash() if cmd else None}")
                 log.debug(f"merging commands, {cmd.type()} and {oldcmd.type()}")
                 self.__history.pop()
                 cmd = oldcmd + cmd
