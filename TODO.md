@@ -1,5 +1,6 @@
 To do (sorted by priority):
 
+ * use logger for printing clipboard msgs
  * add cmd line option to not be pinned to all windows
  * remember last file name exported and last directory in which it was
    exported, present this option to the user... but how exactly? sometimes
@@ -62,7 +63,8 @@ Bugs:
    correctly onto the page coordinates (is transformation page-specific? it
    should be, if not it is a bug).
  * weird left-hand margin when exporting to png. Possibly something to do
-   with page translation. No idea.
+   with page translation. No idea. => this is because of clipping; the bbox
+   is fit not to the clipping object, but all objects.
  * something is wrong with moving to top / to bottom, doesn't seem to work
  * moves cannot be grouped because they work on a copy of the selection
  * ctrl-v / ctrl-c do not work while editing text objects

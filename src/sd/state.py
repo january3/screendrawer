@@ -21,6 +21,7 @@ class State:
                 "modified": True,
                 "filename": None,
                 "cur_dir": None,
+                "import_dir": None,
                 "export_dir": None,
                 "export_fn": None,
                 }
@@ -64,6 +65,7 @@ class State:
         bus.on("set_bg_color", self.bg_color, 0)
         bus.on("set_filename", self.filename, 0)
         bus.on("set_export_dir", self.export_dir, 0)
+        bus.on("set_import_dir", self.import_dir, 0)
         bus.on("set_export_fn", self.export_fn, 0)
 
 
@@ -80,6 +82,12 @@ class State:
         if name:
             self.__vars["cur_dir"] = name
         return self.__vars["cur_dir"]
+
+    def import_dir(self, name = None):
+        """Get or set the import directory."""
+        if name:
+            self.__vars["import_dir"] = name
+        return self.__vars["import_dir"]
 
     def export_dir(self, name = None):
         """Get or set the export directory."""

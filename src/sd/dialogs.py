@@ -290,7 +290,7 @@ def save_dialog(parent):
     return file_name
 
 
-def import_image_dialog(parent):
+def import_image_dialog(parent, import_dir = None):
     """Show a file chooser dialog to select an image file."""
     dialog = Gtk.FileChooserDialog(
         title="Select an Image",
@@ -299,7 +299,7 @@ def import_image_dialog(parent):
         buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
     )
     dialog.set_modal(True)
-    current_directory = os.getcwd()
+    current_directory = import_dir or os.getcwd()
     dialog.set_current_folder(current_directory)
 
     # Filter to only show image files

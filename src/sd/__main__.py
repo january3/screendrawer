@@ -401,7 +401,11 @@ class TransparentWindow(Gtk.Window):
     def import_image(self):
         """Select an image file and create a pixbuf from it."""
 
-        image_file = import_image_dialog(self)
+        import_dir = self.state.import_dir()
+        image_file = import_image_dialog(self, import_dir = import_dir)
+        dirname, base_name = path.split(image_file)
+        self.bus.emitMult("set_import_dir", dirname)
+
         pixbuf = None
 
         if image_file:
