@@ -31,7 +31,10 @@ def swap_stacks(stack1, stack2):
 
 def compute_id_hash(objects):
     # Extract IDs and concatenate them into a single string
-    ids_concatenated = ''.join(str(id(obj)) for obj in objects)
+    if isinstance(objects, list):
+        ids_concatenated = ''.join(str(id(obj)) for obj in objects)
+    else:
+        ids_concatenated = str(id(objects))
     
     # Compute the hash of the concatenated string
     hash_object = hashlib.md5(ids_concatenated.encode())
@@ -47,12 +50,9 @@ class Command:
         self.__undone = False
 
         if objects:
-            if isinstance(objects, list):
-                self.__hash = compute_id_hash(objects)
-            else:
-                self.__hash = compute_id_hash([ objects ])
+            self.__hash = compute_id_hash(objects)
         else:
-            self.__hash = compute_id_hash([ self ])
+            self.__hash = compute_id_hash(self)
 
         self.__hash = mytype + ':' + self.__hash
 
@@ -871,7 +871,7 @@ class MoveCommand(MoveResizeCommand):
     def __init__(self, obj, origin):
         super().__init__("move", obj, origin)
         self.__last_pt = origin
-        log.debug(f"MoveCommand: origin is {[int(x) for x in origin]}")
+        log.debug(f"MoveCommand: origin is {[int(x) for x in origin]} hash {self.hash()}")
 
     def event_update(self, x, y):
         """Update the move event."""

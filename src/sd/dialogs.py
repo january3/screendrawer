@@ -174,7 +174,7 @@ def export_dialog_extra_widgets():
     format_selector = Gtk.ComboBoxText()
     
     # Add file format options
-    formats = ["PDF", "SVG", "PNG"]
+    formats = [ "By extension", "PDF", "SVG", "PNG"]
     for fmt in formats:
         format_selector.append_text(fmt)
     
@@ -244,7 +244,12 @@ def export_dialog(parent, selected = False):
         selected_filter = FORMATS[selected_filter]["name"]
         selected_format = format_selector.get_active_text().lower()
         #all_pages_pdf = F #cb.get_active()
+
+        if selected_format == "by extension":
+            selected_format = "any"
+
         log.debug(f"Save file as: {file_name}, Format: {selected_filter}/{selected_format}, all pages as PDF: {all_pages_pdf}")
+
 
     dialog.destroy()
     return file_name, selected_format, all_pages_pdf

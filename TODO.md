@@ -1,5 +1,9 @@
 To do (sorted by priority):
 
+ * remember last file name exported and last directory in which it was
+   exported, present this option to the user... but how exactly? sometimes
+   we want the current directory.
+ * global preferences file
  * properties dialog called with right-click on an object
  * make a "moving guides" thingy, like vertical and horizontal moving line
  * make a "recent colors" (or "recent pens") widget
@@ -31,15 +35,6 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
- * the grouping of commands works in that for the user, only one ctrl-z
-   does the trick. However, rather than the current solution, history
-   should attempt to call some "merge" method on commands somehow
-   identified as similar. Then this merge function would take a look and
-   decide whether commands can be directly merged into one or whether they
-   can be merged into a CommandGroup. For example, multiple sets to a
-   property can be safely replaced by the very last command used. However,
-   increasing the line width / stroke by 1 should be merged cleverly, as
-   one command increasing the line multiple times.
  * the logic behind automated groups is as follows: while automated group
    is created, there is a method listening in on any events. And anything
    that is not on the ignore list causes the current group to be finished.
@@ -57,6 +52,13 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * when using selection tool, the screen coordinates are not mapped
+   correctly onto the page coordinates (is transformation page-specific? it
+   should be, if not it is a bug).
+ * weird left-hand margin when exporting to png. Possibly something to do
+   with page translation. No idea.
+ * something is wrong with moving to top / to bottom, doesn't seem to work
+ * moves cannot be grouped because they work on a copy of the selection
  * ctrl-v / ctrl-c do not work while editing text objects
  * Brush two sucks.
  * Separation between State and Setter is non-existent, it is unclear which
@@ -68,7 +70,18 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * saving a graphics: by default, the file type should be read from the
+   file extension.
  * identical commands (like move) should be merged
+ * the grouping of commands works in that for the user, only one ctrl-z
+   does the trick. However, rather than the current solution, history
+   should attempt to call some "merge" method on commands somehow
+   identified as similar. Then this merge function would take a look and
+   decide whether commands can be directly merged into one or whether they
+   can be merged into a CommandGroup. For example, multiple sets to a
+   property can be safely replaced by the very last command used. However,
+   increasing the line width / stroke by 1 should be merged cleverly, as
+   one command increasing the line multiple times.
  * text editing cannot be undone
  * stroke change does not update the bbox
  * when setting transparency / line width with the UI, this results in
