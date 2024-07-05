@@ -58,13 +58,9 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * when exporting selection, "all pages as pdf" option should be inactive.
  * when using selection tool, the screen coordinates are not mapped
    correctly onto the page coordinates (is transformation page-specific? it
    should be, if not it is a bug).
- * weird left-hand margin when exporting to png. Possibly something to do
-   with page translation. No idea. => this is because of clipping; the bbox
-   is fit not to the clipping object, but all objects.
  * something is wrong with moving to top / to bottom, doesn't seem to work
  * moves cannot be grouped because they work on a copy of the selection
  * ctrl-v / ctrl-c do not work while editing text objects
@@ -78,6 +74,10 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * when exporting selection, "all pages as pdf" option should be inactive.
+ * weird left-hand margin when exporting to png. Possibly something to do
+   with page translation. No idea. => this is because of clipping; the bbox
+   is fit not to the clipping object, but all objects.
  * within one session, remembering the export dir and export file name
  * saving a graphics: by default, the file type should be read from the
    file extension.

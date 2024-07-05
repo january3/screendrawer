@@ -169,7 +169,7 @@ def test_func(button):
     log.debug("itsa me, test_func")
     log.debug(f"button value: {button.get_active()}")
 
-def export_dialog_extra_widgets():
+def export_dialog_extra_widgets(selected = False):
     # Create a ComboBoxText for file format selection
     format_selector = Gtk.ComboBoxText()
     
@@ -187,7 +187,7 @@ def export_dialog_extra_widgets():
     # Function to update checkbox sensitivity
     def update_checkbox_sensitivity(combo):
         selected_format = combo.get_active_text()
-        export_all_checkbox.set_sensitive(selected_format == "PDF")
+        export_all_checkbox.set_sensitive(selected_format in [ "PDF", "By extension"])
     
     # Connect the combo box's changed signal to update the checkbox
     format_selector.connect("changed", update_checkbox_sensitivity)
@@ -202,7 +202,8 @@ def export_dialog_extra_widgets():
     hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
     hbox.pack_start(label, False, False, 0)
     hbox.pack_start(format_selector, False, False, 0)
-    hbox.pack_start(export_all_checkbox, False, False, 0)
+    if not selected:
+        hbox.pack_start(export_all_checkbox, False, False, 0)
     
     return hbox, format_selector, export_all_checkbox
 
@@ -225,7 +226,7 @@ def export_dialog(parent, export_dir = None, filename=None, selected = False):
                        Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
     dialog.set_modal(True)
 
-    hbox, format_selector, export_all_checkbox = export_dialog_extra_widgets()
+    hbox, format_selector, export_all_checkbox = export_dialog_extra_widgets(selected = selected)
     dialog.set_extra_widget(hbox)
     hbox.show_all()
 

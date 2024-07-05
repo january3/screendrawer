@@ -354,6 +354,7 @@ class TransparentWindow(Gtk.Window):
         #    self.export(filename, "svg")
         bbox = None
         selected = False
+
         if self.gom.selected_objects():
             # only export the selected objects
             obj = self.gom.selected_objects()
@@ -373,7 +374,8 @@ class TransparentWindow(Gtk.Window):
 
         log.debug(f"export_dir: {export_dir}")
         ret = export_dialog(self, export_dir = export_dir,
-                            filename = file_name)
+                            filename = file_name, 
+                            selected = selected)
         file_name, file_format, all_as_pdf = ret
 
         if not file_name:
@@ -506,7 +508,6 @@ class TransparentWindow(Gtk.Window):
                 'page':        self.gom.current_page_number()
         }
 
-        #objects = self.gom.export_objects()
         pages   = self.gom.export_pages()
 
         save_file_as_sdrw(self.savefile, config, pages = pages)

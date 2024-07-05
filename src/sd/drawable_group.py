@@ -286,14 +286,14 @@ class ClippingGroup(DrawableGroup):
 
     def bbox_draw(self, cr, lw=0.2):
         """Draw the bounding box of the object."""
-        bb = self.bbox(actual = False)
+        bb = self.bbox(actual = True)
         x, y, w, h = bb
         cr.set_line_width(lw)
         cr.rectangle(x, y, w, h)
         cr.stroke()
 
     def bbox(self, actual = False):
-        if actual:
+        if not actual:
             return objects_bbox(self.objects)
         return bbox_overlap(
             self.__clip_obj.bbox(),
