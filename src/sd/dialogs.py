@@ -207,11 +207,12 @@ def export_dialog_extra_widgets():
     return hbox, format_selector, export_all_checkbox
 
 
-def export_dialog(parent, selected = False):
+def export_dialog(parent, export_dir = None, filename=None, selected = False):
     """Show a file chooser dialog to select a file to save the drawing as
     an image / pdf / svg."""
     log.debug("export_dialog")
     file_name, selected_filter = None, None
+    selected_format = None
 
     ## doesn't really work because we don't have a standalone window with
     ## its own title bar
@@ -228,7 +229,11 @@ def export_dialog(parent, selected = False):
     dialog.set_extra_widget(hbox)
     hbox.show_all()
 
-    current_directory = os.getcwd()
+    current_directory = export_dir or os.getcwd()
+    log.debug(f"current_directory: {current_directory}, filename: {filename}")
+    if filename: 
+        dialog.set_filename(filename)
+
     dialog.set_current_folder(current_directory)
 
     _dialog_add_image_formats(dialog)
@@ -238,6 +243,7 @@ def export_dialog(parent, selected = False):
 
     # Show the dialog
     response = dialog.run()
+
     if response == Gtk.ResponseType.OK:
         file_name = dialog.get_filename()
         selected_filter = dialog.get_filter().get_name()

@@ -368,7 +368,13 @@ class TransparentWindow(Gtk.Window):
             return
 
         obj = DrawableGroup(obj)
-        file_name, file_format, all_as_pdf = export_dialog(self)
+        export_dir = self.state.export_dir()
+        file_name  = self.state.export_fn()
+
+        log.debug(f"export_dir: {export_dir}")
+        ret = export_dialog(self, export_dir = export_dir,
+                            filename = file_name)
+        file_name, file_format, all_as_pdf = ret
 
         if not file_name:
             return
@@ -383,6 +389,12 @@ class TransparentWindow(Gtk.Window):
             obj = self.gom.get_all_pages()
             obj = [ p.objects_all_layers() for p in obj ]
             obj = [ DrawableGroup(o) for o in obj ]
+
+        # extract dirname and base name from file name
+        dirname, base_name = path.split(file_name)
+        log.debug(f"dirname: {dirname}, base_name: {base_name}")
+        self.bus.emitMult("set_export_dir", dirname)
+        self.bus.emitMult("set_export_fn", base_name)
 
         export_image(obj, file_name, file_format, cfg, all_as_pdf)
 
@@ -556,6 +568,8 @@ Convert screendrawer file to given format (png, pdf, svg, yaml) and exit
                         type=int)
     parser.add_argument("-o", "--output", help="Output file for conversion")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
+    parser.add_argument("-s", "--sticky", help="Sticky window (yes or no)",
+                        choices = [ "yes", "no" ], default = "yes")
     parser.add_argument("files", nargs="*")
     args     = parser.parse_args()
     return args
@@ -653,7 +667,8 @@ def main():
     win.show_all()
     win.present()
     win.cursor.set(win.state.mode())
-    win.stick()
+    if args.sticky == "yes":
+        win.stick()
 
     Gtk.main()
 

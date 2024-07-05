@@ -1,5 +1,6 @@
 To do (sorted by priority):
 
+ * add cmd line option to not be pinned to all windows
  * remember last file name exported and last directory in which it was
    exported, present this option to the user... but how exactly? sometimes
    we want the current directory.
@@ -35,6 +36,10 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
+ * when an sdrw file is opened or saved-as, set the working dir to that
+   files dir. When a file is exported, remember the dir for exports only. 
+   When started in headless mode, start working in the home dir or a dir
+   specified by the config file. Ditto default exports file.
  * the logic behind automated groups is as follows: while automated group
    is created, there is a method listening in on any events. And anything
    that is not on the ignore list causes the current group to be finished.
@@ -52,6 +57,7 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * when exporting selection, "all pages as pdf" option should be inactive.
  * when using selection tool, the screen coordinates are not mapped
    correctly onto the page coordinates (is transformation page-specific? it
    should be, if not it is a bug).
@@ -70,6 +76,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * within one session, remembering the export dir and export file name
  * saving a graphics: by default, the file type should be read from the
    file extension.
  * identical commands (like move) should be merged

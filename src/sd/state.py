@@ -20,6 +20,9 @@ class State:
                 "mode": "draw",
                 "modified": True,
                 "filename": None,
+                "cur_dir": None,
+                "export_dir": None,
+                "export_fn": None,
                 }
 
         self.__obj = {
@@ -60,6 +63,8 @@ class State:
         bus.on("clear_page", self.current_obj_clear, 0)
         bus.on("set_bg_color", self.bg_color, 0)
         bus.on("set_filename", self.filename, 0)
+        bus.on("set_export_dir", self.export_dir, 0)
+        bus.on("set_export_fn", self.export_fn, 0)
 
 
     # -------------------------------------------------------------------------
@@ -69,6 +74,24 @@ class State:
         if name:
             self.__vars["filename"] = name
         return self.__vars["filename"]
+
+    def cur_dir(self, name = None):
+        """Get or set the current directory."""
+        if name:
+            self.__vars["cur_dir"] = name
+        return self.__vars["cur_dir"]
+
+    def export_dir(self, name = None):
+        """Get or set the export directory."""
+        if name:
+            self.__vars["export_dir"] = name
+        return self.__vars["export_dir"]
+
+    def export_fn(self, name = None):
+        """Get or set the export file name."""
+        if name:
+            self.__vars["export_fn"] = name
+        return self.__vars["export_fn"]
 
     def gom(self):
         """Return GOM"""
