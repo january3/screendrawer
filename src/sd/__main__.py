@@ -138,8 +138,8 @@ class TransparentWindow(Gtk.Window):
         GLib.timeout_add(AUTOSAVE_INTERVAL, self.__autosave)
 
         # Drawing setup
-        self.cursor             = CursorManager(self)
         self.bus                = Bus()
+        self.cursor             = CursorManager(self, self.bus)
         self.history            = History(self.bus)
         self.gom                = GraphicsObjectManager(self.bus)
 
@@ -268,7 +268,7 @@ class TransparentWindow(Gtk.Window):
         x, y = self.cursor.pos()
         if bb is None:
             bb  = new_obj.bbox()
-        new_obj.move(x - bb[0], y - bb[1])
+        new_obj.move(x - bb[0] / 2, y - bb[1] / 2)
 
         self.bus.emit("add_object", True, new_obj)
 
@@ -280,7 +280,7 @@ class TransparentWindow(Gtk.Window):
             log.debug("Nothing selected, selecting all objects")
             content = DrawableGroup(self.gom.objects())
 
-        log.debug("Copying content", content)
+        log.debug(f"Copying content {content}")
         self.clipboard.copy_content(content)
 
         if destroy:

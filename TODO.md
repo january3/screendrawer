@@ -1,5 +1,8 @@
 To do (sorted by priority):
 
+ * duplicate: like ctrl-c ctrl-v, except exactly at the same location
+ * also, duplicate method: self.duplicate() for drawables that does the
+   deepcopy thing. Also, automatically select it.
  * For layers to be truly useful, we need more layer properties (alpha,
    visible / non-visible), also rearranging layers
  * add cmd line option to not be pinned to all windows
@@ -49,6 +52,8 @@ Design issues:
    files dir. When a file is exported, remember the dir for exports only. 
    When started in headless mode, start working in the home dir or a dir
    specified by the config file. Ditto default exports file.
+ * Separation between State and Setter is non-existent, it is unclear which
+   does what.
  * the logic behind automated groups is as follows: while automated group
    is created, there is a method listening in on any events. And anything
    that is not on the ignore list causes the current group to be finished.
@@ -66,19 +71,19 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * use logger for printing clipboard debug msgs
  * moves cannot be grouped because they work on a copy of the selection
  * ctrl-v / ctrl-c do not work while editing text objects
  * Brush two sucks.
- * Separation between State and Setter is non-existent, it is unclear which
-   does what.
- * when pasting the object, the new object should be placed next to the
-   cursor. Maybe. I don't really know.
  * when paste an object multiple times, the second and following copies
-   fall on the same position as the irst one
+   fall on the same position as the first one. 
  * when drawing very slow the line looks like shit.
 
 Done:
+ * when pasting the object, the new object should be placed next to the
+   cursor. Maybe. I don't really know.
+ * Also, often (depending on
+   the page translate) the pasted object will outside of the screen.
+ * use logger for printing clipboard debug msgs
  * something is wrong with moving to top / to bottom, doesn't seem to work
  * when using selection tool, the screen coordinates are not mapped
    correctly onto the page coordinates (is transformation page-specific? it

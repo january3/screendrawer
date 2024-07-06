@@ -346,7 +346,7 @@ class GraphicsObjectManager:
         elif what == "reverse":
             self.select_reverse()
         else:
-            log.error(f"Unknown selection command: {what}")
+            log.debug(f"Setting selection to {what}")
 
         self.__bus.emit("mode_set", False, "move")
         return True

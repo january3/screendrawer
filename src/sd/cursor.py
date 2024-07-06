@@ -29,7 +29,7 @@ class CursorManager:
     """
 
 
-    def __init__(self, window):
+    def __init__(self, window, bus):
         self.__window  = window
         self.__cursors = None
         self.__current_cursor = "default"
@@ -39,7 +39,9 @@ class CursorManager:
 
         self.default("default")
 
-        self.__pos = (100, 100)
+        self.__pos = None
+        self.__bus = bus
+        self.__bus.on("mouse_move", self.update_pos)
 
     def __make_cursors(self, window):
         """Create cursors for different modes."""
@@ -74,13 +76,24 @@ class CursorManager:
             "default":     Gdk.Cursor.new_from_name(window.get_display(), "pencil")
         }
 
-    def pos(self):
+    def pos_absolute(self):
         """Return the current position of the cursor."""
-        return self.__pos
+        if self.__pos is None:
+            return (0, 0)
+        ev = self.__pos
+        return (ev.event.x, ev.event.y)
 
-    def update_pos(self, x, y):
+    def pos(self):
+        """Return the current position in draw coordinates."""
+        if self.__pos is None:
+            return (0, 0)
+        ev = self.__pos
+        return (ev.x, ev.y)
+
+    def update_pos(self, ev):
         """Update the current position of the cursor."""
-        self.__pos = (x, y)
+        self.__pos = ev
+        return False
 
     def default(self, cursor_name):
         """Set the default cursor to the specified cursor."""

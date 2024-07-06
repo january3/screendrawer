@@ -5,9 +5,9 @@ gi.require_version('Gtk', '3.0')                           # <remove>
 ## ------------------------ logging
 from gi.repository import Gtk, Gdk                               # <remove>
 import logging                                                   # <remove>
-log.setLevel(logging.INFO)                                       # <remove>
-
 log = logging.getLogger(__name__)                                # <remove>
+log.setLevel(logging.DEBUG)                                       # <remove>
+
 from .drawable_group import DrawableGroup # <remove>
 from .utils import img_object_copy # <remove>
 
