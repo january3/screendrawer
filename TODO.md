@@ -1,8 +1,5 @@
 To do (sorted by priority):
 
- * duplicate: like ctrl-c ctrl-v, except exactly at the same location
- * also, duplicate method: self.duplicate() for drawables that does the
-   deepcopy thing. Also, automatically select it.
  * For layers to be truly useful, we need more layer properties (alpha,
    visible / non-visible), also rearranging layers
  * add cmd line option to not be pinned to all windows
@@ -79,6 +76,10 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * duplicate: like ctrl-c ctrl-v, except exactly at the same location
+ * also, duplicate method: self.duplicate() for drawables that does the
+   deepcopy thing. Also, automatically select it.
+ * pasted objects automatically selected
  * when pasting the object, the new object should be placed next to the
    cursor. Maybe. I don't really know.
  * Also, often (depending on

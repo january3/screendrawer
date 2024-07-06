@@ -42,6 +42,8 @@ class CursorManager:
         self.__pos = None
         self.__bus = bus
         self.__bus.on("mouse_move", self.update_pos)
+        self.__bus.on("cursor_set", self.set)
+        self.__bus.on("cursor_revert", self.revert)
 
     def __make_cursors(self, window):
         """Create cursors for different modes."""

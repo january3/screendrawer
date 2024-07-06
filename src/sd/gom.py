@@ -37,7 +37,7 @@ class GraphicsObjectManager:
         self.__bus.on("move_selection", self.move_selection)
         self.__bus.on("selection_fill", self.selection_fill)
         self.__bus.on("transmute_selection", self.transmute_selection)
-        self.__bus.on("set_selection", self.select)
+        self.__bus.on("set_selection", self.selection_set)
         self.__bus.on("selection_clip", self.selection_clip)
         self.__bus.on("selection_unclip", self.selection_unclip)
         self.__bus.on("selection_group", self.selection_group)
@@ -331,7 +331,7 @@ class GraphicsObjectManager:
                                          page=page)
         self.__bus.emit("history_append", True, cmd)
 
-    def select(self, what):
+    def selection_set(self, what):
         """Dispatch to the correct selection function"""
 
         if not what:
@@ -345,8 +345,11 @@ class GraphicsObjectManager:
             self.select_previous_object()
         elif what == "reverse":
             self.select_reverse()
+        elif what == "nothing":
+            self.__page.selection().clear()
         else:
             log.debug(f"Setting selection to {what}")
+            self.__page.selection().set(what)
 
         self.__bus.emit("mode_set", False, "move")
         return True

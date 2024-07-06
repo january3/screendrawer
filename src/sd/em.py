@@ -202,6 +202,7 @@ class EventManager:
             'copy_content':          {'args': ["copy_content"]},
             'cut_content':           {'args': ["cut_content"]},
             'paste_content':         {'args': ["paste_content"]},
+            'duplicate_content':     {'args': ["duplicate_content"]},
             'screenshot':            {'args': ["screenshot"]},
 
             'selection_fill':        {'args': [ "selection_fill" ], 'modes': ["move"]},
@@ -388,6 +389,7 @@ class EventManager:
             'Ctrl-c':               "copy_content",
             'Ctrl-x':               "cut_content",
             'Ctrl-v':               "paste_content",
+            'Ctrl-d':               "duplicate_content",
             'Ctrl-Shift-f':         "screenshot",
             'Ctrl-plus':            "stroke_increase",
             'Ctrl-minus':           "stroke_decrease",

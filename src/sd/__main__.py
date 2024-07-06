@@ -229,18 +229,19 @@ class TransparentWindow(Gtk.Window):
         """Add bus events."""
 
         self.bus.on("app_exit", self.exit)
-        self.bus.on("show_help_dialog", self.show_help_dialog)
-        self.bus.on("export_drawing",   self.export_drawing)
-        self.bus.on("save_drawing_as",  self.save_drawing_as)
-        self.bus.on("select_color",     self.select_color)
-        self.bus.on("select_color_bg",  self.select_color_bg)
-        self.bus.on("select_font",      self.select_font)
-        self.bus.on("import_image",     self.import_image)
-        self.bus.on("open_drawing",     self.open_drawing)
-        self.bus.on("copy_content",     self.copy_content)
-        self.bus.on("cut_content",      self.cut_content)
-        self.bus.on("paste_content",    self.paste_content)
-        self.bus.on("screenshot",       self.screenshot)
+        self.bus.on("show_help_dialog",  self.show_help_dialog)
+        self.bus.on("export_drawing",    self.export_drawing)
+        self.bus.on("save_drawing_as",   self.save_drawing_as)
+        self.bus.on("select_color",      self.select_color)
+        self.bus.on("select_color_bg",   self.select_color_bg)
+        self.bus.on("select_font",       self.select_font)
+        self.bus.on("import_image",      self.import_image)
+        self.bus.on("open_drawing",      self.open_drawing)
+        self.bus.on("copy_content",      self.copy_content)
+        self.bus.on("cut_content",       self.cut_content)
+        self.bus.on("duplicate_content", self.duplicate_content)
+        self.bus.on("paste_content",     self.paste_content)
+        self.bus.on("screenshot",        self.screenshot)
 
 
     def paste_text(self, clip_text):
@@ -250,35 +251,35 @@ class TransparentWindow(Gtk.Window):
         if cobj and cobj.type == "text":
             cobj.add_text(clip_text.strip())
         else:
-            new_text = Text([ self.cursor.pos() ],
+            obj = Text([ self.cursor.pos() ],
                             pen = self.state.pen(), content=clip_text.strip())
-            self.bus.emit("add_object", True, new_text)
+            self.bus.emit("add_object", True, obj)
+            self.bus.emitOnce("set_selection", [ obj ])
 
     def paste_image(self, clip_img):
         """Create an image object from a pixbuf image."""
         obj = Image([ self.cursor.pos() ], self.state.pen(), clip_img)
-        self.bus.emit("add_object", True, obj)
+        self.bus.emitMult("add_object", obj)
+        self.bus.emitOnce("set_selection", [ obj ])
 
     def __object_create_copy(self, obj, bb = None):
         """Copy the given object into a new object."""
-        new_obj = copy.deepcopy(obj.to_dict())
-        new_obj = Drawable.from_dict(new_obj)
+        new_obj = obj.duplicate()
 
         # move the new object to the current location
         x, y = self.cursor.pos()
         if bb is None:
             bb  = new_obj.bbox()
-        new_obj.move(x - bb[0] / 2, y - bb[1] / 2)
+        new_obj.move(x - bb[0], y - bb[1])
 
         self.bus.emit("add_object", True, new_obj)
+        self.bus.emit("set_selection", True, [ new_obj ])
 
     def copy_content(self, destroy = False):
         """Copy content to clipboard."""
         content = self.gom.selection()
         if content.is_empty():
-            # nothing selected
-            log.debug("Nothing selected, selecting all objects")
-            content = DrawableGroup(self.gom.objects())
+            return
 
         log.debug(f"Copying content {content}")
         self.clipboard.copy_content(content)
@@ -312,6 +313,17 @@ class TransparentWindow(Gtk.Window):
     def cut_content(self):
         """Cut content to clipboard."""
         self.copy_content(True)
+
+    def duplicate_content(self):
+        """Duplicate the selected content."""
+        content = self.gom.selection()
+
+        if content.is_empty():
+            return
+
+        for obj in content.objects:
+            new_obj = obj.duplicate()
+            self.bus.emitOnce("add_object", new_obj)
 
     def select_color_bg(self):
         """Select a color for the background using ColorChooser."""

@@ -79,10 +79,10 @@ class WigletResizeRotate(Wiglet):
                                    corner = corner,
                                    proportional = ev.ctrl())
 
-        self.__gom.selection().set([corner_obj])
-        self.__state.cursor().set(corner)
         self.__bus.on("mouse_move", self.on_move)
         self.__bus.on("mouse_release", self.on_release)
+        self.__bus.emitOnce("set_selection", [ corner_obj ])
+        self.__bus.emitOnce("cursor_set", corner)
         self.__bus.emit("queue_draw")
 
         return True
@@ -101,7 +101,7 @@ class WigletResizeRotate(Wiglet):
         self.__cmd.event_update(*ev.pos())
         self.__cmd.event_finish()
         self.__gom.command_append([ self.__cmd ])
-        self.__state.cursor().revert()
+        self.__bus.emitOnce("cursor_revert")
         self.__cmd = None
         self.__bus.off("mouse_move", self.on_move)
         self.__bus.off("mouse_release", self.on_release)
@@ -128,15 +128,13 @@ class WigletHover(Wiglet):
         corner_obj, corner = ev.corner()
         object_underneath  = ev.hover()
 
-        cursor = self.__state.cursor()
-
         if corner_obj and corner_obj.bbox():
-            cursor.set(corner)
+            self.__bus.emitOnce("cursor_set", corner)
         elif object_underneath:
-            cursor.set("moving")
+            self.__bus.emitOnce("cursor_set", "moving")
             self.__state.hover_obj(object_underneath)
         else:
-            cursor.revert()
+            self.__bus.emitOnce("cursor_revert")
             self.__state.hover_obj_clear()
 
 
@@ -181,7 +179,7 @@ class WigletMove(Wiglet):
 
         self.__obj = selection.copy()
         self.__cmd = MoveCommand(self.__obj, ev.pos())
-        self.__state.cursor().set("grabbing")
+        self.__bus.emitOnce("cursor_set", "grabbing")
         self.__bus.emit("queue_draw")
 
         return True
@@ -233,7 +231,7 @@ class WigletMove(Wiglet):
         else:
             gom.command_append([ cmd ])
 
-        self.__state.cursor().revert()
+        self.__bus.emitOnce("cursor_revert")
         self.__cmd = None
         self.__obj = None
         self.__bus.emit("queue_draw")
@@ -299,9 +297,9 @@ class WigletSelectionTool(Wiglet):
         objects = self.__selection_tool.objects_in_selection(self.__gom.objects())
 
         if len(objects) > 0:
-            self.__gom.selection().set(objects)
+            self.__bus.emitOnce("set_selection", objects)
         else:
-            self.__gom.selection().clear()
+            self.__bus.emitOnce("set_selection", "nothing")
 
         self.__bus.off("mouse_move",       self.on_move)
         self.__bus.off("mouse_release",   self.on_release)
@@ -542,7 +540,7 @@ class WigletEditText2(Wiglet):
             self.__bus.emit("add_object", True, obj)
 
         self.__state.current_obj_clear()
-        self.__state.cursor().revert()
+        self.__bus.emitOnce("cursor_revert")
         self.__active = False
         self.__obj = None
 
@@ -680,7 +678,7 @@ class WigletEditText(Wiglet):
             self.__bus.emit("add_object", True, obj)
 
         self.__state.current_obj_clear()
-        self.__state.cursor().revert()
+        self.__bus.emitOnce("cursor_revert")
         self.__active = False
         self.__obj = None
 
@@ -1067,7 +1065,7 @@ class WigletEraser(Wiglet):
         log.debug("removing object")
         gom = self.__state.gom()
         gom.remove_objects([ hover_obj ], clear_selection = True)
-        self.__state.cursor().revert()
+        self.__bus.emitOnce("cursor_revert")
         self.__bus.emit("queue_draw")
 
     def on_move(self, ev):

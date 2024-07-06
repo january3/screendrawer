@@ -3,6 +3,7 @@ These are the objects that can be displayed. It includes groups, but
 also primitives like boxes, paths and text.
 """
 
+import copy
 from .pen import Pen           # <remove>
 from .utils import move_coords # <remove>
 import logging                                                   # <remove>
@@ -223,6 +224,13 @@ class Drawable(DrawableRoot):
     def draw(self, cr, hover=False, selected=False, outline=False):
         """Draw the object on the Cairo context."""
         raise NotImplementedError("draw method not implemented")
+
+    def duplicate(self):
+        """Duplicate the object."""
+        new_obj = copy.deepcopy(self.to_dict())
+        new_obj = self.from_dict(new_obj)
+
+        return new_obj
 
     # ------------ Drawable conversion methods ------------------
     @classmethod
