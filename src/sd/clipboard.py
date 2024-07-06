@@ -1,7 +1,13 @@
 ## ---------------------------------------------------------------------
 import gi                                                  # <remove>
 gi.require_version('Gtk', '3.0')                           # <remove>
-from gi.repository import Gtk, Gdk # <remove>
+
+## ------------------------ logging
+from gi.repository import Gtk, Gdk                               # <remove>
+import logging                                                   # <remove>
+log.setLevel(logging.INFO)                                       # <remove>
+
+log = logging.getLogger(__name__)                                # <remove>
 from .drawable_group import DrawableGroup # <remove>
 from .utils import img_object_copy # <remove>
 
@@ -25,8 +31,7 @@ class Clipboard:
     def on_clipboard_owner_change(self, clipboard, event):
         """Handle clipboard owner change events."""
 
-        print(f"Owner change ({clipboard}), removing internal clipboard")
-        print("reason:", event.reason)
+        log.debug(f"Owner change ({clipboard}), removing internal clipboard, reason: {event.reason}")
         if self.clipboard_owner:
             self.clipboard_owner = False
         else:
@@ -48,7 +53,7 @@ class Clipboard:
     def get_content(self):
         # internal paste
         if self.clipboard:
-            print("Pasting content internally")
+            log.debug("Pasting content internally")
             return "internal", self.clipboard
 
         # external paste
@@ -80,22 +85,22 @@ class Clipboard:
 
         if sel.type == "text":
             text = sel.to_string()
-            print("Copying text", text)
+            log.debug("Copying text %s", text)
             # just copy the text
             clipboard.set_text(text, -1)
             clipboard.store()
         elif sel.type == "image":
-            print("Copying image")
+            log.debug("Copying image")
             # simply copy the image into clipboard
             clipboard.set_image(sel.image())
             clipboard.store()
         else:
-            print("Copying another object")
+            log.debug("Copying another object")
             # draw a little image and copy it to clipboard
             img_copy = img_object_copy(sel)
             clipboard.set_image(img_copy)
             clipboard.store()
 
-        print("Setting internal clipboard")
+        log.debug("Setting internal clipboard")
         self.clipboard = DrawableGroup(selection.objects[:])
         self.clipboard_owner = True

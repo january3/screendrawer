@@ -3,7 +3,7 @@ import logging                                                   # <remove>
 import traceback                                                 # <remove>
 from sys import exc_info                                         # <remove>
 log = logging.getLogger(__name__)                                # <remove>
-log.setLevel(logging.INFO)
+log.setLevel(logging.INFO)                                       # <remove>
 
 class Bus:
     """A simple event bus for dispatching events between objects."""

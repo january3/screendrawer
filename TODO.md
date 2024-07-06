@@ -1,6 +1,7 @@
 To do (sorted by priority):
 
- * use logger for printing clipboard msgs
+ * For layers to be truly useful, we need more layer properties (alpha,
+   visible / non-visible), also rearranging layers
  * add cmd line option to not be pinned to all windows
  * remember last file name exported and last directory in which it was
    exported, present this option to the user... but how exactly? sometimes
@@ -65,6 +66,7 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * use logger for printing clipboard debug msgs
  * moves cannot be grouped because they work on a copy of the selection
  * ctrl-v / ctrl-c do not work while editing text objects
  * Brush two sucks.
