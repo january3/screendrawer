@@ -37,6 +37,13 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
+ * there are several page-related functions for which gom serves as a
+   wrapper, because gom knows the current page. However, instead create a
+   "activate"/"deactivate" method pair for page; pages should then turn
+   their bus listeners on / off and handle the page related functions
+   themselves. This would take a lot of load off gom and create a better
+   separation between gom and page. then again, the same thing could be
+   said about selection object? since this is a page thing as well.
  * when an sdrw file is opened or saved-as, set the working dir to that
    files dir. When a file is exported, remember the dir for exports only. 
    When started in headless mode, start working in the home dir or a dir
@@ -58,7 +65,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * something is wrong with moving to top / to bottom, doesn't seem to work
  * moves cannot be grouped because they work on a copy of the selection
  * ctrl-v / ctrl-c do not work while editing text objects
  * Brush two sucks.
@@ -71,6 +77,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * something is wrong with moving to top / to bottom, doesn't seem to work
  * when using selection tool, the screen coordinates are not mapped
    correctly onto the page coordinates (is transformation page-specific? it
    should be, if not it is a bug). -> this is because selection tool is

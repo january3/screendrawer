@@ -460,8 +460,9 @@ class GraphicsObjectManager:
 
     def selection_zmove(self, operation):
         """move the selected objects long the z-axis."""
-        if self.__page.selection().is_empty():
+        if self.__page.selection().is_empty() or not operation:
             return
+
         cmd = ZStackCommand(self.__page.selection().objects,
                                             self.__page.objects(), operation, page=self.__page)
         self.__bus.emit("history_append", True, cmd)
