@@ -94,7 +94,7 @@ class Page:
         """Delete the page and create links between prev and next pages."""
         if not self.__prev and not self.__next:
             log.debug("only one page remaining")
-            return self
+            return self, None
 
         cmd = DeletePageCommand(self)
         ret = self.__prev or self.__next

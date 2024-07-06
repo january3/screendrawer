@@ -84,6 +84,10 @@ class GraphicsObjectManager:
     def delete_page(self):
         """Delete the current page."""
         curpage, cmd = self.__page.delete()
+
+        if curpage == self.page():
+            return
+
         self.page_set(curpage)
         self.__bus.emit("history_append", True, cmd)
 
