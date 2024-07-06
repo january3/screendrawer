@@ -64,7 +64,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * moves cannot be grouped because they work on a copy of the selection
  * ctrl-v / ctrl-c do not work while editing text objects
  * Brush two sucks.
  * when paste an object multiple times, the second and following copies
@@ -72,6 +71,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * moves cannot be grouped because they work on a copy of the selection
  * when started, the position reported by cursor is 0, 0, because it has
    not received any mouse events yet. An event would have to be simulated
    or triggered. => this seems to be harder to solve then expected, I can't

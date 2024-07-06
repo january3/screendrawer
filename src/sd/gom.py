@@ -57,6 +57,7 @@ class GraphicsObjectManager:
         self.__bus.on("set_line_width", self.selection_set_line_width)
         self.__bus.on("set_transparency", self.selection_set_transparency)
         self.__bus.on("stroke_change", self.selection_change_stroke)
+        self.__bus.on("remove_objects", self.remove_objects)
 
     def clear(self):
         """Clear the list of objects."""

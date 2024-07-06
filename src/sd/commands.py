@@ -802,7 +802,6 @@ class MoveResizeCommand(Command):
         super().__init__(mytype, obj)
         self.start_point = origin
         self.origin      = origin
-        self.bbox        = obj.bbox()
 
     def event_update(self, x, y):
         """Update the move or resize event."""
@@ -832,6 +831,7 @@ class RotateCommand(MoveResizeCommand):
         super().__init__("rotate", obj, origin)
         self.corner      = corner
         bb = obj.bbox()
+        self.bbox        = obj.bbox()
         self.__rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
         obj.rotate_start(self.__rotation_centre)
 
@@ -869,16 +869,33 @@ class RotateCommand(MoveResizeCommand):
 class MoveCommand(MoveResizeCommand):
     """Simple class for handling move events."""
     def __init__(self, obj, origin):
+        obj = obj.objects
         super().__init__("move", obj, origin)
         self.__last_pt = origin
         log.debug(f"MoveCommand: origin is {[int(x) for x in origin]} hash {self.hash()}")
+
+    def __add__(self, other):
+        """Add two move commands"""
+        if isinstance(other, MoveCommand):
+            dx = other.__last_pt[0] - other.start_point[0]
+            dy = other.__last_pt[1] - other.start_point[1]
+            self.__last_pt = (
+                    self.__last_pt[0] + dx,
+                    self.__last_pt[1] + dy
+                    )
+            return self
+        else:
+            return super().__add__(other)
+
+
 
     def event_update(self, x, y):
         """Update the move event."""
         dx = x - self.__last_pt[0]
         dy = y - self.__last_pt[1]
 
-        self.obj.move(dx, dy)
+        for obj in self.obj:
+            obj.move(dx, dy)
         self.__last_pt = (x, y)
 
     def event_finish(self):
@@ -892,7 +909,8 @@ class MoveCommand(MoveResizeCommand):
         log.debug("MoveCommand: undo")
         dx = self.start_point[0] - self.__last_pt[0]
         dy = self.start_point[1] - self.__last_pt[1]
-        self.obj.move(dx, dy)
+        for obj in self.obj:
+            obj.move(dx, dy)
         self.undone_set(True)
 
     def redo(self):
@@ -901,7 +919,8 @@ class MoveCommand(MoveResizeCommand):
             return
         dx = self.start_point[0] - self.__last_pt[0]
         dy = self.start_point[1] - self.__last_pt[1]
-        self.obj.move(-dx, -dy)
+        for obj in self.obj:
+            obj.move(dx, dy)
         self.undone_set(False)
 
 
@@ -910,6 +929,7 @@ class ResizeCommand(MoveResizeCommand):
     def __init__(self, obj, origin, corner, proportional = False):
         super().__init__("resize", obj, origin)
         self.corner = corner
+        self.bbox        = obj.bbox()
         obj.resize_start(corner, origin)
         self._orig_bb = obj.bbox()
         self._prop    = proportional

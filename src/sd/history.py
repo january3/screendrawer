@@ -33,7 +33,7 @@ class History:
 
     def add(self, cmd):
         """Add item to history."""
-        log.debug(f"appending {cmd.type()} on page={self.__cur_page} hash={cmd.hash()}")
+        log.debug(f"appending {cmd.type()} on page={self.__cur_page} new cmd hash={cmd.hash()}")
 
         oldcmd  = self.__history[-1]['cmd']  if self.__history else None
         oldpage = self.__history[-1]['page'] if self.__history else None

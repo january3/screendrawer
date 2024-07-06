@@ -10,6 +10,7 @@ from .utils import find_obj_close_to_click, find_corners_next_to_click # <remove
 
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
+log.setLevel(logging.INFO)                                      # <remove>
 
 ## ---------------------------------------------------------------------
 class MouseEvent:

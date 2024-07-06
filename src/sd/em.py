@@ -19,6 +19,7 @@ gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gdk # <remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
+log.setLevel(logging.INFO)                                      # <remove>
 
 COLORS = {
         "black": (0, 0, 0),

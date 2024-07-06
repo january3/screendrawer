@@ -49,9 +49,8 @@ class Wiglet:
 class WigletResizeRotate(Wiglet):
     """Catch resize events and update the size of the object."""
 
-    def __init__(self, bus, gom, state):
+    def __init__(self, bus, state):
         super().__init__("resize", None)
-        self.__gom = gom
         self.__bus = bus
         self.__cmd = None
         self.__state = state
@@ -100,7 +99,7 @@ class WigletResizeRotate(Wiglet):
             return False
         self.__cmd.event_update(*ev.pos())
         self.__cmd.event_finish()
-        self.__gom.command_append([ self.__cmd ])
+        self.__bus.emitOnce("history_append", self.__cmd)
         self.__bus.emitOnce("cursor_revert")
         self.__cmd = None
         self.__bus.off("mouse_move", self.on_move)
@@ -146,7 +145,6 @@ class WigletMove(Wiglet):
 
     def __init__(self, bus, state):
         super().__init__("move", None)
-        self.__gom = state.gom()
         self.__bus = bus
         self.__cmd = None
         self.__state = state
@@ -178,6 +176,7 @@ class WigletMove(Wiglet):
         self.__bus.on("mouse_release", self.on_release)
 
         self.__obj = selection.copy()
+        log.debug(f"moving object: {self.__obj}")
         self.__cmd = MoveCommand(self.__obj, ev.pos())
         self.__bus.emitOnce("cursor_set", "grabbing")
         self.__bus.emit("queue_draw")
@@ -219,17 +218,18 @@ class WigletMove(Wiglet):
         cmd.event_finish()
 
         obj = self.__obj
-        gom = self.__gom
+        page = self.__state.page()
 
         if ev.event.x < 10 and ev.event.y > height - 10:
             # command group because these are two commands: first move,
             # then remove
-            gom.command_append([ cmd,
+            cmd = CommandGroup([ cmd,
                                  RemoveCommand(obj.objects,
-                                               gom.objects()) ])
-            gom.selection().clear()
+                                               page.objects()) ])
+            self.__bus.emitOnce("history_append", cmd)
+            self.__bus.emitOnce("set_selection", "nothing")
         else:
-            gom.command_append([ cmd ])
+            self.__bus.emitOnce("history_append", cmd)
 
         self.__bus.emitOnce("cursor_revert")
         self.__cmd = None
@@ -240,12 +240,12 @@ class WigletMove(Wiglet):
 class WigletSelectionTool(Wiglet):
     """Draw the selection tool when activated."""
 
-    def __init__(self, bus, gom):
+    def __init__(self, bus, state):
         super().__init__("selection_tool", None)
 
         self.__selection_tool = None
         self.__bus = bus
-        self.__gom   = gom
+        self.__state   = state
         bus.on("left_mouse_click", self.on_click, priority = -1)
 
     def draw(self, cr, state):
@@ -271,8 +271,8 @@ class WigletSelectionTool(Wiglet):
         self.__bus.on("mouse_move",       self.on_move)
         self.__bus.on("mouse_release",   self.on_release)
         self.__bus.on("obj_draw", self.draw)
+        self.__bus.emitOnce("set_selection", "nothing")
 
-        self.__gom.selection().clear()
         x, y, = ev.x, ev.y
         self.coords = (x, y)
         self.__selection_tool = SelectionTool([ (x, y), (x + 1, y + 1) ])
@@ -294,7 +294,8 @@ class WigletSelectionTool(Wiglet):
         if not self.__selection_tool:
             return False
 
-        objects = self.__selection_tool.objects_in_selection(self.__gom.objects())
+        page = self.__state.page()
+        objects = self.__selection_tool.objects_in_selection(page.objects())
 
         if len(objects) > 0:
             self.__bus.emitOnce("set_selection", objects)
@@ -1065,8 +1066,7 @@ class WigletEraser(Wiglet):
             return
 
         log.debug("removing object")
-        gom = self.__state.gom()
-        gom.remove_objects([ hover_obj ], clear_selection = True)
+        self.__bus.emitOnce("remove_objects", [ hover_obj ], clear_selection = True)
         self.__bus.emitOnce("cursor_revert")
         self.__bus.emit("queue_draw")
 
