@@ -48,7 +48,8 @@ class MouseEvent:
         if translate:
             self.x, self.y = self.x - translate[0], self.y - translate[1]
 
-        self.__pos    = (self.x, self.y)
+        self.__pos     = (self.x, self.y)
+        self.__pos_abs = (self.x_abs, self.y_abs)
 
 
     def hover(self):
@@ -66,6 +67,10 @@ class MouseEvent:
                                                        self.__pos[1],
                                                        self.objects, 20)
         return self.__info["corner"][0], self.__info["corner"][1]
+
+    def pos_abs(self):
+        """Return the position of the mouse."""
+        return self.__pos_abs
 
     def pos(self):
         """Return the position of the mouse."""
@@ -195,6 +200,8 @@ class MouseCatcher:
         ev = MouseEvent(event, self.__gom.objects(),
                         translate = self.__gom.page().translate(),
                         state = self.__state)
+
+        self.__bus.emitMult("cursor_pos_update", ev.pos(), ev.pos_abs())
 
         if self.__bus.emit("mouse_move", True, ev):
             self.__bus.emit("queue_draw")

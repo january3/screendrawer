@@ -182,6 +182,7 @@ class EventManager:
 
             'cycle_bg_transparency': {'args': ["cycle_bg_transparency"]},
             'toggle_wiglets':        {'args': ["toggle_wiglets"]},
+            'toggle_crosslines':     {'args': ["toggle_crosslines"]},
             'toggle_grid':           {'args': ["toggle_grid"]},
             'switch_pens':           {'args': ["switch_pens"]},
             'apply_pen_to_bg':       {'args': ["apply_pen_to_bg"], 'modes': ["move"]},
@@ -307,6 +308,7 @@ class EventManager:
             'l':                    "clear_page",
             'o':                    "toggle_outline",
             'w':                    "toggle_wiglets",
+            'k':                    "toggle_crosslines",
             'Ctrl-g':               "toggle_grid",
             'Alt-s':                "transmute_to_shape",
             'Alt-d':                "transmute_to_draw",

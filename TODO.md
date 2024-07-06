@@ -2,13 +2,11 @@ To do (sorted by priority):
 
  * For layers to be truly useful, we need more layer properties (alpha,
    visible / non-visible), also rearranging layers
- * add cmd line option to not be pinned to all windows
  * remember last file name exported and last directory in which it was
    exported, present this option to the user... but how exactly? sometimes
    we want the current directory.
  * global preferences file
  * properties dialog called with right-click on an object
- * make a "moving guides" thingy, like vertical and horizontal moving line
  * make a "recent colors" (or "recent pens") widget
  * think hard how I want the color setting / pen thing to work
  * zoom in and out. I think the time is ripe for it 
@@ -16,7 +14,7 @@ To do (sorted by priority):
  * different brushes should have different cursors (ha, ha, haahaha)
  * clean up font code. Maybe use the Pango.FontDescription class for
    everything - why not?
- * save history! Because why the fuck not
+ * save history! Because why the fuck not (because it is a lot of work)
  * idea for path editing: "thumb" - moving a point on path and dragging
    surrounding points with it in a rubber-like fashion; how many - that depends on current line
    width (so broader line make more points move)
@@ -30,8 +28,6 @@ To do (sorted by priority):
    (or actually abandon color selection dialog?)
  * show corners of the bounding box
  * horizontal and vertical guides
- * draw a dustbin wiglet in lower left corner
- * create a pen wiglet (that does what exactly...?)
  * implement page dnd rearrangements in the page selector wiglet
  * make wiglets movable
  * brushes. (1) brush that generates short diagonal thin strokes (2) brush
@@ -76,6 +72,15 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * when started, the position reported by cursor is 0, 0, because it has
+   not received any mouse events yet. An event would have to be simulated
+   or triggered. => this seems to be harder to solve then expected, I can't
+   even get code to get the position of cursor in a window! => solved in a
+   rather inelegant way, duplicating some functionality like update_pos vs
+   update_pos_abs in Cursor. 
+ * crosslines not visible immediately after toggling
+ * make a "moving guides" thingy, like vertical and horizontal moving line
+   (crosslines)
  * duplicate: like ctrl-c ctrl-v, except exactly at the same location
  * also, duplicate method: self.duplicate() for drawables that does the
    deepcopy thing. Also, automatically select it.
@@ -84,6 +89,7 @@ Done:
    cursor. Maybe. I don't really know.
  * Also, often (depending on
    the page translate) the pasted object will outside of the screen.
+ * add cmd line option to not be pinned to all windows
  * use logger for printing clipboard debug msgs
  * something is wrong with moving to top / to bottom, doesn't seem to work
  * when using selection tool, the screen coordinates are not mapped
@@ -633,6 +639,9 @@ Parked ideas:
    much harder than I thought it would be, but fun.
 
 Rejected ideas:
+ * draw a dustbin wiglet in lower left corner (I don't really use this
+   functionality, del is so much easier)
+ * create a pen wiglet (that does what exactly...?)
  * gtk text widget for text editing => well a prototype (without proper
    positioning) is working (called WigletEditText2). However, this will not
    be able to show all the text trasformations (rotation, scaling etc).

@@ -270,7 +270,7 @@ class WigletSelectionTool(Wiglet):
 
         self.__bus.on("mouse_move",       self.on_move)
         self.__bus.on("mouse_release",   self.on_release)
-        self.__bus.on("draw_transformed", self.draw)
+        self.__bus.on("obj_draw", self.draw)
 
         self.__gom.selection().clear()
         x, y, = ev.x, ev.y
@@ -303,7 +303,7 @@ class WigletSelectionTool(Wiglet):
 
         self.__bus.off("mouse_move",       self.on_move)
         self.__bus.off("mouse_release",   self.on_release)
-        self.__bus.off("draw_transformed", self.draw)
+        self.__bus.off("obj_draw", self.draw)
         self.__bus.emit("queue_draw")
 
         self.__selection_tool = None
@@ -823,6 +823,8 @@ class WigletCreateGroup(Wiglet):
                                  "history_append", "add_object",
                                  "draw", "obj_draw",
                                  "left_mouse_click",
+                                 "cursor_pos_update",
+                                 "cursor_revert", "cursor_set",
                                  "update_size",
                                  "mouse_release" ]
 

@@ -185,6 +185,7 @@ class TransparentWindow(Gtk.Window):
         self.connect("button-release-event", self.mouse.on_button_release)
         self.connect("motion-notify-event",  self.mouse.on_motion_notify)
 
+
       # self.button = Gtk.Button(label="Add Text Entry")
       # self.button.set_size_request(100, 130)
       # self.button.connect("clicked", self.exit)
@@ -198,6 +199,12 @@ class TransparentWindow(Gtk.Window):
         Gtk.main_quit()
 
     # ---------------------------------------------------------------------
+
+    def __get_cursor_pos(self):
+        """Get the cursor position"""
+
+        x, y = get_cursor_position(self)
+        self.bus.emitMult("cursor_abs_pos_update", (x, y))
 
     def __init_wiglets(self):
         """Initialize the wiglets."""
@@ -228,6 +235,7 @@ class TransparentWindow(Gtk.Window):
     def __add_bus_events(self):
         """Add bus events."""
 
+        self.bus.on("query_cursor_pos", self.__get_cursor_pos)
         self.bus.on("app_exit", self.exit)
         self.bus.on("show_help_dialog",  self.show_help_dialog)
         self.bus.on("export_drawing",    self.export_drawing)

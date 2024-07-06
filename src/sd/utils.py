@@ -51,6 +51,24 @@ def rgb_to_hex(rgb):
     r, g, b = [int(255 * c) for c in rgb]
     return f"#{r:02x}{g:02x}{b:02x}"
 
+def get_cursor_position(window):
+    # Get the screen
+    screen = window.get_screen()
+    # Get the window
+    window = window.get_window()
+    # Get the display
+    display = screen.get_display()
+    # Get the default seat
+    seat = display.get_default_seat()
+    # Get the pointer device
+    device = seat.get_pointer()
+
+    # Get the cursor position
+    _, x, y, _ = window.get_device_position(device)
+    log.debug(f"cursor pos {x}, {y}")
+
+    return (x, y)
+
 def get_screenshot(window, x0, y0, x1, y1):
     """Capture a screenshot of a specific area on the screen."""
 
