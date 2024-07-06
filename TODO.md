@@ -58,9 +58,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * when using selection tool, the screen coordinates are not mapped
-   correctly onto the page coordinates (is transformation page-specific? it
-   should be, if not it is a bug).
  * something is wrong with moving to top / to bottom, doesn't seem to work
  * moves cannot be grouped because they work on a copy of the selection
  * ctrl-v / ctrl-c do not work while editing text objects
@@ -74,6 +71,11 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * when using selection tool, the screen coordinates are not mapped
+   correctly onto the page coordinates (is transformation page-specific? it
+   should be, if not it is a bug). -> this is because selection tool is
+   working in screen coordinates, not in draw coordinates => it should be
+   drawn from within the screen transformation
  * when exporting selection, "all pages as pdf" option should be inactive.
  * weird left-hand margin when exporting to png. Possibly something to do
    with page translation. No idea. => this is because of clipping; the bbox

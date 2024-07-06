@@ -272,10 +272,10 @@ class WigletSelectionTool(Wiglet):
 
         self.__bus.on("mouse_move",       self.on_move)
         self.__bus.on("mouse_release",   self.on_release)
-        self.__bus.on("draw", self.draw)
+        self.__bus.on("draw_transformed", self.draw)
 
         self.__gom.selection().clear()
-        x, y, = ev.event.x, ev.event.y
+        x, y, = ev.x, ev.y
         self.coords = (x, y)
         self.__selection_tool = SelectionTool([ (x, y), (x + 1, y + 1) ])
         return True
@@ -285,7 +285,7 @@ class WigletSelectionTool(Wiglet):
         if not self.__selection_tool:
             return False
 
-        x, y = ev.event.x, ev.event.y
+        x, y = ev.x, ev.y
         obj = self.__selection_tool
         obj.update(x, y, ev.pressure())
         self.__bus.emit("queue_draw")
@@ -305,7 +305,7 @@ class WigletSelectionTool(Wiglet):
 
         self.__bus.off("mouse_move",       self.on_move)
         self.__bus.off("mouse_release",   self.on_release)
-        self.__bus.off("draw", self.draw)
+        self.__bus.off("draw_transformed", self.draw)
         self.__bus.emit("queue_draw")
 
         self.__selection_tool = None

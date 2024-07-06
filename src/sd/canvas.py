@@ -55,6 +55,10 @@ class Canvas:
         if cobj and not cobj in page.objects_all_layers():
             self.__state.current_obj().draw(cr)
 
+        # emit the draw signal for objects that wish to be drawn in draw
+        # coordinates
+        self.__bus.emit("draw_transformed", exclusive = False, cr = cr, state = self.__state)
+
         cr.restore()
 
         ws = self.__state.get_win_size()
