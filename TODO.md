@@ -32,6 +32,10 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
+ * maybe gom should be included in State? Like, one of the superclasses so
+   that Stat has all gom methods and you can directly interrogate
+   state.page() etc.? Or, alternatively, gom should be created by State,
+   and exposed through state.gom().
  * clipboard pasting should be taken over by the clipboard class, but for
    that the class would need access first to bus (to emit add object
    events), but also to state, because when pasting text it should know

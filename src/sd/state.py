@@ -1,6 +1,7 @@
 """Status singleton class for holding key app information."""
 import logging                                                   # <remove>
-from sd.pen      import Pen                                        # <remove>
+from sd.pen      import Pen                                      # <remove>
+from sd.history  import History                                  # <remove>
 
 log = logging.getLogger(__name__)                                # <remove>
 
@@ -135,14 +136,15 @@ class StateConfig:
 class StateRoot:
     """Base class for holding key app information."""
 
-    def __init__(self, app, gom, cursor):
+    def __init__(self, app, gom, cursor, history):
         self.__gr_state = StateGraphics()
         self.__config   = StateConfig()
 
         self.__obj = {
                 "gom": gom,
                 "app": app,
-                "cursor": cursor
+                "cursor": cursor,
+                "history": history,
                 }
 
         self.__objs = {
@@ -264,7 +266,9 @@ class State(StateRoot):
 
     def __init__(self, app, bus, gom, cursor):
 
-        super().__init__(app, gom, cursor)
+        history = History(bus)
+
+        super().__init__(app, gom, cursor, history)
 
         self.__bus      = bus
 
