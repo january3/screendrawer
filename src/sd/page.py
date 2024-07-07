@@ -70,6 +70,7 @@ class Layer:
         bus.on("set_selection", self.selection_set)
         bus.on("add_object", self.add_object, priority = 1)
         bus.on("clear_page", self.clear, priority = 9)
+        bus.on("flush_selection", self.flush_selection)
 
         self.__bus = bus
 
@@ -103,6 +104,7 @@ class Layer:
         bus.off("set_selection", self.selection_set)
         bus.off("add_object", self.add_object)
         bus.off("clear_page", self.clear)
+        bus.off("flush_selection", self.flush_selection)
 
         self.__bus = None
 
@@ -321,6 +323,14 @@ class Layer:
     def clear(self):
         """Clear the list of objects."""
         self.selection().clear()
+
+    def flush_selection(self, flush_direction):
+        """Flush the selection in the given direction."""
+        if self.selection().n() < 2:
+            return
+
+        cmd = FlushCommand(self.selection().objects, flush_direction)
+        self.__bus.emit("history_append", True, cmd)
 
 ## ---------------------------------------------------------------------
 ##

@@ -1,6 +1,5 @@
 To do (sorted by priority):
 
- * implement a command to flush a group of objects to l/r/t/b
  * if an object has been cut with ctrl-x, then upon ctrl-v it should be
    inserted at precisely the same position. Therefore, we would need to
    mark the origin of the clipboard more than just "internal"
@@ -80,6 +79,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * implement a command to flush a group of objects to l/r/t/b
  * there is a problem with redoing move commands
  * selection-related bus listeners should be handled by the layer, since
    selection is an object of the layer. active page should activate the

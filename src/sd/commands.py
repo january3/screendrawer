@@ -981,6 +981,96 @@ class ResizeCommand(MoveResizeCommand):
         self.__newbb = newbb
         self.obj.resize_update(newbb)
 
+class FlushCommand(Command):
+    """
+    Class for flushing a group of object to left / right / top / bottom.
+    """
+
+    def __init__(self, objects, flush_direction):
+        name = "flush_" + flush_direction
+        super().__init__(name, objects)
+        log.debug("flushing objects %s to %s", objects, flush_direction)
+
+        self.__flush_direction = flush_direction
+        self.__undo_dict = None
+        self.__redo_dict = None
+
+        # call the appropriate method
+        if flush_direction == "left":
+            self.flush_left()
+        elif flush_direction == "right":
+            self.flush_right()
+        elif flush_direction == "top":
+            self.flush_top()
+        elif flush_direction == "bottom":
+            self.flush_bottom()
+        else:
+            raise ValueError("Invalid flush direction:", flush_direction)
+
+    def flush_left(self):
+        """Flush the objects to the left."""
+        log.debug("flushing left")
+        self.__undo_dict = { obj: obj.bbox() for obj in self.obj }
+        min_x = min([ obj.bbox()[0] for obj in self.obj ])
+
+        for obj in self.obj:
+            obj.move(min_x - obj.bbox()[0], 0)
+
+        self.__redo_dict = { obj: obj.bbox() for obj in self.obj }
+
+    def flush_right(self):
+        """Flush the objects to the right."""
+        self.__undo_dict = { obj: obj.bbox() for obj in self.obj }
+        max_x = max([ obj.bbox()[2] + obj.bbox()[0] for obj in self.obj ])
+
+        for obj in self.obj:
+            obj.move(max_x - (obj.bbox()[2] + obj.bbox()[0]), 0)
+
+        self.__redo_dict = { obj: obj.bbox() for obj in self.obj }
+
+    def flush_top(self):
+        """Flush the objects to the top."""
+        self.__undo_dict = { obj: obj.bbox() for obj in self.obj }
+        min_y = min([ obj.bbox()[1] for obj in self.obj ])
+
+        for obj in self.obj:
+            obj.move(0, min_y - obj.bbox()[1])
+
+        self.__redo_dict = { obj: obj.bbox() for obj in self.obj }
+
+    def flush_bottom(self):
+        """Flush the objects to the bottom."""
+        self.__undo_dict = { obj: obj.bbox() for obj in self.obj }
+        max_y = max([ obj.bbox()[3] + obj.bbox()[1] for obj in self.obj ])
+
+        for obj in self.obj:
+            obj.move(0, max_y - (obj.bbox()[3] + obj.bbox()[1]))
+
+        self.__redo_dict = { obj: obj.bbox() for obj in self.obj }
+
+    def move_to_bb(self, obj, bb):
+        """Move the object to the bounding box."""
+        bb_obj = obj.bbox()
+        dx = bb[0] - bb_obj[0]
+        dy = bb[1] - bb_obj[1]
+        obj.move(dx, dy)
+
+    def undo(self):
+        """Undo the command."""
+        if self.undone():
+            return
+        for obj in self.obj:
+            self.move_to_bb(obj, self.__undo_dict[obj])
+        self.undone_set(True)
+
+    def redo(self):
+        """Redo the command."""
+        if not self.undone():
+            return
+        for obj in self.obj:
+            self.move_to_bb(obj, self.__redo_dict[obj])
+        self.undone_set(False)
+
 # -------------------------------------------------------------------------------------
 
 class SetPropCommand(Command):

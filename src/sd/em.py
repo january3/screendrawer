@@ -237,6 +237,11 @@ class EventManager:
             'zmove_selection_raise':   {'args': [ "selection_zmove", True, "raise" ],  'modes': ["move"]},
             'zmove_selection_lower':   {'args': [ "selection_zmove", True, "lower" ],  'modes': ["move"]},
 
+            'flush_left':            {'args': [ "flush_selection", True, "left" ],   'modes': ["move"]},
+            'flush_right':           {'args': [ "flush_selection", True, "right" ],  'modes': ["move"]},
+            'flush_top':             {'args': [ "flush_selection", True, "top" ],    'modes': ["move"]},
+            'flush_bottom':          {'args': [ "flush_selection", True, "bottom" ], 'modes': ["move"]},
+
             'set_color_white':       {'args': [ "set_color", False, COLORS["white"]]},
             'set_color_black':       {'args': [ "set_color", False, COLORS["black"]]},
             'set_color_red':         {'args': [ "set_color", False, COLORS["red"]]},
@@ -335,6 +340,11 @@ class EventManager:
             'Page_Down':            "rotate_selection_cw_10",
             'Shift-Page_Down':      "rotate_selection_cw_1",
             'Ctrl-Page_Down':       "rotate_selection_cw_90",
+
+            'Alt-Shift-Left':             "flush_left",
+            'Alt-Shift-Right':            "flush_right",
+            'Alt-Shift-Up':               "flush_top",
+            'Alt-Shift-Down':             "flush_bottom",
 
             'Alt-Page_Up':          "zmove_selection_top",
             'Alt-Page_Down':        "zmove_selection_bottom",
