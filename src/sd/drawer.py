@@ -212,7 +212,7 @@ class Drawer:
 
         # extract the selection object that we need
         # to determine whether an object in selected state
-        selection = page.selection()
+        selection = page.layer().selection()
 
         # check if the cache needs to be updated
         self.update_cache(objects, selection, state, force_redraw)

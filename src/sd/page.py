@@ -7,242 +7,213 @@ from math import radians                                             # <remove>
 import logging                                                   # <remove>
 from .drawable import Drawable # <remove>
 from .drawable_group import SelectionObject # <remove>
-from .commands import *                                              # <remove>
+from .commands import GroupObjectCommand, UngroupObjectCommand, RemoveCommand     # <remove>
+from .commands import ClipCommand, UnClipCommand, SetColorCommand, SetFontCommand # <remove>
+from .commands import SetTransparencyCommand, SetLineWidthCommand, ChangeStrokeCommand # <remove>
+from .commands import ToggleFillCommand, RotateCommand, MoveCommand, ZStackCommand # <remove>
+from .commands import TransmuteCommand, AddCommand, CommandGroup, InsertPageCommand # <remove>
+from .commands import DeletePageCommand, DeleteLayerCommand, FlushCommand # <remove>
 from .drawer import Drawer                                           # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 
-
-class Layer:
+class LayerSelectionPropertyHandler:
     """
-    A layer is a container for objects.
+    Base class for handling properties of selected objects.
     """
-    def __init__(self):
-        self.__objects = []
-        self.__selection = SelectionObject(self.__objects)
-        self.__bus = None
-
-    def objects(self, objects = None):
-        """Return or set the list of objects on the layer."""
-        if objects:
-            self.__objects = objects
-            self.__selection = SelectionObject(self.__objects)
-        return self.__objects
-
-    def objects_import(self, object_list):
-        """Import objects from a dict"""
-        self.objects([ Drawable.from_dict(d) for d in object_list ] or [ ])
-
-    def selection(self):
-        """Return the selection object."""
-        return self.__selection
-
-    def kill_object(self, obj):
-        """Directly remove an object from the list of objects."""
-        if obj in self.__objects:
-            self.__objects.remove(obj)
-
-    def export(self):
-        """Exports the layer as a dict"""
-        return [ obj.to_dict() for obj in self.__objects ]
-
-    def activate(self, bus):
-        """Activate the layer."""
-        log.debug(f"layer {self} activating")
-        bus.emitMult("layer_deactivate")
-        bus.on("layer_deactivate", self.deactivate)
-        bus.on("selection_group", self.selection_group)
-        bus.on("selection_ungroup", self.selection_ungroup)
-        bus.on("selection_delete", self.selection_delete)
-        bus.on("selection_clip", self.selection_clip)
-        bus.on("selection_unclip", self.selection_unclip)
-        bus.on("set_color", self.selection_color_set)
-        bus.on("set_font", self.selection_font_set)
-        bus.on("set_transparency", self.selection_set_transparency)
-        bus.on("set_line_width", self.selection_set_line_width)
-        bus.on("stroke_change", self.selection_change_stroke)
-        #bus.on("apply_pen_to_selection", self.selection_apply_pen)
-        bus.on("selection_fill", self.selection_fill)
-        bus.on("rotate_selection", self.rotate_selection)
-        bus.on("move_selection", self.move_selection)
-        bus.on("selection_zmove", self.selection_zmove)
-        bus.on("transmute_selection", self.transmute_selection)
-        bus.on("remove_objects", self.remove_objects)
-        bus.on("set_selection", self.selection_set)
-        bus.on("add_object", self.add_object, priority = 1)
-        bus.on("clear_page", self.clear, priority = 9)
-        bus.on("flush_selection", self.flush_selection)
-
-        self.__bus = bus
-
-    def deactivate(self):
-        """Deactivate the layer."""
-        log.debug(f"layer {self} deactivating")
-
-        bus = self.__bus
-        if not bus:
-            return
-
-        bus.off("layer_deactivate", self.deactivate)
-        bus.off("selection_group", self.selection_group)
-        bus.off("selection_group", self.selection_group)
-        bus.off("selection_ungroup", self.selection_ungroup)
-        bus.off("selection_delete", self.selection_delete)
-        bus.off("selection_clip", self.selection_clip)
-        bus.off("selection_unclip", self.selection_unclip)
-        bus.off("set_color", self.selection_color_set)
-        bus.off("set_font", self.selection_font_set)
-        bus.off("set_transparency", self.selection_set_transparency)
-        bus.off("set_line_width", self.selection_set_line_width)
-        bus.off("stroke_change", self.selection_change_stroke)
-        #bus.off("apply_pen_to_selection", self.selection_apply_pen)
-        bus.off("selection_fill", self.selection_fill)
-        bus.off("rotate_selection", self.rotate_selection)
-        bus.off("move_selection", self.move_selection)
-        bus.off("selection_zmove", self.selection_zmove)
-        bus.off("transmute_selection", self.transmute_selection)
-        bus.off("remove_objects", self.remove_objects)
-        bus.off("set_selection", self.selection_set)
-        bus.off("add_object", self.add_object)
-        bus.off("clear_page", self.clear)
-        bus.off("flush_selection", self.flush_selection)
-
-        self.__bus = None
-
-    def selection_group(self):
-        """Group selected objects."""
-        if self.selection().n() < 2:
-            return
-        log.debug(f"Grouping n={self.selection().n()} objects")
-        cmd = GroupObjectCommand(self.selection().objects,
-                                                 self.objects(),
-                                                 selection_object=self.selection())
-        self.__bus.emit("history_append", True, cmd)
-
-    def selection_ungroup(self):
-        """Ungroup selected objects."""
-        if self.selection().is_empty():
-            return
-        cmd = UngroupObjectCommand(self.selection().objects,
-                                                   self.objects(),
-                                                   selection_object=self.selection())
-        self.__bus.emit("history_append", True, cmd)
-
-    def selection_delete(self):
-        """Delete selected objects."""
-
-        if self.selection().objects:
-            cmd = RemoveCommand(self.selection().objects,
-                                                self.objects())
-            self.__bus.emit("history_append", True, cmd)
-            self.selection().clear()
-
-    def selection_clip(self):
-        """Clip the selected objects."""
-        if self.selection().is_empty():
-            return
-
-        obj = self.selection().objects
-
-        if len(obj) < 2:
-            log.warning("need at least two objects to clip")
-            return
-
-        log.debug(f"object: {obj[-1].type}")
-        if not obj[-1].type in [ "rectangle", "shape", "circle" ]:
-            log.warning(f"Need a shape, rectangle or circle to clip, not {obj[-1].type}")
-            return
-
-        cmd = ClipCommand(obj[-1], obj[:-1],
-                                       self.objects(),
-                                       selection_object=self.selection())
-        self.__bus.emit("history_append", True, cmd)
-
-    def selection_unclip(self):
-        """Unclip the selected objects."""
-        if self.selection().is_empty():
-            return
-        cmd = UnClipCommand(self.selection().objects,
-                                         self.objects(),
-                                         selection_object=self.selection())
-        self.__bus.emit("history_append", True, cmd)
+    def __init__(self, layer, bus):
+        self.__layer = layer
+        self.__bus   = bus
 
     def selection_color_set(self, color):
         """Set the color of the selected objects."""
         log.debug("setting color selection")
-        if not self.selection().is_empty():
-            cmd = SetColorCommand(self.selection(), color)
-            self.selection().modified(True)
+        if not self.__layer.selection().is_empty():
+            cmd = SetColorCommand(self.__layer.selection(), color)
+            self.__layer.selection().modified(True)
             self.__bus.emit("history_append", True, cmd)
 
     def selection_font_set(self, font_description):
         """Set the font of the selected objects."""
-        if not self.selection().is_empty():
-            cmd = SetFontCommand(self.selection(), font_description)
-            self.selection().modified(True)
+        if not self.__layer.selection().is_empty():
+            cmd = SetFontCommand(self.__layer.selection(), font_description)
+            self.__layer.selection().modified(True)
             self.__bus.emit("history_append", True, cmd)
 
     def selection_set_transparency(self, transparency):
         """Set the line width of the selected objects."""
-        if not self.selection().is_empty():
-            cmd = SetTransparencyCommand(self.selection(), transparency)
-            self.selection().modified(True)
+        if not self.__layer.selection().is_empty():
+            cmd = SetTransparencyCommand(self.__layer.selection(), transparency)
+            self.__layer.selection().modified(True)
             self.__bus.emit("history_append", True, cmd)
 
     def selection_set_line_width(self, width):
         """Set the line width of the selected objects."""
-        if not self.selection().is_empty():
-            cmd = SetLineWidthCommand(self.selection(), width)
-            self.selection().modified(True)
+        if not self.__layer.selection().is_empty():
+            cmd = SetLineWidthCommand(self.__layer.selection(), width)
+            self.__layer.selection().modified(True)
             self.__bus.emit("history_append", True, cmd)
 
     def selection_change_stroke(self, direction):
         """Change the stroke size of the selected objects."""
-        if not self.selection().is_empty():
-            cmd = ChangeStrokeCommand(self.selection(), direction)
-            self.selection().modified(True)
+        if not self.__layer.selection().is_empty():
+            cmd = ChangeStrokeCommand(self.__layer.selection(), direction)
+            self.__layer.selection().modified(True)
             self.__bus.emit("history_append", True, cmd)
 
   # XXX! this is not implemented
     def selection_apply_pen(self):
         """Apply the pen to the selected objects."""
-  #     if not self.__page.selection().is_empty():
+  #     if not self.__layer.selection().is_empty():
   #         pen = self.__state.pen()
-  #         self.__history.append(SetPenCommand(self.__page.selection(), pen))
+  #         self.__history.append(SetPenCommand(self.__layer.selection(), pen))
 
     def selection_fill(self):
         """Toggle the fill of the selected objects."""
-        if not self.selection().is_empty():
-            cmd = ToggleFillCommand(self.selection())
-            self.selection().modified(True)
+        if not self.__layer.selection().is_empty():
+            cmd = ToggleFillCommand(self.__layer.selection())
+            self.__layer.selection().modified(True)
             self.__bus.emit("history_append", True, cmd)
+
+
+class LayerEventHandler:
+    """
+    Base class for handling events on a layer.
+    """
+    def __init__(self, layer, bus):
+        self.__layer = layer
+        self.__ph    = LayerSelectionPropertyHandler(layer, bus)
+        self.__bus   = bus
+
+        # Dictionary containing the event signal name, listener, and priority (if given)
+        self.__event_listeners = {
+            "selection_group": {"listener": self.selection_group},
+            "selection_ungroup": {"listener": self.selection_ungroup},
+            "selection_delete": {"listener": self.selection_delete},
+            "selection_clip": {"listener": self.selection_clip},
+            "selection_unclip": {"listener": self.selection_unclip},
+            "rotate_selection": {"listener": self.rotate_selection},
+            "move_selection": {"listener": self.move_selection},
+            "selection_zmove": {"listener": self.selection_zmove},
+            "transmute_selection": {"listener": self.transmute_selection},
+            "remove_objects": {"listener": self.remove_objects},
+            "set_selection": {"listener": self.selection_set},
+            "add_object": {"listener": self.add_object, "priority": 1},
+            "clear_page": {"listener": self.clear, "priority": 9},
+            "flush_selection": {"listener": self.flush_selection},
+            "set_color": {"listener": self.__ph.selection_color_set},
+            "set_font": {"listener": self.__ph.selection_font_set},
+            "set_transparency": {"listener": self.__ph.selection_set_transparency},
+            "set_line_width": {"listener": self.__ph.selection_set_line_width},
+            "stroke_change": {"listener": self.__ph.selection_change_stroke},
+            # "apply_pen_to_selection": {"listener": self.__ph.selection_apply_pen},
+            "selection_fill": {"listener": self.__ph.selection_fill}
+        }
+
+        self.activate()
+
+
+    def activate(self):
+        """Activate the event handler."""
+
+        for event, params in self.__event_listeners.items():
+            if "priority" in params:
+                self.__bus.on(event, params["listener"], 
+                              priority=params["priority"])
+            else:
+                self.__bus.on(event, params["listener"])
+
+    def deactivate(self):
+        """Deactivate the event handler."""
+
+        for event, params in self.__event_listeners.items():
+            self.__bus.off(event, params["listener"])
+
+
+    def selection_group(self):
+        """Group selected objects."""
+        if self.__layer.selection().n() < 2:
+            return
+        log.debug("Grouping n=%s objects", self.__layer.selection().n())
+        cmd = GroupObjectCommand(self.__layer.selection().objects,
+                                                 self.__layer.objects(),
+                                                 selection_object=self.__layer.selection())
+        self.__bus.emit("history_append", True, cmd)
+
+    def selection_ungroup(self):
+        """Ungroup selected objects."""
+        if self.__layer.selection().is_empty():
+            return
+        cmd = UngroupObjectCommand(self.__layer.selection().objects,
+                                                   self.__layer.objects(),
+                                                   selection_object=self.__layer.selection())
+        self.__bus.emit("history_append", True, cmd)
+
+    def selection_delete(self):
+        """Delete selected objects."""
+
+        if self.__layer.selection().objects:
+            cmd = RemoveCommand(self.__layer.selection().objects,
+                                                self.__layer.objects())
+            self.__bus.emit("history_append", True, cmd)
+            self.__layer.selection().clear()
+
+    def selection_clip(self):
+        """Clip the selected objects."""
+        if self.__layer.selection().is_empty():
+            return
+
+        obj = self.__layer.selection().objects
+
+        if len(obj) < 2:
+            log.warning("need at least two objects to clip")
+            return
+
+        log.debug("object: %s", obj[-1].type)
+        if not obj[-1].type in [ "rectangle", "shape", "circle" ]:
+            log.warning("Need a shape, rectangle or circle to clip, not %s", obj[-1].type)
+            return
+
+        cmd = ClipCommand(obj[-1], obj[:-1],
+                                       self.__layer.objects(),
+                                       selection_object=self.__layer.selection())
+        self.__bus.emit("history_append", True, cmd)
+
+    def selection_unclip(self):
+        """Unclip the selected objects."""
+        if self.__layer.selection().is_empty():
+            return
+        cmd = UnClipCommand(self.__layer.selection().objects,
+                                         self.__layer.objects(),
+                                         selection_object=self.__layer.selection())
+        self.__bus.emit("history_append", True, cmd)
 
     def rotate_selection(self, angle):
         """Rotate the selected objects by the given angle (degrees)."""
-        if self.selection().is_empty():
+        if self.__layer.selection().is_empty():
             return
 
-        obj = self.selection()
+        obj = self.__layer.selection()
         event_obj = RotateCommand(obj, angle=radians(angle))
         event_obj.event_finish()
         self.__bus.emit("history_append", True, event_obj)
 
     def move_selection(self, dx, dy):
         """Move the selected objects by the given amount."""
-        if self.selection().is_empty():
+        if self.__layer.selection().is_empty():
             return
 
-        obj = self.selection().copy()
+        obj = self.__layer.selection().copy()
         event_obj = MoveCommand(obj, (0, 0))
         event_obj.event_update(dx, dy)
         self.__bus.emit("history_append", True, event_obj)
 
     def selection_zmove(self, operation):
         """move the selected objects long the z-axis."""
-        if self.selection().is_empty() or not operation:
+        if self.__layer.selection().is_empty() or not operation:
             return
 
-        cmd = ZStackCommand(self.selection().objects,
-                                            self.objects(), operation)
+        cmd = ZStackCommand(self.__layer.selection().objects,
+                                            self.__layer.objects(), operation)
         self.__bus.emit("history_append", True, cmd)
 
     def transmute(self, objects, mode):
@@ -265,21 +236,21 @@ class Layer:
         Args:
             mode (str): The mode to transmute to.
         """
-        if self.selection().is_empty():
+        if self.__layer.selection().is_empty():
             return
-        objects = self.selection().objects
+        objects = self.__layer.selection().objects
         cmd = TransmuteCommand(objects=objects,
-                               stack=self.objects(),
+                               stack=self.__layer.objects(),
                                new_type=mode,
-                               selection_objects=self.selection().objects)
+                               selection_objects=self.__layer.selection().objects)
         self.__bus.emit("history_append", True, cmd)
 
     def remove_objects(self, objects, clear_selection = False):
         """Remove an object from the list of objects."""
-        cmd = RemoveCommand(objects, self.objects())
+        cmd = RemoveCommand(objects, self.__layer.objects())
         self.__bus.emit("history_append", True, cmd)
         if clear_selection:
-            self.selection().clear()
+            self.__layer.selection().clear()
 
     def selection_set(self, what):
         """Dispatch to the correct selection function"""
@@ -288,18 +259,18 @@ class Layer:
             return False
 
         if what == "all":
-            self.selection().all()
+            self.__layer.selection().all()
         elif what == "next":
-            self.selection().next()
+            self.__layer.selection().next()
         elif what == "previous":
-            self.selection().previous()
+            self.__layer.selection().previous()
         elif what == "reverse":
-            self.selection().reverse()
+            self.__layer.selection().reverse()
         elif what == "nothing":
-            self.selection().clear()
+            self.__layer.selection().clear()
         else:
-            log.debug(f"Setting selection to {what}")
-            self.selection().set(what)
+            log.debug("Setting selection to %s", what)
+            self.__layer.selection().set(what)
 
         self.__bus.emit("mode_set", False, "move")
         return True
@@ -307,30 +278,78 @@ class Layer:
     def add_object(self, obj):
         """Add an object to the list of objects."""
 
-        log.debug(f"Adding object {obj}")
+        log.debug("Adding object %s", obj)
 
-        if obj in self.objects():
-            log.warning(f"object {obj} already in list")
+        if obj in self.__layer.objects():
+            log.warning("object %s already in list", obj)
             return None
         if not isinstance(obj, Drawable):
             raise ValueError("Only Drawables can be added to the stack")
 
-        cmd = AddCommand([obj], self.objects())
+        cmd = AddCommand([obj], self.__layer.objects())
         self.__bus.emit("history_append", True, cmd)
 
         return obj
 
     def clear(self):
         """Clear the list of objects."""
-        self.selection().clear()
+        self.__layer.selection().clear()
 
     def flush_selection(self, flush_direction):
         """Flush the selection in the given direction."""
-        if self.selection().n() < 2:
+        if self.__layer.selection().n() < 2:
             return
 
-        cmd = FlushCommand(self.selection().objects, flush_direction)
+        cmd = FlushCommand(self.__layer.selection().objects, flush_direction)
         self.__bus.emit("history_append", True, cmd)
+
+
+
+class Layer:
+    """
+    A layer is a container for objects.
+    """
+    def __init__(self):
+        self.__objects = []
+        self.__selection = SelectionObject(self.__objects)
+        self.__bus = None
+        self.__layer_handler = None
+
+    def objects(self, objects = None):
+        """Return or set the list of objects on the layer."""
+        if objects:
+            self.__objects = objects
+            self.__selection = SelectionObject(self.__objects)
+        return self.__objects
+
+    def objects_import(self, object_list):
+        """Import objects from a dict"""
+        self.objects([ Drawable.from_dict(d) for d in object_list ] or [ ])
+
+    def selection(self):
+        """Return the selection object."""
+        return self.__selection
+
+    def export(self):
+        """Exports the layer as a dict"""
+        return [ obj.to_dict() for obj in self.__objects ]
+
+    def activate(self, bus):
+        """Activate the layer."""
+        log.debug("layer %s activating", self)
+        bus.emitMult("layer_deactivate")
+        bus.on("layer_deactivate", self.deactivate)
+        self.__bus = bus
+        self.__layer_handler = LayerEventHandler(self, bus)
+
+    def deactivate(self):
+        """Deactivate the layer."""
+        log.debug("layer %s dectivating", self)
+
+        self.__bus.off("layer_deactivate", self.deactivate)
+        self.__layer_handler.deactivate()
+        self.__layer_handler = None
+        self.__bus = None
 
 ## ---------------------------------------------------------------------
 ##
@@ -338,57 +357,12 @@ class Layer:
 ##
 ## ---------------------------------------------------------------------
 
-class Page:
-    """
-    A page is a container for layers.
+class PageChain:
+    """Base class for Page. Handles the linked list structure of pages."""
 
-    It serves as an interface between layers and whatever wants to
-    manipulate objects or selection on a layer by choosing the current
-    layer and managing layers.
-    """
-    def __init__(self, prev = None, layers = None):
-        self.__prev    = prev
-        self.__next = None
-        self.__layers = [ layers or Layer() ]
-        self.__current_layer = 0
-        self.__translate = None
-        self.__drawer = Drawer()
-        self.__bus = None
-
-    def activate(self, bus):
-        """Activate the page so that it responds to the bus"""
-        # the active page responds to signals requesting layer manipulation
-        log.debug(f"page {self} activating")
-
-        # shout out to the previous current page to get lost
-        bus.emitOnce("page_deactivate")
-        bus.on("page_deactivate", self.deactivate)
-        bus.on("next_layer", self.next_layer)
-        bus.on("prev_layer", self.prev_layer)
-        bus.on("delete_layer", self.delete_layer_cmd)
-        bus.on("clear_page", self.clear, priority = 8)
-
-        self.__layers[self.__current_layer].activate(bus)
-
-        self.__bus = bus
-
-    def deactivate(self):
-        """Stop reacting to the bus"""
-        bus = self.__bus
-
-        if bus is None:
-            return
-
-        log.debug(f"page {self} deactivating")
-        bus.off("page_deactivate", self.deactivate)
-        bus.off("next_layer", self.next_layer)
-        bus.off("prev_layer", self.prev_layer)
-        bus.off("delete_layer", self.delete_layer_cmd)
-        bus.off("clear_page", self.clear)
-
-        self.__layers[self.__current_layer].deactivate()
-
-        self.__bus = None
+    def __init__(self, prev = None, next_p = None):
+        self.__prev = prev
+        self.__next = next_p
 
     def next(self, create = True):
         """
@@ -431,25 +405,63 @@ class Page:
 
         return ret, cmd
 
-    def objects(self, objects = None):
-        """Return or set the list of objects on the page."""
-        layer = self.__layers[self.__current_layer]
-        return layer.objects(objects)
+
+class Page(PageChain):
+    """
+    A page is a container for layers.
+
+    It serves as an interface between layers and whatever wants to
+    manipulate objects or selection on a layer by choosing the current
+    layer and managing layers.
+    """
+    def __init__(self, prev = None, layers = None):
+        super().__init__(prev)
+
+        self.__layers = [ layers or Layer() ]
+        self.__current_layer = 0
+        self.__translate = None
+        self.__drawer = Drawer()
+        self.__bus = None
+
+    def activate(self, bus):
+        """Activate the page so that it responds to the bus"""
+        # the active page responds to signals requesting layer manipulation
+        log.debug("page %s activating", self)
+
+        # shout out to the previous current page to get lost
+        bus.emitOnce("page_deactivate")
+        bus.on("page_deactivate", self.deactivate)
+        bus.on("next_layer", self.next_layer)
+        bus.on("prev_layer", self.prev_layer)
+        bus.on("delete_layer", self.delete_layer_cmd)
+        bus.on("clear_page", self.clear, priority = 8)
+
+        self.layer().activate(bus)
+
+        self.__bus = bus
+
+    def deactivate(self):
+        """Stop reacting to the bus"""
+        bus = self.__bus
+
+        if bus is None:
+            return
+
+        log.debug("page %s deactivating", self)
+        bus.off("page_deactivate", self.deactivate)
+        bus.off("next_layer", self.next_layer)
+        bus.off("prev_layer", self.prev_layer)
+        bus.off("delete_layer", self.delete_layer_cmd)
+        bus.off("clear_page", self.clear)
+
+        self.layer().deactivate()
+
+        self.__bus = None
 
     def objects_all_layers(self):
         """Return all objects on all layers."""
         objects = [ obj for layer in self.__layers for obj in layer.objects() ]
         return objects
-
-    def selection(self):
-        """Return the selection object."""
-        layer = self.__layers[self.__current_layer]
-        return layer.selection()
-
-    def kill_object(self, obj):
-        """Directly remove an object from the list of objects."""
-        layer = self.__layers[self.__current_layer]
-        layer.kill_object(obj)
 
     def number_of_layers(self):
         """Return the number of layers."""
@@ -460,7 +472,7 @@ class Page:
         self.__current_layer += 1
         if self.__current_layer == len(self.__layers):
             self.__layers.append(Layer())
-            log.debug(f"appending a new layer, total now {len(self.__layers)}")
+            log.debug("appending a new layer, total now %s", len(self.__layers))
         self.__layers[self.__current_layer].selection().all()
         if self.__bus:
             self.__layers[self.__current_layer].activate(self.__bus)
@@ -525,7 +537,7 @@ class Page:
 
     def delete_layer(self, layer_no = None):
         """Delete the current layer."""
-        log.debug(f"deleting layer {layer_no}")
+        log.debug("deleting layer %s", layer_no)
 
         if len(self.__layers) == 1:
             return None, None
@@ -553,11 +565,6 @@ class Page:
             self.__translate = new_val
         return self.__translate
 
-    def translate_set(self, new_val):
-        """Set the translate"""
-        self.__translate = new_val
-        return self.__translate
-
     def export(self):
         """Exports the page with all layers as a dict"""
         layers = [ l.export() for l in self.__layers ]
@@ -573,11 +580,11 @@ class Page:
         log.debug("importing pages")
         self.__translate = page_dict.get("translate")
         if "objects" in page_dict:
-            self.objects(page_dict["objects"])
+            self.layer().objects(page_dict["objects"])
         elif "layers" in page_dict:
-            log.debug(f'{len(page_dict["layers"])} layers found')
-            log.debug(f"however, we only have {len(self.__layers)} layers")
-            log.debug(f'creating {len(page_dict["layers"]) - len(self.__layers)} new layers')
+            log.debug('%s layers found', len(page_dict["layers"]))
+            log.debug("however, we only have %s layers", len(self.__layers))
+            log.debug('creating %s new layers', len(page_dict["layers"]) - len(self.__layers))
             self.__current_layer = 0
             for _ in range(len(page_dict["layers"]) - len(self.__layers)):
                 self.next_layer()

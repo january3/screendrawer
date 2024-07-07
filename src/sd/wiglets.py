@@ -225,7 +225,7 @@ class WigletMove(Wiglet):
             # then remove
             cmd = CommandGroup([ cmd,
                                  RemoveCommand(obj.objects,
-                                               page.objects()) ])
+                                               page.layer().objects()) ])
             self.__bus.emitOnce("history_append", cmd)
             self.__bus.emitOnce("set_selection", "nothing")
         else:
@@ -295,7 +295,7 @@ class WigletSelectionTool(Wiglet):
             return False
 
         page = self.__state.page()
-        objects = self.__selection_tool.objects_in_selection(page.objects())
+        objects = self.__selection_tool.objects_in_selection(page.layer().objects())
 
         if len(objects) > 0:
             self.__bus.emitOnce("set_selection", objects)
@@ -672,7 +672,7 @@ class WigletEditText(Wiglet):
             else:
                 # remove the object
                 cmd1 = TextEditCommand(obj, self.__edit_existing, obj.to_string())
-                cmd2 = RemoveCommand([ obj ], page.objects())
+                cmd2 = RemoveCommand([ obj ], page.layer().objects())
                 self.__bus.emit("history_append", True, CommandGroup([ cmd1, cmd2 ]))
                 pass
         elif obj.strlen() > 0:
@@ -888,9 +888,9 @@ class WigletCreateGroup(Wiglet):
         if n == 1:
             page = self.__state.current_page()
             obj = self.__group_obj.objects[0]
-            #cmd1 = RemoveCommand([ self.__group_obj ], page.objects())
+            #cmd1 = RemoveCommand([ self.__group_obj ], page.layer().objects())
             self.__bus.emit("history_undo_cmd", True, self.__first_cmd)
-            cmd2 = AddCommand([ obj ], page.objects())
+            cmd2 = AddCommand([ obj ], page.layer().objects())
             #cmd = CommandGroup([ cmd1, cmd2 ])
             self.__bus.emit("history_append", True, cmd2)
 
@@ -921,7 +921,7 @@ class WigletCreateGroup(Wiglet):
 
         if not self.__added:
             page = self.__state.current_page()
-            cmd1 = AddCommand([ self.__group_obj ], page.objects())
+            cmd1 = AddCommand([ self.__group_obj ], page.layer().objects())
             cmd2 = AddToGroupCommand(self.__group_obj, obj)
             cmd  = CommandGroup([ cmd1, cmd2 ])
             self.__bus.emit("history_append", True, cmd)

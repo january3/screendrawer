@@ -115,17 +115,17 @@ class GraphicsObjectManager:
 
     def objects(self):
         """Return the list of objects."""
-        return self.__page.objects()
+        return self.__page.layer().objects()
 
     def selection(self):
         """Return the selection object."""
-        return self.__page.selection()
+        return self.__page.layer().selection()
 
     def set_objects(self, objects):
         """Set the list of objects."""
         ## no undo
         log.debug("GOM: setting n=%d objects", len(objects))
-        self.__page.objects(objects)
+        self.__page.layer().objects(objects)
 
     def set_pages(self, pages):
         """Set the content of pages."""
@@ -156,22 +156,18 @@ class GraphicsObjectManager:
         pages = [ p.export() for p in self.get_all_pages() ]
         return pages
 
-    def kill_object(self, obj):
-        """Directly remove an object from the list of objects."""
-        self.__page.kill_object(obj)
-
     def selected_objects(self):
         """Return the selected objects."""
-        return self.__page.selection().objects
+        return self.__page.layer().selection().objects
 
     def remove_selection(self):
         """Remove the selected objects from the list of objects."""
-        if self.__page.selection().is_empty():
+        if self.__page.layer().selection().is_empty():
             return
-        cmd = RemoveCommand(self.__page.selection().objects,
-                                            self.__page.objects())
+        cmd = RemoveCommand(self.__page.layer().selection().objects,
+                                            self.__page.layer().objects())
         self.__bus.emit("history_append", True, cmd)
-        self.__page.selection().clear()
+        self.__page.layer().selection().clear()
 
     def command_append(self, command_list):
         """Append a group of commands to the history."""
