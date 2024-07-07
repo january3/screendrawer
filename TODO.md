@@ -39,7 +39,9 @@ Design issues:
  * Layers have too many public methods. Maybe it was wrong to move
    everything from GOM to Layer? Shit. Maybe Layers should strictly do
    stuff rather than handle signals. Then again, same could be said about
-   pages. Gdzie się nie obrócisz, to dupa z tyłu.
+   pages. Gdzie się nie obrócisz, to dupa z tyłu. Or maybe: layers should
+   be creating the actual commands, but GOM should be reacting to the bus
+   and putting the commands in history. Oh fuuuuuuuuuuuuuuuuuck.
  * when bus emits a signal, it calls the listener without telling it to
    which signal it reacts. This makes it impossible to create
    multi-listeners that handle different signals. Maybe the signal should
@@ -68,7 +70,6 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
- * there is a problem with redoing move commands
  * select a number of objects, hit alt-s, undo, hit alt-s again -> error.
    something is wrong with selection (old object? containing deleted
    objects?)
@@ -79,6 +80,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * there is a problem with redoing move commands
  * selection-related bus listeners should be handled by the layer, since
    selection is an object of the layer. active page should activate the
    active layer, the layer should set up its own bus listeneres upon

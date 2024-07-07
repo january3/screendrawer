@@ -902,7 +902,7 @@ class MoveCommand(MoveResizeCommand):
         dx = self.start_point[0] - self.__last_pt[0]
         dy = self.start_point[1] - self.__last_pt[1]
         for obj in self.obj:
-            obj.move(dx, dy)
+            obj.move(-dx, -dy)
         self.undone_set(False)
 
 
