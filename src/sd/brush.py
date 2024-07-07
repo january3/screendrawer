@@ -12,6 +12,7 @@ from .utils import first_point_after_length                        # <remove>
 from .utils import midpoint, calc_intersect, calc_intersect_2      # <remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
+log.setLevel(logging.INFO)                                      # <remove>
 
 def get_current_color_and_alpha(ctx):
     """Get the current color and alpha from the Cairo context."""

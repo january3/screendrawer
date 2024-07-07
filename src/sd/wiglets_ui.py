@@ -678,10 +678,10 @@ class WigletColorSelector(Wiglet):
 
         if ev.shift():
             log.debug(f"setting bg to color {sel_color}")
-            self.__bus.emit("set_bg_color", True, sel_color)
+            self.__bus.emit("set_bg_color", False, sel_color)
         else:
             log.debug(f"setting fg to color {sel_color}")
-            self.__bus.emit("set_color", True, sel_color)
+            self.__bus.emit("set_color", False, sel_color)
 
         self.__bus.emit("queue_draw")
         return True

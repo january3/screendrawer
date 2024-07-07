@@ -343,14 +343,14 @@ class TransparentWindow(Gtk.Window):
         """Select a color for drawing using ColorChooser dialog."""
         color = ColorChooser(self)
         if color:
-            self.bus.emit("set_color", True, (color.red, color.green, color.blue))
+            self.bus.emit("set_color", False, (color.red, color.green, color.blue))
 
     def select_font(self):
         """Select a font for drawing using FontChooser dialog."""
         font_description = FontChooser(self.state.pen(), self)
 
         if font_description:
-            self.bus.emit("set_font", True, font_description)
+            self.bus.emit("set_font", False, font_description)
 
     def show_help_dialog(self):
         """Show the help dialog."""

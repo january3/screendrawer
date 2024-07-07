@@ -273,13 +273,12 @@ class DeleteLayerCommand(Command):
 
 class ClipCommand(Command):
     """Simple class for handling clipping objects."""
-    def __init__(self, clip, objects, stack, selection_object = None, page = None):
+    def __init__(self, clip, objects, stack, selection_object = None):
         super().__init__("clip", objects)
         self.__selection = selection_object
         self.__clip = clip
         self.__stack = stack
         self.__stack_copy = stack[:]
-        self.__page = page
 
         # position of the last object in stack
         idx = self.__stack.index(self.obj[-1])
@@ -297,31 +296,28 @@ class ClipCommand(Command):
     def undo(self):
         """Undo the command."""
         if self.undone():
-            return None
+            return
         swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(True)
         if self.__selection:
             self.__selection.set(self.obj)
-        return self.__page
 
     def redo(self):
         """Redo the command."""
         if not self.undone():
-            return None
+            return
         swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(False)
         if self.__selection:
             self.__selection.set([ self.__group ])
-        return self.__page
 
 class UnClipCommand(Command):
     """Simple class for handling clipping objects."""
-    def __init__(self, objects, stack, selection_object = None, page = None):
+    def __init__(self, objects, stack, selection_object = None):
         super().__init__("unclip", objects)
         self.__stack = stack
         self.__stack_copy = stack[:]
         self.__selection = selection_object
-        self.__page = page
 
         new_objects = []
         n = 0
@@ -347,26 +343,23 @@ class UnClipCommand(Command):
         if n > 0 and self.__selection:
             self.__selection.set(new_objects)
 
-
     def undo(self):
         """Undo the command."""
         if self.undone():
-            return None
+            return
         swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(True)
         if self.__selection:
             self.__selection.set(self.obj)
-        return self.__page
 
     def redo(self):
         """Redo the command."""
         if not self.undone():
-            return None
+            return
         swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(False)
         if self.__selection:
             self.__selection.set([ self.__group ])
-        return self.__page
 
 class TextEditCommand(Command):
     """Simple class for handling text editing."""
@@ -425,14 +418,13 @@ class AddToGroupCommand(Command):
 
 class GroupObjectCommand(Command):
     """Simple class for handling grouping objects."""
-    def __init__(self, objects, stack, selection_object = None, page = None):
+    def __init__(self, objects, stack, selection_object = None):
         objects = sort_by_stack(objects, stack)
 
         super().__init__("group", objects)
         self.__stack      = stack
         self.__stack_copy = stack[:]
 
-        self.__page      = page
         self.__selection = selection_object
 
         self.__group = DrawableGroup(self.obj)
@@ -454,22 +446,20 @@ class GroupObjectCommand(Command):
     def undo(self):
         """Undo the command."""
         if self.undone():
-            return None
+            return
         swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(True)
         if self.__selection:
             self.__selection.set(self.obj)
-        return self.__page
 
     def redo(self):
         """Redo the command."""
         if not self.undone():
-            return None
+            return
         swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(False)
         if self.__selection:
             self.__selection.set([ self.__group ])
-        return self.__page
 
 class UngroupObjectCommand(Command):
     """
@@ -478,12 +468,11 @@ class UngroupObjectCommand(Command):
     :param objects: Objects to be ungrouped (objects which are not groups
                     will be ignored)
     """
-    def __init__(self, objects, stack, selection_object = None, page = None):
+    def __init__(self, objects, stack, selection_object = None):
         super().__init__("ungroup", objects)
         self.__stack = stack
         self.__stack_copy = stack[:]
         self.__selection = selection_object
-        self.__page = page
 
         new_objects = []
         n = 0
@@ -512,24 +501,20 @@ class UngroupObjectCommand(Command):
     def undo(self):
         """Undo the command."""
         if self.undone():
-            return None
+            return
         swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(True)
         if self.__selection:
             self.__selection.set([ self.obj ])
-        return self.__page
 
     def redo(self):
         """Redo the command."""
         if not self.undone():
-            return None
+            return
         swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(False)
         if self.__selection:
             self.__selection.set(self.obj)
-        return self.__page
-
-
 
 class RemoveCommand(Command):
     """
@@ -664,11 +649,10 @@ class TransmuteCommand(Command):
 
 class ZStackCommand(Command):
     """Simple class for handling z-stack operations."""
-    def __init__(self, objects, stack, operation, page = None):
+    def __init__(self, objects, stack, operation):
         super().__init__("z_stack", objects)
         self._operation  = operation
         self.__stack      = stack
-        self.__page = page
 
         for obj in objects:
             if not obj in stack:
@@ -759,18 +743,16 @@ class ZStackCommand(Command):
     def undo(self):
         """Undo the command."""
         if self.undone():
-            return None
+            return
         swap_stacks(self.__stack, self.__stack_orig)
         self.undone_set(True)
-        return self.__page
 
     def redo(self):
         """Redo the command."""
         if not self.undone():
-            return None
+            return
         swap_stacks(self.__stack, self.__stack_orig)
         self.undone_set(False)
-        return self.__page
 
 # --------------------------------------------------------------
 

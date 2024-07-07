@@ -17,6 +17,7 @@ import pyautogui                                                    #<remove>
 from PIL import ImageGrab                                           #<remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
+log.setLevel(logging.INFO)                                       # <remove>
 
 gi.require_version('Gtk', '3.0')                                    #<remove>
 

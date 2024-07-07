@@ -17,7 +17,7 @@ from .drawable_factory import DrawableFactory                    # <remove>
 from .drawable_group import DrawableGroup                        # <remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
-
+log.setLevel(logging.INFO)
 
 
 ## ---------------------------------------------------------------------

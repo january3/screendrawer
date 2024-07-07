@@ -8,6 +8,7 @@ from .pen import Pen           # <remove>
 from .utils import move_coords # <remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
+log.setLevel(logging.INFO)                                       # <remove>
 
 
 class DrawableRoot:

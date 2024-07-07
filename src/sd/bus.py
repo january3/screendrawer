@@ -67,7 +67,7 @@ class Bus:
         Exclusive events will stop dispatching if a listener returns a truthy value.
         """
 
-        log.debug(f"emitting event {event} with {args} and {kwargs}")
+        log.debug(f"emitting event {event} exclusive={exclusive} with {args} and {kwargs}")
 
         # completely ignore events that have no listeners
         if not event in self.__listeners:

@@ -7,6 +7,7 @@ from .utils import bbox_overlap, path_bbox, transform_coords # <remove>
 from .drawable import Drawable                # <remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
+log.setLevel(logging.INFO)                                       # <remove>
 
 class DrawableGroup(Drawable):
     """

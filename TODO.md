@@ -1,5 +1,9 @@
 To do (sorted by priority):
 
+ * implement a command to flush a group of objects to l/r/t/b
+ * if an object has been cut with ctrl-x, then upon ctrl-v it should be
+   inserted at precisely the same position. Therefore, we would need to
+   mark the origin of the clipboard more than just "internal"
  * For layers to be truly useful, we need more layer properties (alpha,
    visible / non-visible), also rearranging layers
  * remember last file name exported and last directory in which it was
@@ -24,8 +28,6 @@ To do (sorted by priority):
    objects knowing how to draw themselves and how to react to mouse
  * Help should be actually a new screendrawer window with written on it!
  * welcome screen as screendrawer pages
- * how should the color picker and the color selection dialog colaborate?
-   (or actually abandon color selection dialog?)
  * show corners of the bounding box
  * horizontal and vertical guides
  * implement page dnd rearrangements in the page selector wiglet
@@ -34,13 +36,15 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
- * there are several page-related functions for which gom serves as a
-   wrapper, because gom knows the current page. However, instead create a
-   "activate"/"deactivate" method pair for page; pages should then turn
-   their bus listeners on / off and handle the page related functions
-   themselves. This would take a lot of load off gom and create a better
-   separation between gom and page. then again, the same thing could be
-   said about selection object? since this is a page thing as well.
+ * Layers have too many public methods. Maybe it was wrong to move
+   everything from GOM to Layer? Shit. Maybe Layers should strictly do
+   stuff rather than handle signals. Then again, same could be said about
+   pages. Gdzie się nie obrócisz, to dupa z tyłu.
+ * when bus emits a signal, it calls the listener without telling it to
+   which signal it reacts. This makes it impossible to create
+   multi-listeners that handle different signals. Maybe the signal should
+   be passed as an argument to the listener? That would require a lot of
+   work - every listener must take an additional, optional argument.
  * when an sdrw file is opened or saved-as, set the working dir to that
    files dir. When a file is exported, remember the dir for exports only. 
    When started in headless mode, start working in the home dir or a dir
@@ -64,6 +68,10 @@ Design issues:
    switching to a ceratain mode after or before certain commands
 
 Bugs:
+ * there is a problem with redoing move commands
+ * select a number of objects, hit alt-s, undo, hit alt-s again -> error.
+   something is wrong with selection (old object? containing deleted
+   objects?)
  * ctrl-v / ctrl-c do not work while editing text objects
  * Brush two sucks.
  * when paste an object multiple times, the second and following copies
@@ -71,6 +79,21 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * selection-related bus listeners should be handled by the layer, since
+   selection is an object of the layer. active page should activate the
+   active layer, the layer should set up its own bus listeneres upon
+   activation etc. Or maybe selection should do that? I mean, what does
+   selection need the layer for? => not sure, when is the selection object
+   deleted / replaced? => ok, so selection is transient, therefore it is
+   layer that should be handling these signals
+ * everything that page can handle, gom shouldn't
+ * there are several page-related functions for which gom serves as a
+   wrapper, because gom knows the current page. However, instead create a
+   "activate"/"deactivate" method pair for page; pages should then turn
+   their bus listeners on / off and handle the page related functions
+   themselves. This would take a lot of load off gom and create a better
+   separation between gom and page. then again, the same thing could be
+   said about selection object? since this is a page thing as well.
  * moves cannot be grouped because they work on a copy of the selection
  * when started, the position reported by cursor is 0, 0, because it has
    not received any mouse events yet. An event would have to be simulated
@@ -629,6 +652,8 @@ Done:
  * grouping
 
 Parked ideas:
+ * how should the color picker and the color selection dialog colaborate?
+   (or actually abandon color selection dialog?) => works for now as is
  * rotating the whole selection does not work (b/c the way selection
    behaves). However, you can group, rotate and ungroup, so I will park
    that for now.
