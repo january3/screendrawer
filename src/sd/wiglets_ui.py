@@ -249,7 +249,7 @@ class WigletPageSelector(Wiglet):
 
     def on_click(self, ev):
         """handle the click event"""
-        if not ev.state.show_wiglets():
+        if not ev.state.graphics().show_wiglets():
             return False
 
         x, y = ev.x_abs, ev.y_abs
@@ -294,7 +294,7 @@ class WigletPageSelector(Wiglet):
 
         Finally, draw a little "+" symbol for adding a new page.
         """
-        if not state.show_wiglets():
+        if not state.graphics().show_wiglets():
             return
 
         self.recalculate()
@@ -420,7 +420,7 @@ class WigletToolSelector(Wiglet):
 
     def draw(self, cr, state):
         """draw the widget"""
-        if not state.show_wiglets():
+        if not state.graphics().show_wiglets():
             return
 
         cr.set_source_rgb(0.5, 0.5, 0.5)
@@ -488,7 +488,7 @@ class WigletToolSelector(Wiglet):
     def on_click(self, ev):
         """handle the click event"""
 
-        if not ev.state.show_wiglets():
+        if not ev.state.graphics().show_wiglets():
             return False
 
         x, y = ev.x_abs, ev.y_abs
@@ -545,15 +545,15 @@ class WigletStatusLine(Wiglet):
 
     def draw(self, cr, state):
         """draw the widget"""
-        if not state.show_wiglets():
+        if not state.graphics().show_wiglets():
             return
 
-        status_line = self.__state.filename() + f" |mode: {self.__state.mode()}|"
+        status_line = self.__state.config().savefile() + f" |mode: {self.__state.mode()}|"
 
-        status_line += ' (!)' if self.__state.modified() else ''
+        status_line += ' (!)' if self.__state.graphics().modified() else ''
 
-        bg_cols = [ int(x * 100) for x in self.__state.bg_color()]
-        tr      = int(self.__state.alpha() * 100)
+        bg_cols = [ int(x * 100) for x in self.__state.graphics().bg_color()]
+        tr      = int(self.__state.graphics().alpha() * 100)
         bg_cols.append(tr)
         status_line += f"  bg: {bg_cols}"
 
@@ -618,7 +618,7 @@ class WigletColorSelector(Wiglet):
     def draw(self, cr, state):
         """draw the widget"""
         # draw grey rectangle around my bbox
-        if not state.show_wiglets():
+        if not state.graphics().show_wiglets():
             return
 
         cr.set_source_rgb(0.5, 0.5, 0.5)
@@ -654,7 +654,7 @@ class WigletColorSelector(Wiglet):
 
     def on_click(self, ev):
         """handle the click event"""
-        if not ev.state.show_wiglets():
+        if not ev.state.graphics().show_wiglets():
             return False
 
         x, y = ev.x_abs, ev.y_abs

@@ -35,8 +35,10 @@ class Canvas:
 
     def on_draw(self, widget, cr):
         """Main draw method of the whole app."""
-        if self.__state.hidden():
+
+        if self.__state.graphics().hidden():
             return
+
         page = self.__state.current_page()
         tr = page.translate()
 
@@ -81,9 +83,9 @@ class Canvas:
         """
         pass
 
-        bg_color     = self.__state.bg_color()
-        transparency = self.__state.alpha()
-        show_grid    = self.__state.show_grid()
+        bg_color     = self.__state.graphics().bg_color()
+        transparency = self.__state.graphics().alpha()
+        show_grid    = self.__state.graphics().show_grid()
         size         = self.__state.get_win_size()
 
         cr.set_source_rgba(*bg_color, transparency)

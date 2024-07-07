@@ -63,7 +63,7 @@ from sd.brush import Brush                ###<placeholder sd/brush.py>
 from sd.grid import Grid                  ###<placeholder sd/grid.py>
 from sd.texteditor import TextEditor      ###<placeholder sd/texteditor.py>
 from sd.imageobj import ImageObj          ###<placeholder sd/imageobj.py>
-from sd.state import State, Setter        ###<placeholder sd/state.py>
+from sd.state import State                ###<placeholder sd/state.py>
 from sd.drawable import *                 ###<placeholder sd/drawable.py>
 from sd.drawer import Drawer              ###<placeholder sd/drawer.py>
 from sd.drawable_factory import DrawableFactory         ###<placeholder sd/drawable_factory.py>
@@ -112,10 +112,9 @@ class TransparentWindow(Gtk.Window):
     def __init__(self, save_file = None):
         super().__init__()
 
-        self.savefile            = save_file
-        self.init_ui()
+        self.init_ui(save_file = save_file)
 
-    def init_ui(self):
+    def init_ui(self, save_file):
         """Initialize the user interface."""
         self.set_title("Transparent Drawing Window")
         self.set_decorated(False)
@@ -152,8 +151,6 @@ class TransparentWindow(Gtk.Window):
 
         self.clipboard           = Clipboard()
 
-        self.setter = Setter(bus = self.bus, state = self.state)
-
         # initialize the wiglets - which listen to events
         self.__init_wiglets()
 
@@ -168,8 +165,8 @@ class TransparentWindow(Gtk.Window):
         self.canvas = Canvas(state = self.state, bus = self.bus)
 
         # load the drawing from the savefile
-        self.read_file(self.savefile)
-        self.bus.emit("set_filename", False, self.savefile)
+        self.bus.emit("set_savefile", False, save_file)
+        self.read_file(save_file)
 
         # connecting events
         self.__add_bus_events()
@@ -221,11 +218,11 @@ class TransparentWindow(Gtk.Window):
                    WigletSelectionTool(bus = self.bus, state = self.state),
                    WigletResizeRotate(bus = self.bus, state = self.state),
                    WigletMove(bus = self.bus, state = self.state),
-                   WigletColorSelector(bus = self.bus, func_color = self.setter.set_color,
-                                        func_bg = self.state.bg_color),
+                   WigletColorSelector(bus = self.bus, func_color = self.state.set_color,
+                                        func_bg = self.state.graphics().bg_color),
                    WigletToolSelector(bus = self.bus, func_mode = self.state.mode),
                    WigletPageSelector(bus = self.bus, gom = self.gom),
-                   WigletColorPicker(bus = self.bus, func_color = self.setter.set_color, 
+                   WigletColorPicker(bus = self.bus, func_color = self.state.set_color, 
                                      clipboard = self.clipboard),
                    WigletTransparency(bus = self.bus, state = self.state),
                    WigletLineWidth(bus = self.bus, state = self.state),
@@ -376,9 +373,8 @@ class TransparentWindow(Gtk.Window):
         log.debug("opening save file dialog")
         file = save_dialog(self)
         if file:
-            self.savefile = file
-            log.debug(f"setting savefile to {self.savefile}")
-            self.bus.emit("set_filename", False, self.savefile)
+            log.debug("setting savefile to %s", file)
+            self.bus.emit("set_savefile", False, file)
             self.__save_state()
 
     def export_drawing(self):
@@ -402,8 +398,8 @@ class TransparentWindow(Gtk.Window):
             return
 
         obj = DrawableGroup(obj)
-        export_dir = self.state.export_dir()
-        file_name  = self.state.export_fn()
+        export_dir = self.state.config().export_dir()
+        file_name  = self.state.config().export_fn()
 
         log.debug(f"export_dir: {export_dir}")
         ret = export_dialog(self, export_dir = export_dir,
@@ -416,7 +412,7 @@ class TransparentWindow(Gtk.Window):
 
         cfg = { "bg": self.state.bg_color(), 
                "bbox": bbox, 
-               "transparency": self.state.alpha() }
+               "transparency": self.state.graphics().alpha() }
 
         if all_as_pdf:
             # get all objects from all pages and layers
@@ -436,7 +432,7 @@ class TransparentWindow(Gtk.Window):
     def import_image(self):
         """Select an image file and create a pixbuf from it."""
 
-        import_dir = self.state.import_dir()
+        import_dir = self.state.config().import_dir()
         image_file = import_image_dialog(self, import_dir = import_dir)
         dirname, base_name = path.split(image_file)
         self.bus.emitMult("set_import_dir", dirname)
@@ -466,7 +462,7 @@ class TransparentWindow(Gtk.Window):
         frame = (bb[0] - 3 + dx, bb[1] - 3 + dy, bb[0] + bb[2] + 6 + dx, bb[1] + bb[3] + 6 + dy)
         print("frame is", frame)
         pixbuf, filename = get_screenshot(self, *frame)
-        self.state.hidden(False)
+        self.state.graphics().hidden(False)
         self.queue_draw()
 
         # Create the image and copy the file name to clipboard
@@ -506,7 +502,7 @@ class TransparentWindow(Gtk.Window):
             bb = obj.bbox()
             print("bbox is", bb)
         #self.hidden = True
-        self.state.hidden(True)
+        self.state.graphics().hidden(True)
         self.queue_draw()
         while Gtk.events_pending():
             Gtk.main_iteration_do(False)
@@ -514,7 +510,7 @@ class TransparentWindow(Gtk.Window):
 
     def __autosave(self):
         """Autosave the drawing state."""
-        if not self.state.modified():
+        if not self.state.graphics().modified():
             return
 
         if self.state.current_obj(): # not while drawing!
@@ -522,19 +518,20 @@ class TransparentWindow(Gtk.Window):
 
         log.debug("Autosaving")
         self.__save_state()
-        self.state.modified(False)
+        self.state.graphics().modified(False)
 
     def __save_state(self):
         """Save the current drawing state to a file."""
-        if not self.savefile:
+        savefile = self.state.config().savefile()
+        if not savefile:
             log.debug("No savefile set")
             return
 
-        log.debug(f"savefile: {self.savefile}")
+        log.debug("savefile: %s", savefile)
         config = {
-                'bg_color':    self.state.bg_color(),
-                'transparent': self.state.alpha(),
-                'show_wiglets': self.state.show_wiglets(),
+                'bg_color':    self.state.graphics().bg_color(),
+                'transparent': self.state.graphics().alpha(),
+                'show_wiglets': self.state.graphics().show_wiglets(),
                 'bbox':        (0, 0, *self.get_size()),
                 'pen':         self.state.pen().to_dict(),
                 'pen2':        self.state.pen(alternate = True).to_dict(),
@@ -543,19 +540,23 @@ class TransparentWindow(Gtk.Window):
 
         pages   = self.gom.export_pages()
 
-        save_file_as_sdrw(self.savefile, config, pages = pages)
+        save_file_as_sdrw(savefile, config, pages = pages)
 
     def open_drawing(self):
         """Open a drawing from a file in native format."""
         file_name = open_drawing_dialog(self)
-        if self.read_file(file_name):
-            log.debug(f"Setting savefile to {file_name}")
-            self.savefile = file_name
-            self.state.modified(True)
-            self.bus.emit("set_filename", False, self.savefile)
+
+        if file_name and self.read_file(file_name):
+            log.debug("Setting savefile to %s", file_name)
+
+            self.bus.emit("set_savefile", False, file_name)
+            self.state.graphics().modified(True)
 
     def read_file(self, filename, load_config = True):
         """Read the drawing state from a file."""
+        if not filename:
+            raise ValueError("No filename provided")
+
         config, objects, pages = read_file_as_sdrw(filename)
 
         if pages:
@@ -564,17 +565,17 @@ class TransparentWindow(Gtk.Window):
             self.gom.set_objects(objects)
 
         if config and load_config:
-            self.state.bg_color(config.get('bg_color') or (.8, .75, .65))
-            self.state.alpha(config.get('transparent') or 0)
+            self.state.graphics().bg_color(config.get('bg_color') or (.8, .75, .65))
+            self.state.graphics().alpha(config.get('transparent') or 0)
             show_wiglets = config.get('show_wiglets')
             if show_wiglets is None:
                 show_wiglets = True
-            self.state.show_wiglets(show_wiglets)
+            self.state.graphics().show_wiglets(show_wiglets)
             self.state.pen(pen = Pen.from_dict(config['pen']))
             self.state.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
             self.gom.set_page_number(config.get('page') or 0)
         if config or objects:
-            self.state.modified(True)
+            self.state.graphics().modified(True)
             return True
         return False
 
@@ -678,7 +679,7 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
         log.info("Setting logging level to DEBUG")
     savefile = process_args(args, APP_NAME, APP_AUTHOR)
-    log.debug(f"Save file is: {savefile}")
+    log.debug("Save file is: %s", savefile) 
 
 # ---------------------------------------------------------------------
 

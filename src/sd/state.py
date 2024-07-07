@@ -1,81 +1,111 @@
 """Status singleton class for holding key app information."""
 import logging                                                   # <remove>
-log = logging.getLogger(__name__)                                # <remove>
 from sd.pen      import Pen                                        # <remove>
 
-class State:
-    """Singleton class for holding key app information."""
-    __new_instance = None
+log = logging.getLogger(__name__)                                # <remove>
 
-    def __new__(cls, *args, **kwargs):
-        if not cls.__new_instance:
-            cls.__new_instance = super(State, cls).__new__(cls)
-        return cls.__new_instance
+class StateGraphics:
+    """
+    Base class for holding key app graphics state information.
 
-    def __init__(self, app, bus, gom, cursor):
-        bus.on("queue_draw", self.queue_draw)
-        self.__bus  = bus
+    Essentially options regarding whether to show UI elements, background
+    etc.
+    """
 
+    def __init__(self):
+
+        self.__gr = {
+                "mode": "draw",             # drawing mode
+                "modified": True,           # modified flag
+                "bg_color": (.8, .75, .65), # bg color
+                "transparency": 0,          # bg alpha
+                "outline": False,           # outline mode
+                "hidden": False,            # hide drawing
+                                            # for screenshots
+                "grid": False,              # show grid
+                "wiglets": True,            # show wiglets
+                }
+
+    def bg_color(self, color=None):
+        """Get or set the background color."""
+        if color:
+            self.__gr["bg_color"] = color
+        return self.__gr["bg_color"]
+
+    def cycle_background(self):
+        """Cycle through background transparency."""
+        self.__gr["transparency"] = {1: 0, 0: 0.5, 0.5: 1}[self.__gr["transparency"]]
+
+    def alpha(self, value=None):
+        """Get or set the bg transparency."""
+        if value:
+            self.__gr["transparency"] = value
+        return self.__gr["transparency"]
+
+    def outline(self, value = None):
+        """Get the outline mode."""
+        if value is not None:
+            self.__gr["outline"] = value
+        return self.__gr["outline"]
+
+    def show_grid(self):
+        """What is the show grid status."""
+        return self.__gr["grid"]
+
+    def toggle_grid(self):
+        """Toggle the grid."""
+        self.__gr["grid"] = not self.__gr["grid"]
+
+    def show_wiglets(self, value = None):
+        """Show or hide the wiglets."""
+        if value is not None:
+            self.__gr["wiglets"] = value
+        return self.__gr["wiglets"]
+
+    def toggle_wiglets(self):
+        """Toggle the wiglets."""
+        self.__gr["wiglets"] = not self.__gr["wiglets"]
+
+    def hidden(self, value = None):
+        """Hide or show the drawing."""
+        if not value is None:
+            self.__gr["hidden"] = value
+        return self.__gr["hidden"]
+
+    def mode(self, mode = None):
+        """Get or set the cursor mode."""
+        if mode:
+            if mode == self.__gr["mode"]:
+                return mode
+            log.debug("setting mode to %s", mode)
+            self.__gr["mode"] = mode
+        return self.__gr["mode"]
+
+    def modified(self, value = None):
+        """Get or set the modified flag."""
+        if value is not None:
+            self.__gr["modified"] = value
+        return self.__gr["modified"]
+
+
+
+class StateConfig:
+    """import export dirs"""
+
+    def __init__(self):
         self.__vars = {
-                "mode": "draw",
-                "modified": True,
-                "filename": None,
+                "savefile": None,
                 "cur_dir": None,
                 "import_dir": None,
                 "export_dir": None,
                 "export_fn": None,
                 }
 
-        self.__obj = {
-                "gom": gom,
-                "app": app,
-                "cursor": cursor
-                }
-
-        self.__gr = {
-                "bg_color": (.8, .75, .65),
-                "transparency": 0,
-                "outline": False,
-                }
-
-        self.__show = {
-                "hidden": False,
-                "grid": False,
-                "wiglets": True,
-                }
-
-        self.__objs = {
-                "hover": None,
-                "current": None,
-                "resize": None,
-                }
-
-        self.__pens = [ Pen(line_width = 4,  color = (0.2, 0, 0),
-                            font_size = 24, transparency  = 1),
-                        Pen(line_width = 40, color = (1, 1, 0),
-                            font_size = 24, transparency = .2) ]
-
-        bus.on("mode_set", self.mode, 999)
-        bus.on("cycle_bg_transparency", self.cycle_background, 0)
-        bus.on("toggle_wiglets", self.toggle_wiglets, 0)
-        bus.on("toggle_grid", self.toggle_grid, 0)
-        bus.on("switch_pens", self.switch_pens, 0)
-        bus.on("apply_pen_to_bg", self.apply_pen_to_bg, 0)
-        bus.on("clear_page", self.current_obj_clear, 0)
-        bus.on("set_bg_color", self.bg_color, 0)
-        bus.on("set_filename", self.filename, 0)
-        bus.on("set_export_dir", self.export_dir, 0)
-        bus.on("set_import_dir", self.import_dir, 0)
-        bus.on("set_export_fn", self.export_fn, 0)
-
-
-    # -------------------------------------------------------------------------
-
-    def filename(self, name = None):
-        """Get or set the filename."""
+    def savefile(self, name = None):
+        """Get or set the savefile."""
         if name:
-            self.__vars["filename"] = name
-        return self.__vars["filename"]
+            self.__vars["savefile"] = name
+        return self.__vars["savefile"]
 
     def cur_dir(self, name = None):
         """Get or set the current directory."""
@@ -100,6 +130,50 @@ class State:
         if name:
             self.__vars["export_fn"] = name
         return self.__vars["export_fn"]
+
+
+class StateRoot:
+    """Base class for holding key app information."""
+
+    def __init__(self, app, gom, cursor):
+        self.__gr_state = StateGraphics()
+        self.__config   = StateConfig()
+
+        self.__obj = {
+                "gom": gom,
+                "app": app,
+                "cursor": cursor
+                }
+
+        self.__objs = {
+                "hover": None,
+                "current": None,
+                "resize": None,
+                }
+
+        self.__pens = [ Pen(line_width = 4,  color = (0.2, 0, 0),
+                            font_size = 24, transparency  = 1),
+                        Pen(line_width = 40, color = (1, 1, 0),
+                            font_size = 24, transparency = .2) ]
+
+
+    # -------------------------------------------------------------------------
+    def graphics(self):
+        """Return the graphics state."""
+        return self.__gr_state
+
+    def config(self):
+        """Return the config state."""
+        return self.__config
+
+    def mode(self, mode = None):
+        """Get or set the mode."""
+        # wrapper, because this is used frequently, and also because
+        # graphics state does not hold the cursor object
+        if mode is not None and mode != self.graphics().mode():
+            self.cursor().default(mode)
+
+        return self.graphics().mode(mode)
 
     def gom(self):
         """Return GOM"""
@@ -138,48 +212,10 @@ class State:
         """Get the current page object from gom."""
         return self.gom().page()
 
-    def modified(self, value = None):
-        """Get or set the modified flag."""
-        if value is not None:
-            self.__vars["modified"] = value
-        return self.__vars["modified"]
-
-    # -------------------------------------------------------------------------
-    def mode(self, mode = None):
-        """Get or set the cursor mode."""
-        if mode:
-            if mode == self.__vars["mode"]:
-                return mode
-            log.debug(f"setting mode to {mode}")
-            self.__vars["mode"] = mode
-            self.cursor().default(mode)
-        return self.__vars["mode"]
-
-    # -------------------------------------------------------------------------
     def cursor(self):
         """expose the cursor manager."""
         return self.__obj["cursor"]
 
-    # -------------------------------------------------------------------------
-    def show_grid(self):
-        """What is the show grid status."""
-        return self.__show["grid"]
-
-    def toggle_grid(self):
-        """Toggle the grid."""
-        self.__show["grid"] = not self.__show["grid"]
-
-    def show_wiglets(self, value = None):
-        """Show or hide the wiglets."""
-        if value is not None:
-            self.__show["wiglets"] = value
-        return self.__show["wiglets"]
-
-    def toggle_wiglets(self):
-        """Toggle the wiglets."""
-        self.__show["wiglets"] = not self.__show["wiglets"]
-
-    # -------------------------------------------------------------------------
     def __pen_set(self, pen, alternate = False):
         """Set the pen."""
         if alternate:
@@ -199,30 +235,7 @@ class State:
 
     def apply_pen_to_bg(self):
         """Apply the pen to the background."""
-        self.__gr["bg_color"] = self.__pens[0].color
-    # -------------------------------------------------------------------------
-
-    def cycle_background(self):
-        """Cycle through background transparency."""
-        self.__gr["transparency"] = {1: 0, 0: 0.5, 0.5: 1}[self.__gr["transparency"]]
-
-    def alpha(self, value=None):
-        """Get or set the bg transparency."""
-        if value:
-            self.__gr["transparency"] = value
-        return self.__gr["transparency"]
-
-    def outline(self, value = None):
-        """Get the outline mode."""
-        if value is not None:
-            self.__gr["outline"] = value
-        return self.__gr["outline"]
-
-    def bg_color(self, color=None):
-        """Get or set the background color."""
-        if color:
-            self.__gr["bg_color"] = color
-        return self.__gr["bg_color"]
+        self.__gr_state.bg_color(self.__pens[0].color)
 
     # -------------------------------------------------------------------------
     def get_win_size(self):
@@ -233,14 +246,8 @@ class State:
         """Queue a draw."""
         self.__obj["app"].queue_draw()
 
-    def hidden(self, value = None):
-        """Hide or show the drawing."""
-        if not value is None:
-            self.__show["hidden"] = value
-        return self.__show["hidden"]
-
 # -----------------------------------------------------------------------------
-class Setter:
+class State(StateRoot):
     """
     Class for setting the state.
 
@@ -252,12 +259,31 @@ class Setter:
 
     def __new__(cls, *args, **kwargs):
         if not cls.__new_instance:
-            cls.__new_instance = super(Setter, cls).__new__(cls)
+            cls.__new_instance = super(State, cls).__new__(cls)
         return cls.__new_instance
 
-    def __init__(self, bus, state):
-        self.__bus  = bus
-        self.__state = state
+    def __init__(self, app, bus, gom, cursor):
+
+        super().__init__(app, gom, cursor)
+
+        self.__bus      = bus
+
+        bus.on("queue_draw", self.queue_draw)
+        bus.on("mode_set", self.mode, 999)
+
+        bus.on("cycle_bg_transparency", self.graphics().cycle_background, 0)
+        bus.on("set_bg_color", self.graphics().bg_color, 0)
+        bus.on("toggle_wiglets", self.graphics().toggle_wiglets, 0)
+        bus.on("toggle_grid", self.graphics().toggle_grid, 0)
+
+        bus.on("set_savefile", self.config().savefile, 0)
+        bus.on("set_export_dir", self.config().export_dir, 0)
+        bus.on("set_import_dir", self.config().import_dir, 0)
+        bus.on("set_export_fn", self.config().export_fn, 0)
+
+        bus.on("switch_pens", self.switch_pens, 0)
+        bus.on("apply_pen_to_bg", self.apply_pen_to_bg, 0)
+        bus.on("clear_page", self.current_obj_clear, 0)
 
         bus.on("set_color", self.set_color)
         bus.on("set_brush", self.set_brush)
@@ -270,64 +296,64 @@ class Setter:
     # -------------------------------------------------------------------------
     def set_font(self, font_description):
         """Set the font."""
-        self.__state.pen().font_set_from_description(font_description)
+        self.pen().font_set_from_description(font_description)
 
-        obj = self.__state.current_obj()
+        obj = self.current_obj()
         if obj and obj.type == "text":
             obj.pen.font_set_from_description(font_description)
 
     def set_brush(self, brush = None):
         """Set the brush."""
         if brush is not None:
-            log.debug(f"setting pen {self.__state.pen()} brush to {brush}")
-            self.__state.pen().brush_type(brush)
-        return self.__state.pen().brush_type()
+            log.debug("setting pen %s brush to {brush}", self.pen())
+            self.pen().brush_type(brush)
+        return self.pen().brush_type()
 
     def set_color(self, color = None):
-        """Get or set the color."""
+        """Get or set the pen color."""
 
         if color is not None:
-            log.debug(f"Setting color to {color}")
-            self.__state.pen().color_set(color)
+            log.debug("Setting color to %s", color)
+            self.pen().color_set(color)
 
-        return self.__state.pen().color
+        return self.pen().color
 
     def set_transparency(self, transparency = None):
         """Set the line width."""
 
         if transparency is not None:
-            self.__state.pen().transparency = transparency
+            self.pen().transparency = transparency
 
-        return self.__state.pen().line_width
+        return self.pen().line_width
 
     def set_line_width(self, width = None):
         """Set the line width."""
 
         if width is not None:
-            log.debug(f"Setting line width to {width}")
-            self.__state.pen().line_width = width
+            log.debug("Setting line width to %s", width)
+            self.pen().line_width = width
 
-        return self.__state.pen().line_width
+        return self.pen().line_width
 
     def stroke_change(self, direction):
         """Modify the line width or text size."""
-        log.debug(f"Changing stroke {direction}")
-        cobj = self.__state.current_obj()
+        log.debug("Changing stroke %s", direction)
+        cobj = self.current_obj()
         # without a selected object, change the default pen, but only if in the correct mode
-        if self.__state.mode() == "draw":
-            self.__state.pen().line_width = max(1, self.__state.pen().line_width + direction)
-        elif self.__state.mode() == "text":
-            self.__state.pen().font_size = max(1, self.__state.pen().font_size + direction)
+        if self.mode() == "draw":
+            self.pen().line_width = max(1, self.pen().line_width + direction)
+        elif self.mode() == "text":
+            self.pen().font_size = max(1, self.pen().font_size + direction)
 
         if cobj and cobj.type == "text":
-            log.debug(f"Changing text size")
+            log.debug("Changing text size")
             cobj.stroke_change(direction)
-            self.__state.pen().font_size = cobj.pen.font_size
+            self.pen().font_size = cobj.pen.font_size
             return True
 
         return False
 
     def toggle_outline(self):
         """Toggle outline mode."""
-        self.__state.outline(not self.__state.outline())
+        self.graphics().outline(not self.graphics().outline())
         self.__bus.emit("force_redraw")

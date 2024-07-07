@@ -16,7 +16,7 @@ def draw_on_surface(cr, objects, selection, state):
 
         obj.draw(cr, hover=hover,
                  selected=selected,
-                 outline = state.outline())
+                 outline = state.graphics().outline())
 
 def obj_status(obj, selection, state):
     """Calculate the status of an object."""

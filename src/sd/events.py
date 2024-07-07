@@ -137,7 +137,7 @@ class MouseCatcher:
     def on_button_press(self, widget, event): # pylint: disable=unused-argument
         """Handle mouse button press events."""
         log.debug(f"type:{event.type} button:{event.button} state:{event.state}")
-        self.__state.modified(True)
+        self.__state.graphics().modified(True)
         ev = MouseEvent(event, self.__gom.objects(),
                         translate = self.__gom.page().translate(),
                         state = self.__state)

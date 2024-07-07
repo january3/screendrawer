@@ -33,21 +33,21 @@ class Bus:
         if event in self.__listeners:
             self.__listeners[event][:] = [x for x in self.__listeners[event] if x[0] != listener]
 
-    def call(self, listener, event, args, kwargs):
+    def call(self, listener, event, include_event, args, kwargs):
         """Call the listener with the specified arguments."""
         try:
-            if event is not None:
+            if include_event:
                 ret = listener(event, *args, **kwargs)
             else:
                 ret = listener(*args, **kwargs)
         except Exception as e:
             ret = None
             exc_type, exc_value, exc_traceback = exc_info()
-            log.warning(f"Exception type: {exc_type}")
-            log.warning(f"Exception value:{exc_value}")
+            log.error("Exception type: %s", exc_type)
+            log.warning("Exception value: %s", exc_value)
             log.warning("Traceback:")
             traceback.print_tb(exc_traceback)
-            log.warning(f"Error while dispatching signal {event} to {listener}: {e}")
+            log.warning("Error while dispatching signal %s to %s:", event, listener)
         return ret
 
     def emitOnce(self, event, *args, **kwargs):
@@ -75,11 +75,11 @@ class Bus:
 
         # call the promiscous listeners first, but they don't stop the event
         for listener, _ in self.__listeners.get('*', []):
-            ret = self.call(listener, event, args, kwargs)
+            ret = self.call(listener, event, True, args, kwargs)
 
         caught = False
         for listener, _ in self.__listeners.get(event, []):
-            ret = self.call(listener, None, args, kwargs)
+            ret = self.call(listener, event, False, args, kwargs)
             if ret:
                 caught = True
                 if exclusive:

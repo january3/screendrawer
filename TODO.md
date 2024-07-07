@@ -45,8 +45,6 @@ Design issues:
    files dir. When a file is exported, remember the dir for exports only. 
    When started in headless mode, start working in the home dir or a dir
    specified by the config file. Ditto default exports file.
- * Separation between State and Setter is non-existent, it is unclear which
-   does what.
  * the logic behind automated groups is as follows: while automated group
    is created, there is a method listening in on any events. And anything
    that is not on the ignore list causes the current group to be finished.
@@ -60,8 +58,6 @@ Design issues:
    trigger the recalculation of brush outlines.
  * maybe numpy should be used for brush calculations.
  * the interaction between canvas, gom, dm, em is tangled. 
- * should the EM also take care of pre- and post-dispatch actions? Like
-   switching to a ceratain mode after or before certain commands
 
 Bugs:
  * select a number of objects, hit alt-s, undo, hit alt-s again -> error.
@@ -74,6 +70,8 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * Separation between State and Setter is non-existent, it is unclear which
+   does what.
  * if an object has been cut with ctrl-x, then upon ctrl-v it should be
    inserted at precisely the same position. Therefore, we would need to
    mark the origin of the clipboard more than just "internal"
@@ -659,6 +657,9 @@ Done:
  * grouping
 
 Parked ideas:
+ * eraser should allow a selection like with selection tool (really? what
+   for? why not select in select mode and press del?) => because you don't
+   have to use the keyboard?
  * how should the color picker and the color selection dialog colaborate?
    (or actually abandon color selection dialog?) => works for now as is
  * rotating the whole selection does not work (b/c the way selection
@@ -671,6 +672,8 @@ Parked ideas:
    much harder than I thought it would be, but fun.
 
 Rejected ideas:
+ * should the EM also take care of pre- and post-dispatch actions? Like
+   switching to a ceratain mode after or before certain commands
  * draw a dustbin wiglet in lower left corner (I don't really use this
    functionality, del is so much easier)
  * create a pen wiglet (that does what exactly...?)
@@ -678,7 +681,8 @@ Rejected ideas:
    positioning) is working (called WigletEditText2). However, this will not
    be able to show all the text trasformations (rotation, scaling etc).
  * text object editing: ditch that fucker, just create a gtk widget to do
-   the job, why on earth would we want to do it ourselves??
+   the job, why on earth would we want to do it ourselves?? => because then
+   complex transformations are not WYSIWYG when editing
  * selectiontool in erase mode should remove the selected objects =>
    actually not, because I would prefer to erase the objects along the
    track.
@@ -699,8 +703,6 @@ Rejected ideas:
    would require that the objects are aware of the commands, which is not
    the case now.
  * turn it into a Gnome plugin (who 一体 needs that?)
- * eraser should allow a selection like with selection tool (really? what
-   for? why not select in select mode and press del?)
  * add laserpointer mode? (why?)
  * loading from SVG (come on. this is already a waste of time)
  * shortcut or menu item for decorating / unmaximizing the window (so it
