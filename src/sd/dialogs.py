@@ -83,7 +83,7 @@ Ctrl-l: Clear drawing   l: Clear drawing                                  Ctrl-v
                                                                           Ctrl-x: Cut content    Shift-letter: quick color selection e.g.
                                                                                                  Shift-r for red
 Ctrl-i: insert image                                                                             |Del|: Delete selected object(s)
-Ctrl-z: undo            |Esc|: Finish text input                                                 g, u: group, ungroup
+Ctrl-z: undo            |Esc|: Finish text input                                                 
 Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up, Alt-Down: Move object up, down in stack
                                                                           Alt-PgUp, Alt-PgDown: Move object to front, back
 Ctrl-k: Select color                     f: fill with current color       Alt-s: convert drawing(s) to shape(s)
@@ -91,9 +91,27 @@ Ctrl-Shift-k: Select bg color
 Ctrl-plus, Ctrl-minus: Change text size  o: toggle outline                Alt-d: convert shape(s) to drawing(s)
 Ctrl-b: Cycle background transparency                                     Alt-p: apply pen to selection
 Ctrl-p: toggle between two pens                                           Alt-Shift-p: apply pen color to background
-Ctrl-g: toggle grid                      1-3: select brush
+Ctrl-g: toggle grid                      1-5: select brush
 
 Ctrl-Shift-g: toggle "group while drawing" mode                           
+
+<b>Brushes:</b> (select with 1-5)
+
+1: general rounded brush
+2: marker
+3: calligraphy
+4: pencil (pressure changes transparency)
+5: tapered brush
+
+<b>Group operations:</b>
+g, u: group, ungroup (move mode only)
+Shift-c, Shift-u: clip / unclip group (need a rectangle, circle or shape as the last selected object)
+
+Alt-Shift-Arrow: flush objects in a group or selection:
+    Alt-Shift-Left:      to the left
+    Alt-Shift-Right:     to the right
+    Alt-Shift-Up:        to the top
+    Alt-Shift-Down:      to the bottom
 
 <b>Pages and layers:</b>
 
