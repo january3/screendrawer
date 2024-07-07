@@ -21,7 +21,7 @@ class Canvas:
     """
     Canvas for drawing shapes and text.
     """
-    def __init__(self, state, bus):
+    def __init__(self, bus, state):
         self.__state = state
         self.__grid = Grid()
         self.__bus = bus

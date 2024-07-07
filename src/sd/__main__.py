@@ -112,10 +112,6 @@ class TransparentWindow(Gtk.Window):
     def __init__(self, save_file = None):
         super().__init__()
 
-        self.init_ui(save_file = save_file)
-
-    def init_ui(self, save_file):
-        """Initialize the user interface."""
         self.set_title("Transparent Drawing Window")
         self.set_decorated(False)
         self.connect("destroy", self.exit)
@@ -123,7 +119,6 @@ class TransparentWindow(Gtk.Window):
         self.set_keep_above(True)
         self.maximize()
 
-        # transparency
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
         if visual is not None and screen.is_composited():
@@ -132,6 +127,11 @@ class TransparentWindow(Gtk.Window):
 
         self.fixed = Gtk.Fixed()
         self.add(self.fixed)
+
+        self.init_ui(save_file = save_file)
+
+    def init_ui(self, save_file):
+        """Initialize the user interface."""
 
         # autosave
         GLib.timeout_add(AUTOSAVE_INTERVAL, self.__autosave)
@@ -157,7 +157,7 @@ class TransparentWindow(Gtk.Window):
         self.mouse = MouseCatcher(bus = self.bus, state = self.state)
 
         # canvas orchestrates the drawing
-        self.canvas = Canvas(state = self.state, bus = self.bus)
+        self.canvas = Canvas(bus = self.bus, state = self.state)
 
         # load the drawing from the savefile
         self.bus.emit("set_savefile", False, save_file)
