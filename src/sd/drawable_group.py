@@ -428,6 +428,17 @@ class SelectionObject(DrawableGroup):
 
         self.objects = new_sel
 
+class ClipboardGroup(DrawableGroup):
+    """Basically same as drawable group, but for copy and paste operations."""
+
+    def __init__(self, objects=None, internal=True, cut=False):
+        super().__init__(objects, mytype = "clipboard_group")
+
+        self.__cut = cut
+
+    def is_cut(self):
+        """Is the clipboard group a copy?"""
+        return self.__cut
 
 Drawable.register_type("group", DrawableGroup)
 Drawable.register_type("clipping_group", ClippingGroup)

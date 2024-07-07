@@ -270,18 +270,28 @@ class TransparentWindow(Gtk.Window):
         self.bus.emitMult("add_object", obj)
         self.bus.emitOnce("set_selection", [ obj ])
 
-    def __object_create_copy(self, obj, bb = None):
+    def __object_create_copies(self, clip, bb = None):
         """Copy the given object into a new object."""
-        new_obj = obj.duplicate()
 
-        # move the new object to the current location
-        x, y = self.cursor.pos()
-        if bb is None:
-            bb  = new_obj.bbox()
-        new_obj.move(x - bb[0], y - bb[1])
+        cut = clip.is_cut()
+        objects = clip.objects
 
-        self.bus.emit("add_object", True, new_obj)
-        self.bus.emit("set_selection", True, [ new_obj ])
+        new_objects = [ ]
+
+        for obj in objects:
+            new_obj = obj.duplicate()
+            new_objects.append(new_obj)
+
+            # move the new object to the current location
+            if not cut:
+                x, y = self.cursor.pos()
+                if bb is None:
+                    bb  = new_obj.bbox()
+                new_obj.move(x - bb[0], y - bb[1])
+
+            self.bus.emit("add_object", True, new_obj)
+
+        self.bus.emit("set_selection", True, new_objects)
 
     def copy_content(self, destroy = False):
         """Copy content to clipboard."""
@@ -289,8 +299,8 @@ class TransparentWindow(Gtk.Window):
         if content.is_empty():
             return
 
-        log.debug(f"Copying content {content}")
-        self.clipboard.copy_content(content)
+        log.debug("Copying content %s", content)
+        self.clipboard.copy_content(content, cut = destroy)
 
         if destroy:
             self.gom.remove_selection()
@@ -305,12 +315,15 @@ class TransparentWindow(Gtk.Window):
         # internal paste
         if clip_type == "internal":
             log.debug("Pasting content internally")
-            if clip.type != "group":
-                raise ValueError("Internal clipboard is not a group")
+
+            if clip.type != "clipboard_group":
+                raise ValueError("Internal clipboard is not a clipboard_group")
+
             bb = clip.bbox()
-            log.debug(f"clipboard bbox {bb}")
-            for obj in clip.objects:
-                self.__object_create_copy(obj, bb)
+            log.debug("clipboard bbox %s", bb)
+
+            self.__object_create_copies(clip, bb)
+
             return
 
         if clip_type == "text":

@@ -1,8 +1,5 @@
 To do (sorted by priority):
 
- * if an object has been cut with ctrl-x, then upon ctrl-v it should be
-   inserted at precisely the same position. Therefore, we would need to
-   mark the origin of the clipboard more than just "internal"
  * For layers to be truly useful, we need more layer properties (alpha,
    visible / non-visible), also rearranging layers
  * remember last file name exported and last directory in which it was
@@ -79,6 +76,9 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * if an object has been cut with ctrl-x, then upon ctrl-v it should be
+   inserted at precisely the same position. Therefore, we would need to
+   mark the origin of the clipboard more than just "internal"
  * next / prev object (tab, shift-tab) does not work, throws an error
  * implement a command to flush a group of objects to l/r/t/b
  * there is a problem with redoing move commands
