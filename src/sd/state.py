@@ -1,11 +1,13 @@
 """Status singleton class for holding key app information."""
-import logging                                                   # <remove>
+import logging                                                 # <remove>
 from .pen      import Pen                                      # <remove>
 from .history  import History                                  # <remove>
 from .gom      import GraphicsObjectManager                    # <remove>
-from .cursor import CursorManager                                # <remove>
+from .cursor import CursorManager                              # <remove>
+from .clipboard import Clipboard                               # <remove>
+from .utils import get_cursor_position                         # <remove>
 
-log = logging.getLogger(__name__)                                # <remove>
+log = logging.getLogger(__name__)                              # <remove>
 
 class StateGraphics:
     """
@@ -172,7 +174,6 @@ class StateRoot:
     def current_obj_clear(self):
         """Clear the current object."""
         self.__objs["current"] = None
-        self.queue_draw()
 
     def hover_obj(self, obj = None):
         """Get or set the hover object."""
@@ -220,17 +221,23 @@ class StateObj(StateRoot):
         history = History(bus)
         gom = GraphicsObjectManager(self.__bus)
         cursor = CursorManager(app, bus)
+        clipboard = Clipboard()
 
         self.__obj = {
                 "gom": gom,
                 "app": app,
                 "cursor": cursor,
                 "history": history,
+                "clipboard": clipboard,
                 }
 
     def cursor(self):
-        """Return the cursor."""
+        """expose cursor"""
         return self.__obj["cursor"]
+
+    def clipboard(self):
+        """Return the clipboard."""
+        return self.__obj["clipboard"]
 
     def cursor_pos(self):
         """Return the cursor position."""
@@ -255,10 +262,6 @@ class StateObj(StateRoot):
     def current_page(self):
         """Get the current page object from gom."""
         return self.gom().page()
-
-    def cursor(self):
-        """expose the cursor manager."""
-        return self.__obj["cursor"]
 
     def page(self):
         """Current page"""

@@ -121,8 +121,10 @@ class TransparentWindow(Gtk.Window):
 
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
+
         if visual is not None and screen.is_composited():
             self.set_visual(visual)
+
         self.set_app_paintable(True)
 
         self.fixed = Gtk.Fixed()
@@ -144,7 +146,6 @@ class TransparentWindow(Gtk.Window):
         self.state              = State(app = self,
                                         bus = self.bus)
 
-        self.clipboard           = Clipboard()
 
         # initialize the wiglets - which listen to events
         self.__init_wiglets()
@@ -206,7 +207,7 @@ class TransparentWindow(Gtk.Window):
                    WigletToolSelector(bus = self.bus, func_mode = self.state.mode),
                    WigletPageSelector(bus = self.bus, state = self.state),
                    WigletColorPicker(bus = self.bus, func_color = self.state.set_color, 
-                                     clipboard = self.clipboard),
+                                     clipboard = self.state.clipboard()),
                    WigletTransparency(bus = self.bus, state = self.state),
                    WigletLineWidth(bus = self.bus, state = self.state),
         ]
@@ -279,14 +280,14 @@ class TransparentWindow(Gtk.Window):
             return
 
         log.debug("Copying content %s", content)
-        self.clipboard.copy_content(content, cut = destroy)
+        self.state.clipboard().copy_content(content, cut = destroy)
 
         if destroy:
             self.state.gom().remove_selection()
 
     def paste_content(self):
         """Paste content from clipboard."""
-        clip_type, clip = self.clipboard.get_content()
+        clip_type, clip = self.state.clipboard().get_content()
 
         if not clip:
             return
@@ -452,7 +453,7 @@ class TransparentWindow(Gtk.Window):
             img = Image([ (bb[0], bb[1]) ], self.state.pen(), pixbuf)
             self.bus.emit("add_object", True, img)
             self.queue_draw()
-            self.clipboard.set_text(filename)
+            self.state.clipboard().set_text(filename)
 
     def __find_screenshot_box(self):
         """Find a box suitable for selecting a screenshot."""
