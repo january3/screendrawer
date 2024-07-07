@@ -6,7 +6,7 @@ handles Layers, and GOM handles Pages.
 
 import logging                                                   # <remove>
 from .commands import RemoveCommand, CommandGroup                # <remove>
-from .page import Page                                               # <remove>
+from .page import Page                                           # <remove>
 
 log = logging.getLogger(__name__)                                # <remove>
 

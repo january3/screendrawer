@@ -138,15 +138,11 @@ class TransparentWindow(Gtk.Window):
 
         # Drawing setup
         self.bus                = Bus()
-        self.cursor             = CursorManager(self, self.bus)
-        self.gom                = GraphicsObjectManager(self.bus)
 
         # we pass the app to the state, because it has the queue_draw
         # method
         self.state              = State(app = self,
-                                        bus = self.bus,
-                                        gom = self.gom,
-                                        cursor = self.cursor)
+                                        bus = self.bus)
 
         self.clipboard           = Clipboard()
 
@@ -155,7 +151,7 @@ class TransparentWindow(Gtk.Window):
 
         # em has to know about all that to link actions to methods
         em  = EventManager(bus = self.bus, state  = self.state)
-        mm  = MenuMaker(self.bus, self.gom)
+        mm  = MenuMaker(self.bus, self.state)
 
         # mouse gets the mouse events
         self.mouse = MouseCatcher(bus = self.bus, state = self.state)
@@ -181,12 +177,6 @@ class TransparentWindow(Gtk.Window):
         self.connect("button-release-event", self.mouse.on_button_release)
         self.connect("motion-notify-event",  self.mouse.on_motion_notify)
 
-
-      # self.button = Gtk.Button(label="Add Text Entry")
-      # self.button.set_size_request(100, 130)
-      # self.button.connect("clicked", self.exit)
-      # self.fixed.put(self.button, 200, 200)
-
     def exit(self, event = None):
         """Exit the application."""
         ## close the savefile_f
@@ -195,12 +185,6 @@ class TransparentWindow(Gtk.Window):
         Gtk.main_quit()
 
     # ---------------------------------------------------------------------
-
-    def __get_cursor_pos(self):
-        """Get the cursor position"""
-
-        x, y = get_cursor_position(self)
-        self.bus.emitMult("cursor_abs_pos_update", (x, y))
 
     def __init_wiglets(self):
         """Initialize the wiglets."""
@@ -220,7 +204,7 @@ class TransparentWindow(Gtk.Window):
                    WigletColorSelector(bus = self.bus, func_color = self.state.set_color,
                                         func_bg = self.state.graphics().bg_color),
                    WigletToolSelector(bus = self.bus, func_mode = self.state.mode),
-                   WigletPageSelector(bus = self.bus, gom = self.gom),
+                   WigletPageSelector(bus = self.bus, state = self.state),
                    WigletColorPicker(bus = self.bus, func_color = self.state.set_color, 
                                      clipboard = self.clipboard),
                    WigletTransparency(bus = self.bus, state = self.state),
@@ -231,7 +215,6 @@ class TransparentWindow(Gtk.Window):
     def __add_bus_events(self):
         """Add bus events."""
 
-        self.bus.on("query_cursor_pos", self.__get_cursor_pos)
         self.bus.on("app_exit", self.exit)
         self.bus.on("show_help_dialog",  self.show_help_dialog)
         self.bus.on("export_drawing",    self.export_drawing)
@@ -255,14 +238,14 @@ class TransparentWindow(Gtk.Window):
         if cobj and cobj.type == "text":
             cobj.add_text(clip_text.strip())
         else:
-            obj = Text([ self.cursor.pos() ],
+            obj = Text([ self.state.cursor_pos() ],
                             pen = self.state.pen(), content=clip_text.strip())
             self.bus.emit("add_object", True, obj)
             self.bus.emitOnce("set_selection", [ obj ])
 
     def paste_image(self, clip_img):
         """Create an image object from a pixbuf image."""
-        obj = Image([ self.cursor.pos() ], self.state.pen(), clip_img)
+        obj = Image([ self.state.cursor_pos() ], self.state.pen(), clip_img)
         self.bus.emitMult("add_object", obj)
         self.bus.emitOnce("set_selection", [ obj ])
 
@@ -280,7 +263,7 @@ class TransparentWindow(Gtk.Window):
 
             # move the new object to the current location
             if not cut:
-                x, y = self.cursor.pos()
+                x, y = self.state.cursor_pos()
                 if bb is None:
                     bb  = new_obj.bbox()
                 new_obj.move(x - bb[0], y - bb[1])
@@ -291,7 +274,7 @@ class TransparentWindow(Gtk.Window):
 
     def copy_content(self, destroy = False):
         """Copy content to clipboard."""
-        content = self.gom.selection()
+        content = self.state.selection()
         if content.is_empty():
             return
 
@@ -299,7 +282,7 @@ class TransparentWindow(Gtk.Window):
         self.clipboard.copy_content(content, cut = destroy)
 
         if destroy:
-            self.gom.remove_selection()
+            self.state.gom().remove_selection()
 
     def paste_content(self):
         """Paste content from clipboard."""
@@ -333,7 +316,7 @@ class TransparentWindow(Gtk.Window):
 
     def duplicate_content(self):
         """Duplicate the selected content."""
-        content = self.gom.selection()
+        content = self.state.selection()
 
         if content.is_empty():
             return
@@ -346,7 +329,7 @@ class TransparentWindow(Gtk.Window):
         """Select a color for the background using ColorChooser."""
         color = ColorChooser(self, "Select Background Color")
         if color:
-            self.state.bg_color((color.red, color.green, color.blue))
+            self.state.graphics().bg_color((color.red, color.green, color.blue))
 
     def select_color(self):
         """Select a color for drawing using ColorChooser dialog."""
@@ -383,13 +366,13 @@ class TransparentWindow(Gtk.Window):
         bbox = None
         selected = False
 
-        if self.gom.selected_objects():
+        if self.state.selected_objects():
             # only export the selected objects
-            obj = self.gom.selected_objects()
+            obj = self.state.selected_objects()
             selected = True
         else:
             # set bbox so we export the whole screen
-            obj = self.gom.objects()
+            obj = self.state.objects()
             bbox = (0, 0, *self.get_size())
 
         if not obj:
@@ -409,14 +392,14 @@ class TransparentWindow(Gtk.Window):
         if not file_name:
             return
 
-        cfg = { "bg": self.state.bg_color(), 
+        cfg = { "bg": self.state.graphics().bg_color(), 
                "bbox": bbox, 
                "transparency": self.state.graphics().alpha() }
 
         if all_as_pdf:
             # get all objects from all pages and layers
             # create drawable group for each page
-            obj = self.gom.get_all_pages()
+            obj = self.state.gom().get_all_pages()
             obj = [ p.objects_all_layers() for p in obj ]
             obj = [ DrawableGroup(o) for o in obj ]
 
@@ -446,7 +429,7 @@ class TransparentWindow(Gtk.Window):
                 print(f"Failed to load image: {e}")
 
             if pixbuf is not None:
-                pos = self.cursor.pos()
+                pos = self.state.cursor_pos()
                 img = Image([ pos ], self.state.pen(), pixbuf)
                 self.bus.emit("add_object", True, img)
                 self.queue_draw()
@@ -456,7 +439,7 @@ class TransparentWindow(Gtk.Window):
     def __screenshot_finalize(self, bb):
         """Finish up the screenshot."""
         print("Taking screenshot now")
-        dx, dy = self.gom.page().translate() or (0, 0)
+        dx, dy = self.state.page().translate() or (0, 0)
         print("translate is", dx, dy)
         frame = (bb[0] - 3 + dx, bb[1] - 3 + dy, bb[0] + bb[2] + 6 + dx, bb[1] + bb[3] + 6 + dy)
         print("frame is", frame)
@@ -473,15 +456,11 @@ class TransparentWindow(Gtk.Window):
 
     def __find_screenshot_box(self):
         """Find a box suitable for selecting a screenshot."""
-       #cobj = self.state.current_obj()
-       #if cobj and cobj.type == "rectangle":
-       #    return cobj
-        for obj in self.gom.selected_objects():
+
+        for obj in self.state.selected_objects():
             if obj.type == "rectangle":
                 return obj
-       #for obj in self.gom.objects()[::-1]:
-       #    if obj.type == "rectangle":
-       #        return obj
+
         return None
 
     def screenshot(self, obj = None):
@@ -534,10 +513,10 @@ class TransparentWindow(Gtk.Window):
                 'bbox':        (0, 0, *self.get_size()),
                 'pen':         self.state.pen().to_dict(),
                 'pen2':        self.state.pen(alternate = True).to_dict(),
-                'page':        self.gom.current_page_number()
+                'page':        self.state.gom().current_page_number()
         }
 
-        pages   = self.gom.export_pages()
+        pages   = self.state.gom().export_pages()
 
         save_file_as_sdrw(savefile, config, pages = pages)
 
@@ -559,9 +538,9 @@ class TransparentWindow(Gtk.Window):
         config, objects, pages = read_file_as_sdrw(filename)
 
         if pages:
-            self.gom.set_pages(pages)
+            self.state.gom().set_pages(pages)
         elif objects:
-            self.gom.set_objects(objects)
+            self.state.gom().set_objects(objects)
 
         if config and load_config:
             self.state.graphics().bg_color(config.get('bg_color') or (.8, .75, .65))
@@ -572,7 +551,7 @@ class TransparentWindow(Gtk.Window):
             self.state.graphics().show_wiglets(show_wiglets)
             self.state.pen(pen = Pen.from_dict(config['pen']))
             self.state.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
-            self.gom.set_page_number(config.get('page') or 0)
+            self.state.gom().set_page_number(config.get('page') or 0)
         if config or objects:
             self.state.graphics().modified(True)
             return True
@@ -704,7 +683,7 @@ def main():
     win.set_icon(Icons().get("app_icon"))
     win.show_all()
     win.present()
-    win.cursor.set(win.state.mode())
+    win.state.cursor().set(win.state.mode())
     if args.sticky == "yes":
         win.stick()
 

@@ -208,7 +208,7 @@ class WigletPageSelector(Wiglet):
     # one possibility: get a separate function for each of these
     # or: use gom as a single object that can do all of these, but then we
     # need to be aware of the gom object
-    def __init__(self, gom, bus):
+    def __init__(self, state, bus):
 
         coords = (500, 0)
         wh = (20, 35)
@@ -217,7 +217,7 @@ class WigletPageSelector(Wiglet):
 
         self.__bbox = (coords[0], coords[1], wh[0], wh[1])
         self.__height_per_page = wh[1]
-        self.__gom = gom
+        self.__gom = state.gom()
         self.__page_screen_pos = [ ]
 
         # we need to recalculate often because the pages might have been

@@ -1,7 +1,9 @@
 """Status singleton class for holding key app information."""
 import logging                                                   # <remove>
-from sd.pen      import Pen                                      # <remove>
-from sd.history  import History                                  # <remove>
+from .pen      import Pen                                      # <remove>
+from .history  import History                                  # <remove>
+from .gom      import GraphicsObjectManager                    # <remove>
+from .cursor import CursorManager                                # <remove>
 
 log = logging.getLogger(__name__)                                # <remove>
 
@@ -136,16 +138,9 @@ class StateConfig:
 class StateRoot:
     """Base class for holding key app information."""
 
-    def __init__(self, app, gom, cursor, history):
+    def __init__(self):
         self.__gr_state = StateGraphics()
         self.__config   = StateConfig()
-
-        self.__obj = {
-                "gom": gom,
-                "app": app,
-                "cursor": cursor,
-                "history": history,
-                }
 
         self.__objs = {
                 "hover": None,
@@ -168,27 +163,6 @@ class StateRoot:
         """Return the config state."""
         return self.__config
 
-    def mode(self, mode = None):
-        """Get or set the mode."""
-        # wrapper, because this is used frequently, and also because
-        # graphics state does not hold the cursor object
-        if mode is not None and mode != self.graphics().mode():
-            self.cursor().default(mode)
-
-        return self.graphics().mode(mode)
-
-    def gom(self):
-        """Return GOM"""
-        return self.__obj["gom"]
-
-    def page(self):
-        """Current page"""
-        return self.gom().page()
-
-    def selection(self):
-        """Current selection"""
-        return self.gom().selection()
-
     def current_obj(self, obj = None):
         """Get or set the current object."""
         if obj:
@@ -209,14 +183,6 @@ class StateRoot:
     def hover_obj_clear(self):
         """Clear the hover object."""
         self.__objs["hover"] = None
-
-    def current_page(self):
-        """Get the current page object from gom."""
-        return self.gom().page()
-
-    def cursor(self):
-        """expose the cursor manager."""
-        return self.__obj["cursor"]
 
     def __pen_set(self, pen, alternate = False):
         """Set the pen."""
@@ -239,7 +205,77 @@ class StateRoot:
         """Apply the pen to the background."""
         self.__gr_state.bg_color(self.__pens[0].color)
 
-    # -------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+class StateObj(StateRoot):
+
+    """
+    Adds big object handling to state
+    """
+
+    def __init__(self, app, bus):
+
+        super().__init__()
+        self.__bus      = bus
+
+        history = History(bus)
+        gom = GraphicsObjectManager(self.__bus)
+        cursor = CursorManager(app, bus)
+
+        self.__obj = {
+                "gom": gom,
+                "app": app,
+                "cursor": cursor,
+                "history": history,
+                }
+
+    def cursor(self):
+        """Return the cursor."""
+        return self.__obj["cursor"]
+
+    def cursor_pos(self):
+        """Return the cursor position."""
+        return self.__obj["cursor"].pos()
+
+    def history(self):
+        """Return the history."""
+        return self.__obj["history"]
+
+    def app(self):
+        """Return the app."""
+        return self.__obj["app"]
+
+    def bus(self):
+        """Return the bus."""
+        return self.__bus
+
+    def gom(self):
+        """Return GOM"""
+        return self.__obj["gom"]
+
+    def current_page(self):
+        """Get the current page object from gom."""
+        return self.gom().page()
+
+    def cursor(self):
+        """expose the cursor manager."""
+        return self.__obj["cursor"]
+
+    def page(self):
+        """Current page"""
+        return self.gom().page()
+
+    def selection(self):
+        """Current selection"""
+        return self.gom().selection()
+
+    def selected_objects(self):
+        """Return the selected objects."""
+        return self.gom().selected_objects()
+
+    def objects(self):
+        """Return the objects of the current layer."""
+        return self.page().layer().objects()
+
     def get_win_size(self):
         """Get the window size."""
         return self.__obj["app"].get_size()
@@ -248,8 +284,18 @@ class StateRoot:
         """Queue a draw."""
         self.__obj["app"].queue_draw()
 
+    def mode(self, mode = None):
+        """Get or set the mode."""
+        # wrapper, because this is used frequently, and also because
+        # graphics state does not hold the cursor object
+        if mode is not None and mode != self.graphics().mode():
+            self.cursor().default(mode)
+
+        return self.graphics().mode(mode)
+
+
 # -----------------------------------------------------------------------------
-class State(StateRoot):
+class State(StateObj):
     """
     Class for setting the state.
 
@@ -264,13 +310,9 @@ class State(StateRoot):
             cls.__new_instance = super(State, cls).__new__(cls)
         return cls.__new_instance
 
-    def __init__(self, app, bus, gom, cursor):
+    def __init__(self, app, bus):
 
-        history = History(bus)
-
-        super().__init__(app, gom, cursor, history)
-
-        self.__bus      = bus
+        super().__init__(app, bus)
 
         bus.on("queue_draw", self.queue_draw)
         bus.on("mode_set", self.mode, 999)
@@ -296,8 +338,15 @@ class State(StateRoot):
         bus.on("set_transparency", self.set_transparency)
         bus.on("toggle_outline", self.toggle_outline)
         bus.on("stroke_change",  self.stroke_change, 90)
+        bus.on("query_cursor_pos", self.get_cursor_pos)
 
     # -------------------------------------------------------------------------
+    def get_cursor_pos(self):
+        """Get the cursor position"""
+
+        x, y = get_cursor_position(self.app())
+        self.bus().emitMult("cursor_abs_pos_update", (x, y))
+
     def set_font(self, font_description):
         """Set the font."""
         self.pen().font_set_from_description(font_description)
@@ -360,4 +409,4 @@ class State(StateRoot):
     def toggle_outline(self):
         """Toggle outline mode."""
         self.graphics().outline(not self.graphics().outline())
-        self.__bus.emit("force_redraw")
+        self.bus().emit("force_redraw")
