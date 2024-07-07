@@ -371,12 +371,14 @@ class SelectionObject(DrawableGroup):
         relative to the current selection.
         """
 
+        log.debug("selecting next object")
         all_objects = self._all_objects
 
         if not all_objects:
             return
 
         if not self.objects:
+            log.debug("no selection yet, selecting first object: %s", all_objects[0])
             self.objects = [ all_objects[0] ]
             return
 

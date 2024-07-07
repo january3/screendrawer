@@ -256,10 +256,10 @@ class PathRoot(Drawable):
 
         if selected:
             cr.set_source_rgba(1, 0, 0)
-            self.bbox_draw(cr, lw=.2)
+            self.bbox_draw(cr, lw=.5)
 
         if hover:
-            self.bbox_draw(cr, lw=.2)
+            self.bbox_draw(cr, lw=.3)
 
         if self.rotation != 0:
             cr.restore()

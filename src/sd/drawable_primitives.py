@@ -207,7 +207,8 @@ class Image(DrawableTrafo):
 
         cr.restore()
 
-        cr.set_source_rgb(*self.pen.color)
+        #cr.set_source_rgb(*self.pen.color)
+        cr.set_source_rgb(1, 0, 0)
         if selected:
             self.bbox_draw(cr, lw=1.5)
         if hover:
@@ -556,10 +557,10 @@ class Shape(Drawable):
 
         if selected:
             cr.set_source_rgba(1, 0, 0)
-            self.bbox_draw(cr, lw=.2)
+            self.bbox_draw(cr, lw=.5)
 
         if hover:
-            self.bbox_draw(cr, lw=.2)
+            self.bbox_draw(cr, lw=.3)
 
         if self.rotation != 0:
             cr.restore()

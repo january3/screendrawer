@@ -79,6 +79,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * next / prev object (tab, shift-tab) does not work, throws an error
  * implement a command to flush a group of objects to l/r/t/b
  * there is a problem with redoing move commands
  * selection-related bus listeners should be handled by the layer, since

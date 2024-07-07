@@ -260,10 +260,10 @@ class LayerEventHandler:
 
         if what == "all":
             self.__layer.selection().all()
-        elif what == "next":
+        elif what == "next_object":
             self.__layer.selection().next()
-        elif what == "previous":
-            self.__layer.selection().previous()
+        elif what == "previous_object":
+            self.__layer.selection().prev()
         elif what == "reverse":
             self.__layer.selection().reverse()
         elif what == "nothing":
