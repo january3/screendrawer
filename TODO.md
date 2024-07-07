@@ -32,12 +32,10 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
- * Layers have too many public methods. Maybe it was wrong to move
-   everything from GOM to Layer? Shit. Maybe Layers should strictly do
-   stuff rather than handle signals. Then again, same could be said about
-   pages. Gdzie się nie obrócisz, to dupa z tyłu. Or maybe: layers should
-   be creating the actual commands, but GOM should be reacting to the bus
-   and putting the commands in history. Oh fuuuuuuuuuuuuuuuuuck.
+ * clipboard pasting should be taken over by the clipboard class, but for
+   that the class would need access first to bus (to emit add object
+   events), but also to state, because when pasting text it should know
+   whether the current object is text. 
  * when bus emits a signal, it calls the listener without telling it to
    which signal it reacts. This makes it impossible to create
    multi-listeners that handle different signals. Maybe the signal should
@@ -79,6 +77,12 @@ Done:
  * if an object has been cut with ctrl-x, then upon ctrl-v it should be
    inserted at precisely the same position. Therefore, we would need to
    mark the origin of the clipboard more than just "internal"
+ * Layers have too many public methods. Maybe it was wrong to move
+   everything from GOM to Layer? Shit. Maybe Layers should strictly do
+   stuff rather than handle signals. Then again, same could be said about
+   pages. Gdzie się nie obrócisz, to dupa z tyłu. Or maybe: layers should
+   be creating the actual commands, but GOM should be reacting to the bus
+   and putting the commands in history. Oh fuuuuuuuuuuuuuuuuuck.
  * next / prev object (tab, shift-tab) does not work, throws an error
  * implement a command to flush a group of objects to l/r/t/b
  * there is a problem with redoing move commands
