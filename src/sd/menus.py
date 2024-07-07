@@ -17,13 +17,11 @@ class MenuMaker:
             cls._instance = super(MenuMaker, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, bus, gom, em, app):
+    def __init__(self, bus, gom):
         if not hasattr(self, '_initialized'):
             self.__bus = bus
             self._initialized = True
-            self.__app = app # App
             self.__gom = gom
-            self.__em  = em  # EventManager
             self.__context_menu = None
             self.__object_menu = None
             self.__bus.on("right_mouse_click", self.on_right_mouse_click)
@@ -47,8 +45,7 @@ class MenuMaker:
         """Callback for when a menu item is activated."""
         log.debug("Menu item activated: %s from %s", params, widget)
 
-        #self.__em.dispatch_action(action)
-        self.__app.queue_draw()
+        self.__bus.emitMult("queue_draw")
         action = params[0]
         args   = params[1:]
         self.__bus.emit(action, *args)

@@ -156,7 +156,7 @@ class TransparentWindow(Gtk.Window):
 
         # em has to know about all that to link actions to methods
         em  = EventManager(bus = self.bus, state  = self.state)
-        mm  = MenuMaker(self.bus, self.gom, em, self)
+        mm  = MenuMaker(self.bus, self.gom)
 
         # mouse gets the mouse events
         self.mouse = MouseCatcher(bus = self.bus, state = self.state)
