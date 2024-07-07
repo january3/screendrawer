@@ -73,6 +73,7 @@ from sd.drawable_primitives import Rectangle, Shape, Circle #<placeholder sd/dra
 from sd.drawable_paths import Path                          #<placeholder sd/drawable_paths.py>
 from sd.history import History                              #<placeholder sd/history.py>
 from sd.bus import Bus #<placeholder sd/bus.py>
+from sd.uibuilder import UIBuilder                          #<placeholder sd/uibuilder.py>
 
 
 # ---------------------------------------------------------------------
@@ -147,9 +148,6 @@ class TransparentWindow(Gtk.Window):
                                         bus = self.bus)
 
 
-        # initialize the wiglets - which listen to events
-        self.__init_wiglets()
-
         # em has to know about all that to link actions to methods
         em  = EventManager(bus = self.bus, state  = self.state)
         mm  = MenuMaker(self.bus, self.state)
@@ -160,9 +158,7 @@ class TransparentWindow(Gtk.Window):
         # canvas orchestrates the drawing
         self.canvas = Canvas(bus = self.bus, state = self.state)
 
-        # load the drawing from the savefile
-        self.bus.emit("set_savefile", False, save_file)
-        self.read_file(save_file)
+        self.uibuilder = UIBuilder(state = self.state)
 
         # connecting events
         self.__add_bus_events()
@@ -178,6 +174,11 @@ class TransparentWindow(Gtk.Window):
         self.connect("button-release-event", self.mouse.on_button_release)
         self.connect("motion-notify-event",  self.mouse.on_motion_notify)
 
+        # load the drawing from the savefile
+        self.bus.emit("set_savefile", False, save_file)
+        self.read_file(save_file)
+
+
     def exit(self, event = None):
         """Exit the application."""
         ## close the savefile_f
@@ -187,43 +188,12 @@ class TransparentWindow(Gtk.Window):
 
     # ---------------------------------------------------------------------
 
-    def __init_wiglets(self):
-        """Initialize the wiglets."""
-        wiglets = [
-                   WigletStatusLine(bus = self.bus, state = self.state),
-                   WigletEraser(bus = self.bus, state = self.state),
-                   WigletCreateObject(bus = self.bus, state = self.state),
-                   WigletCreateGroup(bus = self.bus, state = self.state),
-                   WigletCreateSegments(bus = self.bus, state = self.state),
-                   WigletEditText(bus = self.bus, state = self.state),
-                   #WigletEditText2(bus = self.bus, state = self.state, app = self),
-                   WigletPan(bus = self.bus, state = self.state),
-                   WigletHover(bus = self.bus, state = self.state),
-                   WigletSelectionTool(bus = self.bus, state = self.state),
-                   WigletResizeRotate(bus = self.bus, state = self.state),
-                   WigletMove(bus = self.bus, state = self.state),
-                   WigletColorSelector(bus = self.bus, func_color = self.state.set_color,
-                                        func_bg = self.state.graphics().bg_color),
-                   WigletToolSelector(bus = self.bus, func_mode = self.state.mode),
-                   WigletPageSelector(bus = self.bus, state = self.state),
-                   WigletColorPicker(bus = self.bus, func_color = self.state.set_color, 
-                                     clipboard = self.state.clipboard()),
-                   WigletTransparency(bus = self.bus, state = self.state),
-                   WigletLineWidth(bus = self.bus, state = self.state),
-        ]
-
-
     def __add_bus_events(self):
         """Add bus events."""
 
         self.bus.on("app_exit", self.exit)
-        self.bus.on("show_help_dialog",  self.show_help_dialog)
         self.bus.on("export_drawing",    self.export_drawing)
         self.bus.on("save_drawing_as",   self.save_drawing_as)
-        self.bus.on("select_color",      self.select_color)
-        self.bus.on("select_color_bg",   self.select_color_bg)
-        self.bus.on("select_font",       self.select_font)
-        self.bus.on("import_image",      self.import_image)
         self.bus.on("open_drawing",      self.open_drawing)
         self.bus.on("copy_content",      self.copy_content)
         self.bus.on("cut_content",       self.cut_content)
@@ -326,31 +296,6 @@ class TransparentWindow(Gtk.Window):
             new_obj = obj.duplicate()
             self.bus.emitOnce("add_object", new_obj)
 
-    def select_color_bg(self):
-        """Select a color for the background using ColorChooser."""
-        color = ColorChooser(self, "Select Background Color")
-        if color:
-            self.state.graphics().bg_color((color.red, color.green, color.blue))
-
-    def select_color(self):
-        """Select a color for drawing using ColorChooser dialog."""
-        color = ColorChooser(self)
-        if color:
-            self.bus.emit("set_color", False, (color.red, color.green, color.blue))
-
-    def select_font(self):
-        """Select a font for drawing using FontChooser dialog."""
-        font_description = FontChooser(self.state.pen(), self)
-
-        if font_description:
-            self.bus.emit("set_font", False, font_description)
-
-    def show_help_dialog(self):
-        """Show the help dialog."""
-        dialog = help_dialog(self)
-        dialog.run()
-        dialog.destroy()
-
     def save_drawing_as(self):
         """Save the drawing to a file."""
         log.debug("opening save file dialog")
@@ -412,40 +357,15 @@ class TransparentWindow(Gtk.Window):
 
         export_image(obj, file_name, file_format, cfg, all_as_pdf)
 
-    def import_image(self):
-        """Select an image file and create a pixbuf from it."""
-
-        import_dir = self.state.config().import_dir()
-        image_file = import_image_dialog(self, import_dir = import_dir)
-        dirname, base_name = path.split(image_file)
-        self.bus.emitMult("set_import_dir", dirname)
-
-        pixbuf = None
-
-        if image_file:
-            try:
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file(image_file)
-                print(f"Loaded image: {image_file}")
-            except Exception as e:
-                print(f"Failed to load image: {e}")
-
-            if pixbuf is not None:
-                pos = self.state.cursor_pos()
-                img = Image([ pos ], self.state.pen(), pixbuf)
-                self.bus.emit("add_object", True, img)
-                self.queue_draw()
-
-        return pixbuf
-
     def __screenshot_finalize(self, bb):
         """Finish up the screenshot."""
-        print("Taking screenshot now")
+        log.debug("Taking screenshot now")
         dx, dy = self.state.page().translate() or (0, 0)
-        print("translate is", dx, dy)
+        log.debug("translate is (%s, %s)", int(dx), int(dy))
         frame = (bb[0] - 3 + dx, bb[1] - 3 + dy, bb[0] + bb[2] + 6 + dx, bb[1] + bb[3] + 6 + dy)
-        print("frame is", frame)
+        log.debug("frame is %s", [ int(x) for x in frame ])
         pixbuf, filename = get_screenshot(self, *frame)
-        self.state.graphics().hidden(False)
+        self.bus.emitOnce("toggle_hide", False)
         self.queue_draw()
 
         # Create the image and copy the file name to clipboard
@@ -470,19 +390,19 @@ class TransparentWindow(Gtk.Window):
             obj = self.__find_screenshot_box()
 
         self.bus.off("add_object", self.screenshot)
+
         if not obj:
-            print("no suitable box found")
+            log.debug("no suitable box found")
             self.state.mode("rectangle")
             self.bus.on("add_object", self.screenshot, priority = 99)
             return
-            ## use the whole screen
-            #bb = (0, 0, *self.get_size())
         else:
             bb = obj.bbox()
-            print("bbox is", bb)
-        #self.hidden = True
-        self.state.graphics().hidden(True)
+            log.debug("bbox is %s", [int(x) for x in bb])
+
+        self.bus.emitOnce("toggle_hide", True)
         self.queue_draw()
+
         while Gtk.events_pending():
             Gtk.main_iteration_do(False)
         GLib.timeout_add(100, self.__screenshot_finalize, bb)

@@ -156,8 +156,8 @@ either the escape key or Ctrl-Shift-g again.
 
 </span>
 
-The state is saved in / loaded from `{parent.savefile}` so you can continue drawing later.
-An autosave happens every minute or so.
+The state is saved in / loaded from `{parent.state.config().savefile()}` so you can continue drawing later.
+An autosave happens every minute or so. Press ESC to exit this help screen.
         """
         label = Gtk.Label()
         label.set_markup(help_text)

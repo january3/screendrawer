@@ -340,6 +340,7 @@ class State(StateObj):
         bus.on("set_line_width", self.set_line_width)
         bus.on("set_transparency", self.set_transparency)
         bus.on("toggle_outline", self.toggle_outline)
+        bus.on("toggle_hide", self.toggle_hide)
         bus.on("stroke_change",  self.stroke_change, 90)
         bus.on("query_cursor_pos", self.get_cursor_pos)
 
@@ -412,4 +413,13 @@ class State(StateObj):
     def toggle_outline(self):
         """Toggle outline mode."""
         self.graphics().outline(not self.graphics().outline())
+        self.bus().emit("force_redraw")
+
+    def toggle_hide(self, hide_state = None):
+        """Toggle hide mode."""
+        if hide_state is not None:
+            self.graphics().hidden(hide_state)
+        else:
+            self.graphics().hidden(not self.graphics().hidden())
+
         self.bus().emit("force_redraw")
