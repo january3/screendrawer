@@ -1,15 +1,17 @@
+"""Handling the clipboard operations."""
 ## ---------------------------------------------------------------------
-import gi                                                  # <remove>
-gi.require_version('Gtk', '3.0')                           # <remove>
+import logging                               # <remove>
 
-## ------------------------ logging
-from gi.repository import Gtk, Gdk                               # <remove>
-import logging                                                   # <remove>
-log = logging.getLogger(__name__)                                # <remove>
-log.setLevel(logging.DEBUG)                                       # <remove>
+import gi                                    # <remove>
+gi.require_version('Gtk', '3.0')             # <remove> pylint: disable=wrong-import-position
+from gi.repository import Gtk, Gdk           # <remove>
 
-from .drawable_group import ClipboardGroup # <remove>
-from .utils import img_object_copy # <remove>
+from .drawable_group import ClipboardGroup   # <remove>
+from .utils import img_object_copy           # <remove>
+
+log = logging.getLogger(__name__)            # <remove>
+log.setLevel(logging.DEBUG)                  # <remove>
+
 
 class Clipboard:
     """
@@ -28,10 +30,12 @@ class Clipboard:
         self.clipboard_owner = False
         self.clipboard = None
 
+
     def on_clipboard_owner_change(self, clipboard, event):
         """Handle clipboard owner change events."""
 
-        log.debug("Owner change (%s), removing internal clipboard, reason: %s", clipboard, event.reason)
+        log.debug("Owner change (%s), removing internal clipboard, reason: %s",
+                 clipboard, event.reason)
         if self.clipboard_owner:
             self.clipboard_owner = False
         else:
@@ -51,6 +55,8 @@ class Clipboard:
         self.__gtk_clipboard.store()
 
     def get_content(self):
+        """Return the clipboard content."""
+
         # internal paste
         if self.clipboard:
             log.debug("Pasting content internally")
@@ -68,7 +74,7 @@ class Clipboard:
             return "image", clip_img
         return None, None
 
-    def __make_copies(objects):
+    def __make_copies(self, objects):
         """Make copies of objects."""
         copies = []
 
@@ -76,7 +82,6 @@ class Clipboard:
             copies.append(obj.duplicate())
 
         return copies
-
 
     def copy_content(self, selection, cut = False):
         """

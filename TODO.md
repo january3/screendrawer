@@ -64,6 +64,8 @@ Design issues:
  * the interaction between canvas, gom, dm, em is tangled. 
 
 Bugs:
+ * clipped objects keep their (incorrect) bbox with respect to moving /
+   resizing
  * remove the frame after taking screenshot
  * select a number of objects, hit alt-s, undo, hit alt-s again -> error.
    something is wrong with selection (old object? containing deleted
