@@ -3,7 +3,7 @@ from os import path
 import logging                                             # <remove>
 import gi                                                  # <remove>
 gi.require_version('Gtk', '3.0')                           # <remove> pylint: disable=wrong-import-position
-from gi.repository import GdkPixbuf # <remove>
+from gi.repository import Gtk, GLib, GdkPixbuf # <remove>
 
 from .wiglets import WigletSelectionTool, WigletEraser          # <remove>
 from .wiglets import WigletCreateObject, WigletCreateGroup      # <remove>
@@ -15,11 +15,21 @@ from .wiglets_ui import WigletLineWidth, WigletPageSelector     # <remove>
 from .wiglets_ui import WigletColorSelector, WigletToolSelector # <remove>
 from .wiglets_ui import WigletTransparency, WigletStatusLine    # <remove>
 
-from .dialogs import help_dialog, import_image_dialog, FontChooser, ColorChooser # <remove>
-from .drawable_primitives import Image  # <remove>
+from .dialogs import help_dialog, FontChooser, ColorChooser     # <remove>
+from .dialogs import open_drawing_dialog, import_image_dialog   # <remove>
+from .dialogs import export_dialog, save_dialog                 # <remove>
+from .drawable_primitives import Image                          # <remove>
+from .drawable_group import DrawableGroup                       # <remove>
 
-log = logging.getLogger(__name__)                                # <remove>
-log.setLevel(logging.DEBUG)                                      # <remove>
+from .import_export import read_file_as_sdrw, save_file_as_sdrw # <remove>
+from .import_export import export_image                         # <remove>
+
+from .utils import get_screenshot                               # <remove>
+
+from .pen import Pen                                            # <remove>
+
+log = logging.getLogger(__name__)                               # <remove>
+log.setLevel(logging.DEBUG)                                     # <remove>
 
 class UIBuilder():
     """Builds the UI."""
@@ -42,13 +52,21 @@ class UIBuilder():
 
     def __register_bus_events(self):
         """Register the bus events."""
-        bus = self.__bus
 
-        bus.on("show_help_dialog",  self.show_help_dialog)
-        bus.on("import_image",      self.import_image)
-        bus.on("select_font",       self.select_font)
-        bus.on("select_color_bg",   self.select_color_bg)
-        bus.on("select_color",      self.select_color)
+        listeners = {
+            "show_help_dialog":  self.show_help_dialog,
+            "import_image":      self.import_image,
+            "select_font":       self.select_font,
+            "select_color_bg":   self.select_color_bg,
+            "select_color":      self.select_color,
+            "open_drawing":      self.open_drawing,
+            "save_drawing_as":   self.save_drawing_as,
+            "export_drawing":    self.export_drawing,
+            "screenshot":        self.screenshot,
+        }
+
+        for event, listener in listeners.items():
+            self.__bus.on(event, listener)
 
     def __init_wiglets(self):
         """Initialize the wiglets."""
@@ -129,3 +147,210 @@ class UIBuilder():
                 bus.emitOnce("add_object", img)
 
         return pixbuf
+
+    def open_drawing(self):
+        """Open a drawing from a file in native format."""
+        file_name = open_drawing_dialog(self.__app)
+
+        if file_name and self.read_file(file_name):
+            log.debug("Setting savefile to %s", file_name)
+
+            self.__bus.emit("set_savefile", False, file_name)
+            self.__state.graphics().modified(True)
+
+    def read_file(self, filename, load_config = True):
+        """Read the drawing state from a file."""
+        if not filename:
+            raise ValueError("No filename provided")
+
+        state = self.__state
+        config, objects, pages = read_file_as_sdrw(filename)
+
+        if pages:
+            state.gom().set_pages(pages)
+        elif objects:
+            state.gom().set_objects(objects)
+
+        if config and load_config:
+            state.graphics().bg_color(config.get('bg_color') or (.8, .75, .65))
+            state.graphics().alpha(config.get('transparent') or 0)
+            show_wiglets = config.get('show_wiglets')
+
+            if show_wiglets is None:
+                show_wiglets = True
+
+            state.graphics().show_wiglets(show_wiglets)
+            state.pen(pen = Pen.from_dict(config['pen']))
+            state.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
+            state.gom().set_page_number(config.get('page') or 0)
+        if config or objects:
+            state.graphics().modified(True)
+            return True
+        return False
+
+    def autosave(self):
+        """Autosave the drawing state."""
+        state = self.__state
+
+        if not state.graphics().modified():
+            return
+
+        if state.current_obj(): # not while drawing!
+            return
+
+        log.debug("Autosaving")
+
+        self.save_state()
+        state.graphics().modified(False)
+
+    def save_state(self):
+        """Save the current drawing state to a file."""
+        state = self.__state
+
+        savefile = state.config().savefile()
+
+        if not savefile:
+            log.debug("No savefile set")
+            return
+
+        log.debug("savefile: %s", savefile)
+        config = {
+                'bg_color':     state.graphics().bg_color(),
+                'transparent':  state.graphics().alpha(),
+                'show_wiglets': state.graphics().show_wiglets(),
+                'bbox':         (0, 0, *self.__app.get_size()),
+                'pen':          state.pen().to_dict(),
+                'pen2':         state.pen(alternate = True).to_dict(),
+                'page':         state.gom().current_page_number()
+        }
+
+        pages   = state.gom().export_pages()
+
+        save_file_as_sdrw(savefile, config, pages = pages)
+
+    def save_drawing_as(self):
+        """Save the drawing to a file."""
+        log.debug("opening save file dialog")
+        file = save_dialog(self.__app)
+
+        if file:
+            log.debug("setting savefile to %s", file)
+            self.__bus.emit("set_savefile", False, file)
+            self.save_state()
+
+    def export_drawing(self):
+        """Save the drawing to a file."""
+        # Choose where to save the file
+        #    self.export(filename, "svg")
+        bbox = None
+        selected = False
+        state = self.__state
+
+        if state.selected_objects():
+            # only export the selected objects
+            obj = state.selected_objects()
+            selected = True
+        else:
+            # set bbox so we export the whole screen
+            obj = state.objects()
+            bbox = (0, 0, *self.__app.get_size())
+
+        if not obj:
+            log.warning("Nothing to draw")
+            return
+
+        obj = DrawableGroup(obj)
+        export_dir = state.config().export_dir()
+        file_name  = state.config().export_fn()
+
+        log.debug("export_dir: %s", export_dir)
+        ret = export_dialog(self.__app, export_dir = export_dir,
+                            filename = file_name,
+                            selected = selected)
+        file_name, file_format, all_as_pdf = ret
+
+        if not file_name:
+            return
+
+        cfg = { "bg": state.graphics().bg_color(),
+               "bbox": bbox,
+               "transparency": state.graphics().alpha() }
+
+        if all_as_pdf:
+            # get all objects from all pages and layers
+            # create drawable group for each page
+            obj = state.gom().get_all_pages()
+            obj = [ p.objects_all_layers() for p in obj ]
+            obj = [ DrawableGroup(o) for o in obj ]
+
+        # extract dirname and base name from file name
+        dirname, base_name = path.split(file_name)
+        log.debug("dirname: %s base_name: %s", dirname, base_name)
+        self.__bus.emitMult("set_export_dir", dirname)
+        self.__bus.emitMult("set_export_fn", base_name)
+
+        export_image(obj, file_name, file_format, cfg, all_as_pdf)
+
+    def __screenshot_finalize(self, bb):
+        """Finish up the screenshot."""
+
+        state = self.__state
+        bus   = self.__bus
+        log.debug("Taking screenshot now")
+
+        dx, dy = state.page().translate() or (0, 0)
+        log.debug("translate is (%s, %s)", int(dx), int(dy))
+
+        frame = (bb[0] - 3 + dx, bb[1] - 3 + dy,
+                 bb[0] + bb[2] + 6 + dx, bb[1] + bb[3] + 6 + dy)
+        log.debug("frame is %s", [ int(x) for x in frame ])
+
+        pixbuf, filename = get_screenshot(self.__app, *frame)
+        bus.emitOnce("toggle_hide", False)
+        bus.emitOnce("queue_draw")
+
+        # Create the image and copy the file name to clipboard
+        if pixbuf is not None:
+            img = Image([ (bb[0], bb[1]) ], state.pen(), pixbuf)
+            bus.emitOnce("add_object", img)
+            bus.emitOnce("queue_draw")
+            state.clipboard().set_text(filename)
+
+    def __find_screenshot_box(self):
+        """Find a box suitable for selecting a screenshot."""
+
+        for obj in self.__state.selected_objects():
+            if obj.type == "rectangle":
+                return obj
+
+        return None
+
+    def screenshot(self, obj = None):
+        """Take a screenshot and add it to the drawing."""
+
+        # function called twice: once, when requesting a screenshot
+        # and second, when the screenshot has been made
+
+        state = self.__state
+        bus   = self.__bus
+
+        if not obj:
+            obj = self.__find_screenshot_box()
+
+        bus.off("add_object", self.screenshot)
+
+        if not obj:
+            log.debug("no suitable box found")
+            state.mode("rectangle")
+            bus.on("add_object", self.screenshot, priority = 999)
+            return
+
+        bb = obj.bbox()
+        log.debug("bbox is %s", [int(x) for x in bb])
+
+        bus.emitOnce("toggle_hide", True)
+        bus.emitOnce("queue_draw")
+
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
+        GLib.timeout_add(100, self.__screenshot_finalize, bb)

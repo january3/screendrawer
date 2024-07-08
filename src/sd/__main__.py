@@ -101,9 +101,6 @@ COLORS = {
 
 AUTOSAVE_INTERVAL = 30 * 1000 # 30 seconds
 
-
-
-
 ## ---------------------------------------------------------------------
 
 class TransparentWindow(Gtk.Window):
@@ -136,9 +133,6 @@ class TransparentWindow(Gtk.Window):
     def init_ui(self, save_file):
         """Initialize the user interface."""
 
-        # autosave
-        GLib.timeout_add(AUTOSAVE_INTERVAL, self.__autosave)
-
         # Drawing setup
         self.bus                = Bus()
 
@@ -146,7 +140,6 @@ class TransparentWindow(Gtk.Window):
         # method
         self.state              = State(app = self,
                                         bus = self.bus)
-
 
         # em has to know about all that to link actions to methods
         em  = EventManager(bus = self.bus, state  = self.state)
@@ -159,6 +152,8 @@ class TransparentWindow(Gtk.Window):
         self.canvas = Canvas(bus = self.bus, state = self.state)
 
         self.uibuilder = UIBuilder(state = self.state)
+        # autosave
+        GLib.timeout_add(AUTOSAVE_INTERVAL, self.uibuilder.autosave)
 
         # connecting events
         self.__add_bus_events()
@@ -176,14 +171,14 @@ class TransparentWindow(Gtk.Window):
 
         # load the drawing from the savefile
         self.bus.emit("set_savefile", False, save_file)
-        self.read_file(save_file)
+        self.uibuilder.read_file(save_file)
 
 
     def exit(self, event = None):
         """Exit the application."""
         ## close the savefile_f
         log.info("Exiting")
-        self.__save_state()
+        self.uibuilder.save_state()
         Gtk.main_quit()
 
     # ---------------------------------------------------------------------
@@ -192,15 +187,10 @@ class TransparentWindow(Gtk.Window):
         """Add bus events."""
 
         self.bus.on("app_exit", self.exit)
-        self.bus.on("export_drawing",    self.export_drawing)
-        self.bus.on("save_drawing_as",   self.save_drawing_as)
-        self.bus.on("open_drawing",      self.open_drawing)
         self.bus.on("copy_content",      self.copy_content)
         self.bus.on("cut_content",       self.cut_content)
         self.bus.on("duplicate_content", self.duplicate_content)
         self.bus.on("paste_content",     self.paste_content)
-        self.bus.on("screenshot",        self.screenshot)
-
 
     def paste_text(self, clip_text):
         """Enter some text in the current object or create a new object."""
@@ -295,188 +285,6 @@ class TransparentWindow(Gtk.Window):
         for obj in content.objects:
             new_obj = obj.duplicate()
             self.bus.emitOnce("add_object", new_obj)
-
-    def save_drawing_as(self):
-        """Save the drawing to a file."""
-        log.debug("opening save file dialog")
-        file = save_dialog(self)
-        if file:
-            log.debug("setting savefile to %s", file)
-            self.bus.emit("set_savefile", False, file)
-            self.__save_state()
-
-    def export_drawing(self):
-        """Save the drawing to a file."""
-        # Choose where to save the file
-        #    self.export(filename, "svg")
-        bbox = None
-        selected = False
-
-        if self.state.selected_objects():
-            # only export the selected objects
-            obj = self.state.selected_objects()
-            selected = True
-        else:
-            # set bbox so we export the whole screen
-            obj = self.state.objects()
-            bbox = (0, 0, *self.get_size())
-
-        if not obj:
-            log.warning("Nothing to draw")
-            return
-
-        obj = DrawableGroup(obj)
-        export_dir = self.state.config().export_dir()
-        file_name  = self.state.config().export_fn()
-
-        log.debug(f"export_dir: {export_dir}")
-        ret = export_dialog(self, export_dir = export_dir,
-                            filename = file_name, 
-                            selected = selected)
-        file_name, file_format, all_as_pdf = ret
-
-        if not file_name:
-            return
-
-        cfg = { "bg": self.state.graphics().bg_color(), 
-               "bbox": bbox, 
-               "transparency": self.state.graphics().alpha() }
-
-        if all_as_pdf:
-            # get all objects from all pages and layers
-            # create drawable group for each page
-            obj = self.state.gom().get_all_pages()
-            obj = [ p.objects_all_layers() for p in obj ]
-            obj = [ DrawableGroup(o) for o in obj ]
-
-        # extract dirname and base name from file name
-        dirname, base_name = path.split(file_name)
-        log.debug(f"dirname: {dirname}, base_name: {base_name}")
-        self.bus.emitMult("set_export_dir", dirname)
-        self.bus.emitMult("set_export_fn", base_name)
-
-        export_image(obj, file_name, file_format, cfg, all_as_pdf)
-
-    def __screenshot_finalize(self, bb):
-        """Finish up the screenshot."""
-        log.debug("Taking screenshot now")
-        dx, dy = self.state.page().translate() or (0, 0)
-        log.debug("translate is (%s, %s)", int(dx), int(dy))
-        frame = (bb[0] - 3 + dx, bb[1] - 3 + dy, bb[0] + bb[2] + 6 + dx, bb[1] + bb[3] + 6 + dy)
-        log.debug("frame is %s", [ int(x) for x in frame ])
-        pixbuf, filename = get_screenshot(self, *frame)
-        self.bus.emitOnce("toggle_hide", False)
-        self.queue_draw()
-
-        # Create the image and copy the file name to clipboard
-        if pixbuf is not None:
-            img = Image([ (bb[0], bb[1]) ], self.state.pen(), pixbuf)
-            self.bus.emit("add_object", True, img)
-            self.queue_draw()
-            self.state.clipboard().set_text(filename)
-
-    def __find_screenshot_box(self):
-        """Find a box suitable for selecting a screenshot."""
-
-        for obj in self.state.selected_objects():
-            if obj.type == "rectangle":
-                return obj
-
-        return None
-
-    def screenshot(self, obj = None):
-        """Take a screenshot and add it to the drawing."""
-        if not obj:
-            obj = self.__find_screenshot_box()
-
-        self.bus.off("add_object", self.screenshot)
-
-        if not obj:
-            log.debug("no suitable box found")
-            self.state.mode("rectangle")
-            self.bus.on("add_object", self.screenshot, priority = 99)
-            return
-        else:
-            bb = obj.bbox()
-            log.debug("bbox is %s", [int(x) for x in bb])
-
-        self.bus.emitOnce("toggle_hide", True)
-        self.queue_draw()
-
-        while Gtk.events_pending():
-            Gtk.main_iteration_do(False)
-        GLib.timeout_add(100, self.__screenshot_finalize, bb)
-
-    def __autosave(self):
-        """Autosave the drawing state."""
-        if not self.state.graphics().modified():
-            return
-
-        if self.state.current_obj(): # not while drawing!
-            return
-
-        log.debug("Autosaving")
-        self.__save_state()
-        self.state.graphics().modified(False)
-
-    def __save_state(self):
-        """Save the current drawing state to a file."""
-        savefile = self.state.config().savefile()
-        if not savefile:
-            log.debug("No savefile set")
-            return
-
-        log.debug("savefile: %s", savefile)
-        config = {
-                'bg_color':    self.state.graphics().bg_color(),
-                'transparent': self.state.graphics().alpha(),
-                'show_wiglets': self.state.graphics().show_wiglets(),
-                'bbox':        (0, 0, *self.get_size()),
-                'pen':         self.state.pen().to_dict(),
-                'pen2':        self.state.pen(alternate = True).to_dict(),
-                'page':        self.state.gom().current_page_number()
-        }
-
-        pages   = self.state.gom().export_pages()
-
-        save_file_as_sdrw(savefile, config, pages = pages)
-
-    def open_drawing(self):
-        """Open a drawing from a file in native format."""
-        file_name = open_drawing_dialog(self)
-
-        if file_name and self.read_file(file_name):
-            log.debug("Setting savefile to %s", file_name)
-
-            self.bus.emit("set_savefile", False, file_name)
-            self.state.graphics().modified(True)
-
-    def read_file(self, filename, load_config = True):
-        """Read the drawing state from a file."""
-        if not filename:
-            raise ValueError("No filename provided")
-
-        config, objects, pages = read_file_as_sdrw(filename)
-
-        if pages:
-            self.state.gom().set_pages(pages)
-        elif objects:
-            self.state.gom().set_objects(objects)
-
-        if config and load_config:
-            self.state.graphics().bg_color(config.get('bg_color') or (.8, .75, .65))
-            self.state.graphics().alpha(config.get('transparent') or 0)
-            show_wiglets = config.get('show_wiglets')
-            if show_wiglets is None:
-                show_wiglets = True
-            self.state.graphics().show_wiglets(show_wiglets)
-            self.state.pen(pen = Pen.from_dict(config['pen']))
-            self.state.pen(pen = Pen.from_dict(config['pen2']), alternate = True)
-            self.state.gom().set_page_number(config.get('page') or 0)
-        if config or objects:
-            self.state.graphics().modified(True)
-            return True
-        return False
 
 
 ## ---------------------------------------------------------------------
@@ -584,7 +392,7 @@ def main():
 
     win = TransparentWindow(save_file = savefile)
     if args.loadfile:
-        win.read_file(args.loadfile)
+        win.uibuilder.read_file(args.loadfile)
 
     CSS = b"""
     #myMenu {
