@@ -136,6 +136,7 @@ class CursorManager:
 
     def update_pos(self, pos, pos_abs):
         """Update the current position of the cursor."""
+
         self.__pos     = pos
         self.__pos_abs = pos_abs
         self.__bus.emit("queue_draw")

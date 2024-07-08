@@ -182,7 +182,7 @@ class Image(DrawableTrafo):
     """
     def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
 
-        log.debug(f"CREATING IMAGE, pos {coords} transform: {transform}")
+        log.debug("CREATING IMAGE, pos %s", coords)
         self.__image = ImageObj(image, image_base64)
 
         width, height = self.__image.size()

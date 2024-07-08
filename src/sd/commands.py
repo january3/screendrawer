@@ -911,9 +911,9 @@ class ResizeCommand(MoveResizeCommand):
     def __init__(self, obj, origin, corner, proportional = False):
         super().__init__("resize", obj, origin)
         self.corner = corner
-        self.bbox        = obj.bbox()
+        self.bbox     = obj.bbox(actual = True)
         obj.resize_start(corner, origin)
-        self._orig_bb = obj.bbox()
+        self._orig_bb = obj.bbox(actual = True)
         self._prop    = proportional
         if self._orig_bb[2] == 0:
             raise ValueError("Bounding box with no width")

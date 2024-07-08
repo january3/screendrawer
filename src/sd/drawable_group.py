@@ -115,9 +115,9 @@ class DrawableGroup(Drawable):
         self.resizing = {
             "corner": corner,
             "origin": origin,
-            "bbox":   self.bbox(),
-            "orig_bbox": self.bbox(),
-            "objects": { obj: obj.bbox() for obj in self.objects }
+            "bbox":   self.bbox(actual = True),
+            "orig_bbox": self.bbox(actual = True),
+            "objects": { obj: obj.bbox(actual = True) for obj in self.objects }
             }
 
         for obj in self.objects:
@@ -257,6 +257,12 @@ class ClippingGroup(DrawableGroup):
         cr.clip()
         self.__obj_group.draw(cr, hover=False,
                               selected=selected, outline = outline)
+        if self.rotation:
+            x, y = self.rot_origin[0], self.rot_origin[1]
+            cr.translate(x, y)
+            cr.rotate(self.rotation)
+            cr.translate(-x, -y)
+
         self.__clip_bbox = cr.clip_extents()
         cr.restore()
 

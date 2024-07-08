@@ -64,6 +64,16 @@ Design issues:
  * the interaction between canvas, gom, dm, em is tangled. 
 
 Bugs:
+ * a clipped circle drawn during resize has incorrect coordinates. =>
+   problem with "actual" and "not actual" bboxes.
+ * when clipping, sometimes the bounding box is adapted to the clipping group for
+   some reason. => right, that's because the overlap is not the same as the
+   bbox of the clipped region. => look up cairo context, maybe one can get
+   the clipping region somehow.
+ * ctrl-v when cursor hasn't moved places object at (0, 0) instead of the
+   actual cursor pos (should be the same as with crosslines) => that's
+   because only the absolute (screen) position can be queried at the
+   moment, not the user (drawing) position. 
  * remove the frame after taking screenshot
  * select a number of objects, hit alt-s, undo, hit alt-s again -> error.
    something is wrong with selection (old object? containing deleted
@@ -75,6 +85,7 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * while resizing / rotating, clipped box looks weird
  * rotating clipped objects uses the incorrect rotation origin, but works
    otherwise
  * clipped objects keep their (incorrect) bbox with respect to moving /
