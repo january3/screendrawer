@@ -298,6 +298,8 @@ class UIBuilder():
         bus   = self.__bus
         log.debug("Taking screenshot now")
 
+        # XXX
+        raise notImplementedError("Taking screenshot not implemented at the moment")
         dx, dy = state.page().translate() or (0, 0)
         log.debug("translate is (%s, %s)", int(dx), int(dy))
 

@@ -1,8 +1,12 @@
 """Class which draws the actual objects and caches them."""
 import gi                                                  # <remove>
-gi.require_version('Gtk', '3.0')                           # <remove>
+gi.require_version('Gtk', '3.0')                           # <remove> pylint: disable=wrong-import-position
 import cairo                                  # <remove>
 from .drawable_group import DrawableGroup     # <remove>
+import logging                                                   # <remove>
+
+log = logging.getLogger(__name__)                                # <remove>
+log.setLevel(logging.INFO)                                      # <remove>
 
 def draw_on_surface(cr, objects, selection, state):
     """
@@ -148,7 +152,9 @@ class Drawer:
             status = obj_status(obj, selection, state)
 
             is_same = obj in modhash and modhash[obj] == status and not status[3]
-            is_same = is_same and not obj.modified()
+            is_same = is_same and not obj.modified() and not obj.type == "text"
+
+            log.debug("object of type %s is same: %s (status=%s)", obj.type, is_same, status)
 
             if first_is_same is None:
                 first_is_same = is_same
@@ -174,8 +180,11 @@ class Drawer:
 
         is_same = self.__cache["groups"]["first_is_same"]
         i = 0
+        n_cached = 0
+        n_groups = 0
 
         for obj_grp in self.__cache["groups"]["groups"]:
+            n_groups += 1
 
             # ignore empty groups (that might happen in edge cases)
             if not obj_grp:
@@ -196,6 +205,8 @@ class Drawer:
                 cr.paint()
                 i += 1
                 is_same = not is_same
+                n_cached += 1
+        log.debug("Cached %d groups out of %d", n_cached, n_groups)
 
     def draw(self, cr, page, state, force_redraw=False):
         """
@@ -207,6 +218,7 @@ class Drawer:
         :param state: The state object.
         """
 
+        log.debug("Drawing objects on the page, force_redraw=%s", force_redraw)
         # extract objects from the page provided
         objects = page.objects_all_layers()
 

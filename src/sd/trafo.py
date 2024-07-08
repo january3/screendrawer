@@ -1,5 +1,6 @@
 """A class which holds a set of transformations."""
 import logging                                                    # <remove>
+from .utils import coords_rotate                                  # <remove>
 
 log = logging.getLogger(__name__)                                 # <remove>
 log.setLevel(logging.DEBUG)                                        # <remove>
@@ -13,7 +14,6 @@ def trafos_apply(coords, trafos):
         if trafo_type == "rotate":
             coords = coords_rotate(coords, trafo_args[2], (trafo_args[0], trafo_args[1]))
         elif trafo_type == "resize":
-            #coords = transform_coords(coords, (0, 0, w, h), (0, 0, w * trafo_args[2], h * trafo_args[3]))
             coords = [ (trafo_args[0] + (p[0] - trafo_args[0]) * trafo_args[2],
                         trafo_args[1] + (p[1] - trafo_args[1]) * trafo_args[3]) for p in coords ]
         elif trafo_type == "move":
@@ -33,7 +33,8 @@ def trafos_reverse(coords, trafos):
         if trafo_type == "rotate":
             coords = coords_rotate(coords, -trafo_args[2], (trafo_args[0], trafo_args[1]))
         elif trafo_type == "resize":
-            coords = transform_coords(coords, (0, 0, w, h), (0, 0, w / trafo_args[2], h / trafo_args[3]))
+            coords = [ (trafo_args[0] + (p[0] - trafo_args[0]) / trafo_args[2],
+                        trafo_args[1] + (p[1] - trafo_args[1]) / trafo_args[3]) for p in coords ]
         elif trafo_type == "move":
             coords = [ (p[0] - trafo_args[0], p[1] - trafo_args[1]) for p in coords ]
         elif trafo_type == "dummy":
@@ -110,8 +111,10 @@ class Trafo():
         """Remove the last transformation from the list."""
         return self.__trafo.pop()
 
-    def trafos(self):
-        """Return the transformations."""
+    def trafos(self, trafo = None):
+        """Return or set the transformations."""
+        if trafo:
+            self.__trafo = trafo
         return self.__trafo
 
     def apply(self, coords):
@@ -127,7 +130,8 @@ class Trafo():
     def transform_context(self, cr):
         """Transform the cairo context."""
 
-        trafos_on_cairo(cr, self.__trafo)
+        if self.__trafo:
+            trafos_on_cairo(cr, self.__trafo)
 
     def __str__(self):
         return f"Trafo({self.__trafo})"

@@ -40,14 +40,12 @@ class Canvas:
             return
 
         page = self.__state.current_page()
-        tr = page.translate()
 
         cr.save()
 
-        if tr:
-            cr.translate(*tr)
+        page.trafo().transform_context(cr)
 
-        self.draw_bg(cr, tr)
+        self.draw_bg(cr, (0, 0))
         page.draw(cr, self.__state, force_redraw = self.__force_redraw)
 
         # emit the draw signal for objects that wish to be drawn in draw

@@ -14,6 +14,7 @@ from .commands import ToggleFillCommand, RotateCommand, MoveCommand, ZStackComma
 from .commands import TransmuteCommand, AddCommand, CommandGroup, InsertPageCommand # <remove>
 from .commands import DeletePageCommand, DeleteLayerCommand, FlushCommand # <remove>
 from .drawer import Drawer                                           # <remove>
+from .trafo import Trafo                                             # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 
 class LayerSelectionPropertyHandler:
@@ -405,8 +406,41 @@ class PageChain:
 
         return ret, cmd
 
+class PageView(PageChain):
+    """Page Chain augmented by transformations"""
+    def __init__(self, prev = None):
+        super().__init__(prev)
 
-class Page(PageChain):
+        self.__trafo = Trafo()
+
+    def trafo(self):
+        """Return the transformation object."""
+        return self.__trafo
+
+    def translate(self, new_val):
+        """set the translate"""
+
+        self.__trafo.add_trafo(("move", new_val))
+
+    def pos_abs_to_rel(self, pos):
+        """recalculate the absolute position to relative"""
+        pos = self.__trafo.apply_reverse([ pos ])[0]
+
+        return pos
+
+    def reset_trafo(self):
+        """Reset the transformation."""
+        self.__trafo = Trafo()
+
+    def zoom_in(self):
+        """Zoom in the view."""
+        self.__trafo.add_trafo(("resize", (0, 0, 1.1, 1.1)))
+
+    def zoom_out(self):
+        """Zoom in the view."""
+        self.__trafo.add_trafo(("resize", (0, 0, 0.9, 0.9)))
+
+class Page(PageView):
     """
     A page is a container for layers.
 
@@ -419,9 +453,20 @@ class Page(PageChain):
 
         self.__layers = [ layers or Layer() ]
         self.__current_layer = 0
-        self.__translate = None
         self.__drawer = Drawer()
         self.__bus = None
+
+        self.__listeners = {
+            "page_deactivate": { "listener": self.deactivate},
+            "next_layer": { "listener": self.next_layer},
+            "prev_layer": { "listener": self.prev_layer},
+            "delete_layer": { "listener": self.delete_layer_cmd},
+            "clear_page": { "listener": self.clear, "priority": 8},
+            "zoom_reset": { "listener": self.reset_trafo},
+            "zoom_in":    { "listener": self.zoom_in},
+            "zoom_out":   { "listener": self.zoom_out},
+        }
+
 
     def activate(self, bus):
         """Activate the page so that it responds to the bus"""
@@ -430,11 +475,12 @@ class Page(PageChain):
 
         # shout out to the previous current page to get lost
         bus.emitOnce("page_deactivate")
-        bus.on("page_deactivate", self.deactivate)
-        bus.on("next_layer", self.next_layer)
-        bus.on("prev_layer", self.prev_layer)
-        bus.on("delete_layer", self.delete_layer_cmd)
-        bus.on("clear_page", self.clear, priority = 8)
+
+        for event, params in self.__listeners.items():
+            if "priority" in params:
+                bus.on(event, params["listener"], priority=params["priority"])
+            else:
+                bus.on(event, params["listener"])
 
         self.layer().activate(bus)
 
@@ -448,11 +494,9 @@ class Page(PageChain):
             return
 
         log.debug("page %s deactivating", self)
-        bus.off("page_deactivate", self.deactivate)
-        bus.off("next_layer", self.next_layer)
-        bus.off("prev_layer", self.prev_layer)
-        bus.off("delete_layer", self.delete_layer_cmd)
-        bus.off("clear_page", self.clear)
+
+        for event, params in self.__listeners.items():
+            bus.off(event, params["listener"])
 
         self.layer().deactivate()
 
@@ -559,26 +603,12 @@ class Page(PageChain):
             self.__layers[self.__current_layer].activate(self.__bus)
         return layer, pos
 
-    def translate(self, new_val = None):
-        """Get or set the translate"""
-        if new_val is not None:
-            self.__translate = new_val
-        return self.__translate
-
-    def pos_abs_to_rel(self, pos):
-        """recalculate the absolute position to relative"""
-        x, y = pos
-        translate = self.__translate
-        x, y = x - translate[0], y - translate[1]
-
-        return (x, y)
-
     def export(self):
         """Exports the page with all layers as a dict"""
         layers = [ l.export() for l in self.__layers ]
         ret = {
                  "layers": layers,
-                 "translate": self.translate(),
+                 "view": self.trafo().trafos(),
                  "cur_layer": self.__current_layer
               }
         return ret
@@ -586,7 +616,7 @@ class Page(PageChain):
     def import_page(self, page_dict):
         """Imports a dict to self"""
         log.debug("importing pages")
-        self.__translate = page_dict.get("translate")
+        # XXX
         if "objects" in page_dict:
             self.layer().objects(page_dict["objects"])
         elif "layers" in page_dict:
@@ -604,6 +634,17 @@ class Page(PageChain):
 
         cl = page_dict.get("cur_layer")
         self.__current_layer = cl if cl is not None else 0
+
+        # import the transformations
+        trafo = page_dict.get("view")
+        if trafo:
+            self.trafo().trafos(trafo)
+
+        # backwards compatibility
+        translate = page_dict.get("translate")
+        if translate:
+            self.trafo().add_trafo(("move", translate))
+
         if self.__bus:
             self.__layers[self.__current_layer].activate(self.__bus)
 

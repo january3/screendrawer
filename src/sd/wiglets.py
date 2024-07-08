@@ -345,16 +345,10 @@ class WigletPan(Wiglet):
 
         log.debug(f"my origin: {[int(x) for x in self.__origin]}")
 
-        page = self.__page
-        tr = page.translate()
-        if not tr:
-            tr = page.translate((0, 0))
-
         dx, dy = ev.event.x - self.__origin[0], ev.event.y - self.__origin[1]
-        tr = (tr[0] + dx, tr[1] + dy)
-        log.debug(f"Translating page by {[int(x) for x in tr]}")
+        log.debug(f"Translating page by {[int(x) for x in (dx, dy)]}")
 
-        page.translate(tr)
+        self.__page.translate((dx, dy))
 
         self.__origin = (ev.event.x, ev.event.y)
         self.__bus.emit("queue_draw")

@@ -19,7 +19,7 @@ gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gdk # <remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
-log.setLevel(logging.INFO)                                      # <remove>
+log.setLevel(logging.DEBUG)                                      # <remove>
 
 COLORS = {
         "black": (0, 0, 0),
@@ -86,11 +86,14 @@ class EventManager:
             traceback.print_tb(exc_traceback)
             log.warning(f"Error while dispatching action {action_name}: {e}")
 
-    def dispatch_key_event(self, key_event, mode):
+    def dispatch_key_event(self, key_event, keyname, mode):
         """
         Dispatches an action by key event.
         """
         #print("dispatch_key_event", key_event, mode)
+
+        if keyname in self.__keybindings:
+            key_event = keyname
 
         if not key_event in self.__keybindings:
             return
@@ -127,7 +130,6 @@ class EventManager:
         ctrl    = event.state & Gdk.ModifierType.CONTROL_MASK
         shift   = event.state & Gdk.ModifierType.SHIFT_MASK
         alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
-        log.debug(f"keyname {keyname} char {char} ctrl {ctrl} shift {shift} alt_l {alt_l}")
 
         mode = state.mode()
 
@@ -141,7 +143,8 @@ class EventManager:
             keyfull = "Ctrl-" + keyfull
         if alt_l:
             keyfull = "Alt-" + keyfull
-        #print("keyfull", keyfull)
+        log.debug("keyname %s char %s ctrl %s shift %s alt_l %s keyfull %s", 
+                  keyname, char, ctrl, shift, alt_l, keyfull)
 
         # first, check whether there is a current object being worked on
         # and whether this object is a text object. In that case, we only
@@ -155,7 +158,7 @@ class EventManager:
             return
 
         # otherwise, we dispatch the key event
-        self.dispatch_key_event(keyfull, mode)
+        self.dispatch_key_event(keyfull, 'keyname:' + keyname, mode)
 
         # XXX this probably should be somewhere else
         state.queue_draw()
@@ -189,6 +192,10 @@ class EventManager:
             'apply_pen_to_bg':       {'args': ["apply_pen_to_bg"], 'modes': ["move"]},
 
             'clear_page':            {'args': ["clear_page"]},
+
+            'zoom_reset':            {'args': ["zoom_reset"]},
+            'zoom_in':               {'args': ["zoom_in"]},
+            'zoom_out':              {'args': ["zoom_out"]},
 
             # dialogs and app events
             'app_exit':              {'args': ["app_exit"]},
@@ -319,6 +326,10 @@ class EventManager:
             'Alt-s':                "transmute_to_shape",
             'Alt-d':                "transmute_to_draw",
             'f':                    "selection_fill",
+
+            'keyname:equal':        "zoom_reset",
+            'keyname:plus':         "zoom_in",
+            'keyname:minus':        "zoom_out",
 
             'Ctrl-Shift-g':         "toggle_grouping",
 

@@ -9,7 +9,6 @@ To do (sorted by priority):
  * properties dialog called with right-click on an object
  * make a "recent colors" (or "recent pens") widget
  * think hard how I want the color setting / pen thing to work
- * zoom in and out. I think the time is ripe for it 
  * unit tests. more, more, more
  * different brushes should have different cursors (ha, ha, haahaha)
  * clean up font code. Maybe use the Pango.FontDescription class for
@@ -85,6 +84,13 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * when zoomed in, the text is grainy. This is due to the fact that rather
+   than being drawn directly, it is drawn on a surface, then the surface is
+   zoomed in... you get the pic. Probably, text should be always drawn
+   without intermediate caching on surfaces.
+ * when zoomed in, text shivers. Apparently it is not cached. =>
+   unnecessary mod flags due to bbox recalculation
+ * zoom in and out. I think the time is ripe for it 
  * while resizing / rotating, clipped box looks weird
  * rotating clipped objects uses the incorrect rotation origin, but works
    otherwise

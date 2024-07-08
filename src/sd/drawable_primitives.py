@@ -19,6 +19,7 @@ from .utils import smooth_path, coords_rotate    # <remove>
 from .trafo import Trafo                         # <remove>
 import logging                                   # <remove>
 log = logging.getLogger(__name__)                # <remove>
+log.setLevel(logging.INFO)                       # <remove>
 
 class DrawableTrafo(Drawable):
     """
@@ -61,9 +62,11 @@ class DrawableTrafo(Drawable):
         self.__trafo.add_trafo(("move", (dx, dy)))
         self.bbox_recalculate()
 
-    def bbox_recalculate(self, actual = False):
+    def bbox_recalculate(self, actual = False, mod = True):
         """Return the bounding box of the object."""
-        self.mod += 1
+        log.debug("recalculating bbox of %s", self.type)
+        if mod:
+            self.mod += 1
         coords = self.coords
         w, h = coords[1][0] - coords[0][0], coords[1][1] - coords[0][1]
         x0, y0 = coords[0]
@@ -148,7 +151,7 @@ class Image(DrawableTrafo):
     """
     def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
 
-        log.debug("CREATING IMAGE, pos %s, trafo %s", coords, transform)
+        #log.debug("CREATING IMAGE, pos %s, trafo %s", coords, transform)
         self.__image = ImageObj(image, image_base64)
 
         width, height = self.__image.size()
@@ -349,7 +352,7 @@ class Text(DrawableTrafo):
 
         if new_coords != self.coords:
             self.coords = new_coords
-            self.bbox_recalculate()
+            self.bbox_recalculate(mod = False)
 
         #cr.rectangle(bb[0], bb[1], bb[2], bb[3])
         #cr.stroke()
