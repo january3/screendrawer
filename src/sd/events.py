@@ -112,7 +112,6 @@ class MouseCatcher:
     def __init__(self, bus, state):
         self.__bus = bus
         self.__state = state
-        self.__gom = state.gom()
         self.__cursor = state.cursor()
         self.__timeout = None # for discerning double clicks
 
@@ -139,8 +138,8 @@ class MouseCatcher:
         """Handle mouse button press events."""
         log.debug(f"type:{event.type} button:{event.button} state:{event.state}")
         self.__state.graphics().modified(True)
-        ev = MouseEvent(event, self.__gom.objects(),
-                        translate = self.__gom.page().translate(),
+        ev = MouseEvent(event, self.__state.objects(),
+                        translate = self.__state.page().translate(),
                         state = self.__state)
 
         if event.button == 3:
@@ -183,8 +182,8 @@ class MouseCatcher:
     def on_button_release(self, widget, event): # pylint: disable=unused-argument
         """Handle mouse button release events."""
         log.debug(f"button release: type:{event.type} button:{event.button} state:{event.state}")
-        ev = MouseEvent(event, self.__gom.objects(),
-                        translate = self.__gom.page().translate(),
+        ev = MouseEvent(event, self.__state.objects(),
+                        translate = self.__state.page().translate(),
                         state = self.__state)
 
         if self.__bus.emit("mouse_release", True, ev):
@@ -199,8 +198,8 @@ class MouseCatcher:
     def on_motion_notify(self, widget, event): # pylint: disable=unused-argument
         """Handle mouse motion events."""
 
-        ev = MouseEvent(event, self.__gom.objects(),
-                        translate = self.__gom.page().translate(),
+        ev = MouseEvent(event, self.__state.objects(),
+                        translate = self.__state.page().translate(),
                         state = self.__state)
 
         self.__bus.emitMult("cursor_pos_update", ev.pos(), ev.pos_abs())
