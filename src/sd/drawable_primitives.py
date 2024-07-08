@@ -8,16 +8,17 @@ gi.require_version('Gdk', '3.0')        # <remove> pylint: disable=wrong-import-
 from gi.repository import Gdk           # <remove>
 import cairo                            # <remove>
 
-from .drawable import Drawable # <remove>
-from .pen import Pen           # <remove>
-from .texteditor import TextEditor             # <remove>
-from .imageobj import ImageObj                 # <remove>
-from .utils import path_bbox, move_coords      # <remove>
-from .utils import find_obj_in_bbox            # <remove>
-from .utils import transform_coords            # <remove>
-from .utils import smooth_path, coords_rotate  # <remove>
-import logging                                                   # <remove>
-log = logging.getLogger(__name__)                                # <remove>
+from .drawable import Drawable                   # <remove>
+from .pen import Pen                             # <remove>
+from .texteditor import TextEditor               # <remove>
+from .imageobj import ImageObj                   # <remove>
+from .utils import path_bbox, move_coords        # <remove>
+from .utils import find_obj_in_bbox              # <remove>
+from .utils import transform_coords              # <remove>
+from .utils import smooth_path, coords_rotate    # <remove>
+from .trafo import Trafo                         # <remove>
+import logging                                   # <remove>
+log = logging.getLogger(__name__)                # <remove>
 
 class DrawableTrafo(Drawable):
     """
@@ -39,47 +40,25 @@ class DrawableTrafo(Drawable):
 
     def __init__(self, mytype, coords, pen, transform = None, rotation = 0):
 
+        log.debug("initializing DrawableTrafo %s, %s, %s", mytype, coords, transform)
         super().__init__(mytype, coords, pen)
         self.__bbox = None
 
-        if transform:
-            self.__trafos = transform
-        else:
-            self.__trafos = [ ]
+        self.__trafo = Trafo(transform)
         self.bbox_recalculate()
 
-    def trafos(self):
+    def trafo(self):
         """Return the transformations."""
-        return self.__trafos
+        return self.__trafo
 
     def apply_trafos(self, cr):
         """Apply the transformations to the Cairo context."""
 
-        for i, trafo in enumerate(reversed(self.__trafos)):
-            trafo_type, trafo_args = trafo
-
-            if trafo_type == "rotate":
-                cr.translate(trafo_args[0], trafo_args[1])
-                cr.rotate(trafo_args[2])
-                cr.translate(-trafo_args[0], -trafo_args[1])
-            elif trafo_type == "resize":
-                cr.translate(trafo_args[0], trafo_args[1])
-                cr.scale(trafo_args[2], trafo_args[3])
-                cr.translate(-trafo_args[0], -trafo_args[1])
-            elif trafo_type == "move":
-                cr.translate(trafo_args[0], trafo_args[1])
-            elif trafo_type == "dummy":
-                pass
-            else:
-                log.warning(f"unknown trafo {trafo_type}")
+        self.__trafo.transform_context(cr)
 
     def move(self, dx, dy):
         """Move the image by dx, dy."""
-        if len(self.__trafos) > 0 and self.__trafos[-1][0] == "move":
-            x, y = self.__trafos[-1][1]
-            self.__trafos[-1] = ("move", (x + dx, y + dy))
-        else:
-            self.__trafos.append(("move", (dx, dy)))
+        self.__trafo.add_trafo(("move", (dx, dy)))
         self.bbox_recalculate()
 
     def bbox_recalculate(self, actual = False):
@@ -91,17 +70,7 @@ class DrawableTrafo(Drawable):
         x1, y1 = coords[1]
         coords = [ (x0, y0), (x1, y0), (x1, y1), (x0, y1) ]
 
-        # apply the transformations to the original object
-        for trafo in self.__trafos:
-            trafo_type, trafo_args = trafo
-            if trafo_type == "rotate":
-                coords = coords_rotate(coords, trafo_args[2], (trafo_args[0], trafo_args[1]))
-            elif trafo_type == "resize":
-                #coords = transform_coords(coords, (0, 0, w, h), (0, 0, w * trafo_args[2], h * trafo_args[3]))
-                coords = [ (trafo_args[0] + (p[0] - trafo_args[0]) * trafo_args[2],
-                            trafo_args[1] + (p[1] - trafo_args[1]) * trafo_args[3]) for p in coords ]
-            elif trafo_type == "move":
-                coords = [ (p[0] + trafo_args[0], p[1] + trafo_args[1]) for p in coords ]
+        coords = self.__trafo.apply(coords)
 
         # get the bounding box
         self.__bbox = path_bbox(coords)
@@ -122,16 +91,17 @@ class DrawableTrafo(Drawable):
             }
         self.mod += 1
         # dummy transformation x 2
-        self.__trafos.append(("dummy", (0, 0, 1, 1)))
-        self.__trafos.append(("dummy", (0, 0, 1, 1)))
+        # needed because resize_update first removes the previous two
+        self.__trafo.add_trafo(("dummy", (0, 0, 1, 1)))
+        self.__trafo.add_trafo(("dummy", (0, 0, 1, 1)))
 
     def resize_update(self, bbox):
         """Update during the resize of the object."""
 
         # remove the 2 last transformations
         # (the resizing might involve a move!)
-        self.__trafos.pop()
-        self.__trafos.pop()
+        self.__trafo.pop_trafo()
+        self.__trafo.pop_trafo()
 
         # this is the new bounding box
         x1, y1, w1, h1 = bbox
@@ -143,9 +113,9 @@ class DrawableTrafo(Drawable):
         w_scale = w1 / w0
         h_scale = h1 / h0
 
-        # apply the transformation
-        self.__trafos.append(("move", (x1 - x0, y1 - y0)))
-        self.__trafos.append(("resize", (x1, y1, w_scale, h_scale)))
+        # apply the transformation. No merging, because they are temporary
+        self.__trafo.add_trafo(("move", (x1 - x0, y1 - y0)), merge = False)
+        self.__trafo.add_trafo(("resize", (x1, y1, w_scale, h_scale)), merge = False)
         self.bbox_recalculate()
 
     def resize_end(self):
@@ -155,12 +125,8 @@ class DrawableTrafo(Drawable):
 
     def rotate(self, angle, set_angle = False):
         """Rotate the object by the specified angle."""
-        # the self.rotation variable is for drawing while rotating
-        if len(self.__trafos) > 0 and self.__trafos[-1][0] == "rotate":
-            x, y, a = self.__trafos[-1][1]
-            self.__trafos[-1] = ("rotate", (x, y, a + angle))
-        else:
-            self.__trafos.append(("rotate", (self.rot_origin[0], self.rot_origin[1], angle)))
+        # if the previous trafo is a rotation, simply add the new angle
+        self.__trafo.add_trafo(("rotate", (self.rot_origin[0], self.rot_origin[1], angle)))
         self.bbox_recalculate()
 
     def rotate_end(self):
@@ -182,7 +148,7 @@ class Image(DrawableTrafo):
     """
     def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
 
-        log.debug("CREATING IMAGE, pos %s", coords)
+        log.debug("CREATING IMAGE, pos %s, trafo %s", coords, transform)
         self.__image = ImageObj(image, image_base64)
 
         width, height = self.__image.size()
@@ -196,7 +162,7 @@ class Image(DrawableTrafo):
     def draw(self, cr, hover=False, selected=False, outline=False):
         """Draw the object on the Cairo context."""
         cr.save()
-        self.apply_trafos(cr)
+        self.trafo().transform_context(cr)
 
         w, h = self.__image.size()
         x, y = self.coords[0]
@@ -221,6 +187,7 @@ class Image(DrawableTrafo):
     def to_dict(self):
         """Convert the object to a dictionary."""
 
+        log.debug("transformations saved: %s", self.trafo().trafos())
         return {
             "type": self.type,
             "coords": self.coords,
@@ -228,7 +195,7 @@ class Image(DrawableTrafo):
             "image": None,
             "rotation": self.rotation,
             "image_base64": self.__image.base64(),
-            "transform": self.trafos(),
+            "transform": self.trafo().trafos(),
         }
 
 
@@ -283,7 +250,7 @@ class Text(DrawableTrafo):
             "rotation": self.rotation,
             "rot_origin": self.rot_origin,
             "content": self.__text.to_string(),
-            "transform": self.trafos(),
+            "transform": self.trafo().trafos(),
         }
 
     def to_string(self):
@@ -348,7 +315,7 @@ class Text(DrawableTrafo):
               0, 0]
 
         cr.save()
-        self.apply_trafos(cr)
+        self.trafo().transform_context(cr)
 
         for i, fragment in enumerate(content):
 

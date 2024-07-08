@@ -565,6 +565,14 @@ class Page(PageChain):
             self.__translate = new_val
         return self.__translate
 
+    def pos_abs_to_rel(self, pos):
+        """recalculate the absolute position to relative"""
+        x, y = pos
+        translate = self.__translate
+        x, y = x - translate[0], y - translate[1]
+
+        return (x, y)
+
     def export(self):
         """Exports the page with all layers as a dict"""
         layers = [ l.export() for l in self.__layers ]

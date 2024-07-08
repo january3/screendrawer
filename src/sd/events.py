@@ -22,7 +22,7 @@ class MouseEvent:
     One advantage of using it: the computationaly intensive stuff is
     computed only once and only if it is needed.
     """
-    def __init__(self, event, objects, translate, state):
+    def __init__(self, event, objects, state):
         self.event   = event
         self.objects = objects
         self.state = state
@@ -43,12 +43,9 @@ class MouseEvent:
         if self.__info["pressure"] is None:  # note that 0 is perfectly valid
             self.__info["pressure"] = 1
 
-        self.x, self.y         = event.x, event.y
         self.x_abs, self.y_abs = event.x, event.y
-        #print("Creating mouse event at", int(event.x), int(event.y), "pressure", int(self.__info["pressure"]))
 
-        if translate:
-            self.x, self.y = self.x - translate[0], self.y - translate[1]
+        self.x, self.y = state.pos_abs_to_rel((event.x, event.y))
 
         self.__pos     = (self.x, self.y)
         self.__pos_abs = (self.x_abs, self.y_abs)
@@ -139,7 +136,6 @@ class MouseCatcher:
         log.debug(f"type:{event.type} button:{event.button} state:{event.state}")
         self.__state.graphics().modified(True)
         ev = MouseEvent(event, self.__state.objects(),
-                        translate = self.__state.page().translate(),
                         state = self.__state)
 
         if event.button == 3:
@@ -183,7 +179,6 @@ class MouseCatcher:
         """Handle mouse button release events."""
         log.debug(f"button release: type:{event.type} button:{event.button} state:{event.state}")
         ev = MouseEvent(event, self.__state.objects(),
-                        translate = self.__state.page().translate(),
                         state = self.__state)
 
         if self.__bus.emit("mouse_release", True, ev):
@@ -199,7 +194,6 @@ class MouseCatcher:
         """Handle mouse motion events."""
 
         ev = MouseEvent(event, self.__state.objects(),
-                        translate = self.__state.page().translate(),
                         state = self.__state)
 
         self.__bus.emitMult("cursor_pos_update", ev.pos(), ev.pos_abs())

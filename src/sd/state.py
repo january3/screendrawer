@@ -356,6 +356,10 @@ class StateObj(StateRoot):
         """Current page"""
         return self.gom().page()
 
+    def pos_abs_to_rel(self, pos):
+        """Convert absolute position to real position."""
+        return self.page().pos_abs_to_rel(pos)
+
     def selection(self):
         """Current selection"""
         return self.gom().selection()
