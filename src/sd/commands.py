@@ -812,7 +812,7 @@ class RotateCommand(MoveResizeCommand):
     def __init__(self, obj, origin=None, corner=None, angle = None):
         super().__init__("rotate", obj, origin)
         self.corner      = corner
-        bb = obj.bbox()
+        bb = obj.bbox(actual = True)
         self.bbox        = obj.bbox()
         self.__rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
         obj.rotate_start(self.__rotation_centre)

@@ -64,8 +64,6 @@ Design issues:
  * the interaction between canvas, gom, dm, em is tangled. 
 
 Bugs:
- * rotating clipped objects uses the incorrect rotation origin, but works
-   otherwise
  * remove the frame after taking screenshot
  * select a number of objects, hit alt-s, undo, hit alt-s again -> error.
    something is wrong with selection (old object? containing deleted
@@ -77,6 +75,8 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * rotating clipped objects uses the incorrect rotation origin, but works
+   otherwise
  * clipped objects keep their (incorrect) bbox with respect to moving /
    resizing
  * Separation between State and Setter is non-existent, it is unclear which
