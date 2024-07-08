@@ -32,7 +32,7 @@ def obj_status(obj, selection, state):
 
     return (obj.mod, hover, selected, is_cur_obj)
 
-def create_cache_surface(objects):
+def create_cache_surface(objects, trafo = None):
     """
     Create a cache surface.
 
@@ -48,8 +48,14 @@ def create_cache_surface(objects):
     if not bb:
         return None
 
-    # create a surface that fits the bounding box of the objects
     x, y, width, height = bb
+
+    if trafo:
+        bb = [ (x, y), (x + width, y + height) ]
+        bb = trafo.apply(bb)
+        x, y, width, height = bb[0][0], bb[0][1], bb[1][0] - bb[0][0], bb[1][1] - bb[0][1]
+
+    # create a surface that fits the bounding box of the objects
     surface = cairo.ImageSurface(cairo.Format.ARGB32, int(width) + 1, int(height) + 1)
     cr = cairo.Context(surface)
     cr.translate(-x, -y)
@@ -75,6 +81,7 @@ class Drawer:
     def __init__(self):
         self.__cache        = None
         self.__obj_mod_hash = { }
+        self.__trafo        = None
 
     def new_cache(self, groups, selection, state):
         """
@@ -95,9 +102,10 @@ class Drawer:
                 cur = not cur
                 continue
 
-            surface = create_cache_surface(obj_grp)
+            surface = create_cache_surface(obj_grp, self.__trafo)
             self.__cache["surfaces"].append(surface)
             cr = surface["cr"]
+            self.__trafo.transform_context(cr)
             draw_on_surface(cr, obj_grp, selection, state)
             cur = not cur
 
@@ -152,7 +160,7 @@ class Drawer:
             status = obj_status(obj, selection, state)
 
             is_same = obj in modhash and modhash[obj] == status and not status[3]
-            is_same = is_same and not obj.modified() and not obj.type == "text"
+            is_same = is_same and not obj.modified()
 
             log.debug("object of type %s is same: %s (status=%s)", obj.type, is_same, status)
 
@@ -193,7 +201,10 @@ class Drawer:
 
             # objects in this group have changed: draw it normally on the surface
             if not is_same:
+                cr.save()
+                self.__trafo.transform_context(cr)
                 draw_on_surface(cr, obj_grp, selection, state)
+                cr.restore()
                 is_same = not is_same
                 continue
 
@@ -229,7 +240,12 @@ class Drawer:
         # check if the cache needs to be updated
         self.update_cache(objects, selection, state, force_redraw)
 
+        self.__trafo = page.trafo()
+
         # draw the cache
+        cr.save()
+        #page.trafo().transform_context(cr)
         self.draw_cache(cr, selection, state)
+        cr.restore()
 
         return True

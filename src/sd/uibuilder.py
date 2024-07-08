@@ -10,6 +10,7 @@ from .wiglets import WigletCreateObject, WigletCreateGroup      # <remove>
 from .wiglets import WigletCreateSegments, WigletEditText       # <remove>
 from .wiglets import WigletPan, WigletHover, WigletColorPicker  # <remove>
 from .wiglets import WigletResizeRotate, WigletMove             # <remove>
+from .wiglets import WigletZoom                                 # <remove>
 
 from .wiglets_ui import WigletLineWidth, WigletPageSelector     # <remove>
 from .wiglets_ui import WigletColorSelector, WigletToolSelector # <remove>
@@ -73,6 +74,7 @@ class UIBuilder():
         bus = self.__bus
         state = self.__state
 
+        WigletZoom(bus = bus, state = state)
         WigletStatusLine(bus = bus, state = state)
         WigletEraser(bus = bus, state = state)
         WigletCreateObject(bus = bus, state = state)

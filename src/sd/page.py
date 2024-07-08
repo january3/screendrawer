@@ -432,13 +432,10 @@ class PageView(PageChain):
         """Reset the transformation."""
         self.__trafo = Trafo()
 
-    def zoom_in(self):
-        """Zoom in the view."""
-        self.__trafo.add_trafo(("resize", (0, 0, 1.1, 1.1)))
+    def zoom(self, pos, factor):
+        """Zoom in and out the view."""
+        self.__trafo.add_trafo(("resize", (*pos, factor, factor)))
 
-    def zoom_out(self):
-        """Zoom in the view."""
-        self.__trafo.add_trafo(("resize", (0, 0, 0.9, 0.9)))
 
 class Page(PageView):
     """
@@ -462,9 +459,8 @@ class Page(PageView):
             "prev_layer": { "listener": self.prev_layer},
             "delete_layer": { "listener": self.delete_layer_cmd},
             "clear_page": { "listener": self.clear, "priority": 8},
-            "zoom_reset": { "listener": self.reset_trafo},
-            "zoom_in":    { "listener": self.zoom_in},
-            "zoom_out":   { "listener": self.zoom_out},
+            "page_zoom_reset": { "listener": self.reset_trafo},
+            "page_zoom":    { "listener": self.zoom},
         }
 
 

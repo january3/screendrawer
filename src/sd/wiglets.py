@@ -351,7 +351,7 @@ class WigletPan(Wiglet):
         self.__page.translate((dx, dy))
 
         self.__origin = (ev.event.x, ev.event.y)
-        self.__bus.emit("queue_draw")
+        self.__bus.emit("force_redraw")
         return True
 
     def on_release(self, ev):
@@ -1111,4 +1111,46 @@ class WigletColorPicker(Wiglet):
         color_hex = rgb_to_hex(color)
         self.__clipboard.set_text(color_hex)
         #self.__state.queue_draw()
+        return True
+
+class WigletZoom(Wiglet):
+    """Zoom in and out"""
+
+    def __init__(self, bus, state):
+        super().__init__("zoom", None)
+
+        self.__bus   = bus
+        self.__state = state
+        self.__wsize = (100, 100)
+
+        bus.on("zoom_reset",  self.zoom_reset,  priority = 99)
+        bus.on("zoom_in",  self.zoom_in,  priority = 99)
+        bus.on("zoom_out",  self.zoom_out,  priority = 99)
+        bus.on("update_size", self.update_size)
+
+    def update_size(self, width, height):
+        """update the size of the widget"""
+        self.__wsize = (width, height)
+
+    def zoom_reset(self):
+        """Reset zoom to 100%"""
+
+        self.__bus.emitOnce("page_zoom_reset")
+        self.__bus.emit("force_redraw")
+        return True
+
+    def zoom_out(self):
+        """Zoom out"""
+
+        pos = (self.__wsize[0]/2, self.__wsize[1]/2)
+        self.__bus.emitOnce("page_zoom", pos, 0.9)
+        self.__bus.emit("force_redraw")
+        return True
+
+    def zoom_in(self):
+        """Zoom in"""
+
+        pos = (self.__wsize[0]/2, self.__wsize[1]/2)
+        self.__bus.emitOnce("page_zoom", pos, 1.1)
+        self.__bus.emit("force_redraw")
         return True

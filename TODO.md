@@ -63,6 +63,7 @@ Design issues:
  * the interaction between canvas, gom, dm, em is tangled. 
 
 Bugs:
+ * grid is only drawn in the central region.
  * a clipped circle drawn during resize has incorrect coordinates. =>
    problem with "actual" and "not actual" bboxes.
  * when clipping, sometimes the bounding box is adapted to the clipping group for
@@ -84,6 +85,9 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * when zooming in, lines are grainy, same problem as with text below.
+   However, we cannot ditch the cacheing. The solution would be to, of
+   course, to draw the cache outside of page transformations.
  * when zoomed in, the text is grainy. This is due to the fact that rather
    than being drawn directly, it is drawn on a surface, then the surface is
    zoomed in... you get the pic. Probably, text should be always drawn

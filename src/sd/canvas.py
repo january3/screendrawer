@@ -42,14 +42,16 @@ class Canvas:
         page = self.__state.current_page()
 
         cr.save()
-
         page.trafo().transform_context(cr)
-
         self.draw_bg(cr, (0, 0))
+        cr.restore()
+
         page.draw(cr, self.__state, force_redraw = self.__force_redraw)
 
         # emit the draw signal for objects that wish to be drawn in draw
         # coordinates
+        cr.save()
+        page.trafo().transform_context(cr)
         self.__bus.emit("obj_draw", exclusive = False, cr = cr, state = self.__state)
 
         cobj = self.__state.current_obj()
