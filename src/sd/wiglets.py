@@ -64,9 +64,11 @@ class WigletResizeRotate(Wiglet):
             return False
 
         corner_obj, corner = ev.corner()
+
         if not corner_obj or not corner_obj.bbox() or ev.double():
             log.debug(f"widget resizing wrong event hover: {ev.hover()}, corner: {ev.corner()}, double: {ev.double()}")
             return False
+
         log.debug(f"widget resizing object. corner: {corner_obj}")
 
         if ev.ctrl() and ev.shift():

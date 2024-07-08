@@ -32,6 +32,7 @@ class MouseEvent:
                 "ctrl": (event.state & Gdk.ModifierType.CONTROL_MASK) != 0,
                 "alt": (event.state & Gdk.ModifierType.MOD1_MASK) != 0,
                 }
+
         self.__info = {
                 "double":   (event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS),
                 "pressure": event.get_axis(Gdk.AxisUse.PRESSURE),
@@ -208,8 +209,4 @@ class MouseCatcher:
             self.__bus.emit("queue_draw")
             return True
 
-        #x, y = ev.pos()
-        #self.__cursor.update_pos(ev)
-
-        # stop event propagation
         return True

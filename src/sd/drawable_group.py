@@ -276,15 +276,6 @@ class ClippingGroup(DrawableGroup):
         if self.rotation:
             cr.restore()
 
-       #cr.set_line_width(0.5)
-       #cr.set_source_rgb(0, 1, 0)
-       #cr.rectangle(*self.bbox(actual=True))
-       #cr.stroke()
-       #cr.set_line_width(1.5)
-       #cr.set_source_rgb(0, 1, 1)
-       #cr.rectangle(*self.bbox())
-       #cr.stroke()
-
     def bbox_draw(self, cr, lw=0.2):
         """Draw the bounding box of the object."""
         bb = self.bbox(actual = True)
@@ -294,11 +285,19 @@ class ClippingGroup(DrawableGroup):
         cr.stroke()
 
     def bbox(self, actual = False):
+        """Return the bounding box of the group."""
         if not actual:
             return objects_bbox(self.objects)
         return bbox_overlap(
             self.__clip_obj.bbox(),
             self.__obj_group.bbox())
+
+    def is_close_to_click(self, click_x, click_y, threshold):
+        """Check if a click is close to one of the objects."""
+
+        bb = self.bbox(actual = True)
+        return (bb[0] - threshold < click_x < bb[0] + bb[2] + threshold and
+                bb[1] - threshold < click_y < bb[1] + bb[3] + threshold)
 
     def to_dict(self):
         """Convert the group to a dictionary."""

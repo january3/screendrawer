@@ -614,7 +614,7 @@ def is_click_in_bbox_corner(click_x, click_y, bbox, threshold):
 def find_corners_next_to_click(click_x, click_y, objects, threshold):
     """Find the corner of a bounding box next to a click."""
     for obj in objects:
-        bb = obj.bbox()
+        bb = obj.bbox(actual = True)
         if bb is None:
             continue
         corner = is_click_in_bbox_corner(click_x, click_y, bb, threshold)
