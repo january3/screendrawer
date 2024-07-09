@@ -3,12 +3,12 @@ These are the objects that can be displayed. It includes groups, but
 also primitives like boxes, paths and text.
 """
 
-import copy
-from .pen import Pen           # <remove>
-from .utils import move_coords # <remove>
-import logging                                                   # <remove>
-log = logging.getLogger(__name__)                                # <remove>
-log.setLevel(logging.INFO)                                       # <remove>
+import logging                    # <remove>
+import copy                       # <remove>
+from .pen import Pen              # <remove>
+from .utils import move_coords    # <remove>
+log = logging.getLogger(__name__) # <remove>
+log.setLevel(logging.INFO)        # <remove>
 
 
 class DrawableRoot:
@@ -29,6 +29,7 @@ class DrawableRoot:
         self.mod += 1
 
     def modified(self, mod=None):
+        """Was the object modified?"""
         if mod:
             self.mod += 1
         return self.mod
@@ -131,7 +132,7 @@ class Drawable(DrawableRoot):
             self.pen    = pen.copy()
         else:
             self.pen    = None
-        
+
         self.__modified = None
 
     # ------------ Drawable attribute methods ------------------
@@ -164,7 +165,7 @@ class Drawable(DrawableRoot):
 
     def smoothen(self, threshold=20):
         """Smoothen the object."""
-        log.warning(f"smoothening not implemented (threshold {threshold})")
+        log.warning("smoothening not implemented (threshold %s)", threshold)
         self.mod += 1
 
     def fill(self):
@@ -251,11 +252,17 @@ class Drawable(DrawableRoot):
         type_map = cls.__registry
 
         obj_type = d.pop("type")
-        log.debug(f"Generating object of type: {obj_type}")
+        log.debug("Generating object of type: %s", obj_type)
         if obj_type not in type_map:
             raise ValueError("Invalid type:", obj_type)
 
         if "pen" in d:
             d["pen"] = Pen.from_dict(d["pen"])
+        if "rotation" in d:
+            log.warning("rotation keyword obsolete, ignoring")
+            d.pop("rotation")
+        if "rot_origin" in d:
+            log.warning("rot_origin keyword obsolete, ignoring")
+            d.pop("rot_origin")
 
         return type_map.get(obj_type)(**d)

@@ -44,6 +44,7 @@ from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
 # Python script that can just be copied.
 
 from sd.utils import *                    ###<placeholder sd/utils.py>
+from sd.brushutils import *               ###<placeholder sd/brushutils.py>
 from sd.commands import *                 ###<placeholder sd/commands.py>
 from sd.pen import Pen                    ###<placeholder sd/pen.py>
 from sd.events import *                   ###<placeholder sd/events.py>
@@ -66,14 +67,14 @@ from sd.imageobj import ImageObj          ###<placeholder sd/imageobj.py>
 from sd.state import State                ###<placeholder sd/state.py>
 from sd.drawable import *                 ###<placeholder sd/drawable.py>
 from sd.drawer import Drawer              ###<placeholder sd/drawer.py>
-from sd.drawable_factory import DrawableFactory         ###<placeholder sd/drawable_factory.py>
-from sd.drawable_group import DrawableGroup ##<placeholder sd/drawable_group.py>
-from sd.drawable_primitives import Image, Text                    #<placeholder sd/drawable_primitives.py>
-from sd.drawable_primitives import Rectangle, Shape, Circle #<placeholder sd/drawable_primitives.py>
-from sd.drawable_paths import Path                          #<placeholder sd/drawable_paths.py>
-from sd.history import History                              #<placeholder sd/history.py>
-from sd.bus import Bus #<placeholder sd/bus.py>
-from sd.uibuilder import UIBuilder                          #<placeholder sd/uibuilder.py>
+from sd.drawable_factory import DrawableFactory             ###<placeholder sd/drawable_factory.py>
+from sd.drawable_group import DrawableGroup                 ###<placeholder sd/drawable_group.py>
+from sd.drawable_primitives import Image, Text              ###<placeholder sd/drawable_primitives.py>
+from sd.drawable_primitives import Rectangle, Shape, Circle ###<placeholder sd/drawable_primitives.py>
+from sd.drawable_paths import Path                          ###<placeholder sd/drawable_paths.py>
+from sd.history import History                              ###<placeholder sd/history.py>
+from sd.bus import Bus                                      ###<placeholder sd/bus.py>
+from sd.uibuilder import UIBuilder                          ###<placeholder sd/uibuilder.py>
 
 
 # ---------------------------------------------------------------------

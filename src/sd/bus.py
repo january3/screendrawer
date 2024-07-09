@@ -7,10 +7,10 @@ log.setLevel(logging.INFO)                                       # <remove>
 
 class Bus:
     """A simple event bus for dispatching events between objects."""
-    
+
     def __init__(self):
         self.__listeners = {}
-    
+
     def on(self, event, listener, priority = 0):
         """Add a listener for an event."""
         if listener is None:
@@ -27,7 +27,7 @@ class Bus:
 
         self.__listeners[event].append((listener, priority))
         self.__listeners[event].sort(key = lambda x: -x[1])
-    
+
     def off(self, event, listener):
         """Remove a listener for an event."""
         if event in self.__listeners:
@@ -40,7 +40,7 @@ class Bus:
                 ret = listener(event, *args, **kwargs)
             else:
                 ret = listener(*args, **kwargs)
-        except Exception as e:
+        except Exception as e: #pylint: disable=broad-except
             ret = None
             exc_type, exc_value, exc_traceback = exc_info()
             log.error("Exception type: %s", exc_type)
@@ -67,7 +67,8 @@ class Bus:
         Exclusive events will stop dispatching if a listener returns a truthy value.
         """
 
-        log.debug(f"emitting event {event} exclusive={exclusive} with {args} and {kwargs}")
+        log.debug("emitting event %s exclusive=%s with %s and %s",
+                  event, exclusive, args, kwargs)
 
         # completely ignore events that have no listeners
         if not event in self.__listeners:

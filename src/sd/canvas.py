@@ -11,9 +11,6 @@ holds information about other stuff that needs to be drawn, like the
 currently selected object, wiglets etc.
 """
 
-import gi                                                  # <remove>
-gi.require_version('Gtk', '3.0')                           # <remove>
-from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib # <remove> pylint: disable=wrong-import-position
 import cairo                                                   # <remove>
 from .grid     import Grid                                       # <remove>
 
@@ -33,11 +30,11 @@ class Canvas:
         """Set the marker to refresh the cache."""
         self.__force_redraw = True
 
-    def on_draw(self, widget, cr):
+    def on_draw(self, _, cr):
         """Main draw method of the whole app."""
 
         if self.__state.graphics().hidden():
-            return
+            return False
 
         page = self.__state.current_page()
 
@@ -79,7 +76,6 @@ class Canvas:
         :param cr: The context on which to draw.
         :param tr: The translation (paning).
         """
-        pass
 
         bg_color     = self.__state.graphics().bg_color()
         transparency = self.__state.graphics().alpha()

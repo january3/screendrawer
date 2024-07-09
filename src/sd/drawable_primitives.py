@@ -2,6 +2,7 @@
 These classes are the primitives for drawing: text, shapes, paths
 """
 
+import logging                          # <remove>
 import math                             # <remove>
 import gi                               # <remove>
 gi.require_version('Gdk', '3.0')        # <remove> pylint: disable=wrong-import-position
@@ -15,9 +16,8 @@ from .imageobj import ImageObj                   # <remove>
 from .utils import path_bbox, move_coords        # <remove>
 from .utils import find_obj_in_bbox              # <remove>
 from .utils import transform_coords              # <remove>
-from .utils import smooth_path, coords_rotate    # <remove>
+from .utils import smooth_coords, coords_rotate    # <remove>
 from .trafo import Trafo                         # <remove>
-import logging                                   # <remove>
 log = logging.getLogger(__name__)                # <remove>
 log.setLevel(logging.INFO)                       # <remove>
 
@@ -39,7 +39,7 @@ class DrawableTrafo(Drawable):
     transformed object.
     """
 
-    def __init__(self, mytype, coords, pen, transform = None, rotation = 0):
+    def __init__(self, mytype, coords, pen, transform = None):
 
         log.debug("initializing DrawableTrafo %s, %s, %s", mytype, coords, transform)
         super().__init__(mytype, coords, pen)
@@ -47,6 +47,10 @@ class DrawableTrafo(Drawable):
 
         self.__trafo = Trafo(transform)
         self.bbox_recalculate()
+
+    def draw(self, cr, hover=False, selected=False, outline=False):
+        """Draw the object on the Cairo context."""
+        raise NotImplementedError("draw method not implemented")
 
     def trafo(self):
         """Return the transformations."""
@@ -62,13 +66,12 @@ class DrawableTrafo(Drawable):
         self.__trafo.add_trafo(("move", (dx, dy)))
         self.bbox_recalculate()
 
-    def bbox_recalculate(self, actual = False, mod = True):
+    def bbox_recalculate(self, mod = True):
         """Return the bounding box of the object."""
         log.debug("recalculating bbox of %s", self.type)
         if mod:
             self.mod += 1
         coords = self.coords
-        w, h = coords[1][0] - coords[0][0], coords[1][1] - coords[0][1]
         x0, y0 = coords[0]
         x1, y1 = coords[1]
         coords = [ (x0, y0), (x1, y0), (x1, y1), (x0, y1) ]
@@ -85,7 +88,6 @@ class DrawableTrafo(Drawable):
 
     def resize_start(self, corner, origin):
         """Start the resizing operation."""
-        self.__orig_bbox = self.bbox()
         self.resizing = {
             "corner": corner,
             "origin": origin,
@@ -149,7 +151,7 @@ class Image(DrawableTrafo):
     """
     Class for Images
     """
-    def __init__(self, coords, pen, image, image_base64 = None, transform = None, rotation = 0):
+    def __init__(self, coords, pen, image, image_base64 = None, transform = None):
 
         #log.debug("CREATING IMAGE, pos %s, trafo %s", coords, transform)
         self.__image = ImageObj(image, image_base64)
@@ -158,7 +160,7 @@ class Image(DrawableTrafo):
         coords = [ (coords[0][0], coords[0][1]),
                    (coords[0][0] + width, coords[0][1] + height) ]
 
-        super().__init__("image", coords, pen, transform, rotation)
+        super().__init__("image", coords, pen, transform)
 
         self.bbox_recalculate()
 
@@ -196,7 +198,6 @@ class Image(DrawableTrafo):
             "coords": self.coords,
             "pen": self.pen.to_dict(),
             "image": None,
-            "rotation": self.rotation,
             "image_base64": self.__image.base64(),
             "transform": self.trafo().trafos(),
         }
@@ -204,19 +205,18 @@ class Image(DrawableTrafo):
 
 class Text(DrawableTrafo):
     """Class for Text objects"""
-    def __init__(self, coords, pen, content, rotation = None, rot_origin = None, transform = None):
+    def __init__(self, coords, pen, content, transform = None):
 
 
         # split content by newline
         # content = content.split("\n")
         self.__text = TextEditor(content)
-        self.__bb   = None
         self.font_extents = None
         self.__show_caret = False
 
         coords = [ (coords[0][0], coords[0][1]), (50, 50) ]
 
-        super().__init__("text", coords, pen, transform, rotation)
+        super().__init__("text", coords, pen, transform)
 
     def move_caret(self, direction):
         """Move the caret."""
@@ -250,8 +250,6 @@ class Text(DrawableTrafo):
             "type": self.type,
             "coords": self.coords,
             "pen": self.pen.to_dict(),
-            "rotation": self.rotation,
-            "rot_origin": self.rot_origin,
             "content": self.__text.to_string(),
             "transform": self.trafo().trafos(),
         }
@@ -347,7 +345,6 @@ class Text(DrawableTrafo):
 
             dy += self.font_extents[2]
 
-        self.__bb = (bb[0], bb[1], bb[2], bb[3])
         new_coords = [ (bb[0], bb[1]), (bb[0] + bb[2], bb[1] + bb[3]) ]
 
         if new_coords != self.coords:
@@ -377,7 +374,7 @@ class Shape(Drawable):
     def finish(self):
         """Finish the shape."""
         log.debug("finishing shape")
-        self.coords, _ = smooth_path(self.coords)
+        self.coords, _ = smooth_coords(self.coords)
         self.mod += 1
 
     def update(self, x, y, pressure):
@@ -538,7 +535,7 @@ class Shape(Drawable):
     @classmethod
     def from_object(cls, obj):
         """Create a shape from an object."""
-        log.debug(f"Shape.from_object {obj}")
+        log.debug("Shape.from_object %s", obj)
         if obj.coords and len(obj.coords) > 2 and obj.pen:
             return cls(obj.coords, obj.pen)
 
@@ -560,7 +557,7 @@ class Rectangle(Shape):
     def finish(self):
         """Finish the rectangle."""
         log.debug("finishing rectangle")
-        #self.coords, _ = smooth_path(self.coords)
+        #self.coords, _ = smooth_coords(self.coords)
 
     def update(self, x, y, pressure):
         """

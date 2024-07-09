@@ -12,14 +12,14 @@ listeners to the EM. The EM is the one that knows what to do when an event
 happens.
 """
 
-import traceback # <remove>
-from sys import exc_info # <remove>
-import gi                                                  # <remove>
-gi.require_version('Gtk', '3.0')                           # <remove>
-from gi.repository import Gdk # <remove>
-import logging                                                   # <remove>
-log = logging.getLogger(__name__)                                # <remove>
-#log.setLevel(logging.DEBUG)                                      # <remove>
+import logging                     # <remove>
+import traceback                   # <remove>
+from sys import exc_info           # <remove>
+import gi                          # <remove>
+gi.require_version('Gtk', '3.0')   # <remove> pylint: disable=wrong-import-position
+from gi.repository import Gdk      # <remove>
+log = logging.getLogger(__name__)  # <remove>
+#log.setLevel(logging.DEBUG)        # <remove>
 
 COLORS = {
         "black": (0, 0, 0),
@@ -55,7 +55,7 @@ class EventManager:
             self._initialized = True
             self.__state = state
             self.__bus = bus
-            self.make_actions_dictionary(bus)
+            self.make_actions_dictionary()
             self.make_default_keybindings()
             bus.on("key_press_event", self.process_key_event)
 
@@ -78,12 +78,16 @@ class EventManager:
                 action(*args)
             else:
                 action(**kwargs)
-        except Exception as e:
+        except KeyError as ke:
+            log.error("Action name %s not found in actions: %s", action_name, ke)
+        except TypeError as te:
+            log.error("Type error in calling action %s: %s", action_name, te)
+        except Exception as e: # pylint: disable=broad-except
             exc_type, exc_value, exc_traceback = exc_info()
+            traceback.print_tb(exc_traceback)
             log.warning(f"Exception type: {exc_type}")
             log.warning(f"Exception value:{exc_value}")
             log.warning("Traceback:")
-            traceback.print_tb(exc_traceback)
             log.warning(f"Error while dispatching action {action_name}: {e}")
 
     def dispatch_key_event(self, key_event, keyname, mode):
@@ -110,15 +114,17 @@ class EventManager:
                 log.warning("action not allowed in this mode")
                 return
 
-        log.debug(f"keyevent {key_event} dispatching action {action_name}")
+        log.debug("keyevent %s dispatching action %s",
+                  key_event, action_name)
         self.dispatch_action(action_name)
 
-    def on_key_press(self, widget, event):
+    def on_key_press(self, _, event):
         """
         This method is called when a key is pressed.
         """
 
-        log.debug(f"key pressed {event.keyval} state {event.state}")
+        log.debug("key pressed %s state %s",
+                  event.keyval, event.state)
         self.__bus.emit("key_press_event", True, event)
 
     def process_key_event(self, event):
@@ -129,7 +135,7 @@ class EventManager:
         char    = chr(Gdk.keyval_to_unicode(event.keyval))
         ctrl    = event.state & Gdk.ModifierType.CONTROL_MASK
         shift   = event.state & Gdk.ModifierType.SHIFT_MASK
-        alt_l   = event.state & Gdk.ModifierType.MOD1_MASK
+        alt_l   = event.state & Gdk.ModifierType.MOD1_MASK # pylint: disable=no-member
 
         mode = state.mode()
 
@@ -152,7 +158,8 @@ class EventManager:
         cobj = state.current_obj()
 
         if cobj and cobj.type == "text" and not keyname == "Escape":
-            log.debug(f"updating text input, keyname={keyname} char={char} keyfull={keyfull} mode={mode}")
+            log.debug("updating text input, keyname=%s char=%s keyfull=%s mode=%s",
+                      keyname, char, keyfull, mode)
             cobj.update_by_key(keyfull, char)
             state.queue_draw()
             return
@@ -164,7 +171,7 @@ class EventManager:
         state.queue_draw()
 
 
-    def make_actions_dictionary(self, bus):
+    def make_actions_dictionary(self):
         """
         This dictionary maps key events to actions.
         """

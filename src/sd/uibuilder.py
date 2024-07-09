@@ -140,7 +140,7 @@ class UIBuilder():
             try:
                 pixbuf = GdkPixbuf.Pixbuf.new_from_file(image_file)
                 log.debug("Loaded image: %s", image_file)
-            except Exception as e:
+            except Exception as e: #pylint: disable=broad-except
                 log.error("Failed to load image: %s", e)
 
             if pixbuf is not None:
@@ -297,16 +297,13 @@ class UIBuilder():
         """Finish up the screenshot."""
 
         state = self.__state
+        trafo = self.__state.page().trafo()
         bus   = self.__bus
         log.debug("Taking screenshot now")
 
-        # XXX
-        raise notImplementedError("Taking screenshot not implemented at the moment")
-        dx, dy = state.page().translate() or (0, 0)
-        log.debug("translate is (%s, %s)", int(dx), int(dy))
-
-        frame = (bb[0] - 3 + dx, bb[1] - 3 + dy,
-                 bb[0] + bb[2] + 6 + dx, bb[1] + bb[3] + 6 + dy)
+        frame = trafo.apply([ (bb[0] - 3, bb[1] - 3),
+                                     (bb[0] + bb[2] + 6, bb[1] + bb[3] + 6) ])
+        frame = (frame[0][0], frame[0][1], frame[1][0], frame[1][1])
         log.debug("frame is %s", [ int(x) for x in frame ])
 
         pixbuf, filename = get_screenshot(self.__app, *frame)

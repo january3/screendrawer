@@ -33,6 +33,7 @@ To do (sorted by priority):
    that creates a Gary Larson-like hatching (3) brush that creates a
 
 Design issues:
+ * use numpy for all coordinates
  * maybe gom should be included in State? Like, one of the superclasses so
    that Stat has all gom methods and you can directly interrogate
    state.page() etc.? Or, alternatively, gom should be created by State,
@@ -75,7 +76,8 @@ Bugs:
  * ctrl-v when cursor hasn't moved places object at (0, 0) instead of the
    actual cursor pos (should be the same as with crosslines) => that's
    because only the absolute (screen) position can be queried at the
-   moment, not the user (drawing) position. 
+   moment, not the user (drawing) position. => why not use
+   page.trafo().apply_reverse()?
  * remove the frame after taking screenshot
  * select a number of objects, hit alt-s, undo, hit alt-s again -> error.
    something is wrong with selection (old object? containing deleted

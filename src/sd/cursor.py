@@ -5,13 +5,12 @@ Basically, this class is responsible for creating and managing the cursor for th
 It has methods to set the cursor to different modes.
 """
 
-import gi                                                  # <remove>
-gi.require_version('Gtk', '3.0')                           # <remove>
-gi.require_version('Gdk', '3.0')                           # <remove>
-from gi.repository import Gdk         # <remove>
+import logging                      # <remove>
+import gi                           # <remove>
+gi.require_version('Gdk', '3.0')    # <remove> pylint: disable=wrong-import-position
+from gi.repository import Gdk       # <remove>
 from .icons import Icons            # <remove>
-import logging                                                   # <remove>
-log = logging.getLogger(__name__)                                # <remove>
+log = logging.getLogger(__name__)   # <remove>
 
 ## ---------------------------------------------------------------------
 
@@ -146,7 +145,7 @@ class CursorManager:
         """Set the default cursor to the specified cursor."""
         if self.__current_cursor == cursor_name:
             return
-        log.debug(f"setting default cursor to {cursor_name}")
+        log.debug("setting default cursor to %s", cursor_name)
         self.__default_cursor = cursor_name
         self.__current_cursor = cursor_name
 

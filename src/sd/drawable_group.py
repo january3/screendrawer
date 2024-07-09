@@ -2,10 +2,10 @@
 Classes that represent groups of drawable objects.
 """
 
+import logging                                                   # <remove>
 from .utils import objects_bbox, flatten_and_unique         # <remove>
 from .utils import bbox_overlap, path_bbox, transform_coords # <remove>
 from .drawable import Drawable                # <remove>
-import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 log.setLevel(logging.INFO)                                       # <remove>
 
@@ -68,7 +68,7 @@ class DrawableGroup(Drawable):
 
     def transmute_to(self, mode):
         """Transmute all objects within the group to a new type."""
-        log.debug(f"transmuting group to {mode}")
+        log.debug("transmuting group to %s", mode)
        #for i in range(len(self.objects)):
        #    self.objects[i] = DrawableFactory.transmute(self.objects[i], mode)
         self.mod += 1
@@ -218,11 +218,10 @@ class ClippingGroup(DrawableGroup):
 
         self.__clip_obj  = clip_obj
         self.__obj_group = DrawableGroup(objects)
-        self.__clip_bbox = None
         objlist = objects[:]
         objlist.append(clip_obj)
 
-        super().__init__(objlist, 
+        super().__init__(objlist,
                          mytype = "clipping_group")
 
     def draw_clip(self, cr):
@@ -246,13 +245,13 @@ class ClippingGroup(DrawableGroup):
         cr.close_path()
         if self.rotation != 0:
             cr.restore()
- 
+
     def draw(self, cr, hover=False, selected=False, outline=False):
         cr.save()
         #self.__clip_obj.draw(cr,  hover=False, selected=selected, outline=True)
         #self.__obj_group.draw(cr, hover=False, selected=selected, outline=True)
- 
-        self.draw_clip(cr) 
+
+        self.draw_clip(cr)
 
         cr.clip()
         self.__obj_group.draw(cr, hover=False,
@@ -263,7 +262,6 @@ class ClippingGroup(DrawableGroup):
             cr.rotate(self.rotation)
             cr.translate(-x, -y)
 
-        self.__clip_bbox = cr.clip_extents()
         cr.restore()
 
         if self.rotation:
@@ -307,7 +305,7 @@ class ClippingGroup(DrawableGroup):
 
     def to_dict(self):
         """Convert the group to a dictionary."""
-        log.debug(f"my type is {self.type}")
+        log.debug("my type is %s", self.type)
         return {
             "type": self.type,
             "objects_dict": [ self.__clip_obj.to_dict(), self.__obj_group.to_dict() ]
@@ -331,7 +329,7 @@ class SelectionObject(DrawableGroup):
     def __init__(self, all_objects):
         super().__init__([ ], None, mytype = "selection_object")
 
-        log.debug(f"Selection Object with {len(all_objects)} objects")
+        log.debug("Selection Object with %s objects", len(all_objects))
         self._all_objects = all_objects
 
     def copy(self):
@@ -354,12 +352,12 @@ class SelectionObject(DrawableGroup):
 
     def set(self, objects):
         """Set the selection to a list of objects."""
-        log.debug(f"setting selection to {objects}")
+        log.debug("setting selection to %s", objects)
         self.objects = objects
 
     def add(self, obj):
         """Add an object to the selection."""
-        log.debug(f"adding object to selection: {obj} selection is {self.objects}")
+        log.debug("adding object to selection: %s selection is %s", obj, self.objects)
         if not obj in self.objects:
             self.objects.append(obj)
 
@@ -367,8 +365,8 @@ class SelectionObject(DrawableGroup):
         """Select all objects."""
         log.debug("selecting everything")
         self.objects = self._all_objects[:]
-        log.debug(f"selection has now {len(self.objects)} objects")
-        log.debug(f"all objects have {len(self._all_objects)} objects")
+        log.debug("selection has now %s objects", len(self.objects))
+        log.debug("all objects have %s objects", len(self._all_objects))
 
     def next(self):
         """
@@ -436,7 +434,7 @@ class SelectionObject(DrawableGroup):
 class ClipboardGroup(DrawableGroup):
     """Basically same as drawable group, but for copy and paste operations."""
 
-    def __init__(self, objects=None, internal=True, cut=False):
+    def __init__(self, objects=None, cut=False):
         super().__init__(objects, mytype = "clipboard_group")
 
         self.__cut = cut

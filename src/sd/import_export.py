@@ -2,6 +2,7 @@
 This module provides functions to import and export drawings in various formats.
 """
 
+import logging                                                   # <remove>
 from os import path # <remove>
 import pickle       # <remove>
 import yaml         # <remove>
@@ -13,7 +14,6 @@ import cairo                                # <remove>
 from sd.drawable import Drawable            # <remove>
 from sd.drawable_group import DrawableGroup # <remove>
 from sd.page import Page                    # <remove>
-import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 
 def __draw_object(cr, obj, bg, bbox, transparency):
@@ -82,7 +82,8 @@ def convert_file(input_file, output_file, file_format = "any", border = None, pa
     :param border: The border around the objects.
     :param page_no: The page number to export (if the drawing has multiple pages).
     """
-    log.debug(f"Converting file {input_file} to {output_file} as {file_format}, page_no={page_no}")
+    log.debug("Converting file %s to %s as %s page_no=%s",
+              input_file, output_file, file_format, page_no)
     if file_format == "any":
         if output_file is None:
             raise ValueError("No output file format provided")
@@ -129,15 +130,17 @@ def convert_file_to_image(input_file, output_file, file_format = "png", border =
     if pages:
         if len(pages) <= page_no:
             raise ValueError(f"Page number out of range (max. {len(pages) - 1})")
-        log.debug(f"read drawing from {input_file} with {len(pages)} pages")
+        log.debug("read drawing from %s with %d pages",
+                  input_file, len(pages))
         p = Page()
         p.import_page(pages[page_no])
         objects = p.objects_all_layers()
 
-    log.debug(f"read drawing from {input_file} with {len(objects)} objects")
+    log.debug("read drawing from %s with %d objects",
+              input_file, len(objects))
 
     if not objects:
-        log.warning(f"No objects found in the input file on page {page_no}")
+        log.warning("No objects found in the input file on page %s", page_no)
         return
 
     objects = DrawableGroup(objects)
@@ -193,7 +196,8 @@ def export_objects_to_multipage_pdf(obj_list, output_file, config, border = 10):
     if not border:
         border = 0
 
-    log.debug(f"Exporting {len(obj_list)} objects to multipage PDF with border {border}")
+    log.debug("Exporting %s objects to multipage PDF with border %s",
+              len(obj_list), border)
 
     width, height = __find_max_width_height(obj_list)
 
@@ -331,7 +335,8 @@ def export_image(obj, output_file, file_format = "any", config = None, all_pages
     if not config:
         config = { "bg": (1, 1, 1), "bbox": None, "transparency": 1.0, "border": None }
 
-    log.debug(f"export_image: exporting to {file_format} file {output_file}, all_pages_pdf: {all_pages_pdf}")
+    log.debug("exporting to %s file %s all_pages_pdf: %s",
+        file_format, output_file, all_pages_pdf)
 
     # if output_file is None, we send the output to stdout
     if output_file is None:
@@ -350,7 +355,8 @@ def export_image(obj, output_file, file_format = "any", config = None, all_pages
         # check
         if file_format not in [ "png", "jpeg", "pdf", "svg" ]:
             raise ValueError("Unrecognized file extension")
-        log.debug(f"export_image: guessing format from file name: {file_format}")
+        log.debug("guessing format from file name: %s",
+            file_format)
 
     # Create a Cairo surface of the same size as the bbox
     if file_format == "png":
@@ -386,13 +392,13 @@ def export_file_as_yaml(output_file, config, objects = None, pages = None):
     try:
         with open(output_file, 'w', encoding = 'utf-8') as f:
             yaml.dump(state, f)
-        log.debug(f"Saved drawing to {output_file}")
+        log.debug("Saved drawing to %s", output_file)
         return True
     except OSError as e:
-        log.warning(f"Error saving file due to a file I/O error: {e}")
+        log.warning("Error saving file due to a file I/O error: %s", e)
         return False
     except yaml.YAMLError as e:
-        log.warning(f"Error saving file because: {e}")
+        log.warning("Error saving file because: %s", e)
         return False
 
 
@@ -420,13 +426,13 @@ def save_file_as_sdrw(output_file, config, objects = None, pages = None):
         with open(output_file, 'wb') as f:
             #yaml.dump(state, f)
             pickle.dump(state, f)
-        log.debug(f"Saved drawing to {output_file}")
+        log.debug("Saved drawing to %s", output_file)
         return True
     except OSError as e:
-        log.warning(f"Error saving file due to a file I/O error: {e}")
+        log.warning("Error saving file due to a file I/O error: %s", e)
         return False
     except pickle.PicklingError as e:
-        log.warning(f"Error saving file because an object could not be pickled: {e}")
+        log.warning("Error saving file, an object could not be pickled: %s", e)
         return False
 
 def read_file_as_sdrw(input_file):
@@ -436,10 +442,10 @@ def read_file_as_sdrw(input_file):
     :param input_file: The name of the file to read from.
     """
     if not path.exists(input_file):
-        log.warning(f"No saved drawing found at {input_file}")
+        log.warning("No saved drawing found at %s", input_file)
         return None, None, None
 
-    log.debug(f"READING file as sdrw: {input_file}")
+    log.debug("READING file as sdrw: %s", input_file)
 
     config, objects, pages = None, None, None
 
@@ -461,9 +467,9 @@ def read_file_as_sdrw(input_file):
 
             config = state['config']
     except OSError as e:
-        log.warning(f"Error saving file due to a file I/O error: {e}")
+        log.warning("Error saving file due to a file I/O error: %s", e)
         return None, None, None
     except pickle.PicklingError as e:
-        log.warning(f"Error saving file because an object could not be pickled: {e}")
+        log.warning("Error saving file because an object could not be pickled: %s", e)
         return None, None, None
     return config, objects, pages

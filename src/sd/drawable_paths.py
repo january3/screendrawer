@@ -1,20 +1,20 @@
 """Path is a drawable that is like a shape, but not closed and has an outline"""
 
+import logging                                                   # <remove>
 import gi                        # <remove>
 gi.require_version('Gtk', '3.0') # <remove> pylint: disable=wrong-import-position
 
 import cairo                   # <remove>
 from .drawable import Drawable # <remove>
 from .brush import BrushFactory                   #<remove>
-from .utils import transform_coords, smooth_path, coords_rotate           # <remove>
+from .utils import transform_coords, smooth_coords, coords_rotate           # <remove>
 from .utils import is_click_close_to_path, path_bbox, move_coords # <remove>
-import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 
 class PathRoot(Drawable):
     """ Path is like shape, but not closed and has an outline that depends on
         line width and pressure."""
-    def __init__(self, mytype, coords, pen, outline = None, pressure = None, brush = None):
+    def __init__(self, mytype, coords, pen, outline = None, pressure = None, brush = None): # pylint: disable=unused-argument
         super().__init__(mytype, coords, pen = pen)
         self.__pressure  = pressure or [1] * len(coords)
         self.__bb        = []
@@ -29,6 +29,7 @@ class PathRoot(Drawable):
         if not brush:
             return self.__brush
         self.__brush = brush
+        return brush
 
     def outline_recalculate(self):
         """Recalculate the outline of the path."""
@@ -98,7 +99,7 @@ class PathRoot(Drawable):
         """Smoothen the path."""
         if len(self.coords) < 3:
             return
-        self.coords, self.__pressure = smooth_path(self.coords, self.__pressure, 1)
+        self.coords, self.__pressure = smooth_coords(self.coords, self.__pressure, 1)
         self.outline_recalculate()
 
     def pen_set(self, pen):
@@ -110,9 +111,7 @@ class PathRoot(Drawable):
         """Append a point to the path, calculating the outline of the
            shape around the path. Only used when path is created to
            allow for a good preview. Later, the path is smoothed and recalculated."""
-        #log.debug("path_append. length of coords and pressure: %d, %d", len(self.coords), len(self.__pressure))
         coords = self.coords
-        width  = self.pen.line_width * pressure
 
         # record the number of append calls (not of the actually appended
         # points)
@@ -146,8 +145,6 @@ class PathRoot(Drawable):
         """Remove the last point from the path."""
         coords = self.coords
 
-        #print("path_pop. __n_appended=", self.__n_appended)
-        #print("  path_pop. 1. length of coords and pressure:", len(self.coords), len(self.__pressure))
         if len(coords) < 2:
             return
 
@@ -158,7 +155,6 @@ class PathRoot(Drawable):
 
         self.__pressure.pop()
         coords.pop()
-        #print("  path_pop. 2. length of coords and pressure:", len(self.coords), len(self.__pressure))
 
         if len(coords) < 2:
             return
@@ -232,7 +228,8 @@ class PathRoot(Drawable):
             return
 
         if not self.__brush.outline():
-            log.warning(f"no outline for brush {self.__brush.brush_type()}")
+            log.warning("no outline for brush %s",
+                        self.__brush.brush_type())
             return
 
         if self.rotation != 0:
@@ -263,19 +260,10 @@ class PathRoot(Drawable):
         if self.rotation != 0:
             cr.restore()
 
-    @classmethod
-    def from_object(cls, obj):
-        log.debug(f"Path.from_object {obj}")
-        if obj.coords and len(obj.coords) > 2 and obj.pen:
-            return cls(obj.coords, obj.pen)
-        # issue a warning
-        log.warning("Path.from_object: invalid object")
-        return obj
-
 class Path(PathRoot):
     """ Path is like shape, but not closed and has an outline that depends on
         line width and pressure."""
-    def __init__(self, coords, pen, outline = None, pressure = None, brush = None):
+    def __init__(self, coords, pen, pressure = None, brush = None):
         super().__init__("path", coords, pen = pen, pressure = pressure)
 
         if brush:
@@ -287,13 +275,21 @@ class Path(PathRoot):
         if len(self.coords) > 3 and not self.brush().outline():
             self.outline_recalculate()
 
+    @classmethod
+    def from_object(cls, obj):
+        """Generate path from another object."""
+        log.debug("Path.from_object %s", obj)
+        if obj.coords and len(obj.coords) > 2 and obj.pen:
+            return cls(obj.coords, obj.pen)
+        # issue a warning
+        log.warning("Path.from_object: invalid object")
+        return obj
+
 
 class SegmentedPath(PathRoot):
     """Path with no smoothing at joints."""
-    def __init__(self, coords, pen, outline = None, pressure = None, brush = None):
+    def __init__(self, coords, pen, pressure = None, brush = None):
         super().__init__("segmented_path", coords, pen = pen, pressure = pressure)
-        self.__pressure  = pressure or []
-        self.__bb        = []
 
         if brush:
             brush['smooth_path'] = False

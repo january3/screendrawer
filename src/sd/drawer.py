@@ -96,7 +96,6 @@ class Drawer:
         self.__obj_mod_hash = { }
         self.__trafo        = None
         self.__win_size     = None
-        self.__win_pos_rel  = None
         self.__mask         = None
         self.__mask_bbox    = None
         self.__obj_bb_cache = { }
@@ -129,7 +128,7 @@ class Drawer:
                 draw_on_surface(cr, obj_grp, selection, state)
             cur = not cur
 
-    def update_cache(self, objects, selection, state, force_redraw):
+    def update_cache(self, objects, selection, state):
         """
         Update the cache.
 
@@ -193,7 +192,6 @@ class Drawer:
 
             if not bbhash[obj]:
                 continue
-
 
             #log.debug("object of type %s is same: %s (status=%s)", obj.type, is_same, status)
 
@@ -280,7 +278,7 @@ class Drawer:
         x0, y0 = wrelpos[0]
         x1, y1 = wrelpos[1]
         self.__mask_bbox = [ x0, y0, x1, y1 ]
-        self.__mask = Rectangle([ (x0, y0), (x1, y0), 
+        self.__mask = Rectangle([ (x0, y0), (x1, y0),
                                  (x1, y1), (x0, y1),
                                  (x0, y0) ],
                                 pen = Pen(color = (0, 1, 1)))
@@ -298,7 +296,7 @@ class Drawer:
         selection = page.layer().selection()
 
         # check if the cache needs to be updated
-        self.update_cache(objects, selection, state, force_redraw)
+        self.update_cache(objects, selection, state)
 
 
         # draw the cache

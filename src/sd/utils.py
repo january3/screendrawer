@@ -1,34 +1,34 @@
 """
 General utility functions for the ScreenDrawer application.
 """
-import os                                                           #<remove>
-import math                                                         #<remove>
-from scipy.interpolate import interp1d, splprep, splev                        #<remove>
-import numpy as np                                                  #<remove>
-import base64                                                       #<remove>
-import tempfile                                                     #<remove>
-import warnings                                                     #<remove>
-from io import BytesIO                                              # <remove>
+import os                                                  #<remove>
+import math                                                #<remove>
+import base64                                              #<remove>
+import tempfile                                            #<remove>
+import warnings                                            #<remove>
+import logging                                             # <remove>
+from io import BytesIO                                     # <remove>
+import numpy as np                                         #<remove>
+from scipy.interpolate import interp1d, splprep, splev     #<remove>
 import gi                                                  # <remove>
 gi.require_version('Gtk', '3.0')                           # <remove> pylint: disable=wrong-import-position
 gi.require_version('Gdk', '3.0')                           # <remove> pylint: disable=wrong-import-position
-from gi.repository import Gdk, GdkPixbuf                            #<remove>
-import cairo                                                        #<remove>
-import appdirs                                                      #<remove>
-import pyautogui                                                    #<remove>
-from PIL import ImageGrab                                           #<remove>
-import logging                                                   # <remove>
-log = logging.getLogger(__name__)                                # <remove>
-#log.setLevel(logging.INFO)                                       # <remove>
+from gi.repository import Gdk, GdkPixbuf                   #<remove>
+import cairo                                               #<remove>
+import appdirs                                             #<remove>
+import pyautogui                                           #<remove>
+from PIL import ImageGrab                                  #<remove>
+log = logging.getLogger(__name__)                          # <remove>
+#log.setLevel(logging.INFO)                                # <remove>
 
-gi.require_version('Gtk', '3.0')                                    #<remove>
+gi.require_version('Gtk', '3.0')                           #<remove>
 
 def get_default_savefile(app_name, app_author):
     """Get the default save file for the application."""
 
     # Get user-specific data directory
     user_data_dir = appdirs.user_data_dir(app_name, app_author)
-    log.debug(f"User data directory: {user_data_dir}")
+    log.debug("User data directory: %s", user_data_dir)
     # Create the directory if it does not exist
     os.makedirs(user_data_dir, exist_ok=True)
     # The filename for the save file: dir + "savefile"
@@ -55,20 +55,17 @@ def rgb_to_hex(rgb):
     return f"#{r:02x}{g:02x}{b:02x}"
 
 def get_cursor_position(window):
-    # Get the screen
+    """Get the cursor position relative to the window."""
+
     screen = window.get_screen()
-    # Get the window
     window = window.get_window()
-    # Get the display
     display = screen.get_display()
-    # Get the default seat
     seat = display.get_default_seat()
-    # Get the pointer device
     device = seat.get_pointer()
 
     # Get the cursor position
     _, x, y, _ = window.get_device_position(device)
-    log.debug(f"cursor pos {x}, {y}")
+    log.debug("cursor pos %s %s", x, y)
 
     return (x, y)
 
@@ -86,7 +83,7 @@ def get_screenshot(window, x0, y0, x1, y1):
         screenshot.save(temp_file, format="PNG")
         temp_file_name = temp_file.name
 
-    log.debug(f"Saved screenshot to temporary file: {temp_file_name}")
+    log.debug("Saved screenshot to temporary file: %s", temp_file_name)
 
     pixbuf = GdkPixbuf.Pixbuf.new_from_file(temp_file_name)
     return pixbuf, temp_file_name
@@ -147,39 +144,13 @@ def segment_intersection(p1, p2, p3, p4):
 
     if 0 <= t <= 1 and 0 <= u <= 1:
         # The segments intersect
-        intersect_x = x1 + t * (x2 - x1)
-        intersect_y = y1 + t * (y2 - y1)
-        return (True, (intersect_x, intersect_y))
+        return True, (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
 
     return (False, None)  # No intersection
 
 def pp(p):
     """return point in integers"""
     return [int(p[0]), int(p[1])]
-
-def remove_intersections(outline_l, outline_r):
-    """Remove intersections between the left and right outlines."""
-    # Does not work yet
-    n = len(outline_l)
-    if n < 2:
-        return outline_l, outline_r
-    if n != len(outline_r):
-        log.warning("outlines of different length")
-        return outline_l, outline_r
-
-    out_ret_l = []
-    out_ret_r = []
-
-    for i in range(n - 1):
-
-        out_ret_l.append(outline_l[i])
-        for j in range(i + 1, n - 1):
-            intersect, point = segment_intersection(outline_l[i], outline_l[i + 1],
-                                                outline_r[j], outline_r[j + 1])
-
-            out_ret_r.append(outline_r[i])
-
-    return out_ret_l, out_ret_r
 
 def calculate_length(coords):
     """Sum up the lengths of the segments in a path."""
@@ -243,7 +214,7 @@ def calc_intersect_2(seg1, seg2):
         return None  # Lines are parallel
 
     t = ((x1-x3)*(y3-y4) - (y1-y3)*(x3-x4)) / denom
-    u = ((x1-x3)*(y1-y2) - (y1-y3)*(x1-x2)) / denom
+    # u = ((x1-x3)*(y1-y2) - (y1-y3)*(x1-x2)) / denom
 
     intersect_x = x1 + t * (x2 - x1)
     intersect_y = y1 + t * (y2 - y1)
@@ -270,15 +241,15 @@ def smooth_vector(coords, smoothing_factor, pressure = None):
     """smooth a vector"""
 
     x, y = zip(*coords)
-    
-    # Create a parameterized spline representation of the curve
-    tck, u = splprep([x, y], s = smoothing_factor, k = 2)
 
-    u_new = np.linspace(0, 1, int(len(coords) * 2.5)) 
+    # Create a parameterized spline representation of the curve
+    ret = splprep([x, y], s = smoothing_factor, k = 2)
+    tck, u = ret[0], ret[1]
+    u_new = np.linspace(0, 1, int(len(coords) * 4))
 
     # Generate new points along the spline
     new_points = splev(u_new, tck)
-    
+
     # Convert the smoothed coordinates back to a list of tuples
     smoothed_coords = list(zip(new_points[0], new_points[1]))
 
@@ -289,7 +260,7 @@ def smooth_vector(coords, smoothing_factor, pressure = None):
     return smoothed_coords, pressure
 
 
-def smooth_path(coords, pressure=None, smoothing_factor=0):
+def smooth_coords(coords, pressure=None, smoothing_factor=0):
     """Smooth a path using scipy"""
 
     if len(coords) < 5:
@@ -300,7 +271,7 @@ def smooth_path(coords, pressure=None, smoothing_factor=0):
 
     return smoothed_coords, pressure
 
-def smooth_path2(coords, pressure=None, threshold=0.02):
+def smooth_coords2(coords, pressure=None, threshold=0.02):
     """Smooth a path using cubic Bézier curves."""
 
     if len(coords) < 3:
@@ -308,7 +279,8 @@ def smooth_path2(coords, pressure=None, threshold=0.02):
 
     if pressure and len(pressure) != len(coords):
         #raise ValueError("Pressure and coords must have the same length")
-        log.warning(f"Pressure and coords must have the same length, however p={len(pressure)} c={len(coords)}")
+        log.warning("Pressure and coords lengths differ: %d %d",
+            len(pressure), len(coords))
         return coords, pressure
 
     smoothed_coords = [coords[0]]  # Start with the first point
@@ -361,6 +333,7 @@ def smooth_path2(coords, pressure=None, threshold=0.02):
 
 def calc_bezier_coords(t, p1, p2, control1, control2):
     """Calculate a point on a cubic Bézier curve."""
+
     t0 = (1 - t) ** 3
     t1 = 3 * (1 - t) ** 2 * t
     t2 = 3 * (1 - t) * t ** 2
@@ -369,7 +342,6 @@ def calc_bezier_coords(t, p1, p2, control1, control2):
     y = t0 * control1[1] + t1 * p1[1] + t2 * control2[1] + t3 * p2[1]
 
     return x, y
-
 
 def distance_point_to_segment(p, segment):
     """Calculate the distance from a point (px, py) to a line segment (x1, y1) to (x2, y2)."""
@@ -461,7 +433,6 @@ def calc_arc_coords2(p1, p2, c, n = 20):
 
     return coords
 
-
 def calc_rotation_angle(origin, p1, p2):
     """
     Calculate the rotation angle based on the initial (p1) and new (p2)
@@ -517,8 +488,8 @@ def transform_coords(coords, bb1, bb2):
 
 def move_coords(coords, dx, dy):
     """Move a path by a given offset."""
-    for i in range(len(coords)):
-        coords[i] = (coords[i][0] + dx, coords[i][1] + dy)
+    for i, (x, y) in enumerate(coords):
+        coords[i] = (x + dx, y + dy)
     return coords
 
 def path_bbox(coords, lw = 0):

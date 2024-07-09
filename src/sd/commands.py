@@ -5,12 +5,12 @@ state of the objects they are acting on.
 """
 
 
+import logging                                                   # <remove>
+import hashlib                                                   # <remove>
 from .utils import calc_rotation_angle, sort_by_stack ## <remove>
 from .drawable_factory import DrawableFactory ## <remove>
 from .drawable_group import DrawableGroup ## <remove>
 from .drawable_group import ClippingGroup ## <remove>
-import logging                                                   # <remove>
-import hashlib                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 
 def swap_stacks(stack1, stack2):
@@ -30,16 +30,17 @@ def swap_stacks(stack1, stack2):
 ## ---------------------------------------------------------------------
 
 def compute_id_hash(objects):
+    """calculate a unique hash based on the drawables carreid by the object"""
     # Extract IDs and concatenate them into a single string
     if isinstance(objects, list):
         ids_concatenated = ''.join(str(id(obj)) for obj in objects)
     else:
         ids_concatenated = str(id(objects))
-    
+
     # Compute the hash of the concatenated string
     hash_object = hashlib.md5(ids_concatenated.encode())
     hash_hex    = hash_object.hexdigest()
-    
+
     return hash_hex
 
 class Command:
@@ -67,19 +68,19 @@ class Command:
     def __add__(self, other):
         """Add two commands together."""
 
-        if other.__type == "group":
+        if other.com_type() == "group":
             other.add(self)
             return other
 
         return CommandGroup([ self, other ])
 
+    def com_type(self):
+        """Return my type"""
+        return self.__type
+
     def hash(self):
         """Return a hash of the command."""
         return self.__hash
-
-    def command_type(self):
-        """Return the type of the command."""
-        return self.__type
 
     def type(self):
         """Return the type of the command."""
@@ -104,10 +105,9 @@ class Command:
 
 class CommandGroup(Command):
     """Simple class for handling groups of commands."""
-    def __init__(self, commands, page=None):
+    def __init__(self, commands):
         super().__init__("group", objects=None)
         self.__commands = commands
-        self.__page = page
 
         self.__hash = compute_id_hash([ self ])
         self.__hash = "group" + ':' + self.__hash
@@ -115,7 +115,7 @@ class CommandGroup(Command):
     def __add__(self, other):
         """Add two commands together."""
         if other.type() == "group":
-            return CommandGroup(self.__commands + other.__commands)
+            return CommandGroup(self.__commands + other.commands())
         return CommandGroup(self.__commands + [ other ])
 
     def hash(self):
@@ -144,20 +144,20 @@ class CommandGroup(Command):
     def undo(self):
         """Undo the command."""
         if self.undone():
-            return None
+            return
         for cmd in self.__commands[::-1]:
             cmd.undo()
         self.undone_set(True)
-        return self.__page
+        return
 
     def redo(self):
         """Redo the command."""
         if not self.undone():
-            return None
+            return
         for cmd in self.__commands:
             cmd.redo()
         self.undone_set(False)
-        return self.__page
+        return
 
 class InsertPageCommand(Command):
     """
@@ -276,7 +276,6 @@ class ClipCommand(Command):
     def __init__(self, clip, objects, stack, selection_object = None):
         super().__init__("clip", objects)
         self.__selection = selection_object
-        self.__clip = clip
         self.__stack = stack
         self.__stack_copy = stack[:]
 
@@ -324,8 +323,8 @@ class UnClipCommand(Command):
 
         for obj in self.obj:
             if not obj.type == "clipping_group":
-                log.warning(f"Object is not a clipping_group, ignoring: {obj}")
-                log.warning(f"object type: {obj.type}")
+                log.warning("Object is not a clipping_group, ignoring: %s", obj)
+                log.warning("object type: %s", obj.type)
                 continue
 
             n += 1
@@ -343,6 +342,8 @@ class UnClipCommand(Command):
         if n > 0 and self.__selection:
             self.__selection.set(new_objects)
 
+        self.__group = new_objects
+
     def undo(self):
         """Undo the command."""
         if self.undone():
@@ -359,7 +360,7 @@ class UnClipCommand(Command):
         swap_stacks(self.__stack, self.__stack_copy)
         self.undone_set(False)
         if self.__selection:
-            self.__selection.set([ self.__group ])
+            self.__selection.set(self.__group)
 
 class TextEditCommand(Command):
     """Simple class for handling text editing."""
@@ -479,8 +480,8 @@ class UngroupObjectCommand(Command):
 
         for obj in self.obj:
             if not obj.type == "group":
-                log.warning(f"Object is not a group, ignoring: {obj}")
-                log.warning(f"object type: {obj.type}")
+                log.warning("Object is not a group, ignoring: %s", obj)
+                log.warning("object type: %s", obj.type)
                 continue
 
             n += 1
@@ -584,15 +585,14 @@ class TransmuteCommand(Command):
     However, we don't. Instead we just slap the old object back onto the stack.
     """
 
-    def __init__(self, objects, stack, new_type, selection_objects = None, page = None):
+    def __init__(self, objects, stack, new_type, selection_objects = None):
         super().__init__("transmute", objects)
         #self.__new_type = new_type
         self.__old_objs = [ ]
         self.__new_objs = [ ]
         self.__stack    = stack
         self.__selection_objects = selection_objects
-        self.__page = page
-        log.debug(f"executing transmute; undone = {self.undone()}")
+        log.debug("executing transmute; undone = %s", self.undone())
 
         for obj in self.obj:
             new_obj = DrawableFactory.transmute(obj, new_type)
@@ -624,7 +624,7 @@ class TransmuteCommand(Command):
     def undo(self):
         """replace all the new objects with the old ones in the stack"""
         if self.undone():
-            return None
+            return
         for obj in self.__new_objs:
             self.__stack.remove(obj)
         for obj in self.__old_objs:
@@ -632,12 +632,12 @@ class TransmuteCommand(Command):
         self.undone_set(True)
         if self.__selection_objects:
             self.map_selection()
-        return self.__page
+        return
 
     def redo(self):
         """put the new objects again on the stack and remove the old ones"""
         if not self.undone():
-            return None
+            return
         for obj in self.__old_objs:
             self.__stack.remove(obj)
         for obj in self.__new_objs:
@@ -645,7 +645,7 @@ class TransmuteCommand(Command):
         self.undone_set(False)
         if self.__selection_objects:
             self.map_selection()
-        return self.__page
+        return
 
 class ZStackCommand(Command):
     """Simple class for handling z-stack operations."""
@@ -835,8 +835,10 @@ class RotateCommand(MoveResizeCommand):
     def undo(self):
         if self.undone():
             return
+        if not self.__angle:
+            return
         self.obj.rotate_start(self.__rotation_centre)
-        self.obj.rotate(-self.__angle)
+        self.obj.rotate(0 - self.__angle)
         self.obj.rotate_end()
         self.undone_set(True)
 
@@ -854,22 +856,26 @@ class MoveCommand(MoveResizeCommand):
         obj = obj.objects
         super().__init__("move", obj, origin)
         self.__last_pt = origin
-        log.debug(f"MoveCommand: origin is {[int(x) for x in origin]} hash {self.hash()}")
+        log.debug("MoveCommand: origin is %s hash %s",
+               [int(x) for x in origin], self.hash())
 
     def __add__(self, other):
         """Add two move commands"""
-        if isinstance(other, MoveCommand):
-            dx = other.__last_pt[0] - other.start_point[0]
-            dy = other.__last_pt[1] - other.start_point[1]
-            self.__last_pt = (
-                    self.__last_pt[0] + dx,
-                    self.__last_pt[1] + dy
-                    )
-            return self
-        else:
+        if not isinstance(other, MoveCommand):
             return super().__add__(other)
 
+        dx = other.last_pt()[0] - other.start_point[0]
+        dy = other.last_pt()[1] - other.start_point[1]
+        self.__last_pt = (
+                self.__last_pt[0] + dx,
+                self.__last_pt[1] + dy
+                )
+        return self
 
+
+    def last_pt(self):
+        """Return last point"""
+        return self.__last_pt
 
     def event_update(self, x, y):
         """Update the move event."""
@@ -991,7 +997,6 @@ class FlushCommand(Command):
         super().__init__(name, objects)
         log.debug("flushing objects %s to %s", objects, flush_direction)
 
-        self.__flush_direction = flush_direction
         self.__undo_dict = None
         self.__redo_dict = None
 
@@ -1011,7 +1016,7 @@ class FlushCommand(Command):
         """Flush the objects to the left."""
         log.debug("flushing left")
         self.__undo_dict = { obj: obj.bbox() for obj in self.obj }
-        min_x = min([ obj.bbox()[0] for obj in self.obj ])
+        min_x = min(obj.bbox()[0] for obj in self.obj)
 
         for obj in self.obj:
             obj.move(min_x - obj.bbox()[0], 0)
@@ -1021,7 +1026,7 @@ class FlushCommand(Command):
     def flush_right(self):
         """Flush the objects to the right."""
         self.__undo_dict = { obj: obj.bbox() for obj in self.obj }
-        max_x = max([ obj.bbox()[2] + obj.bbox()[0] for obj in self.obj ])
+        max_x = max(obj.bbox()[2] + obj.bbox()[0] for obj in self.obj)
 
         for obj in self.obj:
             obj.move(max_x - (obj.bbox()[2] + obj.bbox()[0]), 0)
@@ -1031,7 +1036,7 @@ class FlushCommand(Command):
     def flush_top(self):
         """Flush the objects to the top."""
         self.__undo_dict = { obj: obj.bbox() for obj in self.obj }
-        min_y = min([ obj.bbox()[1] for obj in self.obj ])
+        min_y = min(obj.bbox()[1] for obj in self.obj)
 
         for obj in self.obj:
             obj.move(0, min_y - obj.bbox()[1])
@@ -1041,7 +1046,7 @@ class FlushCommand(Command):
     def flush_bottom(self):
         """Flush the objects to the bottom."""
         self.__undo_dict = { obj: obj.bbox() for obj in self.obj }
-        max_y = max([ obj.bbox()[3] + obj.bbox()[1] for obj in self.obj ])
+        max_y = max(obj.bbox()[3] + obj.bbox()[1] for obj in self.obj)
 
         for obj in self.obj:
             obj.move(0, max_y - (obj.bbox()[3] + obj.bbox()[1]))
@@ -1091,17 +1096,21 @@ class SetPropCommand(Command):
         log.debug("undo_dict: %s", self.__undo_dict)
 
         for obj in self.obj:
-            log.debug(f"setting prop type {mytype} for {obj}")
+            log.debug("setting prop type %s for %s", mytype, obj)
             set_prop_func(obj, prop)
             obj.modified(True)
 
     def __add__(self, other):
 
         if self == other:
-            self.__prop = other.__prop
+            self.__prop = other.prop()
             return self
 
         return super().__add__(other)
+
+    def prop(self):
+        """Return the property"""
+        return self.__prop
 
     def undo(self):
         """Undo the command."""
@@ -1193,9 +1202,13 @@ class ChangeStrokeCommand(Command):
     def __add__(self, other):
         """Add two commands together."""
         if self == other:
-            self.__direction += other.__direction
+            self.__direction += other.direction()
             return self
         return super().__add__(other)
+
+    def direction(self):
+        """Return the direction"""
+        return self.__direction
 
     def undo(self):
         """Undo the command."""
