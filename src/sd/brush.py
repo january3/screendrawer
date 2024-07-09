@@ -12,7 +12,7 @@ from .utils import first_point_after_length                        # <remove>
 from .utils import midpoint, calc_intersect, calc_intersect_2      # <remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
-log.setLevel(logging.INFO)                                      # <remove>
+#log.setLevel(logging.INFO)                                      # <remove>
 
 def get_current_color_and_alpha(ctx):
     """Get the current color and alpha from the Cairo context."""
@@ -248,6 +248,8 @@ def calc_normal_outline(coords, widths, rounded = False):
         arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p0, 10)
         outline_l.extend(arc_coords)
 
+    log.debug("outline lengths: %d, %d", len(outline_l), len(outline_r))
+    log.debug("coords length: %d", len(coords))
     return outline_l, outline_r
 
 def point_mean(p1, p2):
@@ -426,23 +428,17 @@ class BrushFactory:
 
         log.debug(f"Selecting BRUSH {brush_type}, kwargs: {kwargs}")
 
-        if brush_type == "rounded":
-            return BrushRound(**kwargs)
+        brushes = {
+                "rounded": BrushRound,
+                "slanted": BrushSlanted,
+                "marker":  BrushMarker,
+                "pencil":  BrushPencil,
+                "tapered": BrushTapered,
+                "simple":  BrushSimple,
+                }
 
-        if brush_type == "slanted":
-            return BrushSlanted(**kwargs)
-
-        if brush_type == "marker":
-            #print("returning marker brush")
-            return BrushMarker(**kwargs)
-
-        if brush_type == "pencil":
-            #print("returning pencil brush")
-            return BrushPencil(**kwargs)
-
-        if brush_type == "tapered":
-            #print("returning tapered brush")
-            return BrushTapered(**kwargs)
+        if brush_type in brushes:
+            return brushes[brush_type](**kwargs)
 
         raise NotImplementedError("Brush type", brush_type, "not implemented")
 
@@ -456,8 +452,10 @@ class Brush:
         self.__pressure = [ ]
         self.__rounded = rounded
         self.__outline = [ ]
+        self.__coords = [ ]
         self.__brush_type = brush_type
         self.__smooth_path = smooth_path
+        self.__bbox = None
 
     def to_dict(self):
         """Return a dictionary representation of the brush."""
@@ -465,6 +463,15 @@ class Brush:
                 "brush_type": self.__brush_type,
                 "smooth_path": self.smooth_path(),
                }
+
+    def bbox(self, force = False):
+        """Get bounding box of the brush."""
+        log.warning("here is the base class bbox")
+        if not self.__outline:
+            return None
+        if not self.__bbox or force:
+            self.__bbox = path_bbox(self.__outline)
+        return self.__bbox
 
     def brush_type(self):
         """Get brush type."""
@@ -494,10 +501,6 @@ class Brush:
             self.__pressure = pressure
         return self.__pressure
 
-    def bbox(self):
-        """Get bounding box of the brush."""
-        return path_bbox(self.__outline)
-
     def draw(self, cr, outline = False):
         """Draw the brush on the Cairo context."""
         if not self.__outline or len(self.__outline) < 4:
@@ -507,23 +510,42 @@ class Brush:
             cr.line_to(point[0], point[1])
         cr.close_path()
 
+        if outline:
+            cr.set_source_rgb(0, 1, 1)
+            cr.set_line_width(0.1)
+            coords = self.coords()
+
+            for i in range(len(coords) - 1):
+                cr.move_to(coords[i][0], coords[i][1])
+                cr.line_to(coords[i + 1][0], coords[i + 1][1])
+                cr.stroke()
+                # make a dot at each coord
+                cr.arc(coords[i][0], coords[i][1], .8, 0, 2 * 3.14159)  # Draw a circle at each point
+                cr.fill()
+
     def move(self, dx, dy):
         """Move the outline."""
         self.__outline = [ (x + dx, y + dy) for x, y in self.__outline ]
+        self.bbox(force = True)
 
     def rotate(self, angle, rot_origin):
         """Rotate the outline."""
         self.__outline = coords_rotate(self.__outline, angle, rot_origin)
+        self.bbox(force = True)
 
     def scale(self, old_bbox, new_bbox):
         """Scale the outline."""
         self.__outline = transform_coords(self.__outline, old_bbox, new_bbox)
+        self.bbox(force = True)
 
     def calc_width(self, pressure, lwd):
         """Calculate the width of the brush."""
 
         widths = [ lwd * (0.25 + p) for p in pressure ]
         return widths
+
+    def coords_add(self, point, pressure):
+        """Add a point to the brush coords."""
 
     def calculate(self, line_width, coords, pressure = None):
         """Recalculate the outline of the brush."""
@@ -541,16 +563,19 @@ class Brush:
             return None
 
         if self.smooth_path():
-            coords, pressure = smooth_path(coords, pressure, 20)
+            coords, pressure = smooth_path(coords, pressure)
+
+        self.coords(coords)
 
         widths = self.calc_width(pressure, lwd)
         outline_l, outline_r = calc_normal_outline(coords, widths, self.__rounded)
         outline  = outline_l + outline_r[::-1]
 
         if len(coords) != len(pressure):
-            #raise ValueError("Pressure and coords don't match")
             log.warning(f"Brush: Warning: Pressure and coords don't match (coords={len(coords)} pressure={len(pressure)})")
+
         self.__outline = outline
+        self.bbox(force = True)
         return outline
 
 class BrushMarker(Brush):
@@ -951,7 +976,7 @@ class BrushSlanted(Brush):
                 raise ValueError("Pressure and coords don't match")
 
         if self.smooth_path():
-            coords, pressure = smooth_path(coords, pressure, 20)
+            coords, pressure = smooth_path(coords, pressure)
 
         # we need to multiply everything by line_width
         dx0, dy0, dx1, dy1 = [ line_width * x for x in self.__slant[0] + self.__slant[1] ]
@@ -962,3 +987,49 @@ class BrushSlanted(Brush):
 
         #print("done calculating slanted brush")
         return outline
+
+class BrushSimple(Brush):
+    """Simplistic brush for testing purposes."""
+    def __init__(self, smooth_path = True):
+        super().__init__(brush_type = "simple", outline = None, smooth_path = True)
+
+        self.__line_width = 1
+        self.__bbox = None
+
+    def draw(self, cr, outline = False):
+        """Draw the brush on the Cairo context."""
+
+        coords = self.outline()
+        cr.set_line_width(self.__line_width)
+
+        cr.move_to(coords[0][0], coords[0][1])
+
+        for point in coords[1:]:
+            cr.line_to(point[0], point[1])
+
+        cr.stroke()
+
+    def bbox(self, force = False):
+        """Get bounding box of the brush."""
+
+        outline = self.outline()
+
+        log.debug("bbox brush simple")
+        if not outline:
+            log.debug("no outline, returning None")
+            return None
+        if not self.__bbox or force:
+            log.debug("recalculating bbox")
+            self.__bbox = path_bbox(outline, 
+                                    lw = self.__line_width)
+        return self.__bbox
+
+    def calculate(self, line_width = 1, coords = None, pressure = None):
+        """Recalculate the outline of the brush."""
+        log.debug("calculate calling")
+        coords, _ = smooth_path(coords)
+        self.__line_width = line_width
+
+        self.outline(coords)
+        self.bbox(force = True)
+        return coords

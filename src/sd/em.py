@@ -266,6 +266,7 @@ class EventManager:
             'set_brush_slanted':     {'args': [ "set_brush", True, "slanted"] },
             'set_brush_pencil':      {'args': [ "set_brush", True, "pencil"] },
             'set_brush_tapered':     {'args': [ "set_brush", True, "tapered"] },
+            'set_brush_simple':      {'args': [ "set_brush", True, "simple"] },
 
             'stroke_increase':       {'args': [ "stroke_change", True, 1]},
             'stroke_decrease':       {'args': [ "stroke_change", True, -1]},
@@ -378,6 +379,7 @@ class EventManager:
             '3':                    "set_brush_slanted",
             '4':                    "set_brush_pencil",
             '5':                    "set_brush_tapered",
+            '6':                    "set_brush_simple",
 
             'Shift-p':              "prev_page",
             'Shift-n':              "next_page",

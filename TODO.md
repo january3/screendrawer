@@ -65,9 +65,6 @@ Design issues:
  * the interaction between canvas, gom, dm, em is tangled. 
 
 Bugs:
- * the cacheing is still suboptimal. In essence, if an object has not
-   changed and redrawing is not requested, there is no need to query its
-   bbox and check whether it is within the screen.
  * grid is only drawn in the central region.
  * a clipped circle drawn during resize has incorrect coordinates. =>
    problem with "actual" and "not actual" bboxes.
@@ -90,6 +87,10 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * the cacheing is still suboptimal. In essence, if an object has not
+   changed and redrawing is not requested, there is no need to query its
+   bbox and check whether it is within the screen. => solved by a better
+   bbox reporting mechanism
  * zooming too much results in a cairo error. The reason for that is that
    irrespective of the zoom, we are trying to redraw the whole image. We
    need to clip with the window size instead. Or at least set a cap on

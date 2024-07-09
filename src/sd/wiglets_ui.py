@@ -1,6 +1,7 @@
 """Wiglets which constitute visible UI elements"""
 import colorsys                                # <remove>
 import gi                                                  # <remove>
+import datetime
 gi.require_version('Gtk', '3.0')                           # <remove> pylint: disable=wrong-import-position
 gi.require_version('Gdk', '3.0')                           # <remove> pylint: disable=wrong-import-position
 from gi.repository import Gdk                  # <remove>
@@ -519,9 +520,29 @@ class WigletStatusLine(Wiglet):
         self.__screen_wh = (100, 100) # screen width and height
         self.__text_par   = None
         self.__bbox = bbox
+        self.__moves = [ ]
+        self.__moves_per_second = 0
 
+        bus.on("mouse_move", self.rec_move, 1999)
         bus.on("update_win_size", self.update_size)
         bus.on("draw", self.draw)
+
+    def rec_move(self, ev):
+        """record the move and calculate moves / second"""
+
+        ## current time in seconds
+        t = ev.event.time
+        ## convert it to hh:mm:ss
+        #log.debug("time: %s", t)
+        self.__moves.append(t)
+
+        if len(self.__moves) > 100:
+            # remove first element
+            self.__moves = self.__moves[1:]
+            #log.debug("time for 100 moves: %.2f", (self.__moves[-1] - self.__moves[0]) / 1000)
+            self.__moves_per_second = 1000 * 100 / (self.__moves[-1] - self.__moves[0])
+        return False
+
 
     def update_size(self, width, height):
         """update the size of the widget"""
@@ -562,6 +583,8 @@ class WigletStatusLine(Wiglet):
 
         hov = self.__state.hover_obj()
         status_line += f"  hover: {hov.type}" if hov else ''
+
+        status_line += f"  moves/s: {self.__moves_per_second:.2f}"
 
         cr.select_font_face("monospace", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
         cr.set_font_size(14)

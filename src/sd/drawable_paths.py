@@ -35,7 +35,7 @@ class PathRoot(Drawable):
         self.__brush.calculate(self.pen.line_width,
                                  coords = self.coords,
                                  pressure = self.__pressure)
-        self.__bb = path_bbox(self.__brush.outline() or self.coords)
+        self.__bb = self.__brush.bbox() or path_bbox(self.coords)
         self.mod += 1
 
     def finish(self):
@@ -110,7 +110,7 @@ class PathRoot(Drawable):
         """Append a point to the path, calculating the outline of the
            shape around the path. Only used when path is created to
            allow for a good preview. Later, the path is smoothed and recalculated."""
-        #print("path_append. length of coords and pressure:", len(self.coords), len(self.__pressure))
+        #log.debug("path_append. length of coords and pressure: %d, %d", len(self.coords), len(self.__pressure))
         coords = self.coords
         width  = self.pen.line_width * pressure
 
@@ -171,7 +171,7 @@ class PathRoot(Drawable):
         if self.resizing:
             return self.resizing["bbox"]
         if not self.__bb:
-            self.__bb = path_bbox(self.__brush.outline() or self.coords)
+            self.__bb = self.__brush.bbox() or path_bbox(self.coords)
         return self.__bb
 
     def resize_end(self):
@@ -180,7 +180,6 @@ class PathRoot(Drawable):
         old_bbox = self.__bb or path_bbox(self.coords)
         self.coords = transform_coords(self.coords, old_bbox, self.resizing["bbox"])
         self.outline_recalculate()
-        #self.pen.brush().scale(old_bbox, self.resizing["bbox"])
         self.resizing  = None
 
     def draw_outline(self, cr):
@@ -194,9 +193,9 @@ class PathRoot(Drawable):
             cr.line_to(coords[i + 1][0], coords[i + 1][1])
             cr.stroke()
             # make a dot at each coord
-            cr.arc(coords[i][0], coords[i][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+            cr.arc(coords[i][0], coords[i][1], .4, 0, 2 * 3.14159)  # Draw a circle at each point
             cr.fill()
-        cr.arc(coords[-1][0], coords[-1][1], 2, 0, 2 * 3.14159)  # Draw a circle at each point
+        cr.arc(coords[-1][0], coords[-1][1], .4, 0, 2 * 3.14159)  # Draw a circle at each point
         cr.fill()
 
     def draw_simple(self, cr, bbox=None):

@@ -3,6 +3,8 @@ General utility functions for the ScreenDrawer application.
 """
 import os                                                           #<remove>
 import math                                                         #<remove>
+from scipy.interpolate import interp1d, splprep, splev                        #<remove>
+import numpy as np                                                  #<remove>
 import base64                                                       #<remove>
 import tempfile                                                     #<remove>
 import warnings                                                     #<remove>
@@ -172,19 +174,10 @@ def remove_intersections(outline_l, outline_r):
 
         out_ret_l.append(outline_l[i])
         for j in range(i + 1, n - 1):
-            #print("i", i, "left segment: ", pp(outline_l[i]), pp(outline_l[i + 1]))
-            #print("j", j, "right segment: ", pp(outline_r[j]), pp(outline_r[j + 1]))
             intersect, point = segment_intersection(outline_l[i], outline_l[i + 1],
                                                 outline_r[j], outline_r[j + 1])
-            #if intersect:
-                #print("FOUND Intersection at", point, "i", i, "j", j)
-                #out_ret_l, out_ret_r = out_ret_r, out_ret_l
 
             out_ret_r.append(outline_r[i])
-                # exchange the remainder between outlines
-                #tmp = outline_l[(i + 1):]
-                #outline_l[(i + 1):] = outline_r[(i + 1):]
-                #outline_r[(i + 1):] = tmp
 
     return out_ret_l, out_ret_r
 
@@ -273,7 +266,41 @@ def midpoint(p1, p2):
     """Calculate the midpoint between two points."""
     return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
 
-def smooth_path(coords, pressure=None, threshold=20):
+def smooth_vector(coords, smoothing_factor, pressure = None):
+    """smooth a vector"""
+
+    x, y = zip(*coords)
+    
+    # Create a parameterized spline representation of the curve
+    tck, u = splprep([x, y], s = smoothing_factor, k = 2)
+
+    u_new = np.linspace(0, 1, int(len(coords) * 2.5)) 
+
+    # Generate new points along the spline
+    new_points = splev(u_new, tck)
+    
+    # Convert the smoothed coordinates back to a list of tuples
+    smoothed_coords = list(zip(new_points[0], new_points[1]))
+
+    if pressure:
+        pressure_interp = interp1d(u, pressure, kind='linear')
+        pressure = pressure_interp(u_new)
+
+    return smoothed_coords, pressure
+
+
+def smooth_path(coords, pressure=None, smoothing_factor=0):
+    """Smooth a path using scipy"""
+
+    if len(coords) < 5:
+        return coords, pressure
+
+    smoothed_coords, pressure = smooth_vector(coords, smoothing_factor, pressure)
+    log.debug("coords before: %d after: %d", len(coords), len(smoothed_coords))
+
+    return smoothed_coords, pressure
+
+def smooth_path2(coords, pressure=None, threshold=0.02):
     """Smooth a path using cubic Bézier curves."""
 
     if len(coords) < 3:
@@ -284,7 +311,6 @@ def smooth_path(coords, pressure=None, threshold=20):
         log.warning(f"Pressure and coords must have the same length, however p={len(pressure)} c={len(coords)}")
         return coords, pressure
 
-    #print("smoothing path with", len(coords), "points")
     smoothed_coords = [coords[0]]  # Start with the first point
     if pressure:
         new_pressure    = [pressure[0]]
@@ -308,7 +334,6 @@ def smooth_path(coords, pressure=None, threshold=20):
         dist_to_next = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
 
         #angle = calculate_angle(p0, p1, p2)
-        #print("angle is", angle)
 
         if dist_to_prev > threshold or dist_to_next > threshold:
             # Calculate control points for smoother transitions
@@ -330,6 +355,8 @@ def smooth_path(coords, pressure=None, threshold=20):
     smoothed_coords.append(coords[-1])  # Ensure the last point is added
     if pressure:
         new_pressure.append(pressure[-1])
+
+    log.debug("orig number of coords: %d after smoothing: %d", len(coords), len(smoothed_coords))
     return smoothed_coords, new_pressure
 
 def calc_bezier_coords(t, p1, p2, control1, control2):
