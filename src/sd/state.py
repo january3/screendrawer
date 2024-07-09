@@ -337,9 +337,9 @@ class StateObj(StateRoot):
             self.__obj["clipboard"] = clipboard
         return self.__obj["clipboard"]
 
-    def cursor_pos(self):
-        """Return the cursor position."""
-        return self.__obj["cursor"].pos()
+   #def cursor_pos(self):
+   #    """Return the cursor position."""
+   #    return self.__obj["cursor"].pos()
 
     def history(self):
         """Return the history."""
@@ -460,11 +460,22 @@ class State(StateObj):
                 bus.on(signal, params["listener"])
 
     # -------------------------------------------------------------------------
+    def cursor_pos(self):
+        """Report the screen (user) coordinates"""
+        pos_abs = self.cursor_pos_abs()
+        return self.page().trafo().apply_reverse([pos_abs])[0]
+
+    def cursor_pos_abs(self):
+        """Report the absolute (window) coordinates"""
+        pos = self.get_cursor_pos()
+        return pos
+
     def get_cursor_pos(self):
         """Get the cursor position"""
 
         x, y = get_cursor_position(self.app())
         self.bus().emitMult("cursor_abs_pos_update", (x, y))
+        return (x, y)
 
     def toggle_outline(self):
         """Toggle outline mode."""
