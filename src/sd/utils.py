@@ -21,7 +21,6 @@ from PIL import ImageGrab                                  #<remove>
 log = logging.getLogger(__name__)                          # <remove>
 #log.setLevel(logging.INFO)                                # <remove>
 
-gi.require_version('Gtk', '3.0')                           #<remove>
 
 def get_default_savefile(app_name, app_author):
     """Get the default save file for the application."""
@@ -544,6 +543,10 @@ def bbox_is_overlap(bbox0, bbox1):
     """Check whether two boxes overlap"""
     x0, y0, w0, h0 = bbox0
     x1, y1, w1, h1 = bbox1
+
+   #log.debug("x0, y0, w0, h0: %d %d %d %d", x0, y0, w0, h0)
+   #log.debug("x1, y1, w1, h1: %d %d %d %d", x1, y1, w1, h1)
+   #log.debug("is_overlap: %s", (x0 < x1 + w1 and x0 + w0 > x1 and y0 < y1 + h1 and y0 + h0 > y1))
 
     return (x0 < x1 + w1 and x0 + w0 > x1 and y0 < y1 + h1 and y0 + h0 > y1)
 

@@ -277,7 +277,7 @@ class Drawer:
                                               self.__win_size])
         x0, y0 = wrelpos[0]
         x1, y1 = wrelpos[1]
-        self.__mask_bbox = [ x0, y0, x1, y1 ]
+        self.__mask_bbox = [ x0, y0, x1 - x0, y1 - y0 ]
         self.__mask = Rectangle([ (x0, y0), (x1, y0),
                                  (x1, y1), (x0, y1),
                                  (x0, y0) ],

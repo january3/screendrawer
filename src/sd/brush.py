@@ -87,7 +87,7 @@ class Brush:
 
     def bbox(self, force = False):
         """Get bounding box of the brush."""
-        log.warning("here is the base class bbox")
+
         if not self.__outline:
             return None
         if not self.__bbox or force:
