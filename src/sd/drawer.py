@@ -99,6 +99,7 @@ class Drawer:
         self.__win_pos_rel  = None
         self.__mask         = None
         self.__mask_bbox    = None
+        self.__obj_bb_cache = { }
 
     def new_cache(self, groups, selection, state):
         """
@@ -137,9 +138,6 @@ class Drawer:
         :param state: The state.
         """
 
-        if force_redraw:
-            self.__obj_mod_hash = { }
-
         groups = self.__find_groups(objects, selection, state)
 
        #if self.__cache:
@@ -171,6 +169,7 @@ class Drawer:
         that have changed.
         """
         modhash = self.__obj_mod_hash
+        bbhash = self.__obj_bb_cache
 
         cur_grp       = [ ]
         groups        = [ cur_grp ]
@@ -182,15 +181,19 @@ class Drawer:
         # The goal of this method is to ensure correct stacking order
         # of the drawn active objects and cached groups.
         for obj in objects:
-            bb = obj.bbox(actual = True)
-
-            if not bbox_is_overlap(bb, self.__mask_bbox):
-                continue
 
             status = obj_status(obj, selection, state)
 
             is_same = obj in modhash and modhash[obj] == status and not status[3]
             is_same = is_same and not obj.modified()
+
+            if not is_same or not obj in bbhash:
+                bb = obj.bbox(actual = True)
+                bbhash[obj] = bbox_is_overlap(bb, self.__mask_bbox)
+
+            if not bbhash[obj]:
+                continue
+
 
             #log.debug("object of type %s is same: %s (status=%s)", obj.type, is_same, status)
 
@@ -266,6 +269,9 @@ class Drawer:
 
         if force_redraw:
             log.debug("Forced redraw")
+            self.__cache = None
+            self.__obj_mod_hash = { }
+            self.__obj_bb_cache = { }
 
         self.__win_size = state.graphics().win_size()
         self.__trafo = page.trafo()

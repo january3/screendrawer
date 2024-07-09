@@ -65,6 +65,9 @@ Design issues:
  * the interaction between canvas, gom, dm, em is tangled. 
 
 Bugs:
+ * the cacheing is still suboptimal. In essence, if an object has not
+   changed and redrawing is not requested, there is no need to query its
+   bbox and check whether it is within the screen.
  * grid is only drawn in the central region.
  * a clipped circle drawn during resize has incorrect coordinates. =>
    problem with "actual" and "not actual" bboxes.
