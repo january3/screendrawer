@@ -65,7 +65,7 @@ class Canvas:
 
         if ws != self.__winsize:
             self.__winsize = ws
-            self.__bus.emit("update_size", exclusive = False, width = ws[0], height = ws[1])
+            self.__bus.emitMult("update_win_size", width = ws[0], height = ws[1])
 
         self.__bus.emit("draw", exclusive = False, cr = cr, state = self.__state)
         self.__force_redraw = False

@@ -17,7 +17,7 @@ import pyautogui                                                    #<remove>
 from PIL import ImageGrab                                           #<remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
-log.setLevel(logging.INFO)                                       # <remove>
+#log.setLevel(logging.INFO)                                       # <remove>
 
 gi.require_version('Gtk', '3.0')                                    #<remove>
 
@@ -542,6 +542,13 @@ def is_click_close_to_path(click_x, click_y, path, threshold):
             return True
     return False
 
+def bbox_is_overlap(bbox0, bbox1):
+    """Check whether two boxes overlap"""
+    x0, y0, w0, h0 = bbox0
+    x1, y1, w1, h1 = bbox1
+
+    return (x0 < x1 + w1 and x0 + w0 > x1 and y0 < y1 + h1 and y0 + h0 > y1)
+
 def bbox_overlap(bbox1, bbox2):
     """Calculate the bbox of the overlap between two bboxes"""
     x1, y1, w1, h1 = bbox1
@@ -653,3 +660,18 @@ def base64_to_pixbuf(image_base64):
     loader.close()  # Finalize the loader
     image = loader.get_pixbuf()  # Get the loaded GdkPixbuf
     return image
+
+def bus_listeners_on(bus, listeners):
+    """group switch on for listeners"""
+
+    for event, listener in listeners.items():
+        if "priority" in listener:
+            bus.on(event, listener["listener"], priority = listener["priority"])
+        else:
+            bus.on(event, listener["listener"])
+
+def bus_listeners_off(bus, listeners):
+    """group switch off for listeners"""
+
+    for event, listener in listeners.items():
+        bus.off(event, listener["listener"])

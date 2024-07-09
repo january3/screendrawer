@@ -3,9 +3,7 @@ Wiglets are small dialog-like objects that can be drawn on the canvas.
 They are used to provide interactive controls for changing drawing properties
 such as line width, color, and transparency.
 """
-import gi                                                        # <remove>
-gi.require_version('Gtk', '3.0')                                 # <remove>
-from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib       # <remove>
+import logging                                                   # <remove>
 
 from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 from .drawable_primitives import SelectionTool                   # <remove>
@@ -15,9 +13,9 @@ from .commands import CommandGroup, AddCommand                   # <remove>
 from .commands import TextEditCommand                            # <remove>
 from .drawable_factory import DrawableFactory                    # <remove>
 from .drawable_group import DrawableGroup                        # <remove>
-import logging                                                   # <remove>
+from .utils import bus_listeners_on, bus_listeners_off           # <remove>
 log = logging.getLogger(__name__)                                # <remove>
-log.setLevel(logging.INFO)
+#log.setLevel(logging.INFO)
 
 
 ## ---------------------------------------------------------------------
@@ -53,7 +51,7 @@ class WigletResizeRotate(Wiglet):
         super().__init__("resize", None)
         self.__bus = bus
         self.__cmd = None
-        self.__state = state
+        self.__state = state # pylint: disable=unused-private-member
 
         bus.on("left_mouse_click", self.on_click)
 
@@ -66,10 +64,11 @@ class WigletResizeRotate(Wiglet):
         corner_obj, corner = ev.corner()
 
         if not corner_obj or not corner_obj.bbox() or ev.double():
-            log.debug(f"widget resizing wrong event hover: {ev.hover()}, corner: {ev.corner()}, double: {ev.double()}")
+            log.debug("widget resizing wrong event hover: %s, corner: %s, double: %s",
+                    ev.hover, ev.corner, ev.double)
             return False
 
-        log.debug(f"widget resizing object. corner: {corner_obj}")
+        log.debug("widget resizing object. corner: %s", corner_obj)
 
         if ev.ctrl() and ev.shift():
             log.debug("rotating with both shift and ctrl")
@@ -155,6 +154,7 @@ class WigletMove(Wiglet):
         bus.on("left_mouse_click", self.on_click)
 
     def on_click(self, ev):
+        """Start moving object"""
         obj = ev.hover()
 
         if ev.mode() != "move" or ev.alt() or ev.ctrl():
@@ -178,7 +178,7 @@ class WigletMove(Wiglet):
         self.__bus.on("mouse_release", self.on_release)
 
         self.__obj = selection.copy()
-        log.debug(f"moving object: {self.__obj}")
+        log.debug("moving object: %s", self.__obj)
         self.__cmd = MoveCommand(self.__obj, ev.pos())
         self.__bus.emitOnce("cursor_set", "grabbing")
         self.__bus.emit("queue_draw")
@@ -186,6 +186,7 @@ class WigletMove(Wiglet):
         return True
 
     def on_move(self, ev):
+        """Update moving object"""
         if not self.__cmd:
             return False
 
@@ -193,7 +194,8 @@ class WigletMove(Wiglet):
         self.__bus.emit("queue_draw")
         return True
 
-    def cancel(self, ev):
+    def cancel(self, ev): # pylint: disable=unused-argument
+        """Cancel the move operation"""
         if not self.__cmd:
             return False
 
@@ -207,6 +209,7 @@ class WigletMove(Wiglet):
         return True
 
     def on_release(self, ev):
+        """Finish moving object"""
         if not self.__cmd:
             return False
 
@@ -265,7 +268,8 @@ class WigletSelectionTool(Wiglet):
             return False
 
         if ev.hover() or ev.corner()[0] or ev.double():
-            log.debug("wrong event", ev.hover(), ev.corner(), ev.double())
+            log.debug("wrong event; hover=%s corner=%s double=%s",
+                      ev.hover(), ev.corner(), ev.double())
             return False
 
         log.debug("taking the call")
@@ -330,7 +334,7 @@ class WigletPan(Wiglet):
 
         self.__origin = (ev.event.x, ev.event.y)
         self.__page   = self.__state.page()
-        log.debug(f"Panning: start on page {self.__page} at {self.__origin}")
+        log.debug("Panning: start on page {self.__page} at %s", self.__origin)
 
         self.__bus.on("mouse_move",     self.on_move, priority = 99)
         self.__bus.on("mouse_release",  self.on_release, priority = 99)
@@ -343,12 +347,12 @@ class WigletPan(Wiglet):
         if not self.__origin:
             return False
 
-        log.debug(f"my origin: {[int(x) for x in self.__origin]}")
+        log.debug("my origin: %s", [int(x) for x in self.__origin])
 
         dx, dy = ev.event.x - self.__origin[0], ev.event.y - self.__origin[1]
-        log.debug(f"Translating page by {[int(x) for x in (dx, dy)]}")
+        log.debug("Translating page by %s", [int(x) for x in (dx, dy)])
 
-        self.__page.translate((dx, dy))
+        self.__bus.emitOnce("page_translate", (dx, dy))
 
         self.__origin = (ev.event.x, ev.event.y)
         self.__bus.emit("force_redraw")
@@ -366,187 +370,6 @@ class WigletPan(Wiglet):
         self.__origin = None
         return True
 
-
-class WigletEditText2(Wiglet):
-    """Create or edit text objects"""
-    def __init__(self, bus, state, app):
-        super().__init__("pan", None)
-
-        self.__bus   = bus
-        self.__app   = app
-        self.__state = state
-        self.__obj   = None
-        self.__active = False
-        self.__edit_existing = False
-        self.__editor = None
-        bus.on("left_mouse_click",  self.on_click, priority = 99)
-        bus.on("left_mouse_double_click",
-               self.on_double_click, priority = 9)
-
-    def start_listening(self):
-        bus = self.__bus
-
-        bus.on("mouse_move",        self.on_move, priority = 99)
-        bus.on("mouse_release",     self.on_release, priority = 99)
-        bus.on("mode_set",          self.finish_text_input,     priority = 99)
-        bus.on("finish_text_input", self.finish_text_input, priority = 99)
-        bus.on("escape",            self.finish_text_input, priority = 99)
-
-    def stop_listening(self):
-        bus = self.__bus
-
-        bus.off("mouse_move",        self.on_move)
-        bus.off("mouse_release",     self.on_release)
-        bus.off("mode_set",          self.finish_text_input)
-        bus.off("finish_text_input", self.finish_text_input)
-        bus.off("escape",            self.finish_text_input)
-
-    def text_editor_on_key_press(self, event):
-        """Handle key press events in the text editor"""
-
-        key = event.keyval
-        keyname = Gdk.keyval_name(event.keyval)
-        log.debug(f"key press {key}")
-
-        # escape key
-        if keyname == "Escape":
-            self.finish_text_input()
-            return True
-
-        return True
-
-    def create_text_editor(self, obj):
-        """Create a text editor for the object"""
-
-        if not obj:
-            log.warning("No object to edit")
-            return False
-
-        x, y = 100, 100
-        w, h = 500, 200
-        text = "Lorem ipsum dolor sit amet\nconsectetur\nadipiscing elit"
-
-        self.__bus.on("key_press_event", self.text_editor_on_key_press, priority = 99)
-        editor = Gtk.TextView()
-        buf = editor.get_buffer()
-        buf.set_text(obj.to_string())
-        editor.set_size_request(w, h)
-        self.__app.fixed.put(editor, x, y)
-        editor.show()
-        editor.grab_focus()
-        #editor.connect("key-press-event", self.text_editor_on_key_press)
-
-        self.__editor = editor
-
-    def on_double_click(self, ev):
-        """Double click on text launches text editing"""
-
-        if self.__active: # currently editing
-            log.debug("are active, double click finishes the input")
-            self.__bus.emit("finish_text_input")
-            return True
-
-        if ev.shift() or ev.ctrl() or ev.alt():
-            return False
-
-        obj = ev.hover()
-        if not (obj and obj.type == "text"):
-            return False
-        
-        self.create_text_editor(obj)
-
-        log.debug("Starting to edit a text object")
-        self.__edit_existing = True
-        self.__obj = obj
-        self.__active = True
-        self.__state.current_obj(obj)
-        self.__obj.move_caret("End")
-        self.__bus.emit("queue_draw")
-        self.start_listening()
-        return True
-
-    def on_click(self, ev):
-        """Start typing text"""
-
-        if self.__active: # currently editing
-            self.__bus.emit("finish_text_input")
-            return False
-
-        mode = self.__state.mode()
-        log.debug(f"mode {mode}")
-
-        if ev.shift() and not ev.ctrl() and mode != "move":
-            mode = "text"
-
-        if mode != "text":
-            return False
-
-        log.debug("Creating a new text object")
-        self.__edit_existing = False
-        obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
-
-        if not obj:
-            log.debug(f"No object created for mode {mode}")
-            return False
-
-        self.__state.current_obj(obj)
-        self.__active = True
-        self.__obj = obj
-        self.create_text_editor(obj)
-
-        self.start_listening()
-        return True
-
-    def on_release(self, ev):
-        """Finish drawing object"""
-
-        obj = self.__obj
-
-        if not obj:
-            return False
-
-        self.__bus.emit("queue_draw")
-        return True
-
-    def finish_text_input(self, new_mode = False):
-        """Finish text input"""
-        if not self.__active:
-            return False
-
-        log.debug("finishing text input")
-        self.__bus.off("key_press_event", self.text_editor_on_key_press)
-
-        if not self.__editor:
-            raise ValueError("No text editor")
-
-        new_text = self.__editor.get_buffer().get_text(
-            self.__editor.get_buffer().get_start_iter(),
-            self.__editor.get_buffer().get_end_iter(),
-            True)
-
-        log.debug(f"new text: {new_text}")
-        self.__editor.destroy()
-        self.__app.fixed.remove(self.__editor)
-        self.__editor = None
-
-        obj = self.__obj
-        obj.show_caret(False)
-        obj.set_text(new_text)
-
-        if obj.strlen() > 0 and not self.__edit_existing:
-            self.__bus.emit("add_object", True, obj)
-
-        self.__state.current_obj_clear()
-        self.__bus.emitOnce("cursor_revert")
-        self.__active = False
-        self.__obj = None
-
-        self.__bus.emit("queue_draw")
-        self.stop_listening()
-        return True
-
-
-
 class WigletEditText(Wiglet):
     """Create or edit text objects"""
     def __init__(self, bus, state):
@@ -561,24 +384,21 @@ class WigletEditText(Wiglet):
         bus.on("left_mouse_double_click",
                self.on_double_click, priority = 9)
 
-    def start_listening(self):
-        bus = self.__bus
+        self.__listeners = {
+            "mouse_move": { "listener":        self.on_move, "priority": 99},
+            "mouse_release": { "listener":     self.on_release, "priority": 99},
+            "mode_set": { "listener":          self.finish_text_input, "    priority": 99},
+            "finish_text_input": { "listener": self.finish_text_input, "priority": 99},
+            "escape": { "listener":            self.finish_text_input, "priority": 99},
+            }
 
-        bus.on("mouse_move",        self.on_move, priority = 99)
-        bus.on("mouse_release",     self.on_release, priority = 99)
-        bus.on("mode_set",          self.finish_text_input,     priority = 99)
-        bus.on("finish_text_input", self.finish_text_input, priority = 99)
-        bus.on("escape",            self.finish_text_input, priority = 99)
+    def start_listening(self):
+        """Start listening to events"""
+        bus_listeners_on(self.__bus, self.__listeners)
 
     def stop_listening(self):
-        bus = self.__bus
-
-        bus.off("mouse_move",        self.on_move)
-        bus.off("mouse_release",     self.on_release)
-        bus.off("mode_set",          self.finish_text_input)
-        bus.off("finish_text_input", self.finish_text_input)
-        bus.off("escape",            self.finish_text_input)
-
+        """Stop listening to events"""
+        bus_listeners_off(self.__bus, self.__listeners)
 
     def on_double_click(self, ev):
         """Double click on text launches text editing"""
@@ -613,7 +433,7 @@ class WigletEditText(Wiglet):
             return False
 
         mode = self.__state.mode()
-        log.debug(f"mode {mode}")
+        log.debug("mode %s", mode)
 
         if ev.shift() and not ev.ctrl() and mode != "move":
             mode = "text"
@@ -631,7 +451,7 @@ class WigletEditText(Wiglet):
             self.__active = True
             self.__obj = obj
         else:
-            log.debug(f"No object created for mode {mode}")
+            log.debug("No object created for mode %s", mode)
             return False
 
         self.start_listening()
@@ -648,7 +468,7 @@ class WigletEditText(Wiglet):
         self.__bus.emit("queue_draw")
         return True
 
-    def finish_text_input(self, new_mode = False):
+    def finish_text_input(self, new_mode = False): #pylint: disable=unused-argument
         """Finish text input"""
         if not self.__active:
             return False
@@ -670,7 +490,6 @@ class WigletEditText(Wiglet):
                 cmd1 = TextEditCommand(obj, self.__edit_existing, obj.to_string())
                 cmd2 = RemoveCommand([ obj ], page.layer().objects())
                 self.__bus.emit("history_append", True, CommandGroup([ cmd1, cmd2 ]))
-                pass
         elif obj.strlen() > 0:
             self.__bus.emit("add_object", True, obj)
 
@@ -738,7 +557,7 @@ class WigletCreateSegments(Wiglet):
     def draw_obj(self, cr, state):
         """Draw the object currently being created"""
         if not self.__obj:
-            return
+            return False
 
         self.__obj.draw(cr)
         return True
@@ -811,7 +630,6 @@ class WigletCreateGroup(Wiglet):
         # the second element is added, we will undo this command and
         # instead add a single object to the page.
         self.__first_cmd = None
-        self.__first_obj = None
 
         # the logic is as follows: listen to all events. If we catch an
         # event which is not in the ignore list, we finish the group. This
@@ -822,7 +640,7 @@ class WigletCreateGroup(Wiglet):
                                  "left_mouse_click",
                                  "cursor_pos_update",
                                  "cursor_revert", "cursor_set",
-                                 "update_size",
+                                 "update_win_size",
                                  "mouse_release" ]
 
         bus.on("toggle_grouping",  self.toggle_grouping, priority = 0)
@@ -846,7 +664,7 @@ class WigletCreateGroup(Wiglet):
         """Start automatic grouping of objects"""
 
         if self.__group_obj:
-            raise Exception("Group object already exists")
+            raise ValueError("Group object already exists")
 
         self.__group_obj = DrawableGroup()
         self.__added = False
@@ -860,14 +678,15 @@ class WigletCreateGroup(Wiglet):
         return True
 
     def abort(self, event, *args, **kwargs):
+        """Abort grouping if event is not in the ignore list"""
         if event in self.__ignore_events:
             return False
-        log.debug(f"event: {event} {args}, aborting grouping")
+        log.debug("event: {event} %s, aborting grouping", args)
         self.end_grouping()
 
         return False
-    
-    def end_grouping(self, mode = None):
+
+    def end_grouping(self, mode = None): # pylint: disable=unused-argument
         """End automatic grouping of objects"""
 
         if not self.__group_obj:
@@ -910,10 +729,11 @@ class WigletCreateGroup(Wiglet):
             return False
 
         if obj.type != "path":
-            log.warning(f"add_object: object of type {obj.type} cannot be added to automatic path group")
-            return
+            log.warning("object of type %s cannot be added to automatic path group",
+                        obj.type)
+            return False
 
-        log.debug(f"adding object of type {obj.type} to group")
+        log.debug("adding object of type %s to group", obj.type)
 
         if not self.__added:
             page = self.__state.current_page()
@@ -922,7 +742,6 @@ class WigletCreateGroup(Wiglet):
             cmd  = CommandGroup([ cmd1, cmd2 ])
             self.__bus.emit("history_append", True, cmd)
             self.__first_cmd = cmd
-            self.__first_obj = obj
             self.__added = True
         else:
             cmd = AddToGroupCommand(self.__group_obj, obj)
@@ -945,7 +764,7 @@ class WigletCreateObject(Wiglet):
     def draw_obj(self, cr, state):
         """Draw the object currently being created"""
         if not self.__obj:
-            return
+            return False
 
         self.__obj.draw(cr)
         return True
@@ -967,7 +786,8 @@ class WigletCreateObject(Wiglet):
         if mode not in [ "draw", "shape", "rectangle", "circle" ]:
             return False
 
-        log.debug(f"WigletCreateObject: creating a new object at {int(ev.x)}, {int(ev.y)}, pressure {int(ev.pressure() * 1000)}")
+        log.debug("WigletCreateObject: creating a new object at %s, %s pressure %s",
+                int(ev.x), int(ev.y), int(ev.pressure() * 1000))
         obj = DrawableFactory.create_drawable(mode, pen = self.__state.pen(), ev=ev)
 
         if obj:
@@ -976,7 +796,7 @@ class WigletCreateObject(Wiglet):
             self.__bus.on("mouse_release",    self.on_release, priority = 99)
             self.__bus.on("obj_draw",         self.draw_obj,   priority = 99)
         else:
-            log.debug(f"No object created for mode {mode}")
+            log.debug("No object created for mode %s", mode)
 
         return True
 
@@ -1005,14 +825,14 @@ class WigletCreateObject(Wiglet):
             obj.finish()
             # remove paths that are too small
             if len(obj.coords) < 3:
-                log.debug(f"removing object of type {obj.type} because too small")
+                log.debug("removing object of type %s because too small", obj.type)
                 obj = None
 
         # remove objects that are too small
         if obj:
             bb = obj.bbox()
             if bb and obj.type in [ "rectangle", "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
-                log.debug(f"removing object of type {obj.type} because too small")
+                log.debug("removing object of type %s because too small", obj.type)
                 obj = None
 
         if obj:
@@ -1020,7 +840,7 @@ class WigletCreateObject(Wiglet):
 
             if self.__obj.type == "text":
                 ## this cannot happen!
-                raise Exception("Text object should not be finished here")
+                raise ValueError("Text object should not be finished here")
             self.__state.selection().clear()
 
         self.__obj = None
@@ -1120,13 +940,78 @@ class WigletZoom(Wiglet):
         super().__init__("zoom", None)
 
         self.__bus   = bus
-        self.__state = state
+        self.__state = state # pylint: disable=unused-variable
         self.__wsize = (100, 100)
+        self.__start_pos = None
+        self.__zoom_tool = None
 
-        bus.on("zoom_reset",  self.zoom_reset,  priority = 99)
-        bus.on("zoom_in",  self.zoom_in,  priority = 99)
-        bus.on("zoom_out",  self.zoom_out,  priority = 99)
-        bus.on("update_size", self.update_size)
+        # listeners that are active when zooming
+        self.__active_listeners = {
+                "mouse_release": { "listener": self.on_release, "priority": 99},
+                "mouse_move": { "listener": self.on_move, "priority": 99},
+                "obj_draw": { "listener": self.draw},
+                }
+
+        listeners = {
+            "zoom_reset": { "listener":  self.zoom_reset, "priority": 99},
+            "zoom_in": { "listener":  self.zoom_in, "priority": 99},
+            "zoom_out": { "listener":  self.zoom_out, "priority": 99},
+            "update_win_size": { "listener": self.update_size},
+            "left_mouse_click": { "listener": self.on_click, "priority": 1},
+        }
+
+        bus_listeners_on(bus, listeners)
+
+    def draw(self, cr, state):
+        """draw the widget"""
+        if not self.__zoom_tool:
+            return
+        self.__zoom_tool.draw(cr, state)
+
+    def on_click(self, ev):
+        """handle the click event"""
+
+        if ev.mode() != "zoom":
+            return False
+        x, y, = ev.x, ev.y
+        #self.coords = (x, y)
+        self.__zoom_tool = SelectionTool([ (x, y), (x + 1, y + 1) ])
+
+        bus_listeners_on(self.__bus, self.__active_listeners)
+        log.debug("zooming in or out")
+        return True
+
+    def on_release(self, ev):
+        """handle the release event"""
+        bus_listeners_off(self.__bus, self.__active_listeners)
+
+        bb = self.__zoom_tool.bbox()
+        x, y, w, h = bb
+
+        self.__bus.emitOnce("page_zoom_reset") 
+        self.__bus.emitOnce("page_translate", (-x, -y))
+
+        z1 = self.__wsize[0] / w
+        z2 = self.__wsize[1] / h
+        zoom = min(z1, z2, 14)
+        log.debug("zooming to %s", zoom)
+        self.__bus.emitOnce("page_zoom", 
+                            (0, 0), zoom)
+        self.__bus.emit("force_redraw")
+        return True
+
+    def on_move(self, ev):
+        """handle the move event"""
+
+        if not self.__start_pos:
+            self.__start_pos = ev.pos()
+            return False
+
+        x, y = ev.x, ev.y
+        obj = self.__zoom_tool
+        obj.update(x, y, ev.pressure())
+        self.__bus.emit("queue_draw")
+        return True
 
     def update_size(self, width, height):
         """update the size of the widget"""

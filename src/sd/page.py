@@ -14,6 +14,7 @@ from .commands import ToggleFillCommand, RotateCommand, MoveCommand, ZStackComma
 from .commands import TransmuteCommand, AddCommand, CommandGroup, InsertPageCommand # <remove>
 from .commands import DeletePageCommand, DeleteLayerCommand, FlushCommand # <remove>
 from .drawer import Drawer                                           # <remove>
+from .utils import bus_listeners_on, bus_listeners_off               # <remove>
 from .trafo import Trafo                                             # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 
@@ -115,20 +116,11 @@ class LayerEventHandler:
 
     def activate(self):
         """Activate the event handler."""
-
-        for event, params in self.__event_listeners.items():
-            if "priority" in params:
-                self.__bus.on(event, params["listener"], 
-                              priority=params["priority"])
-            else:
-                self.__bus.on(event, params["listener"])
+        bus_listeners_on(self.__bus, self.__event_listeners)
 
     def deactivate(self):
         """Deactivate the event handler."""
-
-        for event, params in self.__event_listeners.items():
-            self.__bus.off(event, params["listener"])
-
+        bus_listeners_off(self.__bus, self.__event_listeners)
 
     def selection_group(self):
         """Group selected objects."""
@@ -460,6 +452,7 @@ class Page(PageView):
             "delete_layer": { "listener": self.delete_layer_cmd},
             "clear_page": { "listener": self.clear, "priority": 8},
             "page_zoom_reset": { "listener": self.reset_trafo},
+            "page_translate": { "listener": self.translate},
             "page_zoom":    { "listener": self.zoom},
         }
 
@@ -471,12 +464,7 @@ class Page(PageView):
 
         # shout out to the previous current page to get lost
         bus.emitOnce("page_deactivate")
-
-        for event, params in self.__listeners.items():
-            if "priority" in params:
-                bus.on(event, params["listener"], priority=params["priority"])
-            else:
-                bus.on(event, params["listener"])
+        bus_listeners_on(bus, self.__listeners)
 
         self.layer().activate(bus)
 
@@ -491,9 +479,7 @@ class Page(PageView):
 
         log.debug("page %s deactivating", self)
 
-        for event, params in self.__listeners.items():
-            bus.off(event, params["listener"])
-
+        bus_listeners_off(bus, self.__listeners)
         self.layer().deactivate()
 
         self.__bus = None
@@ -612,7 +598,7 @@ class Page(PageView):
     def import_page(self, page_dict):
         """Imports a dict to self"""
         log.debug("importing pages")
-        # XXX
+
         if "objects" in page_dict:
             self.layer().objects(page_dict["objects"])
         elif "layers" in page_dict:

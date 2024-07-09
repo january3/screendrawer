@@ -1,5 +1,7 @@
 To do (sorted by priority):
 
+ * drawable should not need pen as mandatory argument; rather, they should
+   generate a default pen if none is present
  * For layers to be truly useful, we need more layer properties (alpha,
    visible / non-visible), also rearranging layers
  * remember last file name exported and last directory in which it was
@@ -85,6 +87,10 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * zooming too much results in a cairo error. The reason for that is that
+   irrespective of the zoom, we are trying to redraw the whole image. We
+   need to clip with the window size instead. Or at least set a cap on
+   zoom.
  * when zooming in, lines are grainy, same problem as with text below.
    However, we cannot ditch the cacheing. The solution would be to, of
    course, to draw the cache outside of page transformations.

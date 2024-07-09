@@ -3,7 +3,7 @@ import logging                                                    # <remove>
 from .utils import coords_rotate                                  # <remove>
 
 log = logging.getLogger(__name__)                                 # <remove>
-log.setLevel(logging.DEBUG)                                        # <remove>
+#log.setLevel(logging.DEBUG)                                        # <remove>
 
 # ---------- trafos ----------------------
 def trafos_apply(coords, trafos):
@@ -21,7 +21,7 @@ def trafos_apply(coords, trafos):
         elif trafo_type == "dummy":
             pass
         else:
-                log.error("unknown trafo %s", trafo_type)
+            log.error("unknown trafo %s", trafo_type)
 
     return coords
 

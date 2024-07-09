@@ -19,7 +19,7 @@ gi.require_version('Gtk', '3.0')                           # <remove>
 from gi.repository import Gdk # <remove>
 import logging                                                   # <remove>
 log = logging.getLogger(__name__)                                # <remove>
-log.setLevel(logging.DEBUG)                                      # <remove>
+#log.setLevel(logging.DEBUG)                                      # <remove>
 
 COLORS = {
         "black": (0, 0, 0),
@@ -177,6 +177,7 @@ class EventManager:
             'mode_select':           {'args': [ "mode_set", False, "select"]},
             'mode_eraser':           {'args': [ "mode_set", False, "eraser"]},
             'mode_shape':            {'args': [ "mode_set", False, "shape"]},
+            'mode_zoom':             {'args': [ "mode_set", False, "zoom"]},
             'mode_segment':          {'args': [ "mode_set", False, "segment"]},
             'mode_colorpicker':      {'args': [ "mode_set", False, "colorpicker"]},
 
@@ -304,6 +305,7 @@ class EventManager:
             't':                    "mode_text",
             'e':                    "mode_eraser",
             's':                    "mode_shape",
+            'z':                    "mode_zoom",
             'Shift-s':              "mode_segment",
             'i':                    "mode_colorpicker",
             'space':                "mode_move",
@@ -328,8 +330,8 @@ class EventManager:
             'f':                    "selection_fill",
 
             'keyname:equal':        "zoom_reset",
-            'keyname:plus':         "zoom_in",
-            'keyname:minus':        "zoom_out",
+            'plus':                 "zoom_in",
+            'minus':                "zoom_out",
 
             'Ctrl-Shift-g':         "toggle_grouping",
 

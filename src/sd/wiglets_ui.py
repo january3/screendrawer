@@ -224,7 +224,7 @@ class WigletPageSelector(Wiglet):
         # changing a lot
         self.recalculate()
         bus.on("left_mouse_click", self.on_click, priority = 99)
-        bus.on("update_size", self.update_size)
+        bus.on("update_win_size", self.update_size)
         bus.on("draw", self.draw)
 
     def recalculate(self):
@@ -397,10 +397,10 @@ class WigletToolSelector(Wiglet):
         self.__icons_only = True
 
         self.__modes = [ "move", "draw", "segment", "shape", "rectangle",
-                        "circle", "text", "eraser", "colorpicker" ]
+                        "circle", "text", "eraser", "colorpicker", "zoom" ]
         self.__modes_dict = { "move": "Move", "draw": "Draw", "segment": "Seg.Path", "shape": "Shape",
                               "rectangle": "Rectangle", "circle": "Circle", "text": "Text",
-                              "eraser": "Eraser", "colorpicker": "Col.Pick" }
+                              "eraser": "Eraser", "colorpicker": "Col.Pick", "zoom": "Zoom"}
 
         if self.__icons_only and width > len(self.__modes) * 35:
             width = len(self.__modes) * 35
@@ -520,7 +520,7 @@ class WigletStatusLine(Wiglet):
         self.__text_par   = None
         self.__bbox = bbox
 
-        bus.on("update_size", self.update_size)
+        bus.on("update_win_size", self.update_size)
         bus.on("draw", self.draw)
 
     def update_size(self, width, height):
@@ -601,7 +601,7 @@ class WigletColorSelector(Wiglet):
         self.__bus = bus
         self.recalculate()
         bus.on("left_mouse_click", self.on_click, priority = 999)
-        bus.on("update_size", self.update_size)
+        bus.on("update_win_size", self.update_size)
         bus.on("draw", self.draw)
 
     def recalculate(self):

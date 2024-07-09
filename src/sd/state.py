@@ -50,7 +50,16 @@ class StateGraphics:
                                             # for screenshots
                 "grid": False,              # show grid
                 "wiglets": True,            # show wiglets
+                "win_size": (100, 100),
                 }
+
+    def win_size(self, width = None, height = None):
+        """Get or set the window size"""
+
+        if not (width is None or height is None):
+            self.__gr["win_size"] = (width, height)
+
+        return self.__gr["win_size"]
 
     def bg_color(self, color=None):
         """Get or set the background color."""
@@ -411,6 +420,7 @@ class State(StateObj):
         bus_signals = {
             "queue_draw": {"listener": self.queue_draw},
             "mode_set": {"listener": self.mode, "priority": 999},
+            "update_win_size": { "listener": self.graphics().win_size},
 
             "cycle_bg_transparency": {"listener": self.graphics().cycle_background, "priority": 0},
             "set_bg_color": {"listener": self.graphics().bg_color, "priority": 0},
