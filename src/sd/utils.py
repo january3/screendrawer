@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)                          # <remove>
 
 FRAC_FWD = np.array([1/50, 3/50, 2/10, 1/2])
 FRAC_BCK = np.array([-1/50, -3/50, -2/10])
-NP_VEC = np.linspace(0, 1, 7)
+NP_VEC = { 7: np.linspace(0, 1, 7) }
 
 def get_default_savefile(app_name, app_author):
     """Get the default save file for the application."""
@@ -280,7 +280,6 @@ def smooth_coords(coords, pressure=None, smoothing_factor=0):
         return coords, pressure
 
     smoothed_coords, pressure = smooth_vector(coords, smoothing_factor, pressure)
-    log.debug("coords before: %d after: %d", len(coords), len(smoothed_coords))
 
     return smoothed_coords, pressure
 
@@ -397,7 +396,7 @@ def calc_arc_coords(p1, p2, c, n = 20):
     x0, y0 = p0
     radius = math.sqrt((x2 - x1)**2 + (y2 - y1)**2) / 2
 
-    side = determine_side_math(p1, p2, c)
+    side = determine_side_math(p1, p2, p0)
 
     # calculate the from p0 to p1
     a1 = np.arctan2(y1 - yc, x1 - xc)
@@ -424,6 +423,9 @@ def calc_arc_coords2(p1, p2, c, n = 20):
     x2, y2 = p2
     xc, yc = c
 
+    if not n in NP_VEC:
+        NP_VEC[n] = np.linspace(0, 1, n)
+
     # calculate the radius of the circle
     radius = np.sqrt((x2 - xc)**2 + (y2 - yc)**2)
     side = determine_side_math(p1, p2, c)
@@ -438,7 +440,7 @@ def calc_arc_coords2(p1, p2, c, n = 20):
         a1 += 2 * np.pi
 
     #angles = np.linspace(a1, a2, n)
-    angles = a1 + (a2 - a1) * NP_VEC
+    angles = a1 + (a2 - a1) * NP_VEC[n]
 
     # Calculate the arc points
     x_coords = xc + radius * np.cos(angles)

@@ -1,5 +1,12 @@
 To do (sorted by priority):
 
+ * brush calculations should be done differently. basically: use vectorized
+   numpy operation throughout the code; until object is finished, keep the
+   arrays in memory, so that key calculations (e.g. normal vectors) do not have to be repeated for
+   everything, but rather just for the last point. Signal the brush when
+   a new point is added; signal the object when it is finished; object then
+   signals the brush to finish, which then destroys the interim
+   calculations. Then the brush saves its outline in the save file.
  * make sure that in the outline mode, everything is cyan
  * drawable should not need pen as mandatory argument; rather, they should
    generate a default pen if none is present
@@ -10,6 +17,8 @@ To do (sorted by priority):
  * remember last file name exported and last directory in which it was
    exported, present this option to the user... but how exactly? sometimes
    we want the current directory.
+ * while objects are being moved, there is no need to update the cache -
+   just move it around.
  * global preferences file
  * properties dialog called with right-click on an object
  * make a "recent colors" (or "recent pens") widget
@@ -42,9 +51,6 @@ To do (sorted by priority):
 
 Design issues:
  
- * FUCK. there are bezier curves implemented already in cairo. Was all that
-   work with brushes a waste of time? Well, on the other hand, this whole
-   project is a waste of time (this hole project is a waste of tame).
  * exporting bbox: right now, in the uibuilder code, the bbox is specified
    as the screen, unless objects are selected. The rationale is "wysiwyg",
    you can get multiple pages of precisely the same size. However, on the
@@ -73,7 +79,6 @@ Design issues:
  * maybe numpy should be used for brush calculations.
 
 Bugs:
- * pen no 5 (pencil) has incorrect bounding box
  * grid is only drawn in the central region.
  * a clipped circle drawn during resize has incorrect coordinates. =>
    problem with "actual" and "not actual" bboxes.
@@ -92,6 +97,12 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * brush 4 (pencil) doesn't work anymore, probably due to changing of the
+   coord calculation code.
+ * pen no 5 (pencil) has incorrect bounding box
+ * FUCK. there are bezier curves implemented already in cairo. Was all that
+   work with brushes a waste of time? Well, on the other hand, this whole
+   project is a waste of time (this hole project is a waste of tame).
  * ctrl-v when cursor hasn't moved places object at (0, 0) instead of the
    actual cursor pos (should be the same as with crosslines) => that's
    because only the absolute (screen) position can be queried at the

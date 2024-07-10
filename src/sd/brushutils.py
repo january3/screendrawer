@@ -303,7 +303,7 @@ def calc_pencil_outline(coords, pressure, line_width):
     outline_r = []
 
     p0, p1 = coords[0], coords[1]
-    width  = line_width / 3 #* pressure[0] / 2
+    width  = line_width / 5 #* pressure[0] / 2
     l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
 
     ## append the points for the first coord
@@ -358,7 +358,7 @@ def calc_pencil_outline(coords, pressure, line_width):
     outline_l.extend(arc_coords[5:][::-1])
     pressure_ret = pressure_ret + [pressure[-1]] * 5
 
-    log.debug("outline lengths: %d, %d", len(outline_l), len(outline_r))
+    log.debug("outline lengths: %d, %d pres=%d", len(outline_l), len(outline_r), len(pressure))
     return outline_l, outline_r, pressure_ret
 
 def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_length):

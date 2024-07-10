@@ -90,12 +90,9 @@ class Brush:
         """Get bounding box of the brush."""
 
         if not self.__outline:
-            log.debug("no outline")
             return None
         if not self.__bbox or force:
-            log.debug("calculating bbox")
             self.__bbox = path_bbox(self.__outline)
-        log.debug("bbox: %s", self.__bbox)
         return self.__bbox
 
     def brush_type(self):
@@ -444,7 +441,6 @@ class BrushPencil(Brush):
         self.__outline_segments = self.construct_segments(self.__fused, outline_l, outline_r)
         self.__midpoints = self.segment_midpoints(self.__outline_segments)
 
-        #log.debug("outline: %s", self.outline())
         #log.debug("outline bbox: %s", path_bbox(self.outline()))
         self.bbox(force = True)
         return self.outline()
