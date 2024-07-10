@@ -477,6 +477,13 @@ class State(StateObj):
         #self.bus().emitMult("cursor_abs_pos_update", (x, y))
         return (x, y)
 
+    def visible_bbox(self):
+        """Get the visible bbox."""
+        # Drawing coordinates of the visible screen
+        w, h = self.app().get_size()
+        p1, p2 = self.page().trafo().apply_reverse([(0, 0), (w, h)])
+        return (p1[0], p1[1], p2[0] - p1[0], p2[1] - p1[1])
+
     def toggle_outline(self):
         """Toggle outline mode."""
         self.graphics().outline(not self.graphics().outline())

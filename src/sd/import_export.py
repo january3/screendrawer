@@ -302,7 +302,10 @@ def export_image_png(obj, output_file, cfg):
     :param transparency: The transparency of the image.
     """
 
+    log.debug("Exporting image as PNG to file %s", output_file)
+
     bbox = cfg.get("bbox", None)
+    log.debug("Bounding box: %s", bbox)
     bg   = cfg.get("bg", (1, 1, 1))
     transparency = cfg.get("transparency", 1.0)
 

@@ -475,6 +475,11 @@ class Shape(Drawable):
             "pen": self.pen.to_dict()
         }
 
+    def draw_points(self, cr):
+        """Draw a dot at each of the coordinate pairs"""
+        for x, y in self.coords:
+            cr.arc(x, y, 1, 0, 2 * 3.14159)
+            cr.fill()
 
     def draw_simple(self, cr, bbox=None):
         """draws the path as a single line. Useful for resizing."""
@@ -495,7 +500,6 @@ class Shape(Drawable):
             cr.line_to(point[0], point[1])
         cr.close_path()
 
-
     def draw(self, cr, hover=False, selected=False, outline = False):
         """Draw the shape on the Cairo context."""
         if len(self.coords) < 3:
@@ -511,9 +515,11 @@ class Shape(Drawable):
         res_bb = self.resizing and self.resizing["bbox"] or None
 
         if outline:
+            cr.set_source_rgba(0, 1, 1)
             self.draw_simple(cr, res_bb)
             cr.set_line_width(0.5)
             cr.stroke()
+            self.draw_points(cr)
         elif self.fill():
             self.draw_simple(cr, res_bb)
             cr.fill()

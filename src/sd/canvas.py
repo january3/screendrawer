@@ -86,7 +86,7 @@ class Canvas:
         if not outline:
             cr.set_source_rgba(*bg_color, transparency)
         else:
-            cr.set_source_rgba(40, 40, 40, transparency)
+            cr.set_source_rgba(0.4, 0.4, 0.4, transparency)
 
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()

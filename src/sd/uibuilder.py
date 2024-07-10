@@ -255,7 +255,7 @@ class UIBuilder():
         else:
             # set bbox so we export the whole screen
             obj = state.objects()
-            bbox = (0, 0, *self.__app.get_size())
+            bbox = state.visible_bbox()
 
         if not obj:
             log.warning("Nothing to draw")

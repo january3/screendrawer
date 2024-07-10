@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)                          # <remove>
 
 FRAC_FWD = np.array([1/50, 3/50, 2/10, 1/2])
 FRAC_BCK = np.array([-1/50, -3/50, -2/10])
+NP_VEC = np.linspace(0, 1, 7)
 
 def get_default_savefile(app_name, app_author):
     """Get the default save file for the application."""
@@ -241,8 +242,11 @@ def midpoint(p1, p2):
 def smooth_vector(coords, smoothing_factor, pressure = None):
     """smooth a vector"""
 
-    x, y = zip(*coords)
+    coords = np.array(coords)
+    _, unique_indices = np.unique(coords, axis=0, return_index=True)
+    coords = coords[np.sort(unique_indices)]
 
+    x, y = zip(*coords)
     # Create a parameterized spline representation of the curve
     ret = splprep([x, y], s = smoothing_factor, k = 2)
     tck, u = ret[0], ret[1]
@@ -380,37 +384,38 @@ def determine_side_math(p1, p2, p3):
     det = (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
     return 'left' if det > 0 else 'right'
 
-def calc_arc_coords(p1, p2, p3, n = 20):
+def calc_arc_coords(p1, p2, c, n = 20):
     """
     Calculate the coordinates of an arc between two points.
     The point p3 is on the opposite side of the arc from the line p1->p2.
     """
     x1, y1 = p1
     x2, y2 = p2
+    xc, yc = c
+
     p0 = ((x1 + x2) / 2, (y1 + y2) / 2)
     x0, y0 = p0
     radius = math.sqrt((x2 - x1)**2 + (y2 - y1)**2) / 2
 
-    side = determine_side_math(p1, p2, p3)
+    side = determine_side_math(p1, p2, c)
 
     # calculate the from p0 to p1
-    a1 = math.atan2(y1 - p0[1], x1 - p0[0])
-    a2 = math.atan2(y2 - p0[1], x2 - p0[0])
+    a1 = np.arctan2(y1 - yc, x1 - xc)
+    a2 = np.arctan2(y2 - yc, x2 - xc)
 
     if side == 'left' and a1 > a2:
-        a2 += 2 * math.pi
+        a2 += 2 * np.pi
     elif side == 'right' and a1 < a2:
-        a1 += 2 * math.pi
+        a1 += 2 * np.pi
 
     # calculate 20 points on the arc between a1 and a2
-    coords = []
-    for i in range(n):
-        a = a1 + (a2 - a1) * i / (n - 1)
-        x = x0 + radius * math.cos(a)
-        y = y0 + radius * math.sin(a)
-        coords.append((x, y))
+    angles = np.linspace(a1, a2, n)
 
-    return coords
+    x_coords = x0 + radius * np.cos(angles)
+    y_coords = y0 + radius * np.sin(angles)
+
+    coords = np.column_stack((x_coords, y_coords))
+    return coords.tolist()
 
 def calc_arc_coords2(p1, p2, c, n = 20):
     """Calculate the coordinates of an arc between points p1 and p2.
@@ -420,26 +425,28 @@ def calc_arc_coords2(p1, p2, c, n = 20):
     xc, yc = c
 
     # calculate the radius of the circle
-    radius = math.sqrt((x2 - xc)**2 + (y2 - yc)**2)
+    radius = np.sqrt((x2 - xc)**2 + (y2 - yc)**2)
     side = determine_side_math(p1, p2, c)
 
     # calculate the angle between the line p1->c and p1->p2
-    a1 = math.atan2(y1 - c[1], x1 - c[0])
-    a2 = math.atan2(y2 - c[1], x2 - c[0])
+    a1 = np.arctan2(y1 - c[1], x1 - c[0])
+    a2 = np.arctan2(y2 - c[1], x2 - c[0])
 
     if side == 'left' and a1 > a2:
-        a2 += 2 * math.pi
+        a2 += 2 * np.pi
     elif side == 'right' and a1 < a2:
-        a1 += 2 * math.pi
+        a1 += 2 * np.pi
 
-    # calculate 20 points on the arc between a1 and a2
-    coords = []
-    for i in range(n):
-        a = a1 + (a2 - a1) * i / (n - 1)
-        x = c[0] + radius * math.cos(a)
-        y = c[1] + radius * math.sin(a)
-        coords.append((x, y))
+    #angles = np.linspace(a1, a2, n)
+    angles = a1 + (a2 - a1) * NP_VEC
 
+    # Calculate the arc points
+    x_coords = xc + radius * np.cos(angles)
+    y_coords = yc + radius * np.sin(angles)
+
+    # Combine x and y coordinates
+    #coords = np.column_stack((x_coords, y_coords))
+    coords = list(zip(x_coords, y_coords))
     return coords
 
 def calc_rotation_angle(origin, p1, p2):
@@ -475,9 +482,9 @@ def coords_rotate(coords, angle, origin):
 
 def normal_vec(p0, p1):
     """Calculate the normal vector of a line segment."""
-    #dx, dy = x1 - x0, y1 - y0
+
     dx, dy = p1[0] - p0[0], p1[1] - p0[1]
-    length = math.sqrt(dx**2 + dy**2)
+    length = np.sqrt(dx**2 + dy**2)
     dx, dy = dx / length, dy / length
     return -dy, dx
 
@@ -501,7 +508,22 @@ def move_coords(coords, dx, dy):
         coords[i] = (x + dx, y + dy)
     return coords
 
-def path_bbox(coords, lw = 0):
+def path_bbox(coords, lw=0):
+    """Calculate the bounding box of a path."""
+    # now with numpy
+
+    if not coords:
+        return (0, 0, 0, 0)
+
+    coords = np.array(coords)
+    left = np.min(coords[:, 0]) - lw / 2
+    top = np.min(coords[:, 1]) - lw / 2
+    width = np.max(coords[:, 0]) - left + lw / 2
+    height = np.max(coords[:, 1]) - top + lw / 2
+
+    return (left, top, width, height)
+
+def path_bbox_old(coords, lw = 0):
     """Calculate the bounding box of a path."""
     if not coords:
         return (0, 0, 0, 0)

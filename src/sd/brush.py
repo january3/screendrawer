@@ -1,6 +1,7 @@
 """Class for different brushes."""
 import logging                                                   # <remove>
 import gi                                                        # <remove>
+import numpy as np                                               # <remove>
 gi.require_version('Gtk', '3.0')                                 # <remove> pylint: disable=wrong-import-position
 
 import cairo                                                     # <remove>
@@ -89,9 +90,12 @@ class Brush:
         """Get bounding box of the brush."""
 
         if not self.__outline:
+            log.debug("no outline")
             return None
         if not self.__bbox or force:
+            log.debug("calculating bbox")
             self.__bbox = path_bbox(self.__outline)
+        log.debug("bbox: %s", self.__bbox)
         return self.__bbox
 
     def brush_type(self):
@@ -255,6 +259,7 @@ class BrushTapered(Brush):
             log.warning("Pressure and coords don't match (%d <> %d)",
                     len(coords), len(pressure))
         self.outline(outline)
+        self.bbox(force = True)
         return outline
 
 class BrushPencil(Brush):
@@ -285,6 +290,7 @@ class BrushPencil(Brush):
         for s in self.__outline_segments:
             for i, p in enumerate(s):
                 s[i] = (p[0] + dx, p[1] + dy)
+        self.bbox(force = True)
 
     def rotate(self, angle, rot_origin):
         """Rotate the outline."""
@@ -294,6 +300,7 @@ class BrushPencil(Brush):
         for s in self.__outline_segments:
             new_segm.append(coords_rotate(s, angle, rot_origin))
         self.__outline_segments = new_segm
+        self.bbox(force = True)
 
     def scale(self, old_bbox, new_bbox):
         """Scale the outline."""
@@ -303,6 +310,7 @@ class BrushPencil(Brush):
         for s in self.__outline_segments:
             new_segm.append(transform_coords(s, old_bbox, new_bbox))
         self.__outline_segments = new_segm
+        self.bbox(force = True)
 
     def draw(self, cr, outline = False):
         """Draw the brush on the Cairo context."""
@@ -436,6 +444,9 @@ class BrushPencil(Brush):
         self.__outline_segments = self.construct_segments(self.__fused, outline_l, outline_r)
         self.__midpoints = self.segment_midpoints(self.__outline_segments)
 
+        #log.debug("outline: %s", self.outline())
+        #log.debug("outline bbox: %s", path_bbox(self.outline()))
+        self.bbox(force = True)
         return self.outline()
 
 class BrushPencilV2(Brush):
@@ -568,15 +579,16 @@ class BrushSlanted(Brush):
     def to_dict(self):
         """Return a dictionary representation of the brush."""
         return {
-                "brush_type": self.brush_type(), 
+                "brush_type": self.brush_type(),
                 "smooth_path": self.smooth_path(),
-                "slant": self.__slant 
+                "slant": self.__slant
                 }
 
     def rotate(self, angle, rot_origin):
         """Rotate the outline."""
         #self.outline(coords_rotate(self.outline(), angle, rot_origin))
         self.__slant = coords_rotate(self.__slant, angle, (0, 0))
+        self.bbox(force = True)
 
     def calculate(self, line_width = 1, coords = None, pressure = None):
         """Recalculate the outline of the brush."""
@@ -596,6 +608,7 @@ class BrushSlanted(Brush):
         self.outline(outline)
 
         #print("done calculating slanted brush")
+        self.bbox(force = True)
         return outline
 
 class BrushSimple(Brush):
@@ -606,11 +619,64 @@ class BrushSimple(Brush):
         self.__line_width = 1
         self.__bbox = None
 
-    def draw(self, cr, outline = False):
+    def catmull_rom_spline(self, p0, p1, p2, p3, t):
+        """Calculate a point on the Catmull-Rom spline."""
+
+        t2 = t * t
+        t3 = t2 * t
+
+        part1 = 2 * p1
+        part2 = -p0 + p2
+        part3 = 2 * p0 - 5 * p1 + 4 * p2 - p3
+        part4 = -p0 + 3 * p1 - 3 * p2 + p3
+
+        return 0.5 * (part1 + part2 * t + part3 * t2 + part4 * t3)
+
+    def calculate_control_points(self, points):
+        """Calculate the control points for a smooth curve using Catmull-Rom splines."""
+        n = len(points)
+        p0 = points[:-3]
+        p1 = points[1:-2]
+        p2 = points[2:-1]
+        p3 = points[3:]
+
+        t = 0.5  # Tension parameter for Catmull-Rom spline
+
+        c1 = p1 + (p2 - p0) * t / 3
+        c2 = p2 - (p3 - p1) * t / 3
+
+        return np.squeeze(c1), np.squeeze(c2)
+
+    def draw (self, cr, outline = False):
+        """Draw a smooth spline through the given points using Catmull-Rom splines."""
+        points = self.outline()
+
+        if len(points) < 4 or outline:
+            self.draw_simple(cr, outline)
+
+        points = np.array(points)
+
+        # Move to the first point
+        cr.move_to(points[0][0], points[0][1])
+
+        for i in range(1, len(points) - 2):
+            p1 = points[i]
+            p2 = points[i + 1]
+            c1, c2 = self.calculate_control_points(points[i-1:i+3])
+
+            # Draw the cubic Bezier curve using the calculated control points
+            cr.curve_to(c1[0], c1[1], c2[0], c2[1], p2[0], p2[1])
+
+        # Draw the path
+        cr.set_line_width(self.__line_width / 3)
+        cr.stroke()
+
+
+    def draw_simple(self, cr, outline = False):
         """Draw the brush on the Cairo context."""
 
         coords = self.outline()
-        cr.set_line_width(self.__line_width)
+        cr.set_line_width(self.__line_width / 3)
 
         cr.move_to(coords[0][0], coords[0][1])
 

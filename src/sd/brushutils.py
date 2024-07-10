@@ -2,7 +2,7 @@
 
 import logging                                                   # <remove>
 import cairo                                                     # <remove>
-from .utils import calc_arc_coords, calc_arc_coords2, normal_vec # <remove>
+from .utils import calc_arc_coords2, normal_vec # <remove>
 from .utils import calculate_angle2                              # <remove>
 from .utils import distance                                      # <remove>
 from .utils import calc_intersect                                # <remove>
@@ -92,7 +92,6 @@ def calculate_slant_outlines(coords, dx0, dy0, dx1, dy1):
 
     return outline_l, outline_r
 
-
 def normal_vec_scaled(p0, p1, width):
     """Calculate the normal vector of a line segment."""
     nx, ny = normal_vec(p0, p1)
@@ -136,7 +135,7 @@ def calc_outline_short_generic(coords, pressure, line_width, rounded = False):
     l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
 
     if rounded:
-        arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
+        arc_coords = calc_arc_coords2(l_seg1[0], r_seg1[0], p1, 10)
         outline_r.extend(arc_coords)
 
     outline_l.append(l_seg1[0])
@@ -145,7 +144,7 @@ def calc_outline_short_generic(coords, pressure, line_width, rounded = False):
     outline_r.append(r_seg1[1])
 
     if rounded:
-        arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p1, 10)
+        arc_coords = calc_arc_coords2(l_seg1[1], r_seg1[1], p1, 10)
         outline_l.extend(arc_coords)
 
     return outline_l, outline_r
@@ -162,7 +161,7 @@ def calc_normal_outline_short(coords, widths, rounded = False):
     l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
 
     if rounded:
-        arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
+        arc_coords = calc_arc_coords2(l_seg1[0], r_seg1[0], p1, 10)
         outline_r.extend(arc_coords)
 
     outline_l.append(l_seg1[0])
@@ -171,10 +170,38 @@ def calc_normal_outline_short(coords, widths, rounded = False):
     outline_r.append(r_seg1[1])
 
     if rounded:
-        arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p1, 10)
+        arc_coords = calc_arc_coords2(l_seg1[1], r_seg1[1], p1, 10)
         outline_l.extend(arc_coords)
 
     return outline_l, outline_r
+
+
+def calc_normal_segments(coords):
+    """Calculate the normal segments of a path using numpy."""
+
+    coords = np.array(coords)
+    widths = np.array(widths)
+
+    # Calculate differences between consecutive points
+    dx = np.diff(coords[:, 0])
+    dy = np.diff(coords[:, 1])
+
+    # Calculate lengths of the segments
+    lengths = np.sqrt(dx**2 + dy**2)
+
+    # Normalize the vectors
+    dx_normalized = dx / lengths
+    dy_normalized = dy / lengths
+
+    # Calculate normal vectors
+    nx = -dy_normalized
+    ny = dx_normalized
+
+    # Scale normal vectors by widths
+    #nx_scaled = nx * widths[:-1]
+    #ny_scaled = ny * widths[:-1]
+
+    return np.column_stack((nx_scaled, ny_scaled))
 
 
 def calc_normal_outline(coords, widths, rounded = False):
@@ -198,7 +225,7 @@ def calc_normal_outline(coords, widths, rounded = False):
 
     ## append the points for the first coord
     if rounded:
-        arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
+        arc_coords = calc_arc_coords2(l_seg1[0], r_seg1[0], p1, 10)
         outline_r.extend(arc_coords)
     outline_l.append(l_seg1[0])
     outline_r.append(r_seg1[0])
@@ -238,7 +265,7 @@ def calc_normal_outline(coords, widths, rounded = False):
     outline_r.append(r_seg2[1])
 
     if rounded:
-        arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p0, 10)
+        arc_coords = calc_arc_coords2(l_seg1[1], r_seg1[1], p0, 10)
         outline_l.extend(arc_coords)
 
     log.debug("outline lengths: %d, %d", len(outline_l), len(outline_r))
@@ -280,7 +307,7 @@ def calc_pencil_outline(coords, pressure, line_width):
     l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
 
     ## append the points for the first coord
-    arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
+    arc_coords = calc_arc_coords2(l_seg1[0], r_seg1[0], p1, 10)
     outline_r.extend(arc_coords[:5][::-1])
     outline_l.extend(arc_coords[5:])
     pressure_ret = pressure_ret + [pressure[0]] * 5
@@ -326,7 +353,7 @@ def calc_pencil_outline(coords, pressure, line_width):
     outline_r.append(r_seg1[1])
     pressure_ret.append(pressure[-1])
 
-    arc_coords = calc_arc_coords(l_seg1[1], r_seg1[1], p0, 10)
+    arc_coords = calc_arc_coords2(l_seg1[1], r_seg1[1], p0, 10)
     outline_r.extend(arc_coords[:5])
     outline_l.extend(arc_coords[5:][::-1])
     pressure_ret = pressure_ret + [pressure[-1]] * 5
@@ -372,7 +399,7 @@ def calc_normal_outline_tapered(coords, pressure, line_width, taper_pos, taper_l
 
         if i == 0:
         ## append the points for the first coord
-            arc_coords = calc_arc_coords(l_seg1[0], r_seg1[0], p1, 10)
+            arc_coords = calc_arc_coords2(l_seg1[0], r_seg1[0], p1, 10)
             outline_r.extend(arc_coords)
             outline_l.append(l_seg1[0])
             outline_r.append(r_seg1[0])

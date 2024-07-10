@@ -43,10 +43,10 @@ class Bus:
         except Exception as e: #pylint: disable=broad-except
             ret = None
             exc_type, exc_value, exc_traceback = exc_info()
-            log.error("Exception type: %s", exc_type)
-            log.warning("Exception value: %s", exc_value)
             log.warning("Traceback:")
             traceback.print_tb(exc_traceback)
+            log.warning("Exception value: %s", exc_value)
+            log.error("Exception type: %s", exc_type)
             log.warning("Error while dispatching signal %s to %s:", event, listener)
         return ret
 

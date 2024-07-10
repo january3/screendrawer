@@ -42,6 +42,13 @@ To do (sorted by priority):
 
 Design issues:
  
+ * FUCK. there are bezier curves implemented already in cairo. Was all that
+   work with brushes a waste of time? Well, on the other hand, this whole
+   project is a waste of time (this hole project is a waste of tame).
+ * exporting bbox: right now, in the uibuilder code, the bbox is specified
+   as the screen, unless objects are selected. The rationale is "wysiwyg",
+   you can get multiple pages of precisely the same size. However, on the
+   other hand, it may be annoying. Then again, hit ctrl-a and you are good.
  * use numpy for all coordinates?
  * clipboard pasting should be taken over by the clipboard class, but for
    that the class would need access first to bus (to emit add object
@@ -66,7 +73,7 @@ Design issues:
  * maybe numpy should be used for brush calculations.
 
 Bugs:
- * problem with exporting image to png if it is not fully visible.
+ * pen no 5 (pencil) has incorrect bounding box
  * grid is only drawn in the central region.
  * a clipped circle drawn during resize has incorrect coordinates. =>
    problem with "actual" and "not actual" bboxes.
