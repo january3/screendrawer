@@ -21,6 +21,8 @@ from PIL import ImageGrab                                  #<remove>
 log = logging.getLogger(__name__)                          # <remove>
 #log.setLevel(logging.INFO)                                # <remove>
 
+FRAC_FWD = np.array([1/50, 3/50, 2/10, 1/2])
+FRAC_BCK = np.array([-1/50, -3/50, -2/10])
 
 def get_default_savefile(app_name, app_author):
     """Get the default save file for the application."""
@@ -244,8 +246,16 @@ def smooth_vector(coords, smoothing_factor, pressure = None):
     # Create a parameterized spline representation of the curve
     ret = splprep([x, y], s = smoothing_factor, k = 2)
     tck, u = ret[0], ret[1]
-    u_new = np.linspace(0, 1, int(len(coords) * 4))
 
+    delta_u = np.diff(u)
+
+    # Calculate additional points
+    new_u_fwd = np.array([u[:-1][:, None] + delta_u[:, None] * f for f in FRAC_FWD]).reshape(-1)
+    new_u_bck = np.array([u[1: ][:, None] + delta_u[:, None] * f for f in FRAC_BCK]).reshape(-1)
+
+    # Combine original and additional points
+    u_new = np.sort(np.unique(np.concatenate((u, new_u_fwd,
+                                              new_u_bck))))
     # Generate new points along the spline
     new_points = splev(u_new, tck)
 

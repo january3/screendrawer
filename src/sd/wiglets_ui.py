@@ -1,17 +1,16 @@
 """Wiglets which constitute visible UI elements"""
+import logging                                 # <remove>
 import colorsys                                # <remove>
-import gi                                                  # <remove>
-import datetime
-gi.require_version('Gtk', '3.0')                           # <remove> pylint: disable=wrong-import-position
-gi.require_version('Gdk', '3.0')                           # <remove> pylint: disable=wrong-import-position
+import gi                                      # <remove>
+gi.require_version('Gtk', '3.0')               # <remove> pylint: disable=wrong-import-position
+gi.require_version('Gdk', '3.0')               # <remove> pylint: disable=wrong-import-position
 from gi.repository import Gdk                  # <remove>
 import cairo                                   # <remove>
 
 from .wiglets import Wiglet #<remove>
 from .utils import draw_dot, is_click_in_bbox  # <remove>
 from .icons import Icons                       # <remove>
-import logging                                                   # <remove>
-log = logging.getLogger(__name__)                                # <remove>
+log = logging.getLogger(__name__)              # <remove>
 
 def draw_rhomb(cr, bbox, fg = (0, 0, 0), bg = (1, 1, 1)):
     """
@@ -66,7 +65,7 @@ class WigletTransparency(Wiglet):
         self.__initial_transparency = None
         self.__active = False
         self.__bus    = bus
-        log.debug(f"initial transparency: {self.__initial_transparency}")
+        log.debug("initial transparency: %s", self.__initial_transparency)
 
         bus.on("left_mouse_click", self.on_click)
 
@@ -169,7 +168,9 @@ class WigletLineWidth(Wiglet):
         self.__bus.on("mouse_release", self.on_release)
         self.__bus.on("draw", self.draw)
 
-        log.debug(f"activating line width widget at {int(self.coords[0])}, {int(self.coords[1])}, initial width {self.__initial_width}")
+        log.debug("activating lw at %d, %d, initial width %s",
+                  int(self.coords[0]), int(self.coords[1]),
+                  self.__initial_width)
         self.__active = True
         return True
 
@@ -261,7 +262,7 @@ class WigletPageSelector(Wiglet):
             return False
 
         # which page is at this position?
-        log.debug(f"page_selector: clicked inside the bbox, event {ev}")
+        log.debug("page_selector: clicked inside the bbox, event %s", ev)
         dy = y - self.__bbox[1]
 
         page_no = self.__page_n
@@ -270,16 +271,16 @@ class WigletPageSelector(Wiglet):
             if y0 <= dy <= y1:
                 page_no = i
                 break
-        log.debug(f"selected page: {page_no}")
+        log.debug("selected page: %s", page_no)
 
         page_in_range = 0 <= page_no < self.__page_n
 
         if page_in_range:
-            log.debug(f"setting page to {page_no}")
+            log.debug("setting page to %s", page_no)
             self.__gom.set_page_number(page_no)     # <- outside info
 
         if page_no == self.__page_n:
-            log.debug(f"adding a new page")
+            log.debug("adding a new page")
             self.__gom.set_page_number(page_no - 1) # <- outside info
             self.__gom.next_page()                  # <- outside info
 
@@ -399,9 +400,10 @@ class WigletToolSelector(Wiglet):
 
         self.__modes = [ "move", "draw", "segment", "shape", "rectangle",
                         "circle", "text", "eraser", "colorpicker", "zoom" ]
-        self.__modes_dict = { "move": "Move", "draw": "Draw", "segment": "Seg.Path", "shape": "Shape",
-                              "rectangle": "Rectangle", "circle": "Circle", "text": "Text",
-                              "eraser": "Eraser", "colorpicker": "Col.Pick", "zoom": "Zoom"}
+        self.__modes_dict = { "move": "Move", "draw": "Draw", "segment": "Seg.Path",
+                             "shape": "Shape", "rectangle": "Rectangle",
+                             "circle": "Circle", "text": "Text", "eraser": "Eraser",
+                             "colorpicker": "Col.Pick", "zoom": "Zoom"}
 
         if self.__icons_only and width > len(self.__modes) * 35:
             width = len(self.__modes) * 35
@@ -517,15 +519,30 @@ class WigletStatusLine(Wiglet):
         super().__init__("status_line", coords)
 
         self.__state = state
-        self.__screen_wh = (100, 100) # screen width and height
-        self.__text_par   = None
-        self.__bbox = bbox
-        self.__moves = [ ]
-        self.__moves_per_second = 0
+        self.__params = {
+                "screen_wh": (100, 100),
+                "text_par": None,
+                "bbox": bbox,
+                "moves": [ ],
+                "moves_per_second": 0,
+                "zoom": None
+                }
+
+        self.zoom_calc()
 
         bus.on("mouse_move", self.rec_move, 1999)
         bus.on("update_win_size", self.update_size)
         bus.on("draw", self.draw)
+        bus.on("page_zoom", self.zoom_calc, priority = -1)
+        bus.on("page_zoom_reset", self.zoom_calc, priority = -1)
+        bus.on("page_translate", self.zoom_calc, priority = -1)
+
+    def zoom_calc(self, *args): # pylint: disable=unused-argument
+        """recalculate the current zoom"""
+        trafo = self.__state.page().trafo()
+        zx, zy = trafo.calc_zoom()
+        self.__params["zoom"] = (zx, zy)
+        return False
 
     def rec_move(self, ev):
         """record the move and calculate moves / second"""
@@ -534,34 +551,37 @@ class WigletStatusLine(Wiglet):
         t = ev.event.time
         ## convert it to hh:mm:ss
         #log.debug("time: %s", t)
-        self.__moves.append(t)
+        moves = self.__params["moves"]
+        moves.append(t)
 
-        if len(self.__moves) > 100:
+        if len(moves) > 100:
             # remove first element
-            self.__moves = self.__moves[1:]
+            moves.pop(0)
+            #self.__param["moves"] = moves[1:]
             #log.debug("time for 100 moves: %.2f", (self.__moves[-1] - self.__moves[0]) / 1000)
-            self.__moves_per_second = 1000 * 100 / (self.__moves[-1] - self.__moves[0])
+            self.__params["moves_per_second"] = 1000 * 100 / (moves[-1] - moves[0])
         return False
-
 
     def update_size(self, width, height):
         """update the size of the widget"""
 
-        self.__screen_wh = (width, height)
+        self.__params["screen_wh"] = (width, height)
         return True
 
     def calc_size(self):
-        width, height = self.__screen_wh
+        """Calculate the vertical size of the widget"""
+        p = self.__params
+        _, height = p["screen_wh"]
 
         # we can only update the size if we have the text parameters
-        if not self.__text_par:
+        if not p["text_par"]:
             return False
 
-        (dx, dy, tw, th) = self.__text_par
+        (dx, dy, tw, th) = p["text_par"]
         x0 = 5 - dx
         y0 = height - 5 - th - dy
         self.coords = (x0, y0)
-        self.__bbox = (x0 + dx - 5, y0 + dy - 5, tw + 10, th + 10)
+        p["bbox"] = (x0 + dx - 5, y0 + dy - 5, tw + 10, th + 10)
         return True
 
     def draw(self, cr, state):
@@ -569,22 +589,26 @@ class WigletStatusLine(Wiglet):
         if not state.graphics().show_wiglets():
             return
 
-        status_line = self.__state.config().savefile() + f" |mode: {self.__state.mode()}|"
+        p = self.__params
+        state = self.__state
+        status_line = state.config().savefile() + f" |mode: {state.mode()}|"
 
-        status_line += ' (!)' if self.__state.graphics().modified() else ''
+        status_line += ' (!)' if state.graphics().modified() else ''
 
-        bg_cols = [ int(x * 100) for x in self.__state.graphics().bg_color()]
-        tr      = int(self.__state.graphics().alpha() * 100)
+        bg_cols = [ int(x * 100) for x in state.graphics().bg_color()]
+        tr      = int(state.graphics().alpha() * 100)
         bg_cols.append(tr)
         status_line += f"  bg: {bg_cols}"
 
-        pen = self.__state.pen()
-        status_line += f"  pen: col={pen.color} lw={int(100*pen.line_width)/100} tr={int(100*pen.transparency)} {pen.brush_type()}"
+        pen = state.pen()
+        status_line += f"  pen: col={pen.color} lw={int(100*pen.line_width)/100} "
+        status_line += f"tr={int(100*pen.transparency)} {pen.brush_type()}"
+        status_line += f'| zoom: {int(p["zoom"][0] * 100)}%'
 
-        hov = self.__state.hover_obj()
+        hov = state.hover_obj()
         status_line += f"  hover: {hov.type}" if hov else ''
 
-        status_line += f"  moves/s: {self.__moves_per_second:.2f}"
+        status_line += f'  moves/s: {p["moves_per_second"]:.2f}'
 
         cr.select_font_face("monospace", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
         cr.set_font_size(14)
@@ -594,13 +618,14 @@ class WigletStatusLine(Wiglet):
         # width: The width of the text.
         # height: The height of the text.
         # x_advance: The distance to advance horizontally after drawing the text.
-        # y_advance: The distance to advance vertically after drawing the text (usually 0 for horizontal text).
+        # y_advance: The distance to advance vertically after drawing the text
+        #            (usually 0 for horizontal text).
         dx, dy, tw, th, _, _ = cr.text_extents(status_line)
-        self.__text_par = (dx, dy, tw, th)
+        p["text_par"] = (dx, dy, tw, th)
         self.calc_size()
 
         cr.set_source_rgba(1, 1, 1, 0.5)
-        cr.rectangle(*self.__bbox)
+        cr.rectangle(*p["bbox"])
         cr.fill()
 
         cr.set_source_rgb(0.2, 0.2, 0.2)
@@ -685,25 +710,25 @@ class WigletColorSelector(Wiglet):
         if not is_click_in_bbox(x, y, self.__bbox):
             return False
 
-        log.debug(f"color_selector: clicked inside the bbox")
+        log.debug("color_selector: clicked inside the bbox")
 
         dy = y - self.__bbox[1]
         # which color is at this position?
         sel_color = None
         for color, ypos in self.__colors_hpos.items():
             if ypos <= dy <= ypos + self.__color_dh:
-                log.debug(f"selected color: {color}")
+                log.debug("selected color: %s", color)
                 sel_color = color
 
         if not sel_color:
-            log.debug(f"no color selected")
+            log.debug("no color selected")
             return True
 
         if ev.shift():
-            log.debug(f"setting bg to color {sel_color}")
+            log.debug("setting bg to color %s", sel_color)
             self.__bus.emit("set_bg_color", False, sel_color)
         else:
-            log.debug(f"setting fg to color {sel_color}")
+            log.debug("setting fg to color %s", sel_color)
             self.__bus.emit("set_color", False, sel_color)
 
         self.__bus.emit("queue_draw")

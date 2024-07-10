@@ -77,12 +77,17 @@ class Canvas:
         :param tr: The translation (paning).
         """
 
+        outline      = self.__state.graphics().outline()
         bg_color     = self.__state.graphics().bg_color()
         transparency = self.__state.graphics().alpha()
         show_grid    = self.__state.graphics().show_grid()
         size         = self.__state.get_win_size()
 
-        cr.set_source_rgba(*bg_color, transparency)
+        if not outline:
+            cr.set_source_rgba(*bg_color, transparency)
+        else:
+            cr.set_source_rgba(40, 40, 40, transparency)
+
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)

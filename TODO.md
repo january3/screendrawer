@@ -1,9 +1,12 @@
 To do (sorted by priority):
 
+ * make sure that in the outline mode, everything is cyan
  * drawable should not need pen as mandatory argument; rather, they should
    generate a default pen if none is present
  * For layers to be truly useful, we need more layer properties (alpha,
-   visible / non-visible), also rearranging layers
+   visible / non-visible), also rearranging layers. But what kind of
+   interface should do that? I would hate a gimp like menu that takes half
+   of the screen.
  * remember last file name exported and last directory in which it was
    exported, present this option to the user... but how exactly? sometimes
    we want the current directory.
@@ -31,13 +34,15 @@ To do (sorted by priority):
  * make wiglets movable
  * brushes. (1) brush that generates short diagonal thin strokes (2) brush
    that creates a Gary Larson-like hatching (3) brush that creates a
+ * use the fitz / pymupdf library to annotate PDFs. This can be done by
+   creating images using cairo and then adding them to the PDF; while the
+   loaded PDF would constitute the bottom layer of the image, not rendered
+   to the image when producing the additions to the PDF.
+ * use fitz / pymupdf to import PDFs as images on the current page(s).
 
 Design issues:
- * use numpy for all coordinates
- * maybe gom should be included in State? Like, one of the superclasses so
-   that Stat has all gom methods and you can directly interrogate
-   state.page() etc.? Or, alternatively, gom should be created by State,
-   and exposed through state.gom().
+ 
+ * use numpy for all coordinates?
  * clipboard pasting should be taken over by the clipboard class, but for
    that the class would need access first to bus (to emit add object
    events), but also to state, because when pasting text it should know
@@ -47,10 +52,6 @@ Design issues:
    multi-listeners that handle different signals. Maybe the signal should
    be passed as an argument to the listener? That would require a lot of
    work - every listener must take an additional, optional argument.
- * when an sdrw file is opened or saved-as, set the working dir to that
-   files dir. When a file is exported, remember the dir for exports only. 
-   When started in headless mode, start working in the home dir or a dir
-   specified by the config file. Ditto default exports file.
  * the logic behind automated groups is as follows: while automated group
    is created, there is a method listening in on any events. And anything
    that is not on the ignore list causes the current group to be finished.
@@ -63,9 +64,9 @@ Design issues:
  * brushes should better cache the calculations. Only real changes should
    trigger the recalculation of brush outlines.
  * maybe numpy should be used for brush calculations.
- * the interaction between canvas, gom, dm, em is tangled. 
 
 Bugs:
+ * problem with exporting image to png if it is not fully visible.
  * grid is only drawn in the central region.
  * a clipped circle drawn during resize has incorrect coordinates. =>
    problem with "actual" and "not actual" bboxes.
@@ -73,11 +74,6 @@ Bugs:
    some reason. => right, that's because the overlap is not the same as the
    bbox of the clipped region. => look up cairo context, maybe one can get
    the clipping region somehow.
- * ctrl-v when cursor hasn't moved places object at (0, 0) instead of the
-   actual cursor pos (should be the same as with crosslines) => that's
-   because only the absolute (screen) position can be queried at the
-   moment, not the user (drawing) position. => why not use
-   page.trafo().apply_reverse()?
  * remove the frame after taking screenshot
  * select a number of objects, hit alt-s, undo, hit alt-s again -> error.
    something is wrong with selection (old object? containing deleted
@@ -89,6 +85,13 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * ctrl-v when cursor hasn't moved places object at (0, 0) instead of the
+   actual cursor pos (should be the same as with crosslines) => that's
+   because only the absolute (screen) position can be queried at the
+   moment, not the user (drawing) position. => why not use
+   page.trafo().apply_reverse()?
+ * the interaction between canvas, gom, dm, em is tangled.  => can safely
+   say that it is tangled in a much different way
  * the cacheing is still suboptimal. In essence, if an object has not
    changed and redrawing is not requested, there is no need to query its
    bbox and check whether it is within the screen. => solved by a better
@@ -97,9 +100,17 @@ Done:
    irrespective of the zoom, we are trying to redraw the whole image. We
    need to clip with the window size instead. Or at least set a cap on
    zoom.
+ * when an sdrw file is opened or saved-as, set the working dir to that
+   files dir. When a file is exported, remember the dir for exports only. 
+   When started in headless mode, start working in the home dir or a dir
+   specified by the config file. Ditto default exports file.
  * when zooming in, lines are grainy, same problem as with text below.
    However, we cannot ditch the cacheing. The solution would be to, of
    course, to draw the cache outside of page transformations.
+ * maybe gom should be included in State? Like, one of the superclasses so
+   that Stat has all gom methods and you can directly interrogate
+   state.page() etc.? Or, alternatively, gom should be created by State,
+   and exposed through state.gom().
  * when zoomed in, the text is grainy. This is due to the fact that rather
    than being drawn directly, it is drawn on a surface, then the surface is
    zoomed in... you get the pic. Probably, text should be always drawn

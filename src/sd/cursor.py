@@ -93,12 +93,16 @@ class CursorManager:
         self.__bus.emit("queue_draw")
 
     def draw(self, cr, state):
-        """Draw a cursor if necessary"""
+        """Draw a crossline under the cursor."""
 
-        x, y = self.pos_absolute()
+        if self.__pos_abs is None:
+            x, y = state.cursor_pos_abs()
+        else:
+            x, y = self.__pos_abs
+
         w, h = state.get_win_size()
         cr.save()
-        cr.set_source_rgb(0, 1, 0.2)
+        cr.set_source_rgba(0.4, 0.4, 0.4, 0.4)
         cr.set_line_width(1)
         cr.move_to(0, y)
         cr.line_to(w, y)

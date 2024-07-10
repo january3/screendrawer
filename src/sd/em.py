@@ -165,7 +165,7 @@ class EventManager:
             return
 
         # otherwise, we dispatch the key event
-        self.dispatch_key_event(keyfull, 'keyname:' + keyname, mode)
+        self.dispatch_key_event(keyfull, 'keyname:' + str(keyname), mode)
 
         # XXX this probably should be somewhere else
         state.queue_draw()

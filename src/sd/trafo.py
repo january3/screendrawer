@@ -133,6 +133,17 @@ class Trafo():
         if self.__trafo:
             trafos_on_cairo(cr, self.__trafo)
 
+    def calc_zoom(self):
+        """Calculate the zoom factor of the transformations."""
+
+        zoom_x, zoom_y = 1, 1
+        for trafo in self.__trafo:
+            trafo_type, trafo_args = trafo
+            if trafo_type == "resize":
+                zoom_x *= trafo_args[2]
+                zoom_y *= trafo_args[3]
+        return zoom_x, zoom_y
+
     def __str__(self):
         return f"Trafo({self.__trafo})"
 

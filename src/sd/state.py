@@ -474,7 +474,7 @@ class State(StateObj):
         """Get the cursor position"""
 
         x, y = get_cursor_position(self.app())
-        self.bus().emitMult("cursor_abs_pos_update", (x, y))
+        #self.bus().emitMult("cursor_abs_pos_update", (x, y))
         return (x, y)
 
     def toggle_outline(self):
