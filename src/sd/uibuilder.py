@@ -16,7 +16,7 @@ from .wiglets_ui import WigletLineWidth, WigletPageSelector     # <remove>
 from .wiglets_ui import WigletColorSelector, WigletToolSelector # <remove>
 from .wiglets_ui import WigletTransparency, WigletStatusLine    # <remove>
 
-from .dialogs import help_dialog, FontChooser, ColorChooser     # <remove>
+from .dialogs import HelpDialog, font_chooser, color_chooser    # <remove>
 from .dialogs import open_drawing_dialog, import_image_dialog   # <remove>
 from .dialogs import export_dialog, save_dialog                 # <remove>
 from .drawable_primitives import Image                          # <remove>
@@ -106,28 +106,28 @@ class UIBuilder():
     def show_help_dialog(self):
         """Show the help dialog."""
 
-        dialog = help_dialog(self.__app)
+        dialog = HelpDialog(self.__app)
         dialog.run()
         dialog.destroy()
 
     def select_font(self):
         """Select a font for drawing using FontChooser dialog."""
-        font_description = FontChooser(self.__state.pen(), self.__app)
+        font_description = font_chooser(self.__state.pen(), self.__app)
 
         if font_description:
             self.__bus.emitMult("set_font", font_description)
 
     def select_color_bg(self):
-        """Select a color for the background using ColorChooser."""
+        """Select a color for the background using color_chooser."""
 
-        color = ColorChooser(self.__app, "Select Background Color")
+        color = color_chooser(self.__app, "Select Background Color")
 
         if color:
             self.__bus.emitOnce("set_bg_color", (color.red, color.green, color.blue))
 
     def select_color(self):
-        """Select a color for drawing using ColorChooser dialog."""
-        color = ColorChooser(self.__app)
+        """Select a color for drawing using color_chooser dialog."""
+        color = color_chooser(self.__app)
         if color:
             self.__bus.emitMult("set_color", (color.red, color.green, color.blue))
 

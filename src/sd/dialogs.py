@@ -2,13 +2,13 @@
 Dialogs for the ScreenDrawer application.
 """
 
-import os # <remove>
-import gi                                                  # <remove>
-gi.require_version('Gtk', '3.0')                           # <remove>
-from gi.repository import Gtk # <remove>
-from .pen import Pen # <remove>
-import logging                                                   # <remove>
-log = logging.getLogger(__name__)                                # <remove>
+import os                          # <remove>
+import logging                     # <remove>
+import gi                          # <remove>
+gi.require_version('Gtk', '3.0')   # <remove> pylint: disable=wrong-import-position
+from gi.repository import Gtk      # <remove>
+from .pen import Pen               # <remove>
+log = logging.getLogger(__name__)  # <remove>
 
 ## ---------------------------------------------------------------------
 FORMATS = {
@@ -20,10 +20,10 @@ FORMATS = {
 
 
 ## ---------------------------------------------------------------------
-class help_dialog(Gtk.Dialog):
+class HelpDialog(Gtk.Dialog):
     """A dialog to show help information."""
     def __init__(self, parent):
-        log.debug(f"parent: {parent}")
+        log.debug("parent: {parent}")
         super().__init__(title="Help", transient_for=parent, flags=0)
         self.add_buttons(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
@@ -49,7 +49,7 @@ Draw on the screen with Gnome and Cairo. Quick and dirty.
 <span font_family="monospace">
 <b>General / Interface:</b>
 w: Toggle UI (hide / show widgets)         F1, h, ?: Show this help dialog
-Ctrl-q, x, q: Quit                         
+Ctrl-q, x, q: Quit
 
 <b>UI:</b> (toggle with 'w')
 Color selector: click to select pen color, shift-click to select background color
@@ -83,7 +83,7 @@ Ctrl-l: Clear drawing   l: Clear drawing                                  Ctrl-v
                                                                           Ctrl-x: Cut content    Shift-letter: quick color selection e.g.
                                                                                                  Shift-r for red
 Ctrl-i: insert image                                                                             |Del|: Delete selected object(s)
-Ctrl-z: undo            |Esc|: Finish text input                                                 
+Ctrl-z: undo            |Esc|: Finish text input
 Ctrl-y: redo            |Enter|: New line (when typing)                   Alt-Up, Alt-Down: Move object up, down in stack
                                                                           Alt-PgUp, Alt-PgDown: Move object to front, back
 Ctrl-k: Select color                     f: fill with current color       Alt-s: convert drawing(s) to shape(s)
@@ -93,7 +93,7 @@ Ctrl-b: Cycle background transparency                                     Alt-p:
 Ctrl-p: toggle between two pens                                           Alt-Shift-p: apply pen color to background
 Ctrl-g: toggle grid                      1-5: select brush
 
-Ctrl-Shift-g: toggle "group while drawing" mode                           
+Ctrl-Shift-g: toggle "group while drawing" mode
 
 <b>Brushes:</b> (select with 1-5)
 
@@ -128,7 +128,7 @@ if you check the "multipage" checkbox.
 
 <b>Taking screenshots:</b>
 Ctrl-Shift-f: screenshot: for a screenshot, if you have at least one rectangle                    This is likely to change in the future.
-object (r mode) selected, then it will serve as the selection area. The                        
+object (r mode) selected, then it will serve as the selection area. The
 screenshot will be pasted into the drawing. If no rectangle is selected, then
 the mode will change to "rectangle" and the next rectangle you draw will be
 used as the capture area.
@@ -182,20 +182,14 @@ def _dialog_add_image_formats(dialog):
 
 ## ---------------------------------------------------------------------
 
-def test_func(button):
-
-    log.debug("itsa me, test_func")
-    log.debug(f"button value: {button.get_active()}")
-
 def export_dialog_extra_widgets(ui_opts = None):
-    # Create a ComboBoxText for file format selection
+    """Options and format chooser for the export dialog"""
+
     format_selector = Gtk.ComboBoxText()
-    
-    # Add file format options
     formats = [ "By extension", "PDF", "SVG", "PNG"]
     for fmt in formats:
         format_selector.append_text(fmt)
-    
+
     # Set the default selection to either
     # ui_opts["format"] or if that is None, to 0
     if ui_opts and ui_opts.get("format"):
@@ -212,42 +206,36 @@ def export_dialog_extra_widgets(ui_opts = None):
     export_screen_checkbox = Gtk.CheckButton(label="Export screen view")
     if ui_opts and ui_opts.get("export_screen"):
         export_screen_checkbox.set_active(ui_opts["export_screen"])
- 
+
     # Function to update checkbox sensitivity
     def update_checkbox_sensitivity(combo):
         selected_format = combo.get_active_text()
         export_all_checkbox.set_sensitive(selected_format in [ "PDF", "By extension"])
-    
+
     # Connect the combo box's changed signal to update the checkbox
     format_selector.connect("changed", update_checkbox_sensitivity)
-    
+
     # Initial update of checkbox sensitivity
     update_checkbox_sensitivity(format_selector)
-  
+
     # Create a label for the selector
     label = Gtk.Label(label="File Format:")
-    
+
     # Create a horizontal box to hold the label and selector
     hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
     hbox.pack_start(label, False, False, 0)
     hbox.pack_start(format_selector, False, False, 0)
     hbox.pack_start(export_all_checkbox, False, False, 0)
     hbox.pack_start(export_screen_checkbox, False, False, 0)
-    
+
     return hbox, format_selector, export_all_checkbox, export_screen_checkbox
 
+def __mk_export_dialog(parent, ui_opts):
+    """Create a file chooser dialog for exporting."""
 
-def export_dialog(parent, export_dir = None, filename=None, ui_opts = None):
-    """Show a file chooser dialog to select a file to save the drawing as
-    an image / pdf / svg."""
-    log.debug("export_dialog")
-    file_name, selected_filter = None, None
-    selected_format = None
-    export_screen = False
-
+    selected = ui_opts.get("selected", False)
     ## doesn't really work because we don't have a standalone window with
     ## its own title bar
-    selected = ui_opts.get("selected", False)
     title = "Export selected objects As" if selected else "Export all objects As"
 
     dialog = Gtk.FileChooserDialog(
@@ -257,44 +245,63 @@ def export_dialog(parent, export_dir = None, filename=None, ui_opts = None):
                        Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
     dialog.set_modal(True)
 
+    return dialog
+
+def __export_dialog_set_extras(dialog, ui_opts):
+    """Set the extra widgets for the export dialog."""
+
     ret =  export_dialog_extra_widgets(ui_opts = ui_opts)
     hbox, fmt_selector, exp_all_cb, exp_screen_cb = ret
 
     dialog.set_extra_widget(hbox)
     hbox.show_all()
 
-    current_directory = export_dir or os.getcwd()
-    log.debug(f"current_directory: {current_directory}, filename: {filename}")
+    return fmt_selector, exp_all_cb, exp_screen_cb
 
-    if filename: 
+def __export_dialog_init_state(dialog, export_dir, filename):
+    """Initialize the state of the export dialog."""
+
+    current_directory = export_dir or os.getcwd()
+    log.debug("current_directory: {current_directory}, filename: %s", filename)
+
+    if filename:
         dialog.set_filename(filename)
 
     dialog.set_current_folder(current_directory)
-
     _dialog_add_image_formats(dialog)
 
-    log.debug(f"filter: {dialog.get_filter()}")
+    log.debug("filter: %s", dialog.get_filter())
+
+def export_dialog(parent, export_dir = None, filename=None, ui_opts = None):
+    """Show a file chooser dialog to select a file to save the drawing as
+    an image / pdf / svg."""
+    log.debug("export_dialog")
+
+    dialog = __mk_export_dialog(parent, ui_opts)
+    ret    = __export_dialog_set_extras(dialog, ui_opts)
+
+    __export_dialog_init_state(dialog, export_dir, filename)
+
     all_pages_pdf = False
 
     # Show the dialog
     response = dialog.run()
 
-    if response == Gtk.ResponseType.OK:
-        file_name = dialog.get_filename()
-        selected_filter = dialog.get_filter().get_name()
-        selected_filter = FORMATS[selected_filter]["name"]
-        selected_format = fmt_selector.get_active_text()
-        all_pages_pdf = exp_all_cb.get_active()
-        export_screen = exp_screen_cb.get_active()
+    if not response == Gtk.ResponseType.OK:
+        dialog.destroy()
+        return None, None, None, None
 
-        if selected_format == "by extension":
-            selected_format = "any"
+    fmt_selector, exp_all_cb, exp_screen_cb = ret
 
-        log.debug("Save file as: %s; Format: %s/%s",
-                  file_name, selected_filter, selected_format)
-        log.debug("all pages as PDF: %s; export_screen: %s",
-                  all_pages_pdf, export_screen)
+    file_name = dialog.get_filename()
+    selected_format = fmt_selector.get_active_text()
+    all_pages_pdf = exp_all_cb.get_active()
+    export_screen = exp_screen_cb.get_active()
 
+    log.debug("Save file as: %s; Format: %s",
+              file_name, selected_format)
+    log.debug("all pages as PDF: %s; export_screen: %s",
+              all_pages_pdf, export_screen)
 
     dialog.destroy()
     return file_name, selected_format, all_pages_pdf, export_screen
@@ -328,7 +335,6 @@ def save_dialog(parent):
     dialog.destroy()
     return file_name
 
-
 def import_image_dialog(parent, import_dir = None):
     """Show a file chooser dialog to select an image file."""
     dialog = Gtk.FileChooserDialog(
@@ -352,12 +358,11 @@ def import_image_dialog(parent, import_dir = None):
     # Show the dialog and wait for the user response
     response = dialog.run()
 
-    pixbuf = None
     image_path = None
     if response == Gtk.ResponseType.OK:
         image_path = dialog.get_filename()
     elif response == Gtk.ResponseType.CANCEL:
-        print("No image selected")
+        log.warning("No image selected")
 
     # Clean up and destroy the dialog
     dialog.destroy()
@@ -388,7 +393,8 @@ def open_drawing_dialog(parent):
     dialog.destroy()
     return image_path
 
-def FontChooser(pen, parent):
+def font_chooser(pen, parent):
+    """Dialog to choose a Font."""
 
     # check that pen is an instance of Pen
     if not isinstance(pen, Pen):
@@ -414,24 +420,18 @@ def FontChooser(pen, parent):
     font_dialog.destroy()
     return font_description
 
-
-def ColorChooser(parent, title = "Select Pen Color"):
+def color_chooser(parent, title = "Select Pen Color"):
     """Select a color for drawing."""
     # Create a new color chooser dialog
-    color_chooser = Gtk.ColorChooserDialog(title, parent = parent)
+    __color_chooser = Gtk.ColorChooserDialog(title, parent = parent)
 
     # Show the dialog
-    response = color_chooser.run()
+    response = __color_chooser.run()
     color = None
 
     # Check if the user clicked the OK button
     if response == Gtk.ResponseType.OK:
-        color = color_chooser.get_rgba()
-        #self.set_color((color.red, color.green, color.blue))
+        color = __color_chooser.get_rgba()
 
-    # Don't forget to destroy the dialog
-    color_chooser.destroy()
+    __color_chooser.destroy()
     return color
-
-
-
