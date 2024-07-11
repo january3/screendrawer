@@ -7,11 +7,16 @@ Usage:
 See README.md for more information.
 """
 
+# pylint: disable=unused-import
+# pylint: disable=unused-wildcard-import
+# pylint: disable=wildcard-import
+
 import copy
 import pickle
 import traceback
 import colorsys
-from sys import exc_info, argv, exit
+import sys
+from sys import exc_info, argv
 import os
 from os import path
 import time
@@ -33,7 +38,7 @@ import cairo
 import appdirs
 
 import gi
-gi.require_version('Gtk', '3.0')
+gi.require_version('Gtk', '3.0') # pylint: disable=wrong-import-position
 from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
 
 
@@ -43,9 +48,12 @@ from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, GLib
 # the files are directly, physically inserted in order to get one big fat
 # Python script that can just be copied.
 
+
 from sd.utils import *                    ###<placeholder sd/utils.py>
 from sd.brushutils import *               ###<placeholder sd/brushutils.py>
 from sd.commands import *                 ###<placeholder sd/commands.py>
+from sd.commands_props import *           ###<placeholder sd/commands_props.py>
+from sd.commands_obj import *             ###<placeholder sd/commands_obj.py>
 from sd.pen import Pen                    ###<placeholder sd/pen.py>
 from sd.events import *                   ###<placeholder sd/events.py>
 from sd.dialogs import *                  ###<placeholder sd/dialogs.py>
@@ -67,14 +75,15 @@ from sd.imageobj import ImageObj          ###<placeholder sd/imageobj.py>
 from sd.state import State                ###<placeholder sd/state.py>
 from sd.drawable import *                 ###<placeholder sd/drawable.py>
 from sd.drawer import Drawer              ###<placeholder sd/drawer.py>
-from sd.drawable_factory import DrawableFactory             ###<placeholder sd/drawable_factory.py>
-from sd.drawable_group import DrawableGroup                 ###<placeholder sd/drawable_group.py>
-from sd.drawable_primitives import Image, Text              ###<placeholder sd/drawable_primitives.py>
-from sd.drawable_primitives import Rectangle, Shape, Circle ###<placeholder sd/drawable_primitives.py>
-from sd.drawable_paths import Path                          ###<placeholder sd/drawable_paths.py>
-from sd.history import History                              ###<placeholder sd/history.py>
-from sd.bus import Bus                                      ###<placeholder sd/bus.py>
-from sd.uibuilder import UIBuilder                          ###<placeholder sd/uibuilder.py>
+from sd.drawable_factory import DrawableFactory  ###<placeholder sd/drawable_factory.py>
+from sd.drawable_group import DrawableGroup      ###<placeholder sd/drawable_group.py>
+from sd.drawable_primitives import Image, Text   ###<placeholder sd/drawable_primitives.py>
+from sd.drawable_primitives import Rectangle     ###<placeholder sd/drawable_primitives.py>
+from sd.drawable_primitives import Shape, Circle ###<placeholder sd/drawable_primitives.py>
+from sd.drawable_paths import Path               ###<placeholder sd/drawable_paths.py>
+from sd.history import History                   ###<placeholder sd/history.py>
+from sd.bus import Bus                           ###<placeholder sd/bus.py>
+from sd.uibuilder import UIBuilder               ###<placeholder sd/uibuilder.py>
 
 
 # ---------------------------------------------------------------------
@@ -86,6 +95,9 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%Y-%m-%d %H:%M:%S')
 log = logging.getLogger(__name__)
 log.info("Application is starting")
+
+APP_NAME   = "ScreenDrawer"
+APP_AUTHOR = "JanuaryWeiner"  # used on Windows
 
 COLORS = {
         "black": (0, 0, 0),
@@ -144,7 +156,7 @@ class TransparentWindow(Gtk.Window):
 
         # em has to know about all that to link actions to methods
         em  = EventManager(bus = self.bus, state  = self.state)
-        mm  = MenuMaker(self.bus, self.state)
+        MenuMaker(self.bus, self.state)
 
         # mouse gets the mouse events
         self.mouse = MouseCatcher(bus = self.bus, state = self.state)
@@ -175,7 +187,7 @@ class TransparentWindow(Gtk.Window):
         self.uibuilder.read_file(save_file)
 
 
-    def exit(self, event = None):
+    def exit(self, event = None): # pylint: disable=unused-argument
         """Exit the application."""
         ## close the savefile_f
         log.info("Exiting")
@@ -205,14 +217,14 @@ Convert screendrawer file to given format (png, pdf, svg, yaml) and exit
 """,
                         metavar = "FORMAT"
     )
-    parser.add_argument("-p", "--page", help="Page to convert (default: 1)", 
+    parser.add_argument("-p", "--page", help="Page to convert (default: 1)",
                         type=int)
 
-    parser.add_argument("-b", "--border", 
+    parser.add_argument("-b", "--border",
                         help="""
                              Border width for conversion. If not
                              specified, the default is 10 px.
-                             """, 
+                             """,
                         default=10,
                         type=int)
     parser.add_argument("-o", "--output", help="Output file for conversion")
@@ -235,32 +247,32 @@ def process_args(args, app_name, app_author):
     if args.convert:
         if not args.convert in [ "png", "pdf", "svg", "yaml" ]:
             print("Invalid conversion format")
-            exit(1)
+            sys.exit(1)
         output = None
         if args.output:
             output = args.output
 
         if not args.files:
             print("No input file provided")
-            exit(1)
+            sys.exit(1)
 
-        convert_file(args.files[0], 
-                     output, 
-                     args.convert, 
-                     border = args.border, 
+        convert_file(args.files[0],
+                     output,
+                     args.convert,
+                     border = args.border,
                      page_no = page_no)
-        exit(0)
+        sys.exit(0)
 
     # convert if exactly two file names are provided
     if args.files:
         if len(args.files) > 2:
             print("Too many files provided")
-            exit(1)
+            sys.exit(1)
         elif len(args.files) == 2:
-            convert_file(args.files[0], args.files[1], 
-                         border = args.border, 
+            convert_file(args.files[0], args.files[1],
+                         border = args.border,
                          page_no = page_no)
-            exit(0)
+            sys.exit(0)
         else:
             _savefile = args.files[0]
     else:
@@ -269,12 +281,10 @@ def process_args(args, app_name, app_author):
 
 def main():
     """Main function for the application."""
-    APP_NAME   = "ScreenDrawer"
-    APP_AUTHOR = "JanuaryWeiner"  # used on Windows
 
     # Get user-specific config directory
     user_config_dir = appdirs.user_config_dir(APP_NAME, APP_AUTHOR)
-    log.debug(f"User config directory: {user_config_dir}")
+    log.debug("User config directory: %s", user_config_dir)
 
     #user_cache_dir = appdirs.user_cache_dir(APP_NAME, APP_AUTHOR)
     #user_log_dir   = appdirs.user_log_dir(APP_NAME, APP_AUTHOR)
@@ -289,7 +299,7 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
         log.info("Setting logging level to DEBUG")
     savefile = process_args(args, APP_NAME, APP_AUTHOR)
-    log.debug("Save file is: %s", savefile) 
+    log.debug("Save file is: %s", savefile)
 
 # ---------------------------------------------------------------------
 
@@ -297,7 +307,7 @@ def main():
     if args.loadfile:
         win.uibuilder.read_file(args.loadfile)
 
-    CSS = b"""
+    css = b"""
     #myMenu {
         background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
         font-family: 'Ubuntu Mono', Monospace, 'Monospace Regular', monospace, 'Courier New'; /* Use 'Courier New', falling back to any monospace font */
@@ -305,7 +315,7 @@ def main():
     """
 
     style_provider = Gtk.CssProvider()
-    style_provider.load_from_data(CSS)
+    style_provider.load_from_data(css)
     Gtk.StyleContext.add_provider_for_screen(
         Gdk.Screen.get_default(),
         style_provider,

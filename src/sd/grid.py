@@ -1,13 +1,13 @@
 """Grid class for drawing a grid on screen"""
-import gi                                                  # <remove>
-gi.require_version('Gtk', '3.0')                           # <remove>
-import cairo                                            # <remove>
+import gi                         # <remove>
+gi.require_version('Gtk', '3.0')  # <remove> pylint: disable=wrong-import-position
+import cairo                      # <remove>
 
 class Grid:
     """
     Grid object holds information about how tight a grid is, and how it is drawn.
 
-    app is a necessary argument, because Grid needs to know the current size of 
+    app is a necessary argument, because Grid needs to know the current size of
     the screen to draw the grid properly.
     """
     def __init__(self):
@@ -42,8 +42,8 @@ class Grid:
             self.__cache_new(tr, size)
             self.__state = [tr, size]
 
-        cr.set_source_surface(self.__cache["surface"], 
-                              -self.__cache["x"], 
+        cr.set_source_surface(self.__cache["surface"],
+                              -self.__cache["x"],
                               -self.__cache["y"])
         cr.paint()
 

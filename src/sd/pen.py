@@ -2,10 +2,12 @@
 This module defines the Pen class, which represents a pen with customizable drawing properties.
 """
 
-import gi                                                  # <remove>
-gi.require_version('Gtk', '3.0')                           # <remove>
-gi.require_version('Pango', '1.0')                           # <remove>
-from gi.repository import Pango  # <remove>
+import logging                             # <remove>
+import gi                                 # <remove>
+gi.require_version('Gtk', '3.0')          # <remove> pylint: disable=wrong-import-position
+gi.require_version('Pango', '1.0')        # <remove> pylint: disable=wrong-import-position
+from gi.repository import Pango           # <remove>
+log = logging.getLogger(__name__)          # <remove>
 
 class Pen:
     """
@@ -72,8 +74,6 @@ class Pen:
         """Get or set the brush property"""
         if brush_type is not None:
             self.__brush_type = brush_type
-       #     print("creating new self", self, "brush", brush_type)
-       #     self.__brush = BrushFactory.create_brush(brush_type)
         return self.__brush_type
 
     def transparency_set(self, transparency):
@@ -137,19 +137,22 @@ class Pen:
         self.font_size   = font_dict.get("size", 12)
         self.font_weight = font_dict.get("weight", "normal")
         self.font_style  = font_dict.get("style", "normal")
-        self.font_description = Pango.FontDescription.from_string(f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}")
+        fstr = f"{self.font_family} {self.font_style} {self.font_weight} {self.font_size}"
+        self.font_description = Pango.FontDescription.from_string(fstr)
 
 
     def font_set_from_description(self, font_description):
         """Set font based on a Pango.FontDescription"""
-        print("setting font from", font_description)
+        log.debug("setting font from %s", font_description)
         self.font_description = font_description
         self.font_family = font_description.get_family()
         self.font_size   = font_description.get_size() / Pango.SCALE
-        self.font_weight = "bold"   if font_description.get_weight() == Pango.Weight.BOLD  else "normal"
-        self.font_style  = "italic" if font_description.get_style()  == Pango.Style.ITALIC else "normal"
+        wgt = font_description.get_weight()
+        self.font_weight = "bold"   if wgt == Pango.Weight.BOLD  else "normal"
+        sty = font_description.get_style()
+        self.font_style  = "italic" if sty == Pango.Style.ITALIC else "normal"
 
-        print("setting font to",
+        log.debug("setting font to %s %s %s %s",
               self.font_family, self.font_size, self.font_weight, self.font_style)
 
     def to_dict(self):
@@ -168,13 +171,13 @@ class Pen:
 
     def copy(self):
         """Create a copy of the pen"""
-        return Pen(self.color, self.line_width, self.transparency, self.fill_color, 
+        return Pen(self.color, self.line_width, self.transparency, self.fill_color,
                    self.font_size, self.font_family, self.font_weight, self.font_style,
                    brush = self.__brush_type)
 
     @classmethod
     def from_dict(cls, d):
         """Create a pen object from a dictionary"""
-        #def __init__(self, color = (0, 0, 0), line_width = 12, font_size = 12, transparency = 1, fill_color = None, family = "Sans", weight = "normal", style = "normal"):
-        return cls(d.get("color"), d.get("line_width"), d.get("transparency"), d.get("fill_color"),
-                   d.get("font_size"), d.get("font_family"), d.get("font_weight"), d.get("font_style"), d.get("brush"))
+        return cls(d.get("color"), d.get("line_width"), d.get("transparency"),
+                   d.get("fill_color"), d.get("font_size"), d.get("font_family"),
+                   d.get("font_weight"), d.get("font_style"), d.get("brush"))

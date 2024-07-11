@@ -9,11 +9,11 @@ from .utils import base64_to_pixbuf  # <remove>
 
 class ImageObj:
     """Simple class to hold an image object."""
-    def __init__(self, pixbuf, base64):
+    def __init__(self, pixbuf, base64_enc):
 
-        if base64:
-            self.__base64 = base64
-            pixbuf = base64_to_pixbuf(base64)
+        if base64_enc:
+            self.__base64 = base64_enc
+            pixbuf = base64_to_pixbuf(base64_enc)
         else:
             self.__base64 = None
 
@@ -41,5 +41,3 @@ class ImageObj:
         if self.__base64 is None:
             self.__base64 = self.encode_base64()
         return self.__base64
-
-

@@ -1,6 +1,5 @@
 """Module for history tracking."""
 import logging                                                   # <remove>
-from .commands import CommandGroup                               # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 
 class History:
@@ -28,35 +27,35 @@ class History:
 
     def set_page(self, page):
         """Set the current page."""
-        log.debug(f"setting page to {page}")
+        log.debug("setting page to %s", page)
         self.__cur_page = page
 
     def add(self, cmd):
         """Add item to history."""
-        log.debug(f"appending {cmd.type()} on page={self.__cur_page} new cmd hash={cmd.hash()}")
+        log.debug("appending {cmd.type()} on page={self.__cur_page} new cmd hash=%s", cmd.hash())
 
         oldcmd  = self.__history[-1]['cmd']  if self.__history else None
         oldpage = self.__history[-1]['page'] if self.__history else None
-        log.debug(f"oldcmd hash={oldcmd.hash() if oldcmd else None} oldpage={oldpage}")
+        log.debug("oldcmd hash={oldcmd.hash() if oldcmd else None} oldpage=%s", oldpage)
 
         if oldcmd and oldpage == self.__cur_page:
             if oldcmd == cmd or oldcmd > cmd:
-                log.debug(f"cmd hash={cmd.hash() if cmd else None}")
-                log.debug(f"merging commands, {cmd.type()} and {oldcmd.type()}")
+                log.debug("cmd hash=%s", cmd.hash() if cmd else None)
+                log.debug("merging commands, {cmd.type()} and %s", oldcmd.type())
                 self.__history.pop()
                 cmd = oldcmd + cmd
-                log.debug(f"new command hash={cmd.hash()}")
+                log.debug("new command hash=%s", cmd.hash())
 
         self.__history.append({'cmd': cmd, 'page': self.__cur_page})
         self.__redo = []
 
     def history_remove(self, cmd):
         """Remove an item from the history."""
-        log.debug(f"removing {cmd.type()} from history")
+        log.debug("removing %s from history", cmd.type())
         n = len(self.__history)
         self.__history = [ item for item in self.__history if item['cmd'] != cmd ]
         if n == len(self.__history):
-            log.warning(f"could not remove {cmd.type()} from history")
+            log.warning("could not remove %s from history", cmd.type())
 
     def undo_command(self, cmd):
         """
@@ -65,15 +64,15 @@ class History:
         Dangerous! Use with caution. Make sure that the command does not
         have any side effects.
         """
-        log.debug(f"undoing specific command, type {cmd.type()}")
+        log.debug("undoing specific command, type %s", cmd.type())
         if not self.__history:
             log.warning("Nothing to undo")
             return None
 
         if self.__history[-1]['cmd'] == cmd:
             return self.undo()
-        else:
-            log.warning(f"Command {cmd.type()} is not the last command, beware")
+
+        log.warning("Undoing cmd %s which is not the last in history, beware", cmd.type())
 
         for i, item in enumerate(self.__history):
             if item['cmd'] == cmd:
@@ -82,7 +81,7 @@ class History:
                 if item['page'] != self.__cur_page:
                     self.__bus.emit("page_set", False, item['page'])
                 return cmd.undo()
-        log.warning(f"Command {cmd.type()} not found in history")
+        log.warning("Command %s not found in  history", cmd.type())
         return None
 
     def undo(self):
@@ -93,7 +92,7 @@ class History:
 
         item = self.__history.pop()
         cmd = item['cmd']
-        log.debug(f"undoing {cmd.type()}")
+        log.debug("undoing %s", cmd.type())
         ret = cmd.undo()
         self.__redo.append(item)
         if item['page'] != self.__cur_page:
@@ -107,7 +106,7 @@ class History:
 
         item = self.__redo.pop()
         cmd = item['cmd']
-        log.debug(f"redoing {cmd.type()}")
+        log.debug("redoing %s", cmd.type())
         ret = cmd.redo()
         self.__history.append(item)
         if item['page'] != self.__cur_page:

@@ -81,9 +81,12 @@ class TextEditor:
                 self.__caret_pos = 0
             else:
                 return
-        while self.__caret_pos < len(self.__cont[self.__line]) and self.__cont[self.__line][self.__caret_pos].isspace():
+
+        line = self.__cont[self.__line]
+        while self.__caret_pos < len(line) and line[self.__caret_pos].isspace():
             self.__caret_pos += 1
-        while self.__caret_pos < len(self.__cont[self.__line]) and not self.__cont[self.__line][self.__caret_pos].isspace():
+
+        while self.__caret_pos < len(line) and not line[self.__caret_pos].isspace():
             self.__caret_pos += 1
 
     def __move_left_word(self):

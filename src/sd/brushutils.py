@@ -1,13 +1,14 @@
 """Utilities for calculation of brush strokes."""
 
-import logging                                                   # <remove>
-import cairo                                                     # <remove>
-from .utils import calc_arc_coords2, normal_vec # <remove>
-from .utils import calculate_angle2                              # <remove>
-from .utils import distance                                      # <remove>
-from .utils import calc_intersect                                # <remove>
+import logging                                   # <remove>
+import cairo                                     # <remove>
+import numpy as np                               # <remove>
+from .utils import calc_arc_coords2, normal_vec  # <remove>
+from .utils import calculate_angle2              # <remove>
+from .utils import distance                      # <remove>
+from .utils import calc_intersect                # <remove>
 
-log = logging.getLogger(__name__)                                # <remove>
+log = logging.getLogger(__name__)                # <remove>
 
 def get_current_color_and_alpha(ctx):
     """Get the current color and alpha from the Cairo context."""
@@ -176,7 +177,7 @@ def calc_normal_outline_short(coords, widths, rounded = False):
     return outline_l, outline_r
 
 
-def calc_normal_segments(coords):
+def calc_normal_segments(coords, widths):
     """Calculate the normal segments of a path using numpy."""
 
     coords = np.array(coords)
@@ -198,8 +199,8 @@ def calc_normal_segments(coords):
     ny = dx_normalized
 
     # Scale normal vectors by widths
-    #nx_scaled = nx * widths[:-1]
-    #ny_scaled = ny * widths[:-1]
+    nx_scaled = nx * widths[:-1]
+    ny_scaled = ny * widths[:-1]
 
     return np.column_stack((nx_scaled, ny_scaled))
 
@@ -207,7 +208,6 @@ def calc_normal_segments(coords):
 def calc_normal_outline(coords, widths, rounded = False):
     """Calculate the normal outline of a path."""
     n = len(coords)
-    #print("CALCULATING NORMAL OUTLINE")
 
     if n < 2:
         return [], []

@@ -108,7 +108,7 @@ class WigletTransparency(Wiglet):
 
         ## we want to change the transparency by 0.1 for every 20 pixels
         transparency = max(0, min(1, self.__initial_transparency + dx/500))
-        self.__bus.emitMult("set_transparency", transparency)
+        self.__bus.emit_mult("set_transparency", transparency)
 
         return True
 
@@ -194,7 +194,7 @@ class WigletLineWidth(Wiglet):
         dx = x - self.coords[0]
         width = max(1, min(60, self.__initial_width + dx/20))
 
-        self.__bus.emitMult("set_line_width", width)
+        self.__bus.emit_mult("set_line_width", width)
         return True
 
 ## ---------------------------------------------------------------------
@@ -521,11 +521,11 @@ class WigletStatusLine(Wiglet):
         self.__state = state
         self.__params = {
                 "screen_wh": (100, 100),
-                "text_par": None,
+                "text_par": [ None, None, None, None ],
                 "bbox": bbox,
                 "moves": [ ],
                 "moves_per_second": 0,
-                "zoom": None
+                "zoom": [ 1, 1 ]
                 }
 
         self.zoom_calc()

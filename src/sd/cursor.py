@@ -116,7 +116,7 @@ class CursorManager:
         """Return the current position of the cursor."""
         if self.__pos_abs is None:
             log.debug("no cursor position")
-            self.__bus.emitOnce("query_cursor_pos")
+            self.__bus.emit_once("query_cursor_pos")
 
         if self.__pos_abs is None:
             return (0, 0)

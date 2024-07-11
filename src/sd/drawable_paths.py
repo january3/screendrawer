@@ -82,10 +82,10 @@ class PathRoot(Drawable):
             "brush": self.__brush.to_dict()
         }
 
-    def stroke(self, line_width = None):
+    def stroke(self, lw = None):
         """Change the stroke size."""
-        if line_width:
-            self.pen.line_width = line_width
+        if lw:
+            self.pen.line_width = lw
         self.outline_recalculate()
         return self.pen.stroke()
 

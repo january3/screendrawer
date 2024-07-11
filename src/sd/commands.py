@@ -3,20 +3,14 @@ This module contains the commands that can be executed on the objects. They
 should be undoable and redoable. It is their responsibility to update the
 state of the objects they are acting on.
 """
-
-
-import logging                                                   # <remove>
-import hashlib                                                   # <remove>
-from .utils import calc_rotation_angle, sort_by_stack ## <remove>
-from .drawable_factory import DrawableFactory ## <remove>
-from .drawable_group import DrawableGroup ## <remove>
-from .drawable_group import ClippingGroup ## <remove>
-log = logging.getLogger(__name__)                                # <remove>
-
-def swap_stacks(stack1, stack2):
-    """Swap two stacks"""
-    stack1[:], stack2[:] = stack2[:], stack1[:]
-
+import logging                                # <remove>
+import hashlib                                # <remove>
+from .utils import sort_by_stack              # <remove>
+from .utils import swap_stacks                # <remove>
+from .drawable_factory import DrawableFactory # <remove>
+from .drawable_group import DrawableGroup     # <remove>
+from .drawable_group import ClippingGroup     # <remove>
+log = logging.getLogger(__name__)             # <remove>
 
 ## ---------------------------------------------------------------------
 ## These are the commands that can be executed on the objects. They should
@@ -101,7 +95,6 @@ class Command:
     def undone_set(self, value):
         """Set the undone status of the command."""
         self.__undone = value
-
 
 class CommandGroup(Command):
     """Simple class for handling groups of commands."""
@@ -373,21 +366,19 @@ class TextEditCommand(Command):
     def undo(self):
         """Undo the command."""
         if self.undone():
-            return None
+            return
         self.obj.set_text(self.__oldtext)
         self.undone_set(True)
 
     def redo(self):
         """Redo the command."""
         if not self.undone():
-            return None
+            return
         self.obj.set_text(self.__newtext)
         self.undone_set(False)
 
 class AddToGroupCommand(Command):
-    """
-    Add an object to an existing group
-    """
+    """ Add an object to an existing group """
 
     def __init__(self, group, obj, page=None):
         super().__init__("add_to_group", objects=None)
@@ -414,8 +405,6 @@ class AddToGroupCommand(Command):
         self.undone_set(False)
 
         return self.__page
-
-
 
 class GroupObjectCommand(Command):
     """Simple class for handling grouping objects."""
@@ -517,63 +506,6 @@ class UngroupObjectCommand(Command):
         if self.__selection:
             self.__selection.set(self.obj)
 
-class RemoveCommand(Command):
-    """
-    Class for handling deleting objects.
-
-    :param objects: a list of objects to be removed.
-    """
-    def __init__(self, objects, stack):
-        super().__init__("remove", objects)
-        self.__stack = stack
-        self.__stack_copy = self.__stack[:]
-
-        # remove the objects from the stack
-        for obj in self.obj:
-            self.__stack.remove(obj)
-
-    def undo(self):
-        if self.undone():
-            return None
-        swap_stacks(self.__stack, self.__stack_copy)
-        self.undone_set(True)
-
-    def redo(self):
-        if not self.undone():
-            return None
-        swap_stacks(self.__stack, self.__stack_copy)
-        self.undone_set(False)
-
-class AddCommand(Command):
-    """
-    Class for handling creating objects.
-
-    :param objects: a list of objects to be removed.
-    """
-    def __init__(self, objects, stack):
-        super().__init__("add", objects)
-        self.__stack = stack
-        self.__add_objects()
-
-    def __add_objects(self):
-        for o in self.obj:
-            self.__stack.append(o)
-
-    def undo(self):
-        if self.undone():
-            return None
-
-        for o in self.obj:
-            self.__stack.remove(o)
-
-        self.undone_set(True)
-
-    def redo(self):
-        if not self.undone():
-            return None
-        self.__add_objects()
-        self.undone_set(False)
-
 class TransmuteCommand(Command):
     """
     Turning object(s) into another type.
@@ -614,7 +546,6 @@ class TransmuteCommand(Command):
     def map_selection(self):
         """Map the selection objects to the new objects."""
         obj_map = self.obj_map()
-        # XXX this should not change the order of the objects
         self.__selection_objects[:] = [ obj_map.get(obj, obj) for obj in self.__selection_objects ]
 
     def obj_map(self):
@@ -659,7 +590,6 @@ class ZStackCommand(Command):
                 raise ValueError("Object not in stack:", obj)
 
         self._objects = sort_by_stack(objects, stack)
-        # copy of the old stack
         self.__stack_orig = stack[:]
 
         if operation == "raise":
@@ -672,9 +602,6 @@ class ZStackCommand(Command):
             self.bottom()
         else:
             raise ValueError("Invalid operation:", operation)
-
-    ## here is the problem: not all objects that we get exist in the stack.
-    ## u
 
     def hoist(self):
         """Move the objects towards the top of the stack."""
@@ -753,239 +680,6 @@ class ZStackCommand(Command):
             return
         swap_stacks(self.__stack, self.__stack_orig)
         self.undone_set(False)
-
-# --------------------------------------------------------------
-
-class MoveResizeCommand(Command):
-    """
-    Simple class for handling move and resize events.
-
-    Attributes:
-        start_point (tuple): the point where the first click was made
-        origin (tuple): the original position of the object
-        bbox (tuple): the bounding box of the object
-
-    Arguments:
-        type (str): the type of the command
-        obj (Drawable): the object to be moved or resized
-        origin (tuple): the original position of the object
-
-    This class is different from other classes because it takes a single
-    object as the argument. This is because Move or Resize commands need to
-    react to continuous updates. It is therefore the responsibility of the
-    caller to ensure that a list of objects is grouped as a DrawableGroup.
-
-    Also, the subclasses need to implement two methods: event_update and
-    event_finish, which have to handle the changes during move / resize and
-    call on objects to finalize the command.
-    """
-
-    def __init__(self, mytype, obj, origin):
-        super().__init__(mytype, obj)
-        self.start_point = origin
-        self.origin      = origin
-
-    def event_update(self, x, y):
-        """Update the move or resize event."""
-        raise NotImplementedError("event_update method not implemented for type", self.__type)
-
-    def event_finish(self):
-        """Finish the move or resize event."""
-        raise NotImplementedError("event_finish method not implemented for type", self.__type)
-
-class RotateCommand(MoveResizeCommand):
-    """
-    Simple class for handling rotate events.
-
-    Attributes:
-
-        corner (str): the corner which is being dragged, e.g. "upper_left"
-        _rotation_centre (tuple): the point around which the rotation is done
-
-    Arguments:
-        obj (Drawable): object to be rotated
-        origin (tuple, optional): where the first click was made
-        corner (str, optional): which corner has been clicked
-        angle (float, optional): set the rotation angle directly
-    """
-
-    def __init__(self, obj, origin=None, corner=None, angle = None):
-        super().__init__("rotate", obj, origin)
-        self.corner      = corner
-        bb = obj.bbox(actual = True)
-        self.bbox        = obj.bbox()
-        self.__rotation_centre = (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
-        obj.rotate_start(self.__rotation_centre)
-
-        self.__angle = 0
-
-        if not angle is None:
-            self.obj.rotate(angle, set_angle = False)
-            self.__angle = angle
-
-    def event_update(self, x, y):
-        angle = calc_rotation_angle(self.__rotation_centre, self.start_point, (x, y))
-        d_a = angle - self.__angle
-        self.__angle = angle
-        self.obj.rotate(d_a, set_angle = False)
-
-    def event_finish(self):
-        self.obj.rotate_end()
-
-    def undo(self):
-        if self.undone():
-            return
-        if not self.__angle:
-            return
-        self.obj.rotate_start(self.__rotation_centre)
-        self.obj.rotate(0 - self.__angle)
-        self.obj.rotate_end()
-        self.undone_set(True)
-
-    def redo(self):
-        if not self.undone():
-            return
-        self.obj.rotate_start(self.__rotation_centre)
-        self.obj.rotate(self.__angle)
-        self.obj.rotate_end()
-        self.undone_set(False)
-
-class MoveCommand(MoveResizeCommand):
-    """Simple class for handling move events."""
-    def __init__(self, obj, origin):
-        obj = obj.objects
-        super().__init__("move", obj, origin)
-        self.__last_pt = origin
-        log.debug("MoveCommand: origin is %s hash %s",
-               [int(x) for x in origin], self.hash())
-
-    def __add__(self, other):
-        """Add two move commands"""
-        if not isinstance(other, MoveCommand):
-            return super().__add__(other)
-
-        dx = other.last_pt()[0] - other.start_point[0]
-        dy = other.last_pt()[1] - other.start_point[1]
-        self.__last_pt = (
-                self.__last_pt[0] + dx,
-                self.__last_pt[1] + dy
-                )
-        return self
-
-
-    def last_pt(self):
-        """Return last point"""
-        return self.__last_pt
-
-    def event_update(self, x, y):
-        """Update the move event."""
-        dx = x - self.__last_pt[0]
-        dy = y - self.__last_pt[1]
-
-        for obj in self.obj:
-            obj.move(dx, dy)
-        self.__last_pt = (x, y)
-
-    def event_finish(self):
-        """Finish the move event."""
-        log.debug("MoveCommand: finish")
-
-    def undo(self):
-        """Undo the command."""
-        if self.undone():
-            return
-        log.debug("MoveCommand: undo")
-        dx = self.start_point[0] - self.__last_pt[0]
-        dy = self.start_point[1] - self.__last_pt[1]
-        for obj in self.obj:
-            obj.move(dx, dy)
-        self.undone_set(True)
-
-    def redo(self):
-        """Redo the command."""
-        if not self.undone():
-            return
-        dx = self.start_point[0] - self.__last_pt[0]
-        dy = self.start_point[1] - self.__last_pt[1]
-        for obj in self.obj:
-            obj.move(-dx, -dy)
-        self.undone_set(False)
-
-
-class ResizeCommand(MoveResizeCommand):
-    """Simple class for handling resize events."""
-    def __init__(self, obj, origin, corner, proportional = False):
-        super().__init__("resize", obj, origin)
-        self.corner = corner
-        self.bbox     = obj.bbox(actual = True)
-        obj.resize_start(corner, origin)
-        self._orig_bb = obj.bbox(actual = True)
-        self._prop    = proportional
-        if self._orig_bb[2] == 0:
-            raise ValueError("Bounding box with no width")
-
-        self._orig_bb_ratio = self._orig_bb[3] / self._orig_bb[2]
-        self.__newbb = None
-
-    def undo(self):
-        """Undo the command."""
-        if self.undone():
-            return
-        obj = self.obj
-        pt  = (self._orig_bb[0], self._orig_bb[1])
-        obj.resize_start(self.corner, pt)
-        self.obj.resize_update(self._orig_bb)
-        obj.resize_end()
-        self.undone_set(True)
-
-    def redo(self):
-        """Redo the command."""
-        if not self.undone():
-            return
-        obj = self.obj
-        obj.resize_start(self.corner, self.start_point)
-        obj.resize_update(self.__newbb)
-        obj.resize_end()
-        self.undone_set(False)
-
-    def event_finish(self):
-        """Finish the resize event."""
-        self.obj.resize_end()
-
-    def event_update(self, x, y):
-        """Update the resize event."""
-        bb = self._orig_bb
-        corner = self.corner
-
-        if corner in ["upper_left", "lower_right"]:
-            dx = x - self.origin[0]
-            dy = y - self.origin[1]
-        else:
-            dx = (self.origin[0] + bb[2]) - x
-            dy = y - self.origin[1] + bb[3]
-
-        if dx == 0 or dy == 0:
-            return
-
-        if self._prop:
-            if dy / dx > self._orig_bb_ratio:
-                dy = dx * self._orig_bb_ratio
-            else:
-                dx = dy / self._orig_bb_ratio
-
-        if corner == "lower_left":
-            newbb = (bb[0] + bb[2] - dx, bb[1], dx, dy)
-        elif corner == "upper_right":
-            newbb = (bb[0], bb[1] + dy - bb[3], bb[2] * 2 - dx, bb[3] - dy + bb[3])
-        elif corner == "upper_left":
-            newbb = (bb[0] + dx, bb[1] + dy, bb[2] - dx, bb[3] - dy)
-        elif corner == "lower_right":
-            newbb = (bb[0], bb[1], bb[2] + dx, bb[3] + dy)
-        else:
-            raise ValueError("Invalid corner:", corner)
-
-        self.__newbb = newbb
-        self.obj.resize_update(newbb)
 
 class FlushCommand(Command):
     """
@@ -1074,155 +768,4 @@ class FlushCommand(Command):
             return
         for obj in self.obj:
             self.move_to_bb(obj, self.__redo_dict[obj])
-        self.undone_set(False)
-
-# -------------------------------------------------------------------------------------
-
-class SetPropCommand(Command):
-    """
-    Superclass for handling property changes of drawing primitives.
-
-    The superclass handles everything, while the subclasses set up the
-    functions that do the actual manipulation of the primitives.
-
-    In principle, we need one function to extract the current property, and
-    one to set the property.
-    """
-    def __init__(self, mytype, objects, prop, get_prop_func, set_prop_func):
-        super().__init__(mytype, objects.get_primitive())
-        self.__prop = prop
-        self.__set_prop_func = set_prop_func
-        self.__undo_dict = { obj: get_prop_func(obj) for obj in self.obj }
-        log.debug("undo_dict: %s", self.__undo_dict)
-
-        for obj in self.obj:
-            log.debug("setting prop type %s for %s", mytype, obj)
-            set_prop_func(obj, prop)
-            obj.modified(True)
-
-    def __add__(self, other):
-
-        if self == other:
-            self.__prop = other.prop()
-            return self
-
-        return super().__add__(other)
-
-    def prop(self):
-        """Return the property"""
-        return self.__prop
-
-    def undo(self):
-        """Undo the command."""
-        if self.undone():
-            return
-        for obj in self.obj:
-            if obj in self.__undo_dict:
-                self.__set_prop_func(obj, self.__undo_dict[obj])
-                obj.modified(True)
-        self.undone_set(True)
-
-    def redo(self):
-        """Redo the command."""
-        if not self.undone():
-            return
-        for obj in self.obj:
-            self.__set_prop_func(obj, self.__prop)
-            obj.modified(True)
-        self.undone_set(False)
-
-class SetPenCommand(SetPropCommand):
-    """Simple class for handling color changes."""
-    def __init__(self, objects, pen):
-        set_prop_func = lambda obj, prop: obj.pen_set(prop)
-        get_prop_func = lambda obj: obj.pen
-        pen = pen.copy()
-        super().__init__("set_pen", objects, pen, get_prop_func, set_prop_func)
-
-class SetTransparencyCommand(SetPropCommand):
-    """Simple class for handling line width changes."""
-    def __init__(self, objects, width):
-        set_prop_func = lambda obj, prop: obj.pen.transparency_set(prop)
-        get_prop_func = lambda obj: obj.pen.transparency
-        super().__init__("set_transparency", objects, width, get_prop_func, set_prop_func)
-
-class SetLineWidthCommand(SetPropCommand):
-    """Simple class for handling line width changes."""
-    def __init__(self, objects, width):
-        set_prop_func = lambda obj, prop: obj.stroke(prop)
-        get_prop_func = lambda obj: obj.stroke()
-        super().__init__("set_line_width", objects, width, get_prop_func, set_prop_func)
-
-class SetColorCommand(SetPropCommand):
-    """Simple class for handling color changes."""
-    def __init__(self, objects, color):
-        set_prop_func = lambda obj, prop: obj.pen.color_set(prop)
-        get_prop_func = lambda obj: obj.pen.color
-        super().__init__("set_color", objects, color, get_prop_func, set_prop_func)
-
-class SetFontCommand(SetPropCommand):
-    """Simple class for handling font changes."""
-    def __init__(self, objects, font):
-        set_prop_func = lambda obj, prop: obj.pen.font_set(prop)
-        get_prop_func = lambda obj: obj.pen.font_get()
-        super().__init__("set_font", objects, font, get_prop_func, set_prop_func)
-
-class ToggleFillCommand(Command):
-    """Simple class for handling toggling fill."""
-    def __init__(self, objects):
-        super().__init__("fill_toggle", objects.get_primitive())
-
-        for obj in self.obj:
-            obj.fill_toggle()
-
-    def undo(self):
-        """Undo the command."""
-        if self.undone():
-            return
-        for obj in self.obj:
-            obj.fill_toggle()
-        self.undone_set(True)
-
-    def redo(self):
-        """Redo the command."""
-        if not self.undone():
-            return
-        for obj in self.obj:
-            obj.fill_toggle()
-        self.undone_set(False)
-
-class ChangeStrokeCommand(Command):
-    """Simple class for handling line width changes."""
-    def __init__(self, objects, direction):
-        super().__init__("change_stroke", objects.get_primitive())
-
-        self.__direction = direction
-        self.__undo_dict = { obj: obj.stroke_change(direction) for obj in self.obj }
-
-    def __add__(self, other):
-        """Add two commands together."""
-        if self == other:
-            self.__direction += other.direction()
-            return self
-        return super().__add__(other)
-
-    def direction(self):
-        """Return the direction"""
-        return self.__direction
-
-    def undo(self):
-        """Undo the command."""
-        if self.undone():
-            return
-        for obj in self.obj:
-            if obj in self.__undo_dict:
-                obj.stroke(self.__undo_dict[obj])
-        self.undone_set(True)
-
-    def redo(self):
-        """Redo the command."""
-        if not self.undone():
-            return
-        for obj in self.obj:
-            obj.stroke_change(self.__direction)
         self.undone_set(False)

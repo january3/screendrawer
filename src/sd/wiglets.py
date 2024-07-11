@@ -7,9 +7,11 @@ import logging                                                   # <remove>
 
 from .utils    import get_color_under_cursor, rgb_to_hex         # <remove>
 from .drawable_primitives import SelectionTool                   # <remove>
-from .commands import RotateCommand, ResizeCommand, MoveCommand  # <remove>
-from .commands import RemoveCommand, AddToGroupCommand           # <remove>
-from .commands import CommandGroup, AddCommand                   # <remove>
+from .commands import AddToGroupCommand                          # <remove>
+from .commands import CommandGroup                               # <remove>
+from .commands_obj import RemoveCommand, AddCommand              # <remove>
+from .commands_obj import ResizeCommand, MoveCommand             # <remove>
+from .commands_obj import RotateCommand                          # <remove>
 from .commands import TextEditCommand                            # <remove>
 from .drawable_factory import DrawableFactory                    # <remove>
 from .drawable_group import DrawableGroup                        # <remove>
@@ -17,8 +19,6 @@ from .utils import bus_listeners_on, bus_listeners_off           # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 #log.setLevel(logging.INFO)
 
-
-## ---------------------------------------------------------------------
 class Wiglet:
     """drawable dialog-like objects on the canvas"""
     def __init__(self, mytype, coords):
@@ -81,8 +81,8 @@ class WigletResizeRotate(Wiglet):
 
         self.__bus.on("mouse_move", self.on_move)
         self.__bus.on("mouse_release", self.on_release)
-        self.__bus.emitOnce("set_selection", [ corner_obj ])
-        self.__bus.emitOnce("cursor_set", corner)
+        self.__bus.emit_once("set_selection", [ corner_obj ])
+        self.__bus.emit_once("cursor_set", corner)
         self.__bus.emit("queue_draw")
 
         return True
@@ -100,8 +100,8 @@ class WigletResizeRotate(Wiglet):
             return False
         self.__cmd.event_update(*ev.pos())
         self.__cmd.event_finish()
-        self.__bus.emitOnce("history_append", self.__cmd)
-        self.__bus.emitOnce("cursor_revert")
+        self.__bus.emit_once("history_append", self.__cmd)
+        self.__bus.emit_once("cursor_revert")
         self.__cmd = None
         self.__bus.off("mouse_move", self.on_move)
         self.__bus.off("mouse_release", self.on_release)
@@ -129,12 +129,12 @@ class WigletHover(Wiglet):
         object_underneath  = ev.hover()
 
         if corner_obj and corner_obj.bbox():
-            self.__bus.emitOnce("cursor_set", corner)
+            self.__bus.emit_once("cursor_set", corner)
         elif object_underneath:
-            self.__bus.emitOnce("cursor_set", "moving")
+            self.__bus.emit_once("cursor_set", "moving")
             self.__state.hover_obj(object_underneath)
         else:
-            self.__bus.emitOnce("cursor_revert")
+            self.__bus.emit_once("cursor_revert")
             self.__state.hover_obj_clear()
 
 
@@ -180,7 +180,7 @@ class WigletMove(Wiglet):
         self.__obj = selection.copy()
         log.debug("moving object: %s", self.__obj)
         self.__cmd = MoveCommand(self.__obj, ev.pos())
-        self.__bus.emitOnce("cursor_set", "grabbing")
+        self.__bus.emit_once("cursor_set", "grabbing")
         self.__bus.emit("queue_draw")
 
         return True
@@ -231,12 +231,12 @@ class WigletMove(Wiglet):
             cmd = CommandGroup([ cmd,
                                  RemoveCommand(obj.objects,
                                                page.layer().objects()) ])
-            self.__bus.emitOnce("history_append", cmd)
-            self.__bus.emitOnce("set_selection", "nothing")
+            self.__bus.emit_once("history_append", cmd)
+            self.__bus.emit_once("set_selection", "nothing")
         else:
-            self.__bus.emitOnce("history_append", cmd)
+            self.__bus.emit_once("history_append", cmd)
 
-        self.__bus.emitOnce("cursor_revert")
+        self.__bus.emit_once("cursor_revert")
         self.__cmd = None
         self.__obj = None
         self.__bus.emit("queue_draw")
@@ -277,7 +277,7 @@ class WigletSelectionTool(Wiglet):
         self.__bus.on("mouse_move",       self.on_move)
         self.__bus.on("mouse_release",   self.on_release)
         self.__bus.on("obj_draw", self.draw)
-        self.__bus.emitOnce("set_selection", "nothing")
+        self.__bus.emit_once("set_selection", "nothing")
 
         x, y, = ev.x, ev.y
         self.coords = (x, y)
@@ -304,9 +304,9 @@ class WigletSelectionTool(Wiglet):
         objects = self.__selection_tool.objects_in_selection(page.layer().objects())
 
         if len(objects) > 0:
-            self.__bus.emitOnce("set_selection", objects)
+            self.__bus.emit_once("set_selection", objects)
         else:
-            self.__bus.emitOnce("set_selection", "nothing")
+            self.__bus.emit_once("set_selection", "nothing")
 
         self.__bus.off("mouse_move",       self.on_move)
         self.__bus.off("mouse_release",   self.on_release)
@@ -318,27 +318,20 @@ class WigletSelectionTool(Wiglet):
 
 class WigletPan(Wiglet):
     """Paning the page, i.e. tranposing it with alt-click"""
-    def __init__(self, bus, state):
+    def __init__(self, bus):
         super().__init__("pan", None)
 
         self.__bus    = bus
-        self.__state  = state
         self.__origin = None
-        self.__page   = None
         bus.on("left_mouse_click", self.on_click, priority = 9)
 
     def on_click(self, ev):
         """Start paning"""
         if ev.shift() or ev.ctrl() or not ev.alt():
             return False
-
         self.__origin = (ev.event.x, ev.event.y)
-        self.__page   = self.__state.page()
-        log.debug("Panning: start on page {self.__page} at %s", self.__origin)
-
         self.__bus.on("mouse_move",     self.on_move, priority = 99)
         self.__bus.on("mouse_release",  self.on_release, priority = 99)
-
         return True
 
     def on_move(self, ev):
@@ -347,13 +340,8 @@ class WigletPan(Wiglet):
         if not self.__origin:
             return False
 
-        log.debug("my origin: %s", [int(x) for x in self.__origin])
-
         dx, dy = ev.event.x - self.__origin[0], ev.event.y - self.__origin[1]
-        log.debug("Translating page by %s", [int(x) for x in (dx, dy)])
-
-        self.__bus.emitOnce("page_translate", (dx, dy))
-
+        self.__bus.emit_once("page_translate", (dx, dy))
         self.__origin = (ev.event.x, ev.event.y)
         self.__bus.emit("force_redraw")
         return True
@@ -404,7 +392,6 @@ class WigletEditText(Wiglet):
         """Double click on text launches text editing"""
 
         if self.__active: # currently editing
-            log.debug("are active, double click finishes the input")
             self.__bus.emit("finish_text_input")
             return True
 
@@ -415,7 +402,6 @@ class WigletEditText(Wiglet):
         if not (obj and obj.type == "text"):
             return False
 
-        log.debug("Starting to edit a text object")
         self.__edit_existing = obj.to_string()
         self.__obj = obj
         self.__active = True
@@ -494,14 +480,13 @@ class WigletEditText(Wiglet):
             self.__bus.emit("add_object", True, obj)
 
         self.__state.current_obj_clear()
-        self.__bus.emitOnce("cursor_revert")
+        self.__bus.emit_once("cursor_revert")
         self.__active = False
         self.__obj = None
 
         self.__bus.emit("queue_draw")
         self.stop_listening()
         return True
-
 
 class WigletCreateSegments(Wiglet):
     """Create a segmented path"""
@@ -521,7 +506,6 @@ class WigletCreateSegments(Wiglet):
 
     def cancel(self, new_mode = None):
         """Cancel creating a segmented path"""
-
         mode = self.__state.mode()
 
         if new_mode is not None and self.__obj:
@@ -552,7 +536,6 @@ class WigletCreateSegments(Wiglet):
         obj.update(ev.x, ev.y, ev.pressure())
         self.__bus.emit("queue_draw")
         return True
-
 
     def draw_obj(self, cr, state):
         """Draw the object currently being created"""
@@ -613,8 +596,6 @@ class WigletCreateGroup(Wiglet):
 
     Basically, by default, objects are grouped automatically
     until you change the mode or press escape.
-
-    This makes pencil drawings a lot easier!
     """
 
     def __init__(self, bus, state, grouping = True):
@@ -660,7 +641,7 @@ class WigletCreateGroup(Wiglet):
 
         return True
 
-    def start_grouping(self, mode = None):
+    def start_grouping(self, mode = None): # pylint: disable=unused-argument
         """Start automatic grouping of objects"""
 
         if self.__group_obj:
@@ -674,16 +655,14 @@ class WigletCreateGroup(Wiglet):
         self.__bus.on("mode_set",   self.end_grouping, priority = 200)
         self.__bus.on("*",          self.abort)
         self.__bus.off("toggle_grouping",  self.start_grouping)
-
         return True
 
     def abort(self, event, *args, **kwargs):
         """Abort grouping if event is not in the ignore list"""
         if event in self.__ignore_events:
             return False
-        log.debug("event: {event} %s, aborting grouping", args)
+        log.debug("event: {event} %s %s, aborting grouping", args, kwargs)
         self.end_grouping()
-
         return False
 
     def end_grouping(self, mode = None): # pylint: disable=unused-argument
@@ -725,15 +704,12 @@ class WigletCreateGroup(Wiglet):
             return False
 
         if not self.__group_obj:
-            log.debug("add_object: no group object")
             return False
 
         if obj.type != "path":
             log.warning("object of type %s cannot be added to automatic path group",
                         obj.type)
             return False
-
-        log.debug("adding object of type %s to group", obj.type)
 
         if not self.__added:
             page = self.__state.current_page()
@@ -749,7 +725,6 @@ class WigletCreateGroup(Wiglet):
 
         return True
 
-
 class WigletCreateObject(Wiglet):
     """Create object when clicked"""
 
@@ -761,19 +736,15 @@ class WigletCreateObject(Wiglet):
         self.__obj   = None
         bus.on("left_mouse_click", self.on_click,   priority = 0)
 
-    def draw_obj(self, cr, state):
+    def draw_obj(self, cr, state): # pylint: disable=unused-argument
         """Draw the object currently being created"""
         if not self.__obj:
             return False
-
         self.__obj.draw(cr)
         return True
 
     def on_click(self, ev):
         """Start drawing"""
-
-       #if ev.hover() or ev.corner()[0] or ev.double():
-       #    return False
 
         if ev.ctrl() or ev.alt():
             return False
@@ -797,16 +768,13 @@ class WigletCreateObject(Wiglet):
             self.__bus.on("obj_draw",         self.draw_obj,   priority = 99)
         else:
             log.debug("No object created for mode %s", mode)
-
         return True
 
     def on_move(self, ev):
         """Update drawing object"""
         obj = self.__obj
-
         if not obj:
             return False
-
         obj.update(ev.x, ev.y, ev.pressure())
         self.__bus.emit("queue_draw")
         return True
@@ -825,21 +793,18 @@ class WigletCreateObject(Wiglet):
             obj.finish()
             # remove paths that are too small
             if len(obj.coords) < 3:
-                log.debug("removing object of type %s because too small", obj.type)
                 obj = None
 
         # remove objects that are too small
         if obj:
             bb = obj.bbox()
             if bb and obj.type in [ "rectangle", "box", "circle" ] and bb[2] == 0 and bb[3] == 0:
-                log.debug("removing object of type %s because too small", obj.type)
                 obj = None
 
         if obj:
             self.__bus.emit("add_object", True, obj)
 
             if self.__obj.type == "text":
-                ## this cannot happen!
                 raise ValueError("Text object should not be finished here")
             self.__state.selection().clear()
 
@@ -871,7 +836,6 @@ class WigletEraser(Wiglet):
 
         self.__active = True
         self.__delete_hover(ev)
-
         return True
 
     def __delete_hover(self, ev):
@@ -881,9 +845,8 @@ class WigletEraser(Wiglet):
         if not hover_obj:
             return
 
-        log.debug("removing object")
-        self.__bus.emitOnce("remove_objects", [ hover_obj ], clear_selection = True)
-        self.__bus.emitOnce("cursor_revert")
+        self.__bus.emit_once("remove_objects", [ hover_obj ], clear_selection = True)
+        self.__bus.emit_once("cursor_revert")
         self.__bus.emit("queue_draw")
 
     def on_move(self, ev):
@@ -903,9 +866,6 @@ class WigletEraser(Wiglet):
         self.__active = False
         return True
 
-
-
-# ---------------------------------------------------------------------
 class WigletColorPicker(Wiglet):
     """Invisible wiglet that processes clicks in the color picker mode."""
     def __init__(self, bus, func_color, clipboard):
@@ -936,11 +896,10 @@ class WigletColorPicker(Wiglet):
 class WigletZoom(Wiglet):
     """Zoom in and out"""
 
-    def __init__(self, bus, state):
+    def __init__(self, bus):
         super().__init__("zoom", None)
 
         self.__bus   = bus
-        self.__state = state # pylint: disable=unused-variable
         self.__wsize = (100, 100)
         self.__start_pos = None
         self.__zoom_tool = None
@@ -974,7 +933,6 @@ class WigletZoom(Wiglet):
         if ev.mode() != "zoom":
             return False
         x, y, = ev.x, ev.y
-        #self.coords = (x, y)
         self.__zoom_tool = SelectionTool([ (x, y), (x + 1, y + 1) ])
 
         bus_listeners_on(self.__bus, self.__active_listeners)
@@ -988,14 +946,14 @@ class WigletZoom(Wiglet):
         bb = self.__zoom_tool.bbox()
         x, y, w, h = bb
 
-        self.__bus.emitOnce("page_zoom_reset") 
-        self.__bus.emitOnce("page_translate", (-x, -y))
+        self.__bus.emit_once("page_zoom_reset")
+        self.__bus.emit_once("page_translate", (-x, -y))
 
         z1 = self.__wsize[0] / w
         z2 = self.__wsize[1] / h
         zoom = min(z1, z2, 14)
         log.debug("zooming to %s", zoom)
-        self.__bus.emitOnce("page_zoom", 
+        self.__bus.emit_once("page_zoom",
                             (0, 0), zoom)
         self.__bus.emit("force_redraw")
         return True
@@ -1020,7 +978,7 @@ class WigletZoom(Wiglet):
     def zoom_reset(self):
         """Reset zoom to 100%"""
 
-        self.__bus.emitOnce("page_zoom_reset")
+        self.__bus.emit_once("page_zoom_reset")
         self.__bus.emit("force_redraw")
         return True
 
@@ -1028,7 +986,7 @@ class WigletZoom(Wiglet):
         """Zoom out"""
 
         pos = (self.__wsize[0]/2, self.__wsize[1]/2)
-        self.__bus.emitOnce("page_zoom", pos, 0.9)
+        self.__bus.emit_once("page_zoom", pos, 0.9)
         self.__bus.emit("force_redraw")
         return True
 
@@ -1036,6 +994,6 @@ class WigletZoom(Wiglet):
         """Zoom in"""
 
         pos = (self.__wsize[0]/2, self.__wsize[1]/2)
-        self.__bus.emitOnce("page_zoom", pos, 1.1)
+        self.__bus.emit_once("page_zoom", pos, 1.1)
         self.__bus.emit("force_redraw")
         return True

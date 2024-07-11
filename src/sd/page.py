@@ -3,20 +3,24 @@ This module contains the Page class, which is a container for Layers,
 and Layer class, which actually handles the objects.
 """
 
-from math import radians                                             # <remove>
-import logging                                                   # <remove>
-from .drawable import Drawable # <remove>
-from .drawable_group import SelectionObject # <remove>
-from .commands import GroupObjectCommand, UngroupObjectCommand, RemoveCommand     # <remove>
-from .commands import ClipCommand, UnClipCommand, SetColorCommand, SetFontCommand # <remove>
-from .commands import SetTransparencyCommand, SetLineWidthCommand, ChangeStrokeCommand # <remove>
-from .commands import ToggleFillCommand, RotateCommand, MoveCommand, ZStackCommand # <remove>
-from .commands import TransmuteCommand, AddCommand, CommandGroup, InsertPageCommand # <remove>
-from .commands import DeletePageCommand, DeleteLayerCommand, FlushCommand # <remove>
-from .drawer import Drawer                                           # <remove>
-from .utils import bus_listeners_on, bus_listeners_off               # <remove>
-from .trafo import Trafo                                             # <remove>
-log = logging.getLogger(__name__)                                # <remove>
+from math import radians                                                            # <remove>
+import logging                                                                      # <remove>
+from .drawable import Drawable                                                      # <remove>
+from .drawable_group import SelectionObject                                         # <remove>
+from .commands import GroupObjectCommand, UngroupObjectCommand       # <remove>
+from .commands import ClipCommand, UnClipCommand                                    # <remove>
+from .commands import ZStackCommand                     # <remove>
+from .commands import TransmuteCommand, CommandGroup, InsertPageCommand # <remove>
+from .commands import DeletePageCommand, DeleteLayerCommand, FlushCommand           # <remove>
+from .commands_obj import RemoveCommand, RotateCommand                              # <remove>
+from .commands_obj import MoveCommand, AddCommand                                   # <remove>
+from .commands_props import ToggleFillCommand, ChangeStrokeCommand                  # <remove>
+from .commands_props import SetColorCommand, SetFontCommand                         # <remove>
+from .commands_props import SetTransparencyCommand, SetLineWidthCommand             # <remove>
+from .drawer import Drawer                                                          # <remove>
+from .utils import bus_listeners_on, bus_listeners_off                              # <remove>
+from .trafo import Trafo                                                            # <remove>
+log = logging.getLogger(__name__)                                                   # <remove>
 
 class LayerSelectionPropertyHandler:
     """
@@ -330,7 +334,7 @@ class Layer:
     def activate(self, bus):
         """Activate the layer."""
         log.debug("layer %s activating", self)
-        bus.emitMult("layer_deactivate")
+        bus.emit_mult("layer_deactivate")
         bus.on("layer_deactivate", self.deactivate)
         self.__bus = bus
         self.__layer_handler = LayerEventHandler(self, bus)
@@ -463,7 +467,7 @@ class Page(PageView):
         log.debug("page %s activating", self)
 
         # shout out to the previous current page to get lost
-        bus.emitOnce("page_deactivate")
+        bus.emit_once("page_deactivate")
         bus_listeners_on(bus, self.__listeners)
 
         self.layer().activate(bus)

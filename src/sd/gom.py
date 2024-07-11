@@ -4,11 +4,12 @@ The hierarchy is GOM -> Page -> Layer. Layer does all the footwork, Page
 handles Layers, and GOM handles Pages.
 """
 
-import logging                                                   # <remove>
-from .commands import RemoveCommand, CommandGroup                # <remove>
-from .page import Page                                           # <remove>
+import logging                             # <remove>
+from .commands import CommandGroup         # <remove>
+from .commands_obj import RemoveCommand    # <remove>
+from .page import Page                     # <remove>
 
-log = logging.getLogger(__name__)                                # <remove>
+log = logging.getLogger(__name__)          # <remove>
 
 
 ## ---------------------------------------------------------------------
@@ -50,7 +51,7 @@ class GraphicsObjectManager:
     def insert_page(self):
         """Insert a new page."""
         curpage, cmd = self.__page.insert()
-        self.__bus.emitOnce("history_append", cmd)
+        self.__bus.emit_once("history_append", cmd)
         self.page_set(curpage)
 
     def prev_page(self):

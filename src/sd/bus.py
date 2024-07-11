@@ -40,7 +40,7 @@ class Bus:
                 ret = listener(event, *args, **kwargs)
             else:
                 ret = listener(*args, **kwargs)
-        except Exception as e: #pylint: disable=broad-except
+        except Exception: #pylint: disable=broad-except
             ret = None
             exc_type, exc_value, exc_traceback = exc_info()
             log.warning("Traceback:")
@@ -50,12 +50,12 @@ class Bus:
             log.warning("Error while dispatching signal %s to %s:", event, listener)
         return ret
 
-    def emitOnce(self, event, *args, **kwargs):
+    def emit_once(self, event, *args, **kwargs):
         """Emit an exclusive event - stops dispatching if a listener returns a truthy value."""
 
         return self.emit(event, True, *args, **kwargs)
 
-    def emitMult(self, event, *args, **kwargs):
+    def emit_mult(self, event, *args, **kwargs):
         """Emit a non-exclusive event - dispatches to all listeners regardless of return value."""
 
         return self.emit(event, False, *args, **kwargs)

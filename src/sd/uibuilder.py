@@ -81,15 +81,14 @@ class UIBuilder():
         bus = self.__bus
         state = self.__state
 
-        WigletZoom(bus = bus, state = state)
+        WigletZoom(bus = bus)
+        WigletPan(bus = bus)
         WigletStatusLine(bus = bus, state = state)
         WigletEraser(bus = bus, state = state)
         WigletCreateObject(bus = bus, state = state)
         WigletCreateGroup(bus = bus, state = state)
         WigletCreateSegments(bus = bus, state = state)
         WigletEditText(bus = bus, state = state)
-        #WigletEditText2(bus = bus, state = state, app =
-        WigletPan(bus = bus, state = state)
         WigletHover(bus = bus, state = state)
         WigletSelectionTool(bus = bus, state = state)
         WigletResizeRotate(bus = bus, state = state)
@@ -115,7 +114,7 @@ class UIBuilder():
         font_description = font_chooser(self.__state.pen(), self.__app)
 
         if font_description:
-            self.__bus.emitMult("set_font", font_description)
+            self.__bus.emit_mult("set_font", font_description)
 
     def select_color_bg(self):
         """Select a color for the background using color_chooser."""
@@ -123,13 +122,13 @@ class UIBuilder():
         color = color_chooser(self.__app, "Select Background Color")
 
         if color:
-            self.__bus.emitOnce("set_bg_color", (color.red, color.green, color.blue))
+            self.__bus.emit_once("set_bg_color", (color.red, color.green, color.blue))
 
     def select_color(self):
         """Select a color for drawing using color_chooser dialog."""
         color = color_chooser(self.__app)
         if color:
-            self.__bus.emitMult("set_color", (color.red, color.green, color.blue))
+            self.__bus.emit_mult("set_color", (color.red, color.green, color.blue))
 
     def import_image(self):
         """Select an image file and create a pixbuf from it."""
@@ -139,7 +138,7 @@ class UIBuilder():
         import_dir = self.__state.config().import_dir()
         image_file = import_image_dialog(self.__app, import_dir = import_dir)
         dirname, _ = path.split(image_file)
-        bus.emitMult("set_import_dir", dirname)
+        bus.emit_mult("set_import_dir", dirname)
 
         pixbuf = None
 
@@ -153,7 +152,7 @@ class UIBuilder():
             if pixbuf is not None:
                 pos = self.__state.cursor_pos()
                 img = Image([ pos ], self.__state.pen(), pixbuf)
-                bus.emitOnce("add_object", img)
+                bus.emit_once("add_object", img)
 
         return pixbuf
 
@@ -270,8 +269,8 @@ class UIBuilder():
         dirname, base_name = path.split(file_name)
         log.debug("dirname: %s base_name: %s", dirname, base_name)
 
-        self.__bus.emitMult("set_export_dir", dirname)
-        self.__bus.emitMult("set_export_fn", base_name)
+        self.__bus.emit_mult("set_export_dir", dirname)
+        self.__bus.emit_mult("set_export_fn", base_name)
 
     def __prepare_export_objects(self, all_as_pdf, exp_screen, selected):
         """Prepare the objects for export."""
@@ -349,14 +348,14 @@ class UIBuilder():
         log.debug("frame is %s", [ int(x) for x in frame ])
 
         pixbuf, filename = get_screenshot(self.__app, *frame)
-        bus.emitOnce("toggle_hide", False)
-        bus.emitOnce("queue_draw")
+        bus.emit_once("toggle_hide", False)
+        bus.emit_once("queue_draw")
 
         # Create the image and copy the file name to clipboard
         if pixbuf is not None:
             img = Image([ (bb[0], bb[1]) ], state.pen(), pixbuf)
-            bus.emitOnce("add_object", img)
-            bus.emitOnce("queue_draw")
+            bus.emit_once("add_object", img)
+            bus.emit_once("queue_draw")
             state.clipboard().set_text(filename)
 
     def __find_screenshot_box(self):
@@ -391,8 +390,8 @@ class UIBuilder():
         bb = obj.bbox()
         log.debug("bbox is %s", [int(x) for x in bb])
 
-        bus.emitOnce("toggle_hide", True)
-        bus.emitOnce("queue_draw")
+        bus.emit_once("toggle_hide", True)
+        bus.emit_once("queue_draw")
 
         while Gtk.events_pending():
             Gtk.main_iteration_do(False)

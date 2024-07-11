@@ -5,7 +5,7 @@ make_actions_dictionary method.
 
 The design of the app is as follows: the EventManager class is a singleton
 that manages the events and actions of the app. The actions are defined in
-the actions_dictionary method. 
+the actions_dictionary method.
 
 So the EM is a know-it-all class, and the others (GOM, App) are just
 listeners to the EM. The EM is the one that knows what to do when an event
@@ -34,6 +34,7 @@ COLORS = {
         "grey": (0.5, 0.5, 0.5)
 }
 
+# pylint: disable=line-too-long
 
 class EventManager:
     """
@@ -65,7 +66,7 @@ class EventManager:
         """
         #print("dispatch_action", action_name)
         if not action_name in self.__actions:
-            log.warning(f"action {action_name} not found in actions")
+            log.warning("action %s not found in actions", action_name)
             return
 
         action = self.__actions[action_name].get('action') or self.__bus.emit
@@ -85,10 +86,11 @@ class EventManager:
         except Exception as e: # pylint: disable=broad-except
             exc_type, exc_value, exc_traceback = exc_info()
             traceback.print_tb(exc_traceback)
-            log.warning(f"Exception type: {exc_type}")
-            log.warning(f"Exception value:{exc_value}")
+            log.error("Error while dispatching action %s %s",
+                      action_name, e)
+            log.warning("Exception type: %s", exc_type)
             log.warning("Traceback:")
-            log.warning(f"Error while dispatching action {action_name}: {e}")
+            log.warning("Exception value: %s", exc_value)
 
     def dispatch_key_event(self, key_event, keyname, mode):
         """
@@ -105,7 +107,8 @@ class EventManager:
         action_name = self.__keybindings[key_event]
 
         if not action_name in self.__actions:
-            log.warning(f"action {action_name} not found in actions")
+            log.warning("action %s not found in actions",
+                        action_name)
             return
 
         # check whether action allowed in the current mode
@@ -149,7 +152,7 @@ class EventManager:
             keyfull = "Ctrl-" + keyfull
         if alt_l:
             keyfull = "Alt-" + keyfull
-        log.debug("keyname %s char %s ctrl %s shift %s alt_l %s keyfull %s", 
+        log.debug("keyname %s char %s ctrl %s shift %s alt_l %s keyfull %s",
                   keyname, char, ctrl, shift, alt_l, keyfull)
 
         # first, check whether there is a current object being worked on
@@ -161,15 +164,12 @@ class EventManager:
             log.debug("updating text input, keyname=%s char=%s keyfull=%s mode=%s",
                       keyname, char, keyfull, mode)
             cobj.update_by_key(keyfull, char)
-            state.queue_draw()
+            self.__bus.emit("queue_draw")
             return
 
         # otherwise, we dispatch the key event
         self.dispatch_key_event(keyfull, 'keyname:' + str(keyname), mode)
-
-        # XXX this probably should be somewhere else
-        state.queue_draw()
-
+        self.__bus.emit("queue_draw")
 
     def make_actions_dictionary(self):
         """

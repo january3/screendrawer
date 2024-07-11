@@ -476,9 +476,7 @@ class State(StateObj):
 
     def get_cursor_pos(self):
         """Get the cursor position"""
-
         x, y = get_cursor_position(self.app())
-        #self.bus().emitMult("cursor_abs_pos_update", (x, y))
         return (x, y)
 
     def visible_bbox(self):
@@ -588,4 +586,4 @@ class State(StateObj):
 
         for obj in content.objects:
             new_obj = obj.duplicate()
-            self.bus().emitOnce("add_object", new_obj)
+            self.bus().emit_once("add_object", new_obj)

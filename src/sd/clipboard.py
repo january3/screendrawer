@@ -74,15 +74,6 @@ class Clipboard:
             return "image", clip_img
         return None, None
 
-    def __make_copies(self, objects):
-        """Make copies of objects."""
-        copies = []
-
-        for obj in objects:
-            copies.append(obj.duplicate())
-
-        return copies
-
     def copy_content(self, selection, cut = False):
         """
         Copy internal content: object or objects from current selection.

@@ -1,12 +1,10 @@
-## singleton class for serving icon pixbufs
+"""Module for the icons singleton class providing icons to tools etc."""
 
-import os                                    # <remove>
-import sys                                   # <remove>
+import logging                               # <remove>
 import gi                                    # <remove>
-gi.require_version('Gtk', '3.0')             # <remove>
 from sd.utils import base64_to_pixbuf        # <remove>
-import logging                                                   # <remove>
-log = logging.getLogger(__name__)                                # <remove>
+gi.require_version('Gtk', '3.0')             # <remove> pylint: disable=wrong-import-position
+log = logging.getLogger(__name__)            # <remove>
 
 
 class Icons:
@@ -30,7 +28,7 @@ class Icons:
     def get(self, name):
         """Get the icon with the given name."""
         if name not in self._icons:
-            log.warning(f"icon for {name} not found")
+            log.warning("icon for %s not found", name)
             return None
         return self._icons.get(name)
 
@@ -39,6 +37,7 @@ class Icons:
         Load all icons from stored base64 strings.
         """
 
+        # pylint: disable=line-too-long
         icons = { "colorpicker": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAbCAYAAABvCO8sAAACm0lEQVRIx7XWT4hVVRgA8N+ZGRuFnkgoEhMTITbZJsEg7I8WVIsQ0UELFxGNk6KbmFYtEqIsApNW4mbmRRRJi+i1UrNCFyahhbkIF9ngFKMp40yMohX2tTkjt/G+8s17c+Bu7v3O/XG+e75zv2SWRkTE9HsppZUds4WllL7GZQxgCVZHxLGOWcKOYSyqlY1YC6lv8hC0NfPi4ihgx3EqY8UxHzqaWMUr2IyfUMv3DuBoVCtvlkxbDKkJ8Aj2YAPOYByrolpZc9Nm6Zv8AQsjoqutic/1I3bhT9yN3jrYW5gbEV0ppZSa3Bz7sDTvhe/xYFQrywvY53gkIhY2Y03V2Bpcwa/4Aidziv+KaiUwgi/L6nEmWC+uZ/BevJjRU9iBg9jfKmwFruEqni48fgz7MJQ30gc4NGM0T1yGCzmND5SEPZdX+Q6ewi8zAvOkroz9hnvqhPbgW5zHaYw0DOYJnfgZO9FdJ3QAYzm+He/i44bAHNyNsxmrN7oLmOlHXiPYC/nE3wn9ajF1FULvK6Su/f/em/6jqPtzWjbgq2kIGLTuCXyUT5HOfOo0BmbsNTyLT/B2GTa0YPtnMTF6f0T0pJTa8fetZK6tBHs519RDnds+/LQMe7/79RMxMbooY3NvFfsXmLEBrMfG+YNx1/N7K6dvwnreO3t95OSliHg0pXQb/mhk16cC9hL68GS/2pWy4KFFAxfi4vDRiFjfSBrrpXQrnqmHVe989VpcHK5lLM0Eg468ut040a82Xrqy2zdPxrmxXRHxRlO/mUKLsVZq61VSpoNzNv3u8tXDGZvXikZr+MYHXfr4xFRhz1m95TspfYPRXNSpFVjCJdxRaBvm4RwWRMSy3MC2BLtRDu1LHh6f+pVMOwc7W923/gMDooiVvplNJAAAAABJRU5ErkJggg==",
                  "segment": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAABmJLR0QAAAAAAAD5Q7t/AAAFe0lEQVRIx+2WWWyUVRTHf/f7ZqbTGShDpzPF0o1NSIvdtASlWrBglAZEIIq+iDEao4kaog/EGE2MUR/UxOCDxg0xKhBrBWK0sgjYUsBSFKnFVijTZegMM12ms3SW7/jA0FSNC1HfPMmX+3C//H/5n3vuPQf+j3851JX8LCIakAlkATnAVUAhMCv9FQMFgBsYA14DXlJKxf4QKCIWwA44Jonmp4XygTwgF8hOjhtTIyMJa8g3bgp6ovjPRvB1jaGbNWofKsY91x4F7lNKbb+sb0pD7EA9UJcWnpGGTQMyEzHDHB1OMOobJ+iJ4OsO4+sK4/s5zFBvlFHfONHRJMl4CgMQhERMuGfLwkzgbhHjU6W0OIBJRAqBF4H1qYRhDvnjjF4YJ+CJ4O8OM9gV5uLZMMG+KCFfnFgoSTJxSVhNpEmh0qsOGCgsga+grx9mLl+E0ucCHZcdPgPcPeKN0bC5g65vgoQDcWJjSVJJ43fCoBB0NASF/Po4UJj0BDU3NLOiegc0Z8DyT2bgrFg0GbgGoGOvn2+2eiaEBQXoaZygqxQZ1ihTp4SY5hgmGHQSDDgnYAYa2Y4A9as+Y0nNIczmGCQckIorwDb5DHUA1xw7znwbIwNhrNYo9ikhpk8fIifHjzt3ELd7EJfLhyVjnGOt1/P1gboJVwAL5newdt0O5sz7CYwUZLig7AlwlvcAhyeqVESagBUi0Putj6HdT+GglSzHKHZbGItlHLQk6MJgfyGNDes50VZNytARFFZLjJtqD3Bb/W6yHEFIKXBXQfWzkHszwHZgM9CjlBIT0AAsVQpzYbWTwqQJznRfMq/bwDoTMbtoP+Sm8eM6+r0FaAiCItd9gdW3N1C9qBVdjwNWmH8Xw67H6f/OSV5pjOkzrWuBRUCDiLyiRGQe8AUwG4DIAPQ1gTLDtGLGwk6atgxx4M2LRMZkomzKyk9yx9qd5Bf1QMoAez6UP0nEtYG3N3Zy6nMvpbe4eeCjamwO/XJGt5uAs8C+CaAtD67eCMCoP8W2Te2cbPSnPSmm2EPUrWiibvmX2OwhMDSYUQvXPQPuxXTtGaSj6QIpQ+g9McjYuTPYKhcAGsAdmlIqBbwM7AWiQAToB453H/YNfL9nYFJpgMvto7T0FJmZEbBMhZKHYdl74F6MCJxs9BKPpwCN/NxTOH64C87vuuwwbgJQSp0RkTuBsvRGPzDkLMrcWnStI+/noyPpiyL0nJvNltc2UV7ZTs2DC5hVeS+axQJAoCdC535/Ou0GFRVtWJJnYOAgFK0BaDJNlKtSQ8DB37yrngc/rOTIC+9wdJeZC758BMVoKItDh5bSftpCWdNpau4vZF5NNp37/QR6IoBGdvZFSkp+AM0KzgqAUeBd0180iLdyZk+9adWjidLr57/OsZYqWltr8XrzEBRjgRjN75/nu11eFt7qxn82giGCoDN/wY+4XINgL4KragGOAQf/FKiUOiEi65m38dGcDMeGlQt3TF9846scP1LOkZZa+vsLEHTCwwlaP+5Lv6kKkz5ORWUbSo9fgk0pEmCnUiqk/mYf1IElRLyP4d27ku6PrMOdXXzbeg0tLUvp6y0kJToaBgYaBfnn2fTEi2Rlx2DpNii4rQtYrpTyXGkDzgRWEgs8hnffErq3aSOdP9J+tITm5mV4PMUYhsbqNQ2sWr0TnNfCLY1gdb6qlNp0xR1/Ejgb2EB85BG8B0ro3kqo8xSnT84imcqgqqoNm20EKjZD1dPDQL1SquUfzyciUiQiz0k81CeePSL714l8kCPydobIh8Ui/jYRkd0iYv1XByMRKRORNyQRDkrvlyJHN4ucaxAxkhERWf+fTGNipEwiUi8izSJiiMiYiDwvYlj/n1X/0/gFCbx4aQa42HAAAAAASUVORK5CYII=",
                  "rectangle": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAaCAMAAACTisy7AAACdlBMVEW+gFX///8AAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////7//////v3///////////////////////////////////////////////////////7///////////////////////////////////////+0tLRwcXByc3FxcnB/gH7s7et0dHQAAAANABoPAB0NABwjEDHCrtDy6Pl1dnULABdVAJZeAKVdAKRdAKVfAqZqC7K1hdkMABlcAKJlALJoB7NqCrRnBrFhAKtjAK9hAK+vfNZbAKFmA7Lbw+3ZwOzcxO+agaweAjRTAJJjALGwfNdnBLLRs+f///+rrq0DAQhMAIevfNjPsef/+/b/1pj/zID/zYH/z4PXpVmEUBBrE4phALOvY5n/z4H/zYP/3q3/+O3/rjX/mwf/nQn/nAn/ngr7mRWIJItfALWvTGD/nwf/mwX/vlz/rzj/nQr/ng34lxWHJItgALWvTGH/oAv/v17Qsef/+e7Fptzy9PLx6t/8rTVcAKFkAa9BJFgwNC5BOy7cjRH/ogr/oQr6mRKIJIp0dXMKABdkAK86AGgmAEYzBEmiSlG+W1O9WlO9W1K5Vld4FZtgALTCw8GDc5BmCaxiAK9jALBiALKuS2Lu4fiMQcSALr6BL7+BLruBIJqBHZJ/G5S+W1L9/P717/r07fr07vv05un0o0H0khb0kxj0kxn5mBP/sDj/nwz/rjb/nAf/mwb//Pb/2J7/z4j/0In/z4f/4LGPZS+MAAAAAXRSTlMAQObYZgAAATVJREFUKM9jYMALODi50AA3QpLPytoGGdja2XPAJQUdHJ2ckYCLq5u7EFzSw9PL2wcBfP38A0QQkoFBwSGhMBAWHhEZhSwZHRMQGwcB8QmJSckposiSqWnpMJCRmZWcLcUpLSMjC5PMSc/Nyy8AgsKi4pLSsvKKioJKeYRkVXVNLRDU1Tc0NjW31Na2tikiSbZ3dIJBV3dPb19nZ10/FSQnpE/ELTlp8pSpOCSnTZ8xc9bsOXPBYN58ZMkFC6MXLV6ydNnyFSCwctXqNQhJ5bXr1m/YuDG5FAY2rdkMl1RV27J12/btO3bugoHde+CSDBp79+3ff+DgocNHoODosU64JIOmlpa2zsTj9SdgoBNJEgzggQAFqJInT3Ugg9NtSJJnzp47jwwuXNRHSBoaoQEpY/xJGgDtYfX0n9HvoQAAAABJRU5ErkJggg==",
@@ -52,5 +51,3 @@ class Icons:
                  }
 
         self._icons = { name: base64_to_pixbuf(data) for name, data in icons.items() }
-
-

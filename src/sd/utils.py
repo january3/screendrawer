@@ -103,6 +103,10 @@ def flatten_and_unique(lst, result_set=None):
 
     return list(result_set)
 
+def swap_stacks(stack1, stack2):
+    """Swap two stacks"""
+    stack1[:], stack2[:] = stack2[:], stack1[:]
+
 def sort_by_stack(objs, stack):
     """Sort a list of objects by their position in the stack."""
     # sort the list of objects by their position in the stack
@@ -423,7 +427,7 @@ def calc_arc_coords2(p1, p2, c, n = 20):
     x2, y2 = p2
     xc, yc = c
 
-    if not n in NP_VEC:
+    if n not in NP_VEC:
         NP_VEC[n] = np.linspace(0, 1, n)
 
     # calculate the radius of the circle

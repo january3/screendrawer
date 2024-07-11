@@ -2,11 +2,11 @@
 This module holds the MenuMaker class, which is a singleton class that creates menus.
 """
 
-import gi                                                  # <remove>
-gi.require_version('Gtk', '3.0')                           # <remove>
-from gi.repository import Gtk # <remove>
-import logging                                                   # <remove>
-log = logging.getLogger(__name__)                                # <remove>
+import logging                             # <remove>
+import gi                                  # <remove>
+gi.require_version('Gtk', '3.0')           # <remove> pylint: disable=wrong-import-position
+from gi.repository import Gtk              # <remove>
+log = logging.getLogger(__name__)          # <remove>
 
 class MenuMaker:
     """A class holding methods to create menus. Singleton."""
@@ -45,7 +45,7 @@ class MenuMaker:
         """Callback for when a menu item is activated."""
         log.debug("Menu item activated: %s from %s", params, widget)
 
-        self.__bus.emitMult("queue_draw")
+        self.__bus.emit_mult("queue_draw")
         action = params[0]
         args   = params[1:]
         self.__bus.emit(action, *args)
@@ -58,6 +58,7 @@ class MenuMaker:
         if self.__context_menu:
             return self.__context_menu
 
+        # pylint: disable=line-too-long
         cb = self.on_menu_item_activated
         menu_items = [
                 { "label": "Toggle UI    [w]",                "callback": cb, "action": [ "toggle_wiglets" ] },
@@ -106,6 +107,7 @@ class MenuMaker:
         # when right-clicking on an object
         cb = self.on_menu_item_activated
 
+        # pylint: disable=line-too-long
         menu_items = [
                 { "label": "Copy (Ctrl-c)",                  "callback": cb, "action": [ "copy_content" ] },
                 { "label": "Cut (Ctrl-x)",                   "callback": cb, "action": [ "cut_content" ] },
