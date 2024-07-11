@@ -51,10 +51,6 @@ To do (sorted by priority):
 
 Design issues:
  
- * exporting bbox: right now, in the uibuilder code, the bbox is specified
-   as the screen, unless objects are selected. The rationale is "wysiwyg",
-   you can get multiple pages of precisely the same size. However, on the
-   other hand, it may be annoying. Then again, hit ctrl-a and you are good.
  * use numpy for all coordinates?
  * clipboard pasting should be taken over by the clipboard class, but for
    that the class would need access first to bus (to emit add object
@@ -97,6 +93,13 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * exporting bbox: right now, in the uibuilder code, the bbox is specified
+   as the screen, unless objects are selected. The rationale is "wysiwyg",
+   you can get multiple pages of precisely the same size. However, on the
+   other hand, it may be annoying. Then again, hit ctrl-a and you are good.
+   => not really, as this only selects from the current layer. => added a
+   checkbox to the export dialog
+ * only current layer gets exported!!!!
  * brush 4 (pencil) doesn't work anymore, probably due to changing of the
    coord calculation code.
  * pen no 5 (pencil) has incorrect bounding box

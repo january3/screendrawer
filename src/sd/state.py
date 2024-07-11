@@ -381,6 +381,10 @@ class StateObj(StateRoot):
         """Return the objects of the current layer."""
         return self.page().layer().objects()
 
+    def objects_all_layers(self):
+        """Return the objects of all layers."""
+        return self.page().objects_all_layers()
+
     def get_win_size(self):
         """Get the window size."""
         return self.__obj["app"].get_size()

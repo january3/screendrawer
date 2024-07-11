@@ -50,6 +50,13 @@ class UIBuilder():
 
         self.__init_wiglets()
         self.__register_bus_events()
+        self.__ui_state = {
+                "export_options": {
+                    "format": None,
+                    "all_pages_pdf": False,
+                    "export_screen": False
+                    }
+                }
 
     def __register_bus_events(self):
         """Register the bus events."""
@@ -240,43 +247,35 @@ class UIBuilder():
             self.__bus.emit("set_savefile", False, file)
             self.save_state()
 
-    def export_drawing(self):
-        """Save the drawing to a file."""
-        # Choose where to save the file
-        #    self.export(filename, "svg")
-        bbox = None
-        selected = False
+    def __normalize_export_format(self, file_format):
+        """Normalize the export format."""
+        formats = { "By extension": "any",
+                    "PDF": "pdf",
+                    "SVG": "svg",
+                    "PNG": "png",
+                   }
+        return formats[file_format]
+
+    def __get_export_cfg(self, bbox):
+        """Get the export configuration."""
         state = self.__state
-
-        if state.selected_objects():
-            # only export the selected objects
-            obj = state.selected_objects()
-            selected = True
-        else:
-            # set bbox so we export the whole screen
-            obj = state.objects()
-            bbox = state.visible_bbox()
-
-        if not obj:
-            log.warning("Nothing to draw")
-            return
-
-        obj = DrawableGroup(obj)
-        export_dir = state.config().export_dir()
-        file_name  = state.config().export_fn()
-
-        log.debug("export_dir: %s", export_dir)
-        ret = export_dialog(self.__app, export_dir = export_dir,
-                            filename = file_name,
-                            selected = selected)
-        file_name, file_format, all_as_pdf = ret
-
-        if not file_name:
-            return
-
         cfg = { "bg": state.graphics().bg_color(),
                "bbox": bbox,
                "transparency": state.graphics().alpha() }
+        return cfg
+
+    def __emit_export_dir(self, file_name):
+        """Emit the export directory."""
+        # extract dirname and base name from file name
+        dirname, base_name = path.split(file_name)
+        log.debug("dirname: %s base_name: %s", dirname, base_name)
+
+        self.__bus.emitMult("set_export_dir", dirname)
+        self.__bus.emitMult("set_export_fn", base_name)
+
+    def __prepare_export_objects(self, all_as_pdf, exp_screen, selected):
+        """Prepare the objects for export."""
+        state = self.__state
 
         if all_as_pdf:
             # get all objects from all pages and layers
@@ -284,12 +283,55 @@ class UIBuilder():
             obj = state.gom().get_all_pages()
             obj = [ p.objects_all_layers() for p in obj ]
             obj = [ DrawableGroup(o) for o in obj ]
+            bbox = None
+        elif exp_screen:
+            log.debug("Exporting screen")
+            obj = DrawableGroup(state.objects_all_layers())
+            bbox = state.visible_bbox()
+        else:
+            log.debug("Exporting selected objects")
+            if selected:
+                obj = DrawableGroup(selected)
+            else:
+                obj = DrawableGroup(state.objects_all_layers())
+            bbox = obj.bbox()
 
-        # extract dirname and base name from file name
-        dirname, base_name = path.split(file_name)
-        log.debug("dirname: %s base_name: %s", dirname, base_name)
-        self.__bus.emitMult("set_export_dir", dirname)
-        self.__bus.emitMult("set_export_fn", base_name)
+        return obj, bbox
+
+    def export_drawing(self):
+        """Save the drawing to a file."""
+        # Choose where to save the file
+        #    self.export(filename, "svg")
+        bbox = None
+        state = self.__state
+
+        selected = state.selected_objects()
+
+        self.__ui_state["export_options"]["selected"] = selected
+
+        export_dir = state.config().export_dir()
+        file_name  = state.config().export_fn()
+
+        ret = export_dialog(self.__app, export_dir = export_dir,
+                            filename = file_name,
+                            ui_opts = self.__ui_state["export_options"]
+                            )
+
+        file_name, file_format, all_as_pdf, exp_screen = ret
+
+        if not file_name:
+            return
+
+        self.__ui_state["export_options"]["format"] = file_format
+        self.__ui_state["export_options"]["all_pages_pdf"] = all_as_pdf
+        self.__ui_state["export_options"]["export_screen"] = exp_screen
+
+        file_format = self.__normalize_export_format(file_format)
+        obj, bbox = self.__prepare_export_objects(all_as_pdf, exp_screen,
+                                                  selected)
+
+        self.__emit_export_dir(file_name)
+        cfg = self.__get_export_cfg(bbox)
 
         export_image(obj, file_name, file_format, cfg, all_as_pdf)
 

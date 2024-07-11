@@ -187,7 +187,7 @@ def test_func(button):
     log.debug("itsa me, test_func")
     log.debug(f"button value: {button.get_active()}")
 
-def export_dialog_extra_widgets(selected = False):
+def export_dialog_extra_widgets(ui_opts = None):
     # Create a ComboBoxText for file format selection
     format_selector = Gtk.ComboBoxText()
     
@@ -196,11 +196,22 @@ def export_dialog_extra_widgets(selected = False):
     for fmt in formats:
         format_selector.append_text(fmt)
     
-    # Set the default selection to the first item
-    format_selector.set_active(0)
+    # Set the default selection to either
+    # ui_opts["format"] or if that is None, to 0
+    if ui_opts and ui_opts.get("format"):
+        format_selector.set_active(formats.index(ui_opts["format"]))
+    else:
+        format_selector.set_active(0)
 
     # Create a checkbox for "export all pages as PDF"
     export_all_checkbox = Gtk.CheckButton(label="Export all pages as PDF")
+    if ui_opts and ui_opts.get("all_pages_pdf"):
+        export_all_checkbox.set_active(ui_opts["all_pages_pdf"])
+
+    # Checkbox for "export screen view"
+    export_screen_checkbox = Gtk.CheckButton(label="Export screen view")
+    if ui_opts and ui_opts.get("export_screen"):
+        export_screen_checkbox.set_active(ui_opts["export_screen"])
  
     # Function to update checkbox sensitivity
     def update_checkbox_sensitivity(combo):
@@ -220,36 +231,41 @@ def export_dialog_extra_widgets(selected = False):
     hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
     hbox.pack_start(label, False, False, 0)
     hbox.pack_start(format_selector, False, False, 0)
-    if not selected:
-        hbox.pack_start(export_all_checkbox, False, False, 0)
+    hbox.pack_start(export_all_checkbox, False, False, 0)
+    hbox.pack_start(export_screen_checkbox, False, False, 0)
     
-    return hbox, format_selector, export_all_checkbox
+    return hbox, format_selector, export_all_checkbox, export_screen_checkbox
 
 
-def export_dialog(parent, export_dir = None, filename=None, selected = False):
+def export_dialog(parent, export_dir = None, filename=None, ui_opts = None):
     """Show a file chooser dialog to select a file to save the drawing as
     an image / pdf / svg."""
     log.debug("export_dialog")
     file_name, selected_filter = None, None
     selected_format = None
+    export_screen = False
 
     ## doesn't really work because we don't have a standalone window with
     ## its own title bar
+    selected = ui_opts.get("selected", False)
     title = "Export selected objects As" if selected else "Export all objects As"
 
     dialog = Gtk.FileChooserDialog(
         title=title, parent=parent, action=Gtk.FileChooserAction.SAVE)
-#
+
     dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                        Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
     dialog.set_modal(True)
 
-    hbox, format_selector, export_all_checkbox = export_dialog_extra_widgets(selected = selected)
+    ret =  export_dialog_extra_widgets(ui_opts = ui_opts)
+    hbox, fmt_selector, exp_all_cb, exp_screen_cb = ret
+
     dialog.set_extra_widget(hbox)
     hbox.show_all()
 
     current_directory = export_dir or os.getcwd()
     log.debug(f"current_directory: {current_directory}, filename: {filename}")
+
     if filename: 
         dialog.set_filename(filename)
 
@@ -267,17 +283,21 @@ def export_dialog(parent, export_dir = None, filename=None, selected = False):
         file_name = dialog.get_filename()
         selected_filter = dialog.get_filter().get_name()
         selected_filter = FORMATS[selected_filter]["name"]
-        selected_format = format_selector.get_active_text().lower()
-        #all_pages_pdf = F #cb.get_active()
+        selected_format = fmt_selector.get_active_text()
+        all_pages_pdf = exp_all_cb.get_active()
+        export_screen = exp_screen_cb.get_active()
 
         if selected_format == "by extension":
             selected_format = "any"
 
-        log.debug(f"Save file as: {file_name}, Format: {selected_filter}/{selected_format}, all pages as PDF: {all_pages_pdf}")
+        log.debug("Save file as: %s; Format: %s/%s",
+                  file_name, selected_filter, selected_format)
+        log.debug("all pages as PDF: %s; export_screen: %s",
+                  all_pages_pdf, export_screen)
 
 
     dialog.destroy()
-    return file_name, selected_format, all_pages_pdf
+    return file_name, selected_format, all_pages_pdf, export_screen
 
 def save_dialog(parent):
     """Show a file chooser dialog to set the savefile."""
