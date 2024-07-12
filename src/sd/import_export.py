@@ -303,6 +303,7 @@ def export_image_png(obj, output_file, cfg):
     """
 
     log.debug("Exporting image as PNG to file %s", output_file)
+    res_scale = 5
 
     bbox = cfg.get("bbox", None)
     log.debug("Bounding box: %s", bbox)
@@ -314,8 +315,10 @@ def export_image_png(obj, output_file, cfg):
 
     # to integers
     width, height = int(bbox[2]), int(bbox[3])
-    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, res_scale * width,
+                                 res_scale * height)
     cr = cairo.Context(surface)
+    cr.scale(res_scale, res_scale)
     __draw_object(cr, obj, bg, bbox, transparency)
 
     surface.write_to_png(output_file)

@@ -52,6 +52,11 @@ To do (sorted by priority):
 Design issues:
  
  * use numpy for all coordinates?
+ * export bitmap resolution will have to be dealt with accordingly.
+   Probably we need to make a custom dialog, with a button to open file
+   selection dialog - a bit like it is in inkscape, but not quite. At least
+   the "upscaling factor" should be configurable (right now it is rigidly
+   defined in export_image_png).
  * clipboard pasting should be taken over by the clipboard class, but for
    that the class would need access first to bus (to emit add object
    events), but also to state, because when pasting text it should know
@@ -75,7 +80,6 @@ Design issues:
  * maybe numpy should be used for brush calculations.
 
 Bugs:
- * exported images have tiny resolution.
  * grid is only drawn in the central region.
  * a clipped circle drawn during resize has incorrect coordinates. =>
    problem with "actual" and "not actual" bboxes.
@@ -94,6 +98,8 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * exported images have tiny resolution. => increased bbox 3 times for
+   export as an interim solution
  * exporting bbox: right now, in the uibuilder code, the bbox is specified
    as the screen, unless objects are selected. The rationale is "wysiwyg",
    you can get multiple pages of precisely the same size. However, on the
