@@ -179,13 +179,13 @@ class Brush:
     def calculate(self, line_width, coords, pressure = None):
         """Recalculate the outline of the brush."""
 
+        pressure = pressure if pressure is not None else [1] * len(coords)
+
         if coords is not None and pressure is not None:
             if len(coords) != len(pressure):
                 log.warning("Pressure and coords don't match (%d <> %d)",
                     len(coords), len(pressure))
                 pressure = None
-
-        pressure = pressure or [1] * len(coords)
 
         lwd = line_width
 

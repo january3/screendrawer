@@ -33,6 +33,12 @@ class PathRoot(Drawable):
 
     def outline_recalculate(self):
         """Recalculate the outline of the path."""
+        if len(self.coords) != len(self.__pressure):
+            log.error("coords and pressure have different lengths")
+            log.error("length coords: %s", len(self.coords))
+            log.error("length pressure: %s", len(self.__pressure))
+            raise ValueError("coords and pressure have different lengths")
+
         self.__brush.calculate(self.pen.line_width,
                                  coords = self.coords,
                                  pressure = self.__pressure)
@@ -45,6 +51,11 @@ class PathRoot(Drawable):
 
     def update(self, x, y, pressure):
         """Update the path with a new point."""
+       #if len(x) != len(pressure) or len(y) != len(x):
+       #    log.error("incorrect values sent to the update function")
+       #    log.error("length x: %s", len(x))
+       #    log.error("length y: %s", len(y))
+       #    log.error("length pressure: %s", len(pressure))
         self.path_append(x, y, pressure)
         self.mod += 1
 

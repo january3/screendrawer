@@ -245,13 +245,8 @@ def midpoint(p1, p2):
 def smooth_vector(coords, smoothing_factor, pressure = None):
     """smooth a vector"""
 
-    coords = np.array(coords)
-    _, unique_indices = np.unique(coords, axis=0, return_index=True)
-    coords = coords[np.sort(unique_indices)]
-
-    x, y = zip(*coords)
     # Create a parameterized spline representation of the curve
-    ret = splprep([x, y], s = smoothing_factor, k = 2)
+    ret = splprep(coords.T, s = smoothing_factor, k = 2)
     tck, u = ret[0], ret[1]
 
     delta_u = np.diff(u)
@@ -269,9 +264,8 @@ def smooth_vector(coords, smoothing_factor, pressure = None):
     # Convert the smoothed coordinates back to a list of tuples
     smoothed_coords = list(zip(new_points[0], new_points[1]))
 
-    if pressure:
-        pressure_interp = interp1d(u, pressure, kind='linear')
-        pressure = pressure_interp(u_new)
+    pressure_interp = interp1d(u, pressure, kind='linear')
+    pressure = pressure_interp(u_new)
 
     return smoothed_coords, pressure
 
@@ -281,6 +275,24 @@ def smooth_coords(coords, pressure=None, smoothing_factor=0):
 
     if len(coords) < 5:
         return coords, pressure
+
+    if pressure:
+        if len(pressure) != len(coords):
+            log.warning("Pressure and coords lengths differ: %d %d",
+                len(pressure), len(coords))
+            log.warning("shortening pressure")
+            pressure = pressure[:len(coords)]
+            raise ValueError("incorrect length of coords and pressure")
+
+    coords = np.array(coords)
+    _, unique_indices = np.unique(coords, axis=0, return_index=True)
+    uniq = np.sort(unique_indices)
+
+    coords = coords[uniq]
+
+    if pressure is not None:
+        pressure = np.array(pressure)
+        pressure = pressure[uniq]
 
     smoothed_coords, pressure = smooth_vector(coords, smoothing_factor, pressure)
 
