@@ -243,7 +243,9 @@ def midpoint(p1, p2):
     return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
 
 def smooth_vector(coords, smoothing_factor, pressure = None):
-    """smooth a vector"""
+    """
+    Smooth a vector
+    """
 
     # Create a parameterized spline representation of the curve
     ret = splprep(coords.T, s = smoothing_factor, k = 2)
@@ -252,8 +254,10 @@ def smooth_vector(coords, smoothing_factor, pressure = None):
     delta_u = np.diff(u)
 
     # Calculate additional points
-    new_u_fwd = np.array([u[:-1][:, None] + delta_u[:, None] * f for f in FRAC_FWD]).reshape(-1)
-    new_u_bck = np.array([u[1: ][:, None] + delta_u[:, None] * f for f in FRAC_BCK]).reshape(-1)
+    new_u_fwd = np.array([u[:-1][:, None] + delta_u[:, None] * f
+                          for f in FRAC_FWD]).reshape(-1)
+    new_u_bck = np.array([u[1: ][:, None] + delta_u[:, None] * f
+                          for f in FRAC_BCK]).reshape(-1)
 
     # Combine original and additional points
     u_new = np.sort(np.unique(np.concatenate((u, new_u_fwd,
