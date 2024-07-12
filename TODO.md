@@ -75,6 +75,7 @@ Design issues:
  * maybe numpy should be used for brush calculations.
 
 Bugs:
+ * exported images have tiny resolution.
  * grid is only drawn in the central region.
  * a clipped circle drawn during resize has incorrect coordinates. =>
    problem with "actual" and "not actual" bboxes.

@@ -201,7 +201,7 @@ class PathRoot(Drawable):
             return
 
         if bbox:
-            old_bbox = path_bbox(self.__brush.outline() or self.coords)
+            old_bbox = self.__brush.bbox() or self.coords
             coords = transform_coords(self.coords, old_bbox, bbox)
         else:
             coords = self.coords
@@ -224,10 +224,13 @@ class PathRoot(Drawable):
         """Draw the path."""
         #print("drawing path", self, "with brush", self.__brush, "of type",
         # self.__brush.brush_type())
+        if self.__brush.outline() is None:
+            return
+
         if len(self.__brush.outline()) < 2 or len(self.coords) < 2:
             return
 
-        if not self.__brush.outline():
+        if self.__brush.outline() is None:
             log.warning("no outline for brush %s",
                         self.__brush.brush_type())
             return

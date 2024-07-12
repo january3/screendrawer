@@ -1,14 +1,20 @@
 """Utilities for calculation of brush strokes."""
 
 import logging                                   # <remove>
+import gi                                        # <remove>
+gi.require_version("GLib", "2.0")                # <remove> pylint: disable=wrong-import-position
+from gi.repository import GLib                   # <remove>
 import cairo                                     # <remove>
 import numpy as np                               # <remove>
-from .utils import calc_arc_coords2, normal_vec  # <remove>
+from .utils import normal_vec                    # <remove>
 from .utils import calculate_angle2              # <remove>
 from .utils import distance                      # <remove>
 from .utils import calc_intersect                # <remove>
 
 log = logging.getLogger(__name__)                # <remove>
+NP_VEC = { 7: np.linspace(0, 1, 7) }
+TIME_OLD = 0
+TIME_NEW = 0
 
 def get_current_color_and_alpha(ctx):
     """Get the current color and alpha from the Cairo context."""
@@ -36,7 +42,7 @@ def min_pr(val):
 
 def find_intervals(values, n_bins):
     """
-    Divide the range [0, 1] into n_bins and return a list of bins with 
+    Divide the range [0, 1] into n_bins and return a list of bins with
     indices of values falling into each bin.
     """
 
@@ -122,7 +128,6 @@ def calc_segments_3(p0, p1, w1, w2):
 
     return (l_seg_s, l_seg_e), (r_seg_s, r_seg_e)
 
-
 def calc_outline_short_generic(coords, pressure, line_width, rounded = False):
     """Calculate the normal outline for a 2-coordinate path"""
 
@@ -132,6 +137,7 @@ def calc_outline_short_generic(coords, pressure, line_width, rounded = False):
 
     p0, p1 = coords[0], coords[1]
     width  = line_width * pressure[0] / 2
+
 
     l_seg1, r_seg1 = calc_segments_2(p0, p1, width)
 
@@ -177,11 +183,8 @@ def calc_normal_outline_short(coords, widths, rounded = False):
     return outline_l, outline_r
 
 
-def calc_normal_segments(coords, widths):
+def calc_normal_segments(coords):
     """Calculate the normal segments of a path using numpy."""
-
-    coords = np.array(coords)
-    widths = np.array(widths)
 
     # Calculate differences between consecutive points
     dx = np.diff(coords[:, 0])
@@ -198,12 +201,248 @@ def calc_normal_segments(coords, widths):
     nx = -dy_normalized
     ny = dx_normalized
 
-    # Scale normal vectors by widths
-    nx_scaled = nx * widths[:-1]
-    ny_scaled = ny * widths[:-1]
+    ret = np.column_stack((nx, ny))
+    return ret
 
-    return np.column_stack((nx_scaled, ny_scaled))
+def calc_normal_segments_scaled(normal_segments, widths):
+    """multiply the normal segments by weights"""
 
+    widths = np.array(widths) / 2
+    nw0 = normal_segments * widths[:-1, np.newaxis]
+    nw1 = normal_segments * widths[1:, np.newaxis]
+
+    return nw0, nw1
+
+def determine_side_math(p1, p2, p3):
+    """Determine the side of a point p3 relative to a line segment p1->p2."""
+    det = (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
+    return 'left' if det > 0 else 'right'
+
+def calc_arc_coords2(p1, p2, c, n = 20):
+    """Calculate the coordinates of an arc between points p1 and p2.
+       The arc is a fragment of a circle with centre in c."""
+    # pylint: disable=too-many-locals
+    x1, y1 = p1
+    x2, y2 = p2
+    xc, yc = c
+
+    if n not in NP_VEC:
+        NP_VEC[n] = np.linspace(0, 1, n)
+
+    # calculate the radius of the circle
+    radius = np.sqrt((x2 - xc)**2 + (y2 - yc)**2)
+    side = determine_side_math(p1, p2, c)
+
+    # calculate the angle between the line p1->c and p1->p2
+    a1 = np.arctan2(y1 - c[1], x1 - c[0])
+    a2 = np.arctan2(y2 - c[1], x2 - c[0])
+
+    if side == 'left' and a1 > a2:
+        a2 += 2 * np.pi
+    elif side == 'right' and a1 < a2:
+        a1 += 2 * np.pi
+
+    #angles = np.linspace(a1, a2, n)
+    angles = a1 + (a2 - a1) * NP_VEC[n]
+
+    # Calculate the arc points
+    x_coords = xc + radius * np.cos(angles)
+    y_coords = yc + radius * np.sin(angles)
+
+    # Combine x and y coordinates
+    #coords = np.column_stack((x_coords, y_coords))
+    coords = list(zip(x_coords, y_coords))
+    return coords
+
+def calc_segments(coords, nw0, nw1):
+    """calculate starting and ending points of the segments"""
+
+    l_seg_s = coords[:-1] + nw0
+    r_seg_s = coords[:-1] - nw0
+    l_seg_e = coords[1:] + nw1
+    r_seg_e = coords[1:] - nw1
+
+    return [l_seg_s, l_seg_e], [r_seg_s, r_seg_e]
+
+def calc_intersections(lseg_s, lseg_e):
+    """
+    Calculate intersection points between consecutive line segments.
+    Each segment consists of two points, start and end.
+    """
+    # pylint: disable=too-many-locals
+
+    x1, y1 = lseg_s[:-1].T  # Start points of segments
+    x2, y2 = lseg_e[:-1].T  # End points of segments
+    x3, y3 = lseg_s[1:].T   # Start points of the next segments
+    x4, y4 = lseg_e[1:].T   # End points of the next segments
+
+    denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+
+    # Avoid division by zero
+    denom_nonzero = denom != 0
+
+    # Calculate t and u only where denom is non-zero
+    t = np.zeros_like(denom)
+    u = np.zeros_like(denom)
+
+    t[denom_nonzero] = ((x1[denom_nonzero] - x3[denom_nonzero]) *
+                        (y3[denom_nonzero] - y4[denom_nonzero]) -
+                        (y1[denom_nonzero] - y3[denom_nonzero]) *
+                        (x3[denom_nonzero] - x4[denom_nonzero])) / denom[denom_nonzero]
+
+    u[denom_nonzero] = ((x1[denom_nonzero] - x3[denom_nonzero]) *
+                        (y1[denom_nonzero] - y2[denom_nonzero]) -
+                        (y1[denom_nonzero] - y3[denom_nonzero]) *
+                        (x1[denom_nonzero] - x2[denom_nonzero])) / denom[denom_nonzero]
+    # Conditions for intersection
+    intersect_cond = (0 <= t) & (t <= 1) & (0 <= u) & (u <= 1)
+
+    # Calculate intersection points
+    intersect_x = x1 + t * (x2 - x1)
+    intersect_y = y1 + t * (y2 - y1)
+
+    # Mask out non-intersections
+    intersect_x[~intersect_cond] = np.nan
+    intersect_y[~intersect_cond] = np.nan
+
+    # Stack results
+    intersections = np.stack((intersect_x, intersect_y), axis=-1)
+
+    return intersections
+
+def construct_outline(segments, intersections):
+    """Construct the left or right outline from segments and intersections."""
+    starts, ends = segments
+    is_intersect = ~np.isnan(intersections[:, 0]) & ~np.isnan(intersections[:, 1])
+
+    n = len(intersections)
+    is_s = np.sum(~is_intersect) # is segment
+
+    # joints count double
+    l_out = n + is_s
+
+    result = np.zeros((l_out + 2, 2), dtype=segments[0].dtype)
+
+    seg_int = np.where(~is_intersect)[0]
+    selector_seg = seg_int + np.arange(is_s)
+
+    result[selector_seg + 1] = ends[:-1][~is_intersect]
+    result[selector_seg + 2] = starts[1:][~is_intersect]
+
+    selector = np.zeros(l_out + 2, dtype=bool)
+    selector[:] = True
+    selector[[0, -1]] = False
+
+    selector[selector_seg + 1] = False
+    selector[selector_seg + 2] = False
+    result[selector] = intersections[is_intersect]
+    result[0] = starts[0]
+    result[-1] = ends[-1]
+    return result
+
+def calc_arc_coords_np(p1, p2, c, n = 20):
+    """Calculate the coordinates of an arc between points p1 and p2.
+       The arc is a fragment of a circle with centre in c."""
+    # pylint: disable=too-many-locals
+    x1, y1 = p1
+    x2, y2 = p2
+    xc, yc = c
+
+    if n not in NP_VEC:
+        NP_VEC[n] = np.linspace(0, 1, n)
+
+    # calculate the radius of the circle
+    radius = np.sqrt((x2 - xc)**2 + (y2 - yc)**2)
+    side = determine_side_math(p1, p2, c)
+
+    # calculate the angle between the line p1->c and p1->p2
+    a1 = np.arctan2(y1 - c[1], x1 - c[0])
+    a2 = np.arctan2(y2 - c[1], x2 - c[0])
+
+    if side == 'left' and a1 > a2:
+        a2 += 2 * np.pi
+    elif side == 'right' and a1 < a2:
+        a1 += 2 * np.pi
+
+    #angles = np.linspace(a1, a2, n)
+    angles = a1 + (a2 - a1) * NP_VEC[n]
+
+    # Calculate the arc points
+    x_coords = xc + radius * np.cos(angles)
+    y_coords = yc + radius * np.sin(angles)
+
+    # Combine x and y coordinates
+    #coords = np.column_stack((x_coords, y_coords))
+    #coords = list(zip(x_coords, y_coords))
+    #return coords
+    return x_coords, y_coords
+
+def construct_outline_round(segments, intersections, coords, n = 3):
+    """Construct the left or right outline from segments and intersections."""
+    # pylint: disable=too-many-locals
+
+    starts, ends = segments
+    is_intersect = ~np.isnan(intersections[:, 0]) & ~np.isnan(intersections[:, 1])
+
+    #print(is_intersect)
+    n_int = len(intersections)
+    is_s = np.sum(~is_intersect) # is segment
+
+    # joints count n times
+    l_out = n_int + is_s * (n + 1)
+
+    result = np.zeros((l_out + 2, 2), dtype=segments[0].dtype)
+    result[0] = starts[0]
+    result[-1] = ends[-1]
+
+    seg_int = np.where(~is_intersect)[0]
+    selector_seg = seg_int + np.arange(is_s) * (n + 1)
+    #print("selector_seg", selector_seg)
+
+    # first and last point
+    starts = starts[1:][~is_intersect]
+    ends = ends[:-1][~is_intersect]
+    #print("ends shape:", ends.shape)
+    point_selector = np.arange(len(coords))[1:-1]
+    #print(foo)
+
+    # fill in the arcs
+    for i, ind in enumerate(selector_seg):
+        idx = point_selector[~is_intersect][i]
+        ac_x, ac_y = calc_arc_coords_np(ends[i], starts[i], coords[idx], n)
+        result[ind + 2:ind + n + 2, 0] = ac_x
+        result[ind + 2:ind + n + 2, 1] = ac_y
+        #print("i =", i, "idx=", idx, "ind=", ind, "p=", coords[idx], "arc_coords =", arc_coords)
+
+    selector = np.zeros(l_out + 2, dtype=bool)
+    selector[:] = True
+    selector[[0, -1]] = False
+
+    for i in range(n + 2):
+        selector[selector_seg + i + 1] = False
+
+    result[selector_seg + 1] = ends
+    result[selector_seg + n + 2] = starts
+
+    result[selector] = intersections[is_intersect]
+    return result
+
+def round_tip(rseg, lseg, coords, n = 3):
+    """Round tip of the brush."""
+
+    p_s = coords[0]
+    r_s = rseg[0][0]
+    l_s = lseg[0][0]
+    ac_x_s, ac_y_s = calc_arc_coords_np(r_s, l_s, p_s, n)
+    arc_coords_s = np.column_stack((ac_x_s, ac_y_s))
+
+    p_e = coords[-1]
+    r_e = rseg[1][-1]
+    l_e = lseg[1][-1]
+    ac_x_e, ac_y_e = calc_arc_coords_np(l_e, r_e, p_e, n)
+    arc_coords_e = np.column_stack((ac_x_e, ac_y_e))
+
+    return arc_coords_s, arc_coords_e
 
 def calc_normal_outline(coords, widths, rounded = False):
     """Calculate the normal outline of a path."""
@@ -214,6 +453,54 @@ def calc_normal_outline(coords, widths, rounded = False):
 
     if n == 2:
         return calc_normal_outline_short(coords, widths, rounded)
+
+    t1 = GLib.get_monotonic_time()
+    coords_np = np.array(coords)
+
+    # normal vectors
+    n_segm = calc_normal_segments(coords_np)
+
+    # normal vectors scaled by the widths
+    nw0, nw1 = calc_normal_segments_scaled(n_segm, widths)
+
+    # calculate the outline segments
+    lseg, rseg = calc_segments(coords_np, nw0, nw1)
+
+    # figure whether and if yes, where the segments intersect
+    l_intersect = calc_intersections(*lseg)
+    r_intersect = calc_intersections(*rseg)
+
+    if rounded:
+        outline_l = construct_outline_round(lseg, l_intersect,
+                                            coords, n = 3)
+        outline_r = construct_outline_round(rseg, r_intersect,
+                                            coords, n = 3)
+        tip_s, tip_e = round_tip(rseg, lseg, coords, n = 10)
+        outline_l = np.concatenate((tip_s, outline_l, tip_e))
+    else:
+        outline_l = construct_outline(lseg, l_intersect)
+        outline_r = construct_outline(rseg, r_intersect)
+
+    t2 = GLib.get_monotonic_time()
+
+    log.debug("outline lengths: %d, %d", len(outline_l), len(outline_r))
+    log.debug("coords length: %d", len(coords))
+    global TIME_NEW
+    TIME_NEW += t2 - t1
+    log.debug("time, new: %s", TIME_NEW)
+    return outline_l, outline_r
+
+def calc_normal_outline_bck(coords, widths, rounded = False):
+    """Calculate the normal outline of a path."""
+    n = len(coords)
+
+    if n < 2:
+        return [], []
+
+    if n == 2:
+        return calc_normal_outline_short(coords, widths, rounded)
+
+    t1 = GLib.get_monotonic_time()
 
     outline_l = []
     outline_r = []
@@ -245,7 +532,7 @@ def calc_normal_outline(coords, widths, rounded = False):
         else:
             outline_l.append(l_seg1[1])
             if rounded:
-                arc_coords = calc_arc_coords2(l_seg1[1], l_seg2[0], p1, 10)
+                arc_coords = calc_arc_coords2(l_seg1[1], l_seg2[0], p1, 3)
                 outline_l.extend(arc_coords)
             outline_l.append(l_seg2[0])
 
@@ -254,7 +541,7 @@ def calc_normal_outline(coords, widths, rounded = False):
         else:
             outline_r.append(r_seg1[1])
             if rounded:
-                arc_coords = calc_arc_coords2(r_seg1[1], r_seg2[0], p1, 10)
+                arc_coords = calc_arc_coords2(r_seg1[1], r_seg2[0], p1, 3)
                 outline_r.extend(arc_coords)
             outline_r.append(r_seg2[0])
 
@@ -267,6 +554,11 @@ def calc_normal_outline(coords, widths, rounded = False):
     if rounded:
         arc_coords = calc_arc_coords2(l_seg1[1], r_seg1[1], p0, 10)
         outline_l.extend(arc_coords)
+
+    t2 = GLib.get_monotonic_time()
+    global TIME_OLD
+    TIME_OLD += t2 - t1
+    log.debug("time, old: %s", TIME_OLD)
 
     log.debug("outline lengths: %d, %d", len(outline_l), len(outline_r))
     log.debug("coords length: %d", len(coords))
@@ -316,7 +608,7 @@ def calc_pencil_outline(coords, pressure, line_width):
     outline_r.append(r_seg1[0])
     pressure_ret.append(pressure[0])
 
-    np = 7
+    npt = 7
 
     for i in range(n - 2):
         p2 = coords[i + 2]
@@ -329,22 +621,22 @@ def calc_pencil_outline(coords, pressure, line_width):
         intersect_l = calc_intersect(l_seg1, l_seg2)
 
         if intersect_l is None:
-            arc_coords = calc_arc_coords2(l_seg1[1], l_seg2[0], p1, np)
+            arc_coords = calc_arc_coords2(l_seg1[1], l_seg2[0], p1, npt)
             outline_l.extend(arc_coords)
         else:
-            outline_l.extend([intersect_l] * np)
+            outline_l.extend([intersect_l] * npt)
 
         # in the following, if the two outline segments intersect, we simplify
         # them; if they don't, we add a curve
         intersect_r = calc_intersect(r_seg1, r_seg2)
 
         if intersect_r is None:
-            arc_coords = calc_arc_coords2(r_seg1[1], r_seg2[0], p1, np)
+            arc_coords = calc_arc_coords2(r_seg1[1], r_seg2[0], p1, npt)
             outline_r.extend(arc_coords)
         else:
-            outline_r.extend([intersect_r] * np)
+            outline_r.extend([intersect_r] * npt)
 
-        pressure_ret.extend([ pressure[i] ] * np)
+        pressure_ret.extend([ pressure[i] ] * npt)
 
         l_seg1, r_seg1 = l_seg2, r_seg2
         p0, p1 = p1, p2

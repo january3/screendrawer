@@ -23,7 +23,6 @@ log = logging.getLogger(__name__)                          # <remove>
 
 FRAC_FWD = np.array([1/50, 3/50, 2/10, 1/2])
 FRAC_BCK = np.array([-1/50, -3/50, -2/10])
-NP_VEC = { 7: np.linspace(0, 1, 7) }
 
 def get_default_savefile(app_name, app_author):
     """Get the default save file for the application."""
@@ -419,41 +418,6 @@ def calc_arc_coords(p1, p2, c, n = 20):
 
     coords = np.column_stack((x_coords, y_coords))
     return coords.tolist()
-
-def calc_arc_coords2(p1, p2, c, n = 20):
-    """Calculate the coordinates of an arc between points p1 and p2.
-       The arc is a fragment of a circle with centre in c."""
-    x1, y1 = p1
-    x2, y2 = p2
-    xc, yc = c
-
-    if n not in NP_VEC:
-        NP_VEC[n] = np.linspace(0, 1, n)
-
-    # calculate the radius of the circle
-    radius = np.sqrt((x2 - xc)**2 + (y2 - yc)**2)
-    side = determine_side_math(p1, p2, c)
-
-    # calculate the angle between the line p1->c and p1->p2
-    a1 = np.arctan2(y1 - c[1], x1 - c[0])
-    a2 = np.arctan2(y2 - c[1], x2 - c[0])
-
-    if side == 'left' and a1 > a2:
-        a2 += 2 * np.pi
-    elif side == 'right' and a1 < a2:
-        a1 += 2 * np.pi
-
-    #angles = np.linspace(a1, a2, n)
-    angles = a1 + (a2 - a1) * NP_VEC[n]
-
-    # Calculate the arc points
-    x_coords = xc + radius * np.cos(angles)
-    y_coords = yc + radius * np.sin(angles)
-
-    # Combine x and y coordinates
-    #coords = np.column_stack((x_coords, y_coords))
-    coords = list(zip(x_coords, y_coords))
-    return coords
 
 def calc_rotation_angle(origin, p1, p2):
     """

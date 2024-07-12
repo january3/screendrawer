@@ -10,6 +10,7 @@ from .utils import coords_rotate, transform_coords               # <remove>
 from .utils import calculate_length                              # <remove>
 from .utils import first_point_after_length                      # <remove>
 from .brushutils import calc_normal_outline, calc_normal_outline_tapered # <remove>
+from .brushutils import calc_normal_outline_bck
 from .brushutils import calc_pencil_outline, smooth_pressure, bin_values # <remove>
 from .brushutils import calculate_slant_outlines                 # <remove>
 from .brushutils import find_intervals, min_pr                   # <remove>
@@ -89,10 +90,14 @@ class Brush:
     def bbox(self, force = False):
         """Get bounding box of the brush."""
 
-        if not self.__outline:
+        if self.__outline is None or len(self.__outline) < 4:
             return None
         if not self.__bbox or force:
-            self.__bbox = path_bbox(self.__outline)
+            xy_max = np.max(self.__outline, axis = 0)
+            xy_min = np.min(self.__outline, axis = 0)
+            self.__bbox = [xy_min[0], xy_min[1], 
+                           xy_max[0] - xy_min[0], 
+                           xy_max[1] - xy_min[1]]
         return self.__bbox
 
     def brush_type(self):
@@ -115,6 +120,8 @@ class Brush:
         """Get brush outline."""
         if new_outline is not None:
             self.__outline = new_outline
+        if self.__outline is None or len(self.__outline) < 4:
+            return None
         return self.__outline
 
     def pressure(self, pressure = None):
@@ -125,7 +132,7 @@ class Brush:
 
     def draw(self, cr, outline = False):
         """Draw the brush on the Cairo context."""
-        if not self.__outline or len(self.__outline) < 4:
+        if self.__outline is None or len(self.__outline) < 4:
             return
         cr.move_to(self.__outline[0][0], self.__outline[0][1])
         for point in self.__outline[1:]:
@@ -191,8 +198,10 @@ class Brush:
         self.coords(coords)
 
         widths = self.calc_width(pressure, lwd)
+        #outline_l, outline_r = calc_normal_outline_bck(coords, widths, self.__rounded)
         outline_l, outline_r = calc_normal_outline(coords, widths, self.__rounded)
-        outline  = outline_l + outline_r[::-1]
+        outline  = np.vstack((outline_l, outline_r[::-1]))
+        #outline  = list(map(tuple, outline))
 
         if len(coords) != len(pressure):
             log.warning("Pressure and coords don't match (%d <> %d)",
