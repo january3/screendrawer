@@ -81,40 +81,6 @@ Design issues:
  * maybe numpy should be used for brush calculations.
 
 Bugs:
- * bug that appears when moving the drawing; could not be replicated, here
-   is the trace:
-
-   ps: it can be replicated by scribbling in place
-
-```
-WARNING bus.py:50 call: Error while dispatching signal mouse_move to <bound method WigletCreateObject.on_move of <sd.wiglets.WigletCreateObject object at 0x7fed0eb7f670>>:
-WARNING bus.py:46 call: Traceback:
-  File "/home/january/Projects/Python/screendrawer/screendrawer/src/sd/bus.py", line 42, in call
-    ret = listener(*args, **kwargs)
-  File "/home/january/Projects/Python/screendrawer/screendrawer/src/sd/wiglets.py", line 778, in on_move
-    obj.update(ev.x, ev.y, ev.pressure())
-  File "/home/january/Projects/Python/screendrawer/screendrawer/src/sd/drawable_paths.py", line 48, in update
-    self.path_append(x, y, pressure)
-  File "/home/january/Projects/Python/screendrawer/screendrawer/src/sd/drawable_paths.py", line 141, in path_append
-    self.outline_recalculate()
-  File "/home/january/Projects/Python/screendrawer/screendrawer/src/sd/drawable_paths.py", line 36, in outline_recalculate
-    self.__brush.calculate(self.pen.line_width,
-  File "/home/january/Projects/Python/screendrawer/screendrawer/src/sd/brush.py", line 196, in calculate
-    coords, pressure = smooth_coords(coords, pressure)
-  File "/home/january/Projects/Python/screendrawer/screendrawer/src/sd/utils.py", line 285, in smooth_coords
-    smoothed_coords, pressure = smooth_vector(coords, smoothing_factor, pressure)
-  File "/home/january/Projects/Python/screendrawer/screendrawer/src/sd/utils.py", line 273, in smooth_vector
-    pressure_interp = interp1d(u, pressure, kind='linear')
-  File "/usr/lib/python3/dist-packages/scipy/interpolate/_interpolate.py", line 446, in __init__
-    _Interpolator1D.__init__(self, x, y, axis=axis)
-  File "/usr/lib/python3/dist-packages/scipy/interpolate/_polyint.py", line 54, in __init__
-    self._set_yi(yi, xi=xi, axis=axis)
-  File "/usr/lib/python3/dist-packages/scipy/interpolate/_polyint.py", line 124, in _set_yi
-    raise ValueError("x and y arrays must be equal in length along "
-WARNING bus.py:48 call: Exception value: x and y arrays must be equal in length along interpolation axis.
-ERROR bus.py:49 call: Exception type: <class 'ValueError'>
-```
-
  * why would moving cause to recalculate the outline of the brush???
  * grid is only drawn in the central region.
  * a clipped circle drawn during resize has incorrect coordinates. =>
@@ -134,6 +100,9 @@ ERROR bus.py:49 call: Exception type: <class 'ValueError'>
  * when drawing very slow the line looks like shit.
 
 Done:
+ * bug that appears when moving the drawing; could not be replicated, here
+   is the trace:
+   ps: it can be replicated by scribbling in place
  * exported images have tiny resolution. => increased bbox 3 times for
    export as an interim solution
  * exporting bbox: right now, in the uibuilder code, the bbox is specified

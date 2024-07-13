@@ -1,4 +1,5 @@
 """Status singleton class for holding key app information."""
+from os import path
 import logging                                                 # <remove>
 from .pen      import Pen                                      # <remove>
 from .history  import History                                  # <remove>
@@ -121,8 +122,6 @@ class StateGraphics:
         if value is not None:
             self.__gr["modified"] = value
         return self.__gr["modified"]
-
-
 
 class StateConfig:
     """import export dirs"""

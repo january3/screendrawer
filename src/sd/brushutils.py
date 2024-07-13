@@ -364,17 +364,12 @@ def calc_arc_coords_np(p1, p2, c, n = 20):
     elif side == 'right' and a1 < a2:
         a1 += 2 * np.pi
 
-    #angles = np.linspace(a1, a2, n)
     angles = a1 + (a2 - a1) * NP_VEC[n]
 
     # Calculate the arc points
     x_coords = xc + radius * np.cos(angles)
     y_coords = yc + radius * np.sin(angles)
 
-    # Combine x and y coordinates
-    #coords = np.column_stack((x_coords, y_coords))
-    #coords = list(zip(x_coords, y_coords))
-    #return coords
     return x_coords, y_coords
 
 def construct_outline_round(segments, intersections, coords, n = 3):
@@ -488,80 +483,6 @@ def calc_normal_outline(coords, widths, rounded = False):
     global TIME_NEW
     TIME_NEW += t2 - t1
     log.debug("time, new: %s", TIME_NEW)
-    return outline_l, outline_r
-
-def calc_normal_outline_bck(coords, widths, rounded = False):
-    """Calculate the normal outline of a path."""
-    n = len(coords)
-
-    if n < 2:
-        return [], []
-
-    if n == 2:
-        return calc_normal_outline_short(coords, widths, rounded)
-
-    t1 = GLib.get_monotonic_time()
-
-    outline_l = []
-    outline_r = []
-
-    p0, p1 = coords[0], coords[1]
-    w1 = widths[0] / 2
-    w2 = widths[1] / 2
-    l_seg1, r_seg1 = calc_segments_3(p0, p1, w1, w2)
-
-    ## append the points for the first coord
-    if rounded:
-        arc_coords = calc_arc_coords2(l_seg1[0], r_seg1[0], p1, 10)
-        outline_r.extend(arc_coords)
-    outline_l.append(l_seg1[0])
-    outline_r.append(r_seg1[0])
-
-    for i in range(n - 2):
-        p2 = coords[i + 2]
-        w1 = widths[i + 1] / 2
-        w2 = widths[i + 2] / 2
-
-        l_seg2, r_seg2 = calc_segments_3(p1, p2, w1, w2)
-
-        intersect_l = calc_intersect(l_seg1, l_seg2)
-        intersect_r = calc_intersect(r_seg1, r_seg2)
-
-        if intersect_l is not None:
-            outline_l.append(intersect_l)
-        else:
-            outline_l.append(l_seg1[1])
-            if rounded:
-                arc_coords = calc_arc_coords2(l_seg1[1], l_seg2[0], p1, 3)
-                outline_l.extend(arc_coords)
-            outline_l.append(l_seg2[0])
-
-        if intersect_r is not None:
-            outline_r.append(intersect_r)
-        else:
-            outline_r.append(r_seg1[1])
-            if rounded:
-                arc_coords = calc_arc_coords2(r_seg1[1], r_seg2[0], p1, 3)
-                outline_r.extend(arc_coords)
-            outline_r.append(r_seg2[0])
-
-        p0, p1 = p1, p2
-        l_seg1, r_seg1 = l_seg2, r_seg2
-
-    outline_l.append(l_seg2[1])
-    outline_r.append(r_seg2[1])
-
-    if rounded:
-        arc_coords = calc_arc_coords2(l_seg1[1], r_seg1[1], p0, 10)
-        outline_l.extend(arc_coords)
-
-    t2 = GLib.get_monotonic_time()
-    global TIME_OLD
-    TIME_OLD += t2 - t1
-    log.debug("time, old: %s", TIME_OLD)
-
-    log.debug("outline lengths: %d, %d", len(outline_l), len(outline_r))
-    log.debug("coords length: %d", len(coords))
     return outline_l, outline_r
 
 def point_mean(p1, p2):

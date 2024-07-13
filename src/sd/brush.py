@@ -10,7 +10,6 @@ from .utils import coords_rotate, transform_coords               # <remove>
 from .utils import calculate_length                              # <remove>
 from .utils import first_point_after_length                      # <remove>
 from .brushutils import calc_normal_outline, calc_normal_outline_tapered # <remove>
-from .brushutils import calc_normal_outline_bck
 from .brushutils import calc_pencil_outline, smooth_pressure, bin_values # <remove>
 from .brushutils import calculate_slant_outlines                 # <remove>
 from .brushutils import find_intervals, min_pr                   # <remove>
@@ -198,10 +197,8 @@ class Brush:
         self.coords(coords)
 
         widths = self.calc_width(pressure, lwd)
-        #outline_l, outline_r = calc_normal_outline_bck(coords, widths, self.__rounded)
         outline_l, outline_r = calc_normal_outline(coords, widths, self.__rounded)
         outline  = np.vstack((outline_l, outline_r[::-1]))
-        #outline  = list(map(tuple, outline))
 
         if len(coords) != len(pressure):
             log.warning("Pressure and coords don't match (%d <> %d)",
@@ -453,126 +450,6 @@ class BrushPencil(Brush):
         #log.debug("outline bbox: %s", path_bbox(self.outline()))
         self.bbox(force = True)
         return self.outline()
-
-class BrushPencilV2(Brush):
-    """
-    Pencil brush, v2.
-
-    This is more or less an experimental pencil.
-
-    This version attempts to draw with the same stroke, but to draw
-    """
-    def __init__(self, outline = None, bins = None, smooth_path = True): # pylint: disable=unused-argument
-        super().__init__(rounded = True, brush_type = "pencil",
-                         outline = outline, smooth_path = smooth_path)
-        self.__pressure  = [ ]
-        self.__bins = [ ]
-        self.__bin_lw = [ ]
-        self.__outline_l = [ ]
-        self.__outline_r = [ ]
-        self.__coords = [ ]
-
-    def move(self, dx, dy):
-        """Move the outline."""
-        self.outline([ (x + dx, y + dy) for x, y in self.outline() ])
-        self.__coords = [ (x + dx, y + dy) for x, y in self.__coords ]
-        self.__outline_l = [ (x + dx, y + dy) for x, y in self.__outline_l ]
-        self.__outline_r = [ (x + dx, y + dy) for x, y in self.__outline_r ]
-
-    def rotate(self, angle, rot_origin):
-        """Rotate the outline."""
-        self.outline(coords_rotate(self.outline(),   angle, rot_origin))
-        self.__coords = coords_rotate(self.__coords, angle, rot_origin)
-        self.__outline_l = coords_rotate(self.__outline_l, angle, rot_origin)
-        self.__outline_r = coords_rotate(self.__outline_r, angle, rot_origin)
-
-    def scale(self, old_bbox, new_bbox):
-        """Scale the outline."""
-        self.outline(transform_coords(self.outline(),   old_bbox, new_bbox))
-        self.__coords = transform_coords(self.__coords, old_bbox, new_bbox)
-        self.__outline_l = transform_coords(self.__outline_l, old_bbox, new_bbox)
-        self.__outline_r = transform_coords(self.__outline_r, old_bbox, new_bbox)
-
-    def draw(self, cr, outline = False):
-        """Draw the brush on the Cairo context."""
-        r, g, b, a = get_current_color_and_alpha(cr)
-        if not self.__coords or len(self.__coords) < 2:
-            return
-
-        if len(self.__pressure) != len(self.__coords):
-            log.warning("Pressure and coords don't match (%d <> %d)",
-                    len(self.__pressure), len(self.__coords))
-            return
-
-        #print("drawing pencil brush with coords:", len(coords), len(self.__pressure))
-
-        bins   = self.__bins
-        outline_l, outline_r = self.__outline_l, self.__outline_r
-        n = len(bins)
-        #print("n bins:", n, "n outline_l: ", len(outline_l), "n outline_r:", len(outline_r))
-        if outline:
-            cr.set_line_width(0.4)
-            cr.stroke()
-
-        for i in range(n):
-            cr.set_source_rgba(r, g, b, a)# * self.__bin_transp[i])
-            if not outline:
-                cr.set_line_width(self.__bin_lw[i])
-            for j in bins[i]:
-                #print("i = ", i, "j = ", j)
-                if j < len(outline_l) - 1:
-                    #print(outline_l[j], outline_r[j])
-                    #print(outline_l[j + 1], outline_r[j + 1])
-                    cr.move_to(outline_l[j][0], outline_l[j][1])
-                    cr.line_to(outline_l[j + 1][0], outline_l[j + 1][1])
-                    cr.line_to(outline_r[j + 1][0], outline_r[j + 1][1])
-                    cr.line_to(outline_r[j][0], outline_r[j][1])
-                    cr.close_path()
-                else:
-                    log.warning("warning: j out of bounds: %d, %d",
-                                j, len(outline_l))
-            if outline:
-                cr.stroke_preserve()
-            else:
-                cr.fill()
-
-    def calculate(self, line_width, coords, pressure = None):
-        """Recalculate the outline of the brush."""
-
-        if coords is not None and pressure is not None:
-            if len(coords) != len(pressure):
-                raise ValueError("Pressure and coords don't match")
-
-        pressure = pressure or [1] * len(coords)
-
-        lwd = line_width
-
-        if len(coords) < 2:
-            return None
-
-        #print("1.length of coords and pressure:", len(coords), len(pressure))
-        if self.smooth_path():
-            coords, pressure = smooth_coords(coords, pressure, 20)
-        #print("2.length of coords and pressure:", len(coords), len(pressure))
-
-        outline_l, outline_r, pp = calc_pencil_outline(coords, pressure, lwd)
-       #print("outline lengths:", len(outline_l), len(outline_r))
-
-        self.__outline_l = outline_l
-        self.__outline_r = outline_r
-        self.__pressure  = pressure
-        self.__coords    = coords
-        self.outline(outline_l + outline_r[::-1])
-
-        nbins = 32
-        #pp = [pressure[0]] * 5 + pressure + [pressure[-1]] * 5
-        plength = len(pp)
-        self.__bins, binsize = find_intervals(pp[:(plength - 1)], nbins)
-
-        self.__bin_lw = [ lwd * (0.75 + 0.25 * i * binsize) for i in range(1, nbins + 1) ]
-
-        return self.outline()
-
 
 class BrushSlanted(Brush):
     """Slanted brush."""

@@ -242,10 +242,34 @@ def midpoint(p1, p2):
     """Calculate the midpoint between two points."""
     return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
 
+def vec_to_np(vec):
+    """Convert vec to numpy array if necessary"""
+
+    if vec is not None and not isinstance(vec, np.ndarray):
+        vec = np.array(vec)
+
+    return vec
+
+def coords_unique(coords, pressure = None):
+    """Select unique coordinates from coords and pressure vector"""
+
+    _, unique_indices = np.unique(coords, axis=0, return_index=True)
+    uniq = np.sort(unique_indices)
+
+    coords = coords[uniq]
+
+    if pressure is not None:
+        pressure = pressure[uniq]
+
+    return coords, pressure
+
+
 def smooth_vector(coords, smoothing_factor, pressure = None):
     """
     Smooth a vector
     """
+
+    coords, pressure = coords_unique(coords, pressure)
 
     # Create a parameterized spline representation of the curve
     ret = splprep(coords.T, s = smoothing_factor, k = 2)
@@ -268,11 +292,12 @@ def smooth_vector(coords, smoothing_factor, pressure = None):
     # Convert the smoothed coordinates back to a list of tuples
     smoothed_coords = list(zip(new_points[0], new_points[1]))
 
-    pressure_interp = interp1d(u, pressure, kind='linear')
-    pressure = pressure_interp(u_new)
+    # interpolate the pressure
+    if pressure is not None:
+        pressure_interp = interp1d(u, pressure, kind='linear')
+        pressure = pressure_interp(u_new)
 
     return smoothed_coords, pressure
-
 
 def smooth_coords(coords, pressure=None, smoothing_factor=0):
     """Smooth a path using scipy"""
@@ -288,91 +313,12 @@ def smooth_coords(coords, pressure=None, smoothing_factor=0):
             pressure = pressure[:len(coords)]
             raise ValueError("incorrect length of coords and pressure")
 
-    coords = np.array(coords)
-    _, unique_indices = np.unique(coords, axis=0, return_index=True)
-    uniq = np.sort(unique_indices)
-
-    coords = coords[uniq]
-
-    if pressure is not None:
-        pressure = np.array(pressure)
-        pressure = pressure[uniq]
+    coords   = vec_to_np(coords)
+    pressure = vec_to_np(pressure)
 
     smoothed_coords, pressure = smooth_vector(coords, smoothing_factor, pressure)
 
     return smoothed_coords, pressure
-
-def smooth_coords2(coords, pressure=None, threshold=0.02):
-    """Smooth a path using cubic Bézier curves."""
-
-    if len(coords) < 3:
-        return coords, pressure  # Not enough points to smooth
-
-    if pressure and len(pressure) != len(coords):
-        #raise ValueError("Pressure and coords must have the same length")
-        log.warning("Pressure and coords lengths differ: %d %d",
-            len(pressure), len(coords))
-        return coords, pressure
-
-    smoothed_coords = [coords[0]]  # Start with the first point
-    if pressure:
-        new_pressure    = [pressure[0]]
-    else:
-        new_pressure = None
-
-    t_values = [t / 10.0 for t in range(1, 5)]
-
-    for i in range(1, len(coords) - 1):
-        p0 = coords[i - 1]
-        p1 = coords[i]
-        p2 = coords[i + 1]
-
-        if pressure:
-            prev_pressure = pressure[i - 1]
-            current_pressure = pressure[i]
-            next_pressure = pressure[i + 1]
-
-        # Calculate distances to determine if smoothing is needed
-        dist_to_prev = math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
-        dist_to_next = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
-
-        #angle = calculate_angle(p0, p1, p2)
-
-        if dist_to_prev > threshold or dist_to_next > threshold:
-            # Calculate control points for smoother transitions
-            control1 = midpoint(p0, p1)
-            control2 = midpoint(p1, p2)
-
-            # Generate intermediate points for the cubic Bézier curve
-            for t in t_values:
-                x, y = calc_bezier_coords(t, p1, p2, control1, control2)
-                if pressure:
-                    new_pressure.append((1-t) * prev_pressure + t * next_pressure)
-                smoothed_coords.append((x, y))
-        else:
-            # For shorter segments, just add the current point
-            smoothed_coords.append(p1)
-            if pressure:
-                new_pressure.append(current_pressure)
-
-    smoothed_coords.append(coords[-1])  # Ensure the last point is added
-    if pressure:
-        new_pressure.append(pressure[-1])
-
-    log.debug("orig number of coords: %d after smoothing: %d", len(coords), len(smoothed_coords))
-    return smoothed_coords, new_pressure
-
-def calc_bezier_coords(t, p1, p2, control1, control2):
-    """Calculate a point on a cubic Bézier curve."""
-
-    t0 = (1 - t) ** 3
-    t1 = 3 * (1 - t) ** 2 * t
-    t2 = 3 * (1 - t) * t ** 2
-    t3 = t ** 3
-    x = t0 * control1[0] + t1 * p1[0] + t2 * control2[0] + t3 * p2[0]
-    y = t0 * control1[1] + t1 * p1[1] + t2 * control2[1] + t3 * p2[1]
-
-    return x, y
 
 def distance_point_to_segment(p, segment):
     """Calculate the distance from a point (px, py) to a line segment (x1, y1) to (x2, y2)."""
