@@ -51,6 +51,11 @@ To do (sorted by priority):
 
 Design issues:
  
+ * loading from a dict: rather than passing the keys as arguments to the 
+   constructor, pass the dict as a single argument. This will make it easier
+   to add new properties to the objects, limit the number of arguments etc
+   etc.
+ * rewrite everything in rust with gtk-rs
  * when saving as, set also the export directory (unless set previously)
  * use numpy for all coordinates?
  * export bitmap resolution will have to be dealt with accordingly.

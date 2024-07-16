@@ -489,6 +489,46 @@ def point_mean(p1, p2):
     """Calculate the mean of two points."""
     return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
 
+def calc_pencil_segments(coords, pressure, line_width):
+    """
+    Calculate the normal outline of a path.
+
+    This one is used in the pencil brush v3.
+
+    The main difference from normal outlines is that we are creating two
+    outlines and a pressure vector, all with exactly the same number of
+    points. This allows to create segments with different transparency
+    values.
+    """
+
+    segments = [ ]
+
+    n = len(coords)
+
+    if n < 2:
+        return [], [], []
+
+    if n == 2:
+        outline_l, outline_r = calc_outline_short_generic(coords, pressure, line_width, True)
+        return outline_l, outline_r, pressure
+
+    # normal vectors
+    n_segm = calc_normal_segments(coords_np)
+
+    # normal vectors scaled by the widths
+    nw0, nw1 = calc_normal_segments_scaled(n_segm, widths)
+
+    # calculate the outline segments
+    lseg, rseg = calc_segments(coords_np, nw0, nw1)
+
+    # figure whether and if yes, where the segments intersect
+    l_intersect = calc_intersections(*lseg)
+    r_intersect = calc_intersections(*rseg)
+
+
+    return segments
+
+
 def calc_pencil_outline(coords, pressure, line_width):
     """
     Calculate the normal outline of a path.

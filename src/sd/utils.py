@@ -21,8 +21,8 @@ from PIL import ImageGrab                                  #<remove>
 log = logging.getLogger(__name__)                          # <remove>
 #log.setLevel(logging.INFO)                                # <remove>
 
-FRAC_FWD = np.array([1/50, 3/50, 2/10, 1/2])
-FRAC_BCK = np.array([-1/50, -3/50, -2/10])
+FRAC_FWD = np.array([1/50, 2/10, 1/2])
+FRAC_BCK = np.array([-1/50, -2/10])
 
 def get_default_savefile(app_name, app_author):
     """Get the default save file for the application."""

@@ -133,7 +133,9 @@ class Brush:
         """Draw the brush on the Cairo context."""
         if self.__outline is None or len(self.__outline) < 4:
             return
+
         cr.move_to(self.__outline[0][0], self.__outline[0][1])
+
         for point in self.__outline[1:]:
             cr.line_to(point[0], point[1])
         cr.close_path()
@@ -186,23 +188,23 @@ class Brush:
                     len(coords), len(pressure))
                 pressure = None
 
-        lwd = line_width
+        nc = len(coords)
 
-        if len(coords) < 2:
+        if nc < 2:
             return None
 
-        if self.smooth_path():
+        if self.smooth_path() and nc < 50:
             coords, pressure = smooth_coords(coords, pressure)
-
-        self.coords(coords)
-
-        widths = self.calc_width(pressure, lwd)
-        outline_l, outline_r = calc_normal_outline(coords, widths, self.__rounded)
-        outline  = np.vstack((outline_l, outline_r[::-1]))
 
         if len(coords) != len(pressure):
             log.warning("Pressure and coords don't match (%d <> %d)",
                     len(coords), len(pressure))
+
+        self.coords(coords)
+
+        widths = self.calc_width(pressure, line_width)
+        outline_l, outline_r = calc_normal_outline(coords, widths, self.__rounded)
+        outline  = np.vstack((outline_l, outline_r[::-1]))
 
         self.__outline = outline
         self.bbox(force = True)
