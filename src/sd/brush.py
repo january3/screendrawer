@@ -7,6 +7,7 @@ gi.require_version('Gtk', '3.0')                                 # <remove> pyli
 import cairo                                                     # <remove>
 from .utils import path_bbox, smooth_coords                      # <remove>
 from .utils import coords_rotate, transform_coords               # <remove>
+from .utils import coords_rotate_np, transform_coords_np               # <remove>
 from .utils import calculate_length                              # <remove>
 from .utils import first_point_after_length                      # <remove>
 from .brushutils import calc_normal_outline, calc_normal_outline_tapered # <remove>
@@ -14,6 +15,7 @@ from .brushutils import calc_pencil_outline, smooth_pressure, bin_values # <remo
 from .brushutils import calculate_slant_outlines                 # <remove>
 from .brushutils import find_intervals, min_pr                   # <remove>
 from .brushutils import get_current_color_and_alpha              # <remove>
+from .brushutils import calc_pencil_segments              # <remove>
 log = logging.getLogger(__name__)                                # <remove>
 #log.setLevel(logging.INFO)                                      # <remove>
 
@@ -86,6 +88,15 @@ class Brush:
                 "smooth_path": self.smooth_path(),
                }
 
+    def bbox_move(self, dx, dy):
+        """Move the bbox by dx, xy"""
+        if self.__bbox is None:
+            self.bbox(force = True)
+            return
+
+        x, y, w, h = self.__bbox
+        self.__bbox = (x + dx, y + dy, w, h)
+
     def bbox(self, force = False):
         """Get bounding box of the brush."""
 
@@ -156,7 +167,10 @@ class Brush:
     def move(self, dx, dy):
         """Move the outline."""
         self.__outline = [ (x + dx, y + dy) for x, y in self.__outline ]
-        self.bbox(force = True)
+        self.bbox_move(dx, dy)
+        #print("bbox now 1:", self.bbox())
+        #self.bbox(force = True)
+        #print("bbox now 2:", self.bbox())
 
     def rotate(self, angle, rot_origin):
         """Rotate the outline."""
@@ -193,7 +207,9 @@ class Brush:
         if nc < 2:
             return None
 
-        if self.smooth_path() and nc < 50:
+        # we are smoothing only shorter lines to avoid generating too many
+        # points
+        if self.smooth_path() and nc < 100:
             coords, pressure = smooth_coords(coords, pressure)
 
         if len(coords) != len(pressure):
@@ -285,42 +301,11 @@ class BrushPencil(Brush):
         self.__coords = [ ]
         self.__gradients = None
         self.__midpoints = None
-        self.__fused = None
-        self.__outline_segments = None
-
-    def move(self, dx, dy):
-        """Move the outline."""
-        self.outline([ (x + dx, y + dy) for x, y in self.outline() ])
-        self.__coords = [ (x + dx, y + dy) for x, y in self.__coords ]
-        for s in self.__outline_segments:
-            for i, p in enumerate(s):
-                s[i] = (p[0] + dx, p[1] + dy)
-        self.bbox(force = True)
-
-    def rotate(self, angle, rot_origin):
-        """Rotate the outline."""
-        self.outline(coords_rotate(self.outline(),   angle, rot_origin))
-        self.__coords = coords_rotate(self.__coords, angle, rot_origin)
-        new_segm = [ ]
-        for s in self.__outline_segments:
-            new_segm.append(coords_rotate(s, angle, rot_origin))
-        self.__outline_segments = new_segm
-        self.bbox(force = True)
-
-    def scale(self, old_bbox, new_bbox):
-        """Scale the outline."""
-        self.outline(transform_coords(self.outline(),   old_bbox, new_bbox))
-        self.__coords = transform_coords(self.__coords, old_bbox, new_bbox)
-        new_segm = [ ]
-        for s in self.__outline_segments:
-            new_segm.append(transform_coords(s, old_bbox, new_bbox))
-        self.__outline_segments = new_segm
-        self.bbox(force = True)
+        self.__seg_info = None
 
     def draw(self, cr, outline = False):
         """Draw the brush on the Cairo context."""
-        r, g, b, a = get_current_color_and_alpha(cr)
-        if not self.__coords or len(self.__coords) < 2:
+        if self.__coords is None or len(self.__coords) < 2:
             return
 
         if len(self.__pressure) != len(self.__coords):
@@ -328,93 +313,74 @@ class BrushPencil(Brush):
                     len(self.__pressure), len(self.__coords))
             return
 
-        #log.debug(f"Drawing pencil brush with coords: {len(self.__coords)} {len(self.__pressure)}")
-
-        fbins = self.__outline_segments
-        grads = self.__gradients
-        midp  = self.__midpoints
-
         if outline:
             cr.set_line_width(0.4)
-            cr.stroke()
+            cr.set_source_rgba(0, 1, 1, 1)
 
-        for i, segm in enumerate(fbins):
-            gr = cairo.LinearGradient(midp[i][0][0], midp[i][0][1],
-                                      midp[i][1][0], midp[i][1][1])
-            gr.add_color_stop_rgba(0, r, g, b, a * grads[i][0])
-            gr.add_color_stop_rgba(1, r, g, b, a * grads[i][1])
+        mp    = self.__midpoints
+        segs  = self.outline()
+        sinfo = self.__seg_info
 
-            cr.move_to(segm[0][0], segm[0][1])
-            for p in segm:
-                cr.line_to(p[0], p[1])
+        rgba = get_current_color_and_alpha(cr)
+
+        for seg_i in range(len(sinfo)):
+
+            seg_pos = sinfo[seg_i, 0]
+            seg_len = sinfo[seg_i, 1]
+            cr.move_to(segs[seg_pos][0], segs[seg_pos][1])
+
+            for i in range(seg_pos + 1, seg_pos + seg_len):
+                cr.line_to(segs[i][0], segs[i][1])
             cr.close_path()
+
             if outline:
-                cr.stroke_preserve()
+                cr.stroke()
             else:
+                gr = self.get_gradient(rgba, mp[seg_i])
                 cr.set_source(gr)
                 cr.fill()
 
-    def segment_midpoints(self, segments):
-        """Calculate the midpoints of the segments start and end edge."""
-        ret = [ ]
+        if outline:
+            self.draw_outline(cr)
 
-        for segm in segments:
-            p0 = ((segm[0][0] + segm[-1][0])/2,
-                  (segm[0][1] + segm[-1][1])/2)
-            nn = int(len(segm)/2)
-            p1 = ((segm[nn - 1][0] + segm[nn][0])/2,
-                  (segm[nn - 1][1] + segm[nn][1])/2)
-            ret.append((p0, p1))
-        return ret
+    def get_gradient(self, c, info):
+        """Get a gradient for the brush segment."""
 
-    def fuse_segments(self, pp):
-        """Fuse segments which are next to each other"""
+        gr = cairo.LinearGradient(info[0], info[1],
+                                  info[2], info[3])
+        gr.add_color_stop_rgba(0, c[0], c[1], c[2], c[3] * info[4])
+        gr.add_color_stop_rgba(1, c[0], c[1], c[2], c[3] * info[5])
+        return gr
 
-        ret = [ ]
-        n_segments = len(pp)
+    def draw_outline(self, cr):
+        """Draw the outline of the brush."""
 
-        prev_pp = pp[0]
-        ret_pp  = [ ]
-        cur = [ ]
+        mp    = self.__midpoints
+        segs  = self.outline()
+        sinfo = self.__seg_info
 
-        # find groups of consecutive segments
-        #log.debug(f"n_segments: {n_segments}")
-        for j in range(n_segments):
+        cr.set_source_rgba(0, 1, 1, 1)
+        cr.set_line_width(0.04)
+        #cr.stroke()
 
-            if pp[j] == prev_pp:
-                #log.debug(f"pp[j]={pp[j]} prev_pp={prev_pp} appending {j} to the current segment")
-                cur.append(j)
-            else:
-                #log.debug(f"new segment at: {j}")
-                cur.append(j)
-                ret_pp.append((min_pr(prev_pp), min_pr(pp[j])))
-                ret.append(cur)
-                cur = [j]
+        # segment points
+        for seg_i in range(len(sinfo)):
+            seg_pos = sinfo[seg_i, 0]
+            print("seg_pos", seg_pos)
+            seg_len = sinfo[seg_i, 1]
+            cr.move_to(segs[seg_pos][0], segs[seg_pos][1])
 
-            prev_pp = pp[j]
-        ret_pp.append((min_pr(prev_pp), min_pr(pp[-1])))
-        ret.append(cur)
+            for i in range(seg_pos, seg_pos + seg_len):
+                #cr.line_to(self.__coords[i, 0], self.__coords[i, 1])
+                cr.arc(segs[i][0], segs[i][1], .7, 0, 2 * 3.14159)
+                cr.fill()
 
-        #log.debug(f"length of ret: {len(ret)} length of ret_pp: {len(ret_pp)}")
-        #for i, b in enumerate(ret):
-        #    log.debug(f"bin {i} contents: {len(b)} pp: {[int(100 * ppp) for ppp in ret_pp[i]]}")
-
-        return ret, ret_pp
-
-    def construct_segments(self, fused_bins, outline_l, outline_r):
-        """From bins, construct the segments of the outline."""
-        ret = [ ]
-
-        # construct the segments
-        for segm in fused_bins:
-            cur_segm = [ ]
-            ret.append(cur_segm)
-            for j in segm:
-                cur_segm.append(outline_l[j])
-            for j in segm[::-1]:
-                cur_segm.append(outline_r[j])
-
-        return ret
+        # segment midpoints, start and end
+        for seg_i in range(len(sinfo)):
+            cr.arc(mp[seg_i, 0], mp[seg_i, 1], .7, 0, 2 * 3.14159)
+            cr.fill()
+            cr.arc(mp[seg_i, 2], mp[seg_i, 3], .7, 0, 2 * 3.14159)
+            cr.fill()
 
     def calculate(self, line_width, coords, pressure = None):
         """Recalculate the outline of the brush."""
@@ -426,28 +392,21 @@ class BrushPencil(Brush):
         pressure = pressure or [1] * len(coords)
 
         lwd = line_width
+        nc = len(coords)
 
-        if len(coords) < 2:
+        if nc < 2:
             return None
 
-        if self.smooth_path():
-            coords, pressure = smooth_coords(coords, pressure, 10)
-
-        outline_l, outline_r, pp = calc_pencil_outline(coords, pressure, lwd)
-        log.debug("outline lengths: %d %d %d",
-            len(outline_l), len(outline_r), len(pp))
+        if self.smooth_path() and nc < 100 and False:
+            coords, pressure = smooth_coords(coords, pressure)
 
         self.__pressure  = pressure
+
+        widths = np.full(len(coords), lwd * .67)
+        segments, self.__seg_info, self.__midpoints = calc_pencil_segments(coords, widths, pressure)
+
         self.__coords    = coords
-        self.outline(outline_l + outline_r[::-1])
-
-        nbins = 5
-        pp = smooth_pressure(pp, 5)
-        pp = bin_values(pp, nbins)
-
-        self.__fused, self.__gradients = self.fuse_segments(pp)
-        self.__outline_segments = self.construct_segments(self.__fused, outline_l, outline_r)
-        self.__midpoints = self.segment_midpoints(self.__outline_segments)
+        self.outline(segments)
 
         #log.debug("outline bbox: %s", path_bbox(self.outline()))
         self.bbox(force = True)

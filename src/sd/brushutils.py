@@ -372,55 +372,94 @@ def calc_arc_coords_np(p1, p2, c, n = 20):
 
     return x_coords, y_coords
 
-def construct_outline_round(segments, intersections, coords, n = 3):
+def construct_outline_round(segments, intersections, coords, n = 3,
+                            ret_segments = False):
     """Construct the left or right outline from segments and intersections."""
     # pylint: disable=too-many-locals
 
     starts, ends = segments
+    n_segments = len(starts)
+    #print("starts", starts)
+    #print("ends", ends)
     is_intersect = ~np.isnan(intersections[:, 0]) & ~np.isnan(intersections[:, 1])
 
     #print(is_intersect)
     n_int = len(intersections)
-    is_s = np.sum(~is_intersect) # is segment
 
-    # joints count n times
-    l_out = n_int + is_s * (n + 1)
+    # number of rounded joints
+    is_rj = np.sum(~is_intersect)
+
+    # round joints count n + 1 times
+    l_out = n_int + is_rj * (n - 1)
+    #print("n_segments = ", n_segments, "n =", n, "n_int = ", n_int, "is_rj = ", is_rj, "l_out = ", l_out)
 
     result = np.zeros((l_out + 2, 2), dtype=segments[0].dtype)
+    
+    # first and last point
     result[0] = starts[0]
     result[-1] = ends[-1]
 
     seg_int = np.where(~is_intersect)[0]
-    selector_seg = seg_int + np.arange(is_s) * (n + 1)
+    #print("seg_int", seg_int)
+    #print("intersections at:", np.where(is_intersect)[0])
+
+    # selector_seg selects the segment joints that need to be an arc
+    # it contains the positions in the resulting array of the segment joints
+    selector_seg = seg_int + np.arange(is_rj) * (n - 1)
     #print("selector_seg", selector_seg)
 
-    # first and last point
+    # only these which are not intersections
     starts = starts[1:][~is_intersect]
     ends = ends[:-1][~is_intersect]
-    #print("ends shape:", ends.shape)
+
     point_selector = np.arange(len(coords))[1:-1]
-    #print(foo)
+    #print("point_selector", point_selector)
 
     # fill in the arcs
+    # i is the index of the segment joint
+    # ind is the position of the joint in the result array
+    # idx is the index of the point in the coords array
     for i, ind in enumerate(selector_seg):
         idx = point_selector[~is_intersect][i]
         ac_x, ac_y = calc_arc_coords_np(ends[i], starts[i], coords[idx], n)
-        result[ind + 2:ind + n + 2, 0] = ac_x
-        result[ind + 2:ind + n + 2, 1] = ac_y
+        result[ind + 1:ind + n + 1, 0] = ac_x
+        result[ind + 1:ind + n + 1, 1] = ac_y
         #print("i =", i, "idx=", idx, "ind=", ind, "p=", coords[idx], "arc_coords =", arc_coords)
+    index_column = np.arange(result.shape[0]).reshape(-1, 1)
+    print("after adding arcs\n", np.hstack((index_column, result)).astype(int))
 
+    # selector indicates where in the array are the intersections
     selector = np.zeros(l_out + 2, dtype=bool)
     selector[:] = True
     selector[[0, -1]] = False
 
-    for i in range(n + 2):
+    for i in range(n):
         selector[selector_seg + i + 1] = False
 
-    result[selector_seg + 1] = ends
-    result[selector_seg + n + 2] = starts
-
+    #result[selector_seg + 1] = ends
+    #print("after adding ends\n", result[:10])
+    #result[selector_seg + n] = starts
+    #print("after adding starts\n", result[:10])
     result[selector] = intersections[is_intersect]
-    return result
+    #print("after adding intersections\n", result[:10])
+    if not ret_segments:
+        return result, None
+
+    seg_positions = np.zeros((n_segments, 2), dtype=int)
+    seg_positions[np.where(is_intersect)[0], 0] = np.where(selector)[0] - 1
+
+    # number of points corresponding to the segment including start and end
+    seg_positions[np.where(is_intersect)[0], 1] = 2
+
+    seg_positions[np.where(~is_intersect)[0], 0] = selector_seg
+    # number of points corresponding to the segment including start and arc
+    seg_positions[np.where(~is_intersect)[0], 1] = n + 1
+
+    seg_positions[-1, 0] = l_out
+    seg_positions[-1, 1] = 2
+    print("seg_positions\n", seg_positions)
+
+    return result, seg_positions
 
 def round_tip(rseg, lseg, coords, n = 3):
     """Round tip of the brush."""
@@ -466,9 +505,9 @@ def calc_normal_outline(coords, widths, rounded = False):
     r_intersect = calc_intersections(*rseg)
 
     if rounded:
-        outline_l = construct_outline_round(lseg, l_intersect,
+        outline_l, _ = construct_outline_round(lseg, l_intersect,
                                             coords, n = 3)
-        outline_r = construct_outline_round(rseg, r_intersect,
+        outline_r, _ = construct_outline_round(rseg, r_intersect,
                                             coords, n = 3)
         tip_s, tip_e = round_tip(rseg, lseg, coords, n = 10)
         outline_l = np.concatenate((tip_s, outline_l, tip_e))
@@ -489,7 +528,224 @@ def point_mean(p1, p2):
     """Calculate the mean of two points."""
     return ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
 
-def calc_pencil_segments(coords, pressure, line_width):
+def __consecutive_runs(values):
+    """Find the lengths of consecutive identical numbers."""
+
+    # Convert the list to a NumPy array
+    array = np.array(values)
+
+    # Find the indices where the value changes
+    change_indices = np.where(np.diff(array) != 0)[0] + 1
+
+    # Add the start and end indices
+    change_indices = np.concatenate(([0], change_indices, [len(array)]))
+
+    # Calculate the lengths of consecutive identical numbers
+    lengths = np.diff(change_indices)
+
+    # Get the unique values corresponding to each segment
+    unique_values = array[change_indices[:-1]]
+
+    return lengths, unique_values
+
+def __consecutive_runs_2(values):
+    """
+    Find the lengths of consecutive identical pairs of numbers.
+    """
+
+    a0 = values[:,0]
+    a1 = values[:,1]
+
+    a0_diff = np.diff(a0) != 0
+    a1_diff = np.diff(a1) != 0
+
+    print("values:", values)
+    print("a0_diff:", a0_diff)
+    print("a1_diff:", a1_diff)
+
+    # Find the indices where the value changes
+    change_indices = np.where(a0_diff | a1_diff)[0] + 1
+
+    # Add the start and end indices
+    change_indices = np.concatenate(([0], change_indices, [len(values)]))
+
+    # Calculate the lengths of consecutive identical numbers
+    lengths = np.diff(change_indices)
+
+    return np.column_stack((change_indices[:-1], lengths))
+
+def __pressure_to_bins(pressure, n_bins = 5):
+    """Convert pressure values to bins."""
+
+    print("pressure:", pressure)
+    pressure = np.array(pressure)
+    pressure = (pressure[:-1] + pressure[1:]) / 2
+    print("pressure:", pressure)
+
+    bin_edges = np.linspace(0, 1, n_bins + 1, endpoint=False)[1:]
+    print("bin_edges:", bin_edges)
+    bin_edges = np.append(bin_edges, 1.0)
+    print("bin_edges:", bin_edges)
+
+    # Find the bin index for each number
+    pressure = np.digitize(pressure, bins=bin_edges, right=True)
+    print("pressure:", pressure)
+
+    return pressure
+
+def __make_segments(coords, ledge, redge, l_intersect, r_intersect,
+                    join_lengths):
+    """
+    Make segments from the left and right outlines.
+
+    Returns two arrays. First array contains the coordinates of all
+    segments in a continuous manner (so that scaling or moving would become
+    easy). This is the same as the outline, but the coordinates are
+    rearranged to form distinct segments.
+
+    The second array contains information about the segments: starting
+    coordinate, length, coordinate at which the segment ends are, and the
+    transparency value.
+    """
+
+    l_is_intersect = ~np.isnan(l_intersect[:, 0]) & ~np.isnan(l_intersect[:, 1])
+    r_is_intersect = ~np.isnan(r_intersect[:, 0]) & ~np.isnan(r_intersect[:, 1])
+    b_is_intersect = l_is_intersect & r_is_intersect
+
+    ## we will return the outline as a single numpy object
+    # this will have n - 1 segments
+    # each segment will have 4 coordinates with no intersections,
+    # 2 + arc coordinates with 1 intersection and 
+    # 2 * arc coordinates with 2 intersections
+
+    #join_lengths, join_vals = __consecutive_runs(pressure) 
+
+    # create np array with n_coord rows and three columns
+
+    outline_l, l_seg_pos = construct_outline_round(ledge, l_intersect,
+                                        coords, n = 3, ret_segments = True)
+    outline_r, r_seg_pos = construct_outline_round(redge, r_intersect,
+                                        coords, n = 3, ret_segments = True)
+
+    print("outline_l: \n", outline_l[:], "\nl_seg_pos: \n", l_seg_pos)
+    print("outline_r: \n", outline_r[:], "\nr_seg_pos: \n", r_seg_pos)
+
+    print("join_lengths: ", join_lengths, "sum:", np.sum(join_lengths))
+    print("l_seg_pos length: ", len(l_seg_pos), "r_seg_pos length: ", len(r_seg_pos))
+
+    tot_seg_length = len(outline_l) + len(outline_r) + len(join_lengths) * 2 - 2
+    print("outline_l length: ", len(outline_l), "outline_r length: ", len(outline_r))
+    print("tot_seg_length = ", tot_seg_length)
+
+    # first column: the coordinate at which the segment starts in the
+    # resulting array
+    # second column: number of coordinates in the segment
+    # third column: the coordinate at which the actual segment ends are
+    # found (note: the outline continues beyond this point, since there is
+    # the right outline after the left. the second column shows where the
+    # left outline ends and the right outline starts)
+    # fourth column: the binned pressure value for this segment
+    # XXX: each segment should have a starting and ending pressure value
+    # or actually how are the pressure values used?
+    segments = np.zeros((tot_seg_length, 2))
+
+    seg_info = np.zeros((len(join_lengths), 5), dtype = int)
+
+    left  = None
+    right = None
+
+    pos = 0
+    seg = 0
+    n_r = 0
+    n_l = 0
+
+    for jseg in range(len(join_lengths)):
+        left  = [ ]
+        right = [ ]
+        j_len = join_lengths[jseg]
+        n_coords_l = np.sum(l_seg_pos[seg:seg + j_len, 1]) - j_len + 1
+        n_coords_r = np.sum(r_seg_pos[seg:seg + j_len, 1]) - j_len + 1
+        n_coords = n_coords_l + n_coords_r
+        n_l += n_coords_l
+        n_r += n_coords_r
+        seg_info[jseg, 0] = pos
+        seg_info[jseg, 1] = n_coords
+        seg_info[jseg, 3] = seg
+        seg_info[jseg, 4] = seg + j_len - 1
+
+        print("building joined segment jseg = ", jseg, 
+              "join_lengths[jseg] = ", j_len,
+              "n_coords_l = ", n_coords_l, "n_coords_r = ", n_coords_r,
+              "n_coords = ", n_coords, "n_l = ", n_l, "n_r = ", n_r)
+
+        # first the left segment: from start to end
+        pos0 = pos
+        for j in range(j_len):
+            if j == 0:
+                coord_start = l_seg_pos[seg + j, 0]
+                coord_n     = l_seg_pos[seg + j, 1]
+            else:
+                coord_start = l_seg_pos[seg + j, 0] + 1
+                coord_n     = l_seg_pos[seg + j, 1] - 1
+
+            segments[pos0:pos0 + coord_n, 0:2] = outline_l[coord_start:coord_start + coord_n, 0:2]
+            print("j = ", j, "coord_start = ", coord_start, "coord_n = ", coord_n, "seg + j = ", seg + j, "pos0 = ", pos0)
+            print("outline_l:\n", outline_l[coord_start:coord_start + coord_n, 0:2])
+            #segments[pos0:pos0 + coord_n,2] = jseg
+            #segments[pos0:pos0 + coord_n,3] = join_vals[jseg]
+
+            #seg += 1
+            pos0 += coord_n
+
+        seg_info[jseg, 2] = pos0 - 1
+        print("value at pos0: ", segments[pos0 - 1])
+        #print("segments:\n", segments[:20].astype(int))
+        # then the right segment: from end to start
+        pos0 = 0
+        for j in range(j_len):
+            if j == 0:
+                coord_start = r_seg_pos[seg + j, 0]
+                coord_n     = r_seg_pos[seg + j, 1]
+            else:
+                coord_start = r_seg_pos[seg + j, 0] + 1
+                coord_n     = r_seg_pos[seg + j, 1] - 1
+
+            s_to   = pos + n_coords - pos0
+            s_from = s_to - coord_n
+            print("j = ", j, "coord_start = ", coord_start, "coord_n = ", coord_n, "seg + j = ", seg + j, "pos = ", pos)
+            print("outline_r:\n", outline_r[coord_start:coord_start + coord_n, 0:2])
+            print("outline_r:\n", outline_r[coord_start:coord_start + coord_n, 0:2][::-1])
+            segments[s_from:s_to, 0:2] = outline_r[coord_start:coord_start + coord_n, 0:2][::-1]
+            #segments[s_from:s_to,2] = jseg
+            #segments[s_from:s_to,3] = join_vals[jseg]
+
+            pos0 += coord_n
+
+        pos += n_coords
+        seg += j_len
+
+    print("n_l = ", n_l, "n_r = ", n_r, "pos = ", pos)
+    print("outline_l length: ", len(outline_l), "outline_r length: ", len(outline_r))
+    print("segments:\n", segments.astype(int))
+    print("len segments: ", len(segments))
+    print("seg_info:\n", seg_info.astype(int))
+    return segments, seg_info, None
+
+def __calc_midpoints(seg_info, lseg, rseg, pressure):
+    """
+    Calculate the segment midpoints used to generate the pencil gradient
+    """
+
+    midpoints = np.zeros((len(seg_info), 6), dtype = lseg[0].dtype)
+    midpoints[:,4:6] = pressure
+    sel = seg_info[:,3]
+    midpoints[:,0:2] = (lseg[0][sel] + rseg[0][sel])/2
+    midpoints[:,2:4] = (lseg[1][sel] + rseg[1][sel])/2
+    print("midpoints:\n", midpoints)
+    
+    return midpoints
+
+def calc_pencil_segments(coords, widths, pressure):
     """
     Calculate the normal outline of a path.
 
@@ -501,18 +757,15 @@ def calc_pencil_segments(coords, pressure, line_width):
     values.
     """
 
-    segments = [ ]
 
     n = len(coords)
 
     if n < 2:
-        return [], [], []
-
-    if n == 2:
-        outline_l, outline_r = calc_outline_short_generic(coords, pressure, line_width, True)
-        return outline_l, outline_r, pressure
+        return [], []
 
     # normal vectors
+    print("len coords: ", len(coords), "len pressure: ", len(pressure))
+    coords_np = np.array(coords)
     n_segm = calc_normal_segments(coords_np)
 
     # normal vectors scaled by the widths
@@ -525,8 +778,24 @@ def calc_pencil_segments(coords, pressure, line_width):
     l_intersect = calc_intersections(*lseg)
     r_intersect = calc_intersections(*rseg)
 
+    pressure = __pressure_to_bins(pressure, n_bins = 5)
+    pressure = pressure / 5 * 0.8 + 0.2
+    #print("len pressure now: ", len(pressure))
 
-    return segments
+    pp = np.column_stack((pressure[:-1], pressure[1:]))
+    #print("pp: \n", pp)
+    runs = __consecutive_runs_2(pp)
+    pp = pp[runs[:,0]]
+    #print("runs:\n", runs)
+
+    segments, seg_info, pressure = __make_segments(coords, lseg, rseg, 
+                               l_intersect, r_intersect,
+                                                   runs[:,1])
+    #print("len coords:", len(coords), "len lseg:", len(lseg[0]))
+
+    midpoints = __calc_midpoints(seg_info, lseg, rseg, pp)
+
+    return segments, seg_info, midpoints
 
 
 def calc_pencil_outline(coords, pressure, line_width):
