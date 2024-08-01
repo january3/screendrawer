@@ -51,6 +51,13 @@ To do (sorted by priority):
 
 Design issues:
  
+ * coords should be a class, on which one could do different things. this
+   class could use different internal representations, while being able to
+   use the same interface. It would take over coordinate transformations,
+   bbox calculation and much more, all in one place without the need to do
+   it separately in various places. Imagine coords.moveto(...),
+   coords.addpoint() or coords.bbox(). That would allow efficient caching
+   of the bbox, for example.
  * loading from a dict: rather than passing the keys as arguments to the 
    constructor, pass the dict as a single argument. This will make it easier
    to add new properties to the objects, limit the number of arguments etc
@@ -86,6 +93,13 @@ Design issues:
  * maybe numpy should be used for brush calculations.
 
 Bugs:
+ * in `calc_outline_rounded`, the coordinates of the ends and starts around
+   an arc joint are unnecessarily doubled
+ * bbox of the brush is repeatedly finding min and max elements from the
+   array. Actually, at least for moving, it is enough to change the first
+   two members of `__bbox`
+ * ESC should deselect current selection
+ * segments are not working smoothly (why? don't remember)
  * why would moving cause to recalculate the outline of the brush???
  * grid is only drawn in the central region.
  * a clipped circle drawn during resize has incorrect coordinates. =>
