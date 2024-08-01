@@ -366,7 +366,6 @@ class BrushPencil(Brush):
         # segment points
         for seg_i in range(len(sinfo)):
             seg_pos = sinfo[seg_i, 0]
-            print("seg_pos", seg_pos)
             seg_len = sinfo[seg_i, 1]
             cr.move_to(segs[seg_pos][0], segs[seg_pos][1])
 
@@ -394,21 +393,20 @@ class BrushPencil(Brush):
         lwd = line_width
         nc = len(coords)
 
-        if nc < 2:
+        if nc < 4:
             return None
 
-        if self.smooth_path() and nc < 100 and False:
+        if self.smooth_path() and nc < 25:
             coords, pressure = smooth_coords(coords, pressure)
 
         self.__pressure  = pressure
+        self.__coords    = coords
 
         widths = np.full(len(coords), lwd * .67)
         segments, self.__seg_info, self.__midpoints = calc_pencil_segments(coords, widths, pressure)
 
-        self.__coords    = coords
         self.outline(segments)
 
-        #log.debug("outline bbox: %s", path_bbox(self.outline()))
         self.bbox(force = True)
         return self.outline()
 

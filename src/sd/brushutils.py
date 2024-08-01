@@ -426,7 +426,7 @@ def construct_outline_round(segments, intersections, coords, n = 3,
         result[ind + 1:ind + n + 1, 1] = ac_y
         #print("i =", i, "idx=", idx, "ind=", ind, "p=", coords[idx], "arc_coords =", arc_coords)
     index_column = np.arange(result.shape[0]).reshape(-1, 1)
-    print("after adding arcs\n", np.hstack((index_column, result)).astype(int))
+    #print("after adding arcs\n", np.hstack((index_column, result)).astype(int))
 
     # selector indicates where in the array are the intersections
     selector = np.zeros(l_out + 2, dtype=bool)
@@ -457,7 +457,7 @@ def construct_outline_round(segments, intersections, coords, n = 3,
 
     seg_positions[-1, 0] = l_out
     seg_positions[-1, 1] = 2
-    print("seg_positions\n", seg_positions)
+    #print("seg_positions\n", seg_positions)
 
     return result, seg_positions
 
@@ -559,9 +559,9 @@ def __consecutive_runs_2(values):
     a0_diff = np.diff(a0) != 0
     a1_diff = np.diff(a1) != 0
 
-    print("values:", values)
-    print("a0_diff:", a0_diff)
-    print("a1_diff:", a1_diff)
+    #print("values:", values)
+    #print("a0_diff:", a0_diff)
+    #print("a1_diff:", a1_diff)
 
     # Find the indices where the value changes
     change_indices = np.where(a0_diff | a1_diff)[0] + 1
@@ -577,19 +577,19 @@ def __consecutive_runs_2(values):
 def __pressure_to_bins(pressure, n_bins = 5):
     """Convert pressure values to bins."""
 
-    print("pressure:", pressure)
+    #print("pressure:", pressure)
     pressure = np.array(pressure)
     pressure = (pressure[:-1] + pressure[1:]) / 2
-    print("pressure:", pressure)
+    #print("pressure:", pressure)
 
     bin_edges = np.linspace(0, 1, n_bins + 1, endpoint=False)[1:]
-    print("bin_edges:", bin_edges)
+    #print("bin_edges:", bin_edges)
     bin_edges = np.append(bin_edges, 1.0)
-    print("bin_edges:", bin_edges)
+    #print("bin_edges:", bin_edges)
 
     # Find the bin index for each number
     pressure = np.digitize(pressure, bins=bin_edges, right=True)
-    print("pressure:", pressure)
+    #print("pressure:", pressure)
 
     return pressure
 
@@ -627,15 +627,15 @@ def __make_segments(coords, ledge, redge, l_intersect, r_intersect,
     outline_r, r_seg_pos = construct_outline_round(redge, r_intersect,
                                         coords, n = 3, ret_segments = True)
 
-    print("outline_l: \n", outline_l[:], "\nl_seg_pos: \n", l_seg_pos)
-    print("outline_r: \n", outline_r[:], "\nr_seg_pos: \n", r_seg_pos)
+    #print("outline_l: \n", outline_l[:], "\nl_seg_pos: \n", l_seg_pos)
+    #print("outline_r: \n", outline_r[:], "\nr_seg_pos: \n", r_seg_pos)
 
-    print("join_lengths: ", join_lengths, "sum:", np.sum(join_lengths))
-    print("l_seg_pos length: ", len(l_seg_pos), "r_seg_pos length: ", len(r_seg_pos))
+    #print("join_lengths: ", join_lengths, "sum:", np.sum(join_lengths))
+    #print("l_seg_pos length: ", len(l_seg_pos), "r_seg_pos length: ", len(r_seg_pos))
 
-    tot_seg_length = len(outline_l) + len(outline_r) + len(join_lengths) * 2 - 2
-    print("outline_l length: ", len(outline_l), "outline_r length: ", len(outline_r))
-    print("tot_seg_length = ", tot_seg_length)
+    tot_seg_length = len(outline_l) + len(outline_r) + len(join_lengths) * 2 - 4
+    #print("outline_l length: ", len(outline_l), "outline_r length: ", len(outline_r))
+    #print("tot_seg_length = ", tot_seg_length)
 
     # first column: the coordinate at which the segment starts in the
     # resulting array
@@ -659,24 +659,26 @@ def __make_segments(coords, ledge, redge, l_intersect, r_intersect,
     n_r = 0
     n_l = 0
 
-    for jseg in range(len(join_lengths)):
-        left  = [ ]
-        right = [ ]
-        j_len = join_lengths[jseg]
+    for jseg, j_len in enumerate(join_lengths):
+        # j_len gives the number of segments to join
+        # jseg gives the index of the joint segment
+
         n_coords_l = np.sum(l_seg_pos[seg:seg + j_len, 1]) - j_len + 1
         n_coords_r = np.sum(r_seg_pos[seg:seg + j_len, 1]) - j_len + 1
+
         n_coords = n_coords_l + n_coords_r
         n_l += n_coords_l
         n_r += n_coords_r
+
         seg_info[jseg, 0] = pos
         seg_info[jseg, 1] = n_coords
         seg_info[jseg, 3] = seg
         seg_info[jseg, 4] = seg + j_len - 1
 
-        print("building joined segment jseg = ", jseg, 
-              "join_lengths[jseg] = ", j_len,
-              "n_coords_l = ", n_coords_l, "n_coords_r = ", n_coords_r,
-              "n_coords = ", n_coords, "n_l = ", n_l, "n_r = ", n_r)
+       #print("building joined segment jseg = ", jseg, 
+       #      "join_lengths[jseg] = ", j_len,
+       #      "n_coords_l = ", n_coords_l, "n_coords_r = ", n_coords_r,
+       #      "n_coords = ", n_coords, "n_l = ", n_l, "n_r = ", n_r)
 
         # first the left segment: from start to end
         pos0 = pos
@@ -689,8 +691,8 @@ def __make_segments(coords, ledge, redge, l_intersect, r_intersect,
                 coord_n     = l_seg_pos[seg + j, 1] - 1
 
             segments[pos0:pos0 + coord_n, 0:2] = outline_l[coord_start:coord_start + coord_n, 0:2]
-            print("j = ", j, "coord_start = ", coord_start, "coord_n = ", coord_n, "seg + j = ", seg + j, "pos0 = ", pos0)
-            print("outline_l:\n", outline_l[coord_start:coord_start + coord_n, 0:2])
+            #print("j = ", j, "coord_start = ", coord_start, "coord_n = ", coord_n, "seg + j = ", seg + j, "pos0 = ", pos0)
+            #print("outline_l:\n", outline_l[coord_start:coord_start + coord_n, 0:2])
             #segments[pos0:pos0 + coord_n,2] = jseg
             #segments[pos0:pos0 + coord_n,3] = join_vals[jseg]
 
@@ -698,7 +700,7 @@ def __make_segments(coords, ledge, redge, l_intersect, r_intersect,
             pos0 += coord_n
 
         seg_info[jseg, 2] = pos0 - 1
-        print("value at pos0: ", segments[pos0 - 1])
+        #print("value at pos0: ", segments[pos0 - 1])
         #print("segments:\n", segments[:20].astype(int))
         # then the right segment: from end to start
         pos0 = 0
@@ -712,9 +714,9 @@ def __make_segments(coords, ledge, redge, l_intersect, r_intersect,
 
             s_to   = pos + n_coords - pos0
             s_from = s_to - coord_n
-            print("j = ", j, "coord_start = ", coord_start, "coord_n = ", coord_n, "seg + j = ", seg + j, "pos = ", pos)
-            print("outline_r:\n", outline_r[coord_start:coord_start + coord_n, 0:2])
-            print("outline_r:\n", outline_r[coord_start:coord_start + coord_n, 0:2][::-1])
+            #print("j = ", j, "coord_start = ", coord_start, "coord_n = ", coord_n, "seg + j = ", seg + j, "pos = ", pos)
+            #print("outline_r:\n", outline_r[coord_start:coord_start + coord_n, 0:2])
+            #print("outline_r:\n", outline_r[coord_start:coord_start + coord_n, 0:2][::-1])
             segments[s_from:s_to, 0:2] = outline_r[coord_start:coord_start + coord_n, 0:2][::-1]
             #segments[s_from:s_to,2] = jseg
             #segments[s_from:s_to,3] = join_vals[jseg]
@@ -724,11 +726,14 @@ def __make_segments(coords, ledge, redge, l_intersect, r_intersect,
         pos += n_coords
         seg += j_len
 
-    print("n_l = ", n_l, "n_r = ", n_r, "pos = ", pos)
-    print("outline_l length: ", len(outline_l), "outline_r length: ", len(outline_r))
-    print("segments:\n", segments.astype(int))
-    print("len segments: ", len(segments))
-    print("seg_info:\n", seg_info.astype(int))
+    #print("segment coords:\n", segments.astype(int))
+    #print("number of joint segments: ", len(join_lengths))
+    #print("n_l = ", n_l, "n_r = ", n_r, "pos = ", pos)
+
+    #print("outline_l length: ", len(outline_l), "outline_r length: ", len(outline_r), "sum: ", len(outline_l) + len(outline_r))
+    #print("how about: ", len(outline_l) + len(outline_r) + (len(join_lengths) - 2)* 2)
+    #print("len segments: ", len(segments))
+    #print("seg_info:\n", seg_info.astype(int))
     return segments, seg_info, None
 
 def __calc_midpoints(seg_info, lseg, rseg, pressure):
@@ -741,7 +746,7 @@ def __calc_midpoints(seg_info, lseg, rseg, pressure):
     sel = seg_info[:,3]
     midpoints[:,0:2] = (lseg[0][sel] + rseg[0][sel])/2
     midpoints[:,2:4] = (lseg[1][sel] + rseg[1][sel])/2
-    print("midpoints:\n", midpoints)
+    #print("midpoints:\n", midpoints)
     
     return midpoints
 
@@ -764,7 +769,7 @@ def calc_pencil_segments(coords, widths, pressure):
         return [], []
 
     # normal vectors
-    print("len coords: ", len(coords), "len pressure: ", len(pressure))
+    #print("len coords: ", len(coords), "len pressure: ", len(pressure))
     coords_np = np.array(coords)
     n_segm = calc_normal_segments(coords_np)
 
