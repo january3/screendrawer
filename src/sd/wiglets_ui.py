@@ -602,7 +602,7 @@ class WigletStatusLine(Wiglet):
 
         pen = state.pen()
         status_line += f"  pen: col={pen.color} lw={int(100*pen.line_width)/100} "
-        status_line += f"tr={int(100*pen.transparency)} {pen.brush_type()}"
+        status_line += f"tr={int(100*pen.transparency)} type: {pen.brush_type()}"
         status_line += f'| zoom: {int(p["zoom"][0] * 100)}%'
 
         hov = state.hover_obj()
