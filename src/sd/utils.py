@@ -412,6 +412,21 @@ def coords_rotate(coords, angle, origin):
         ret.append((x1 + origin[0], y1 + origin[1]))
     return ret
 
+def coords_rotate_np(coords, angle, origin):
+    """Rotate a set of coordinates around a given origin."""
+    
+    coords = coords - origin
+    
+    # create  the rotation matrix
+    cos_angle = np.cos(angle)
+    sin_angle = np.sin(angle)
+    rotation_m = np.array([[cos_angle, -sin_angle],
+                                [sin_angle, cos_angle]]).T
+    
+    coords = np.dot(coords, rotation_m.T)
+    
+    return coords + origin
+
 def normal_vec(p0, p1):
     """Calculate the normal vector of a line segment."""
 
@@ -434,6 +449,27 @@ def transform_coords(coords, bb1, bb2):
     ]
     return ret
 
+def transform_coords_np(coords, bb1, bb2):
+    """Transform coordinates from one bounding box to another."""
+    x0, y0, w0, h0 = bb1
+    x1, y1, w1, h1 = bb2
+
+    if w0 == 0 or h0 == 0:
+        # issue warning
+        warnings.warn("Bounding box has zero width or height")
+        return coords
+    
+    # Ensure coords is a NumPy array
+    if not isinstance(coords, np.ndarray):
+        coords = np.array(coords)
+    
+    # Calculate the transformed coordinates
+    transformed_coords = np.zeros_like(coords)
+    transformed_coords[:, 0] = x1 + (coords[:, 0] - x0) / w0 * w1
+    transformed_coords[:, 1] = y1 + (coords[:, 1] - y0) / h0 * h1
+
+    return transformed_coords
+
 def move_coords(coords, dx, dy):
     """Move a path by a given offset."""
     for i, (x, y) in enumerate(coords):
@@ -444,7 +480,7 @@ def path_bbox(coords, lw=0):
     """Calculate the bounding box of a path."""
     # now with numpy
 
-    if not coords:
+    if len(coords) == 0:
         return (0, 0, 0, 0)
 
     coords = np.array(coords)
