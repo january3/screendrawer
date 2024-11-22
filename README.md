@@ -50,7 +50,10 @@ screendrawer (from a photograph, not from life):
 In Ubuntu, install the following packages:
 
 ```bash
-sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0
+sudo apt-get install python3 python3-pip python3-venv python3-dev build-essential \
+    libatlas-base-dev gfortran libjpeg-dev zlib1g-dev libfreetype6-dev \
+    liblcms2-dev libtiff-dev libwebp-dev libharfbuzz-dev libfribidi-dev \
+    libxcb1-dev python3-xlib scrot python3-gi python3-gi-cairo gir1.2-gtk-3.0 libcairo2-dev
 pip3 install pyautogui
 ```
 
