@@ -290,13 +290,17 @@ def smooth_vector(coords, smoothing_factor, pressure = None):
     new_points = splev(u_new, tck)
 
     # Convert the smoothed coordinates back to a list of tuples
-    smoothed_coords = list(zip(new_points[0], new_points[1]))
 
+    #print("coords:\n", np.column_stack((coords, pressure)))
+    #print("pressure:\n", pressure)
     # interpolate the pressure
     if pressure is not None:
         pressure_interp = interp1d(u, pressure, kind='linear')
         pressure = pressure_interp(u_new)
 
+    #print("new_points:\n", np.column_stack((pressure, *new_points)))
+
+    smoothed_coords = list(zip(new_points[0], new_points[1]))
     return smoothed_coords, pressure
 
 def smooth_coords(coords, pressure=None, smoothing_factor=0):
