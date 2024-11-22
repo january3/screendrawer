@@ -93,8 +93,8 @@ Design issues:
  * maybe numpy should be used for brush calculations.
 
 Bugs:
- * in `calc_outline_rounded`, the coordinates of the ends and starts around
-   an arc joint are unnecessarily doubled
+ * pencil smoothing of segments makes problems with pressure, resulting in
+   apparent hard pressure thresholds - but this is just an artifact
  * bbox of the brush is repeatedly finding min and max elements from the
    array. Actually, at least for moving, it is enough to change the first
    two members of `__bbox`
@@ -119,6 +119,8 @@ Bugs:
  * when drawing very slow the line looks like shit.
 
 Done:
+ * in `calc_outline_rounded`, the coordinates of the ends and starts around
+   an arc joint are unnecessarily doubled
  * bug that appears when moving the drawing; could not be replicated, here
    is the trace:
    ps: it can be replicated by scribbling in place

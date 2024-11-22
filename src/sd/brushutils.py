@@ -746,7 +746,7 @@ def __calc_midpoints(seg_info, lseg, rseg, pressure):
     sel = seg_info[:,3]
     midpoints[:,0:2] = (lseg[0][sel] + rseg[0][sel])/2
     midpoints[:,2:4] = (lseg[1][sel] + rseg[1][sel])/2
-    #print("midpoints:\n", midpoints)
+    print("midpoints:\n", midpoints)
     
     return midpoints
 
@@ -783,8 +783,9 @@ def calc_pencil_segments(coords, widths, pressure):
     l_intersect = calc_intersections(*lseg)
     r_intersect = calc_intersections(*rseg)
 
-    pressure = __pressure_to_bins(pressure, n_bins = 5)
+    pressure = __pressure_to_bins(pressure, n_bins = 15)
     pressure = pressure / 5 * 0.8 + 0.2
+    print("pressure:\n", pressure)
     #print("len pressure now: ", len(pressure))
 
     pp = np.column_stack((pressure[:-1], pressure[1:]))

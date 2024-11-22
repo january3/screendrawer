@@ -396,7 +396,7 @@ class BrushPencil(Brush):
         if nc < 4:
             return None
 
-        if self.smooth_path() and nc < 25:
+        if self.smooth_path() and nc < 125:
             coords, pressure = smooth_coords(coords, pressure)
 
         self.__pressure  = pressure

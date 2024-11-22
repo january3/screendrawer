@@ -36,6 +36,7 @@ from PIL import ImageGrab
 import yaml
 import cairo
 import appdirs
+import numpy as np
 
 import gi
 gi.require_version('Gtk', '3.0') # pylint: disable=wrong-import-position
@@ -64,7 +65,7 @@ from sd.import_export import *            ###<placeholder sd/import_export.py>
 from sd.em import *                       ###<placeholder sd/em.py>
 from sd.menus import *                    ###<placeholder sd/menus.py>
 from sd.wiglets import *                  ###<placeholder sd/wiglets.py>
-from sd.wiglets_ui import *               ###<placeholder sd/wiglets.py>
+from sd.wiglets_ui import *               ###<placeholder sd/wiglets_ui.py>
 from sd.icons import Icons                ###<placeholder sd/icons.py>
 from sd.page import Page                  ###<placeholder sd/page.py>
 from sd.canvas import Canvas              ###<placeholder sd/canvas.py>
@@ -84,6 +85,7 @@ from sd.drawable_paths import Path               ###<placeholder sd/drawable_pat
 from sd.history import History                   ###<placeholder sd/history.py>
 from sd.bus import Bus                           ###<placeholder sd/bus.py>
 from sd.uibuilder import UIBuilder               ###<placeholder sd/uibuilder.py>
+from sd.trafo import Trafo                     ###<placeholder sd/trafo.py>
 
 
 # ---------------------------------------------------------------------
